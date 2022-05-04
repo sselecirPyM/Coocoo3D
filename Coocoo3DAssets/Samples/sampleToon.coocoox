@@ -1,0 +1,633 @@
+﻿{
+  "Name": "卡通渲染",
+  "RenderSequence": [
+    {
+      "Name": "PreprocessBRDF"
+    },
+    {
+      "Name": "DrawSkyBoxPass",
+      "ClearDepth": "true",
+      "RenderTargets": [
+        "_Result"
+      ]
+    },
+    {
+      "Name": "ShadowMapPass0",
+      "ClearDepth": "true",
+      "DepthBias": "3000",
+      "SlopeScaledDepthBias": "1.0",
+      "DepthStencil": "_ShadowMap0"
+    },
+    {
+      "Name": "DrawObjectPass",
+      "ClearDepth": "true",
+      "DepthStencil": "_ScreenDepth0",
+      "RenderTargets": [
+        "_Result"
+      ]
+    },
+    {
+      "Name": "OutlinePass",
+      "DepthStencil": "_ScreenDepth0",
+      "RenderTargets": [
+        "_Result"
+      ]
+    },
+    {
+      "Name": "BloomBlur1",
+      "RenderTargets": [
+        "_Blur0"
+      ]
+    },
+    {
+      "Name": "BloomBlur2",
+      "RenderTargets": [
+        "_Result"
+      ]
+    },
+    {
+      "Name": "TAAPass",
+      "RenderTargets": [
+        "_Output0"
+      ]
+    },
+    {
+      "Name": "PostProcessingPass",
+      "RenderTargets": [
+        "_Output0"
+      ]
+    }
+  ],
+  "RenderTargets": {
+    "_ShadowMap0": {
+      "Width": 4096,
+      "Height": 4096,
+      "Format": "D32_Float"
+    },
+    "_ScreenDepth0": {
+      "Source": "OutputSize",
+      "Format": "D32_Float"
+    },
+    "_Blur0": {
+      "Multiplier": "0.5",
+      "Source": "OutputSize",
+      "Format": "R16G16B16A16_Float"
+    },
+    "_Result": {
+      "Source": "OutputSize",
+      "Format": "R16G16B16A16_Float"
+    },
+    "_PreviousResult": {
+      "Source": "OutputSize",
+      "Format": "R16G16B16A16_Float"
+    },
+    "_PreviousScreenDepth0": {
+      "Source": "OutputSize",
+      "Format": "D32_Float"
+    },
+    "_BRDFLUT": {
+      "Width": 256,
+      "Height": 256,
+      "Flag": "Shared",
+      "Format": "R16G16B16A16_Float"
+    }
+  },
+  "Passes": {
+    "PreprocessBRDF": {
+      "UnionShader": "UnionShaderPreprocess.cs",
+      "SRVs": [
+        {
+          "Index": "0",
+          "ResourceType": "TextureCube",
+          "Resource": "_SkyBoxReflect"
+        }
+      ],
+      "UAVs": [
+        {
+          "Index": "0",
+          "ResourceType": "Texture2D",
+          "Resource": "_BRDFLUT"
+        }
+      ],
+      "CBVs": [
+        {
+          "Index": "0"
+        }
+      ]
+    },
+    "ShadowMapPass0": {
+      "Properties": {
+        "ShadowMap": ""
+      },
+      "UnionShader": "UnionShaderShadowMap.cs",
+      "CBVs": [
+        {
+          "Index": "1",
+          "Datas": [
+            "World",
+            "DirectionalLightMatrix0"
+          ]
+        },
+        {
+          "Index": "1",
+          "Datas": [
+            "World",
+            "DirectionalLightMatrix1"
+          ]
+        },
+        {
+          "Index": "1",
+          "Datas": [
+            "World",
+            "_PointLightMatrix"
+          ]
+        }
+      ]
+    },
+    "DrawSkyBoxPass": {
+      "UnionShader": "UnionShaderPBRForward.cs",
+      "CBVs": [
+        {
+          "Index": "0",
+          "Datas": [
+            "CameraInvert",
+            "CameraPosition",
+            "IndirectMultiplier",
+            "Brightness"
+          ]
+        }
+      ],
+      "SRVs": [
+        {
+          "Index": "0",
+          "ResourceType": "TextureCube",
+          "Resource": "_SkyBox"
+        }
+      ]
+    },
+    "DrawObjectPass": {
+      "UnionShader": "UnionShaderToon.cs",
+      "BlendMode": "Alpha",
+      "CBVs": [
+        {
+          "Index": "1",
+          "Datas": [
+            "World",
+            "PointLights",
+            "Metallic",
+            "Roughness",
+            "Emissive",
+            "Specular",
+            "_EmissionMulByBaseColor",
+            "_IndirectLightMinColor",
+            "_CelShadeMidPoint",
+            "_CelShadeSoftness",
+            "_ReceiveShadowMappingAmount",
+            "_ShadowMapColor",
+            "_OutlineWidth",
+            "_OutlineColor"
+          ]
+        },
+        {
+          "Index": 2,
+          "Datas": [
+            "Camera",
+            "CameraView",
+            "CameraPosition",
+            "Brightness",
+            "CameraInfo",
+            "DirectionalLightMatrix0",
+            "DirectionalLightMatrix1",
+            "DirectionalLight",
+            "IndirectMultiplier",
+            "FogColor",
+            "FogDensity",
+            "FogStartDistance",
+            "FogEndDistance",
+            "LightMapSplit"
+          ]
+        }
+      ],
+      "SRVs": [
+        {
+          "Index": "0",
+          "ResourceType": "Texture2D",
+          "Resource": "_Albedo"
+        },
+        {
+          "Index": "1",
+          "ResourceType": "Texture2D",
+          "Resource": "_Metallic",
+          "Flags": "Linear"
+        },
+        {
+          "Index": "2",
+          "ResourceType": "Texture2D",
+          "Resource": "_Roughness",
+          "Flags": "Linear"
+        },
+        {
+          "Index": "3",
+          "ResourceType": "Texture2D",
+          "Resource": "_Emissive"
+        },
+        {
+          "Index": "4",
+          "ResourceType": "Texture2D",
+          "Resource": "_ShadowMap0"
+        },
+        {
+          "Index": "5",
+          "ResourceType": "TextureCube",
+          "Resource": "_SkyBoxReflect"
+        },
+        {
+          "Index": "6",
+          "ResourceType": "Texture2D",
+          "Resource": "_BRDFLUT",
+          "Flags": "Linear"
+        },
+        {
+          "Index": "7",
+          "ResourceType": "Texture2D",
+          "Resource": "_Normal",
+          "Flags": "Linear"
+        }
+      ]
+    },
+    "OutlinePass": {
+      "UnionShader": "UnionShaderToon.cs",
+      "BlendMode": "Alpha",
+      "CBVs": [
+        {
+          "Index": "1",
+          "Datas": [
+            "World",
+            "PointLights",
+            "Metallic",
+            "Roughness",
+            "Emissive",
+            "Specular",
+            "_EmissionMulByBaseColor",
+            "_IndirectLightMinColor",
+            "_CelShadeMidPoint",
+            "_CelShadeSoftness",
+            "_ReceiveShadowMappingAmount",
+            "_ShadowMapColor",
+            "_OutlineWidth",
+            "_OutlineColor"
+          ]
+        },
+        {
+          "Index": 2,
+          "Datas": [
+            "Camera",
+            "CameraView",
+            "CameraPosition",
+            "Brightness",
+            "CameraInfo",
+            "DirectionalLightMatrix0",
+            "DirectionalLightMatrix1",
+            "DirectionalLight",
+            "IndirectMultiplier",
+            "FogColor",
+            "FogDensity",
+            "FogStartDistance",
+            "FogEndDistance",
+            "LightMapSplit"
+          ]
+        }
+      ],
+      "SRVs": [
+        {
+          "Index": "0",
+          "ResourceType": "Texture2D",
+          "Resource": "_Albedo"
+        },
+        {
+          "Index": "1",
+          "ResourceType": "Texture2D",
+          "Resource": "_Metallic",
+          "Flags": "Linear"
+        },
+        {
+          "Index": "2",
+          "ResourceType": "Texture2D",
+          "Resource": "_Roughness",
+          "Flags": "Linear"
+        },
+        {
+          "Index": "3",
+          "ResourceType": "Texture2D",
+          "Resource": "_Emissive"
+        },
+        {
+          "Index": "4",
+          "ResourceType": "Texture2D",
+          "Resource": "_ShadowMap0"
+        },
+        {
+          "Index": "5",
+          "ResourceType": "TextureCube",
+          "Resource": "_SkyBoxReflect"
+        },
+        {
+          "Index": "6",
+          "ResourceType": "Texture2D",
+          "Resource": "_BRDFLUT",
+          "Flags": "Linear"
+        },
+        {
+          "Index": "7",
+          "ResourceType": "Texture2D",
+          "Resource": "_Normal",
+          "Flags": "Linear"
+        }
+      ]
+    },
+    "BloomBlur1": {
+      "UnionShader": "UnionShaderBloom.cs",
+      "CBVs": [
+        {
+          "Index": "0"
+        }
+      ],
+      "SRVs": [
+        {
+          "Index": "0",
+          "ResourceType": "Texture2D",
+          "Resource": "_Result"
+        }
+      ]
+    },
+    "BloomBlur2": {
+      "UnionShader": "UnionShaderBloom.cs",
+      "BlendMode": "Add",
+      "CBVs": [
+        {
+          "Index": "0"
+        }
+      ],
+      "SRVs": [
+        {
+          "Index": "0",
+          "ResourceType": "Texture2D",
+          "Resource": "_Blur0"
+        }
+      ]
+    },
+    "TAAPass": {
+      "UnionShader": "UnionShaderPostProcessing.cs",
+      "CBVs": [
+        {
+          "Index": "0"
+        }
+      ],
+      "SRVs": [
+        {
+          "Index": "0",
+          "ResourceType": "Texture2D",
+          "Resource": "_ScreenDepth0"
+        },
+        {
+          "Index": "1",
+          "ResourceType": "Texture2D",
+          "Resource": "_PreviousResult"
+        },
+        {
+          "Index": "2",
+          "ResourceType": "Texture2D",
+          "Resource": "_PreviousScreenDepth0"
+        }
+      ],
+      "UAVs": [
+        {
+          "Index": "0",
+          "ResourceType": "Texture2D",
+          "Resource": "_Result"
+        }
+      ]
+    },
+    "PostProcessingPass": {
+      "UnionShader": "UnionShaderPostProcessing.cs",
+      "CBVs": [
+        {
+          "Index": "0"
+        }
+      ],
+      "SRVs": [
+        {
+          "Index": "0",
+          "ResourceType": "Texture2D",
+          "Resource": "_Result"
+        },
+        {
+          "Index": "1",
+          "ResourceType": "Texture2D",
+          "Resource": "_ScreenDepth0"
+        },
+        {
+          "Index": "2",
+          "ResourceType": "Texture2D",
+          "Resource": "_PreviousResult"
+        },
+        {
+          "Index": "3",
+          "ResourceType": "Texture2D",
+          "Resource": "_PreviousScreenDepth0"
+        }
+      ]
+    }
+  },
+  "UnionShaders": {
+  },
+  "Dispatcher": "Dispatcher.cs",
+  "ShowTextures": {
+    "_Albedo": "",
+    "_Metallic": "",
+    "_Roughness": "",
+    "_Emissive": "",
+    "_Normal": ""
+  },
+  "ShowSettingTextures": {
+  },
+  "Texture2Ds": {
+  },
+  "ShowParameters": {
+    "Transparent": {
+      "Name": "透明材质",
+      "Type": "bool"
+    },
+    "Metallic": {
+      "Name": "金属度",
+      "Type": "sliderFloat",
+      "Min": "0",
+      "Max": "1",
+      "Step": "0.01"
+    },
+    "Roughness": {
+      "Name": "粗糙度",
+      "Type": "sliderFloat",
+      "Default": "0.8",
+      "Min": "0",
+      "Max": "1",
+      "Step": "0.01"
+    },
+    "Specular": {
+      "Name": "高光",
+      "Type": "sliderFloat",
+      "Default": "0.5",
+      "Min": "0",
+      "Max": "1",
+      "Step": "0.01"
+    },
+    "Emissive": {
+      "Name": "自发光",
+      "Type": "float",
+      "Step": "0.01"
+    },
+    "ToonShading": {
+      "Name": "卡通着色",
+      "Type": "bool",
+      "Default": "true"
+    },
+    "_EmissionMulByBaseColor": {
+      "Type": "float"
+    },
+    "_IndirectLightMinColor": {
+      "Name": "间接光最小颜色",
+      "Type": "color3",
+      "Default": "[0.1,0.1,0.1]"
+    },
+    "_CelShadeMidPoint": {
+      "Type": "float",
+      "Default": "-0.5",
+      "Step": "0.01"
+    },
+    "_CelShadeSoftness": {
+      "Type": "float",
+      "Default": "0.05",
+      "Step": "0.01"
+    },
+    "_ReceiveShadowMappingAmount": {
+      "Type": "float",
+      "Default": "0.65",
+      "Step": "0.01"
+    },
+    "_ShadowMapColor": {
+      "Name": "阴影颜色",
+      "Type": "color3",
+      "Default": "[1,0.825,0.78]"
+    },
+    "_OutlineWidth": {
+      "Name": "描边宽度",
+      "Type": "float",
+      "Default": "1",
+      "Step": "0.1"
+    },
+    "_OutlineColor": {
+      "Name": "描边颜色",
+      "Type": "color3",
+      "Default": "[0.5,0.5,0.5]"
+    },
+    "IOR": {
+      "Name": "IOR",
+      "Type": "float",
+      "Default": "1.46",
+      "Step": "0.01"
+    },
+    "Refraction": {
+      "Name": "折射",
+      "Type": "bool"
+    },
+    "CastShadow": {
+      "Name": "投射阴影",
+      "Type": "bool",
+      "Default": "true"
+    },
+    "ReceiveShadow": {
+      "Name": "接收阴影",
+      "Type": "bool",
+      "Default": "true"
+    },
+    "UseNormalMap": {
+      "Name": "使用法线贴图",
+      "Type": "bool",
+      "Default": "false"
+    }
+  },
+  "ShowSettingParameters": {
+    "IndirectMultiplier": {
+      "Name": "天空盒亮度",
+      "Type": "float",
+      "Default": "3",
+      "Step": "0.01",
+      "Min": "0"
+    },
+    "Brightness": {
+      "Name": "亮度调节",
+      "Type": "float",
+      "Default": "1",
+      "Step": "0.01",
+      "Min": "0"
+    },
+    "EnableBloom": {
+      "Name": "启用泛光",
+      "Type": "bool"
+    },
+    "BloomThreshold": {
+      "Name": "泛光阈值",
+      "Type": "float",
+      "Default": "1.05",
+      "Step": "0.01",
+      "Min": "0"
+    },
+    "BloomIntensity": {
+      "Name": "泛光强度",
+      "Type": "float",
+      "Default": "0.1",
+      "Step": "0.01",
+      "Min": "0"
+    },
+    "EnableFog": {
+      "Name": "启用雾",
+      "Type": "bool",
+      "Default": "true"
+    },
+    "FogColor": {
+      "Name": "雾颜色",
+      "Type": "color3",
+      "Default": "[0.4,0.4,0.6]"
+    },
+    "FogDensity": {
+      "Name": "雾密度",
+      "Type": "float",
+      "Default": "0.005",
+      "Step": "0.001",
+      "Min": "0.001"
+    },
+    "FogStartDistance": {
+      "Name": "雾开始距离",
+      "Type": "float",
+      "Default": "5"
+    },
+    "FogEndDistance": {
+      "Name": "雾结束距离",
+      "Type": "float",
+      "Default": "100000"
+    },
+    "EnableTAA": {
+      "Name": "启用TAA抗锯齿",
+      "Type": "bool",
+      "Default": "false",
+      "Tooltip": ""
+    },
+    "TAAFrameFactor": {
+      "Name": "TAA当前帧因子",
+      "Type": "float",
+      "Default": "0.33",
+      "Step": "0.01",
+      "Min": "0.001"
+    }
+  }
+}

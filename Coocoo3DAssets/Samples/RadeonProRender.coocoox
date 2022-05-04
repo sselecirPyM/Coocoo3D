@@ -1,0 +1,132 @@
+﻿{
+  "Name": "Radeon Pro Render",
+  "RenderSequence": [
+    {
+      "Name": "PostProcessingPass",
+      "RenderTargets": [
+        "_Output0"
+      ]
+    }
+  ],
+  "RenderTargets": {
+    "_Result": {
+      "Source": "OutputSize",
+      "Format": "R32G32B32A32_Float"
+    }
+  },
+  "Passes": {
+    "PostProcessingPass": {
+      "UnionShader": "UnionShaderPostProcessing.cs",
+      "CBVs": [
+        {
+          "Index": "0"
+        }
+      ],
+      "SRVs": [
+        {
+          "Index": "0",
+          "ResourceType": "Texture2D",
+          "Resource": "_Result"
+        }
+      ]
+    }
+  },
+  "UnionShaders": {
+  },
+  "Dispatcher": "DisptcherProRender.cs",
+  "ShowTextures": {
+    "_Albedo": "",
+    "_Emissive": "",
+    "_Metallic": "",
+    "_Roughness": "",
+    "_Normal": ""
+  },
+  "ShowSettingTextures": {
+  },
+  "Texture2Ds": {
+  },
+  "ShowParameters": {
+    "Metallic": {
+      "Name": "金属度",
+      "Type": "sliderFloat",
+      "Min": "0",
+      "Max": "1",
+      "Step": "0.01"
+    },
+    "Roughness": {
+      "Name": "粗糙度",
+      "Type": "sliderFloat",
+      "Default": "0.8",
+      "Min": "0",
+      "Max": "1",
+      "Step": "0.01"
+    },
+    "Specular": {
+      "Name": "高光",
+      "Type": "sliderFloat",
+      "Default": "0.5",
+      "Min": "0",
+      "Max": "1",
+      "Step": "0.01"
+    },
+    "Emissive": {
+      "Name": "自发光",
+      "Type": "float",
+      "Step": "0.01"
+    },
+    "IOR": {
+      "Name": "IOR",
+      "Type": "float",
+      "Default": "1.46",
+      "Step": "0.01"
+    },
+    "Refraction": {
+      "Name": "折射",
+      "Type": "bool"
+    },
+    "CastShadow": {
+      "Name": "投射阴影",
+      "Type": "bool",
+      "Default": "true"
+    },
+    "ReceiveShadow": {
+      "Name": "接收阴影",
+      "Type": "bool",
+      "Default": "true"
+    },
+    "UseNormalMap": {
+      "Name": "使用法线贴图",
+      "Type": "bool",
+      "Default": "false"
+    }
+  },
+  "ShowSettingParameters": {
+    "IndirectMultiplier": {
+      "Name": "天空盒亮度",
+      "Type": "float",
+      "Default": "3",
+      "Step": "0.01",
+      "Min": "0"
+    },
+    "DirectionalLightShadowSoftnessAngle": {
+      "Name": "方向光软阴影角度",
+      "Type": "float",
+      "Default": "0.5",
+      "Step": "0.1",
+      "Min": "0.0",
+      "Max": "60.0"
+    },
+    "ViewportSampleCount": {
+      "Name": "视口采样次数",
+      "Type": "int",
+      "Default": "2",
+      "Min": "1"
+    },
+    "RecordSampleCount": {
+      "Name": "录制采样次数",
+      "Type": "int",
+      "Default": "128",
+      "Min": "1"
+    }
+  }
+}

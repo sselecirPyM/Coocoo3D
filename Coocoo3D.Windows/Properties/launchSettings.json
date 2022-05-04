@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Coocoo3D.Windows": {
+      "commandName": "Project",
+      "nativeDebugging": true
+    }
+  }
+}

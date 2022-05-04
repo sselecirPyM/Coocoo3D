@@ -1,0 +1,893 @@
+﻿{
+  "Name": "延迟渲染",
+  "RenderSequence": [
+    {
+      "Name": "PreprocessBRDF"
+    },
+    {
+      "Name": "ShadowMapPass0",
+      "ClearDepth": "true",
+      "DepthBias": "3000",
+      "SlopeScaledDepthBias": "1.0",
+      "DepthStencil": "_ShadowMap0"
+    },
+    {
+      "Name": "GBufferPass",
+      "ClearDepth": "true",
+      "DepthStencil": "_ScreenDepth0",
+      "RenderTargets": [
+        "_ScreenColor0",
+        "_ScreenColor1",
+        "_ScreenColor2",
+        "_ScreenColor3"
+      ]
+    },
+    {
+      "Name": "RayTracingPass",
+      "Type": "RayTracing",
+      "RenderTargets": [
+        "_RayTracing0"
+      ]
+    },
+    {
+      "Name": "DenoisePass",
+      "RenderTargets": [
+        "_ScreenColor2"
+      ]
+    },
+    {
+      "Name": "DeferredFinalPass",
+      "RenderTargets": [
+        "_Result"
+      ]
+    },
+    {
+      "Name": "DrawTransparentPass",
+      "DepthStencil": "_ScreenDepth0",
+      "RenderTargets": [
+        "_Result"
+      ]
+    },
+    {
+      "Name": "BloomBlur1",
+      "RenderTargets": [
+        "_Blur0"
+      ]
+    },
+    {
+      "Name": "BloomBlur2",
+      "RenderTargets": [
+        "_Result"
+      ]
+    },
+    {
+      "Name": "TAAPass",
+      "RenderTargets": [
+        "_Output0"
+      ]
+    },
+    {
+      "Name": "PostProcessingPass",
+      "RenderTargets": [
+        "_Output0"
+      ]
+    }
+  ],
+  "RenderTargets": {
+    "_ShadowMap0": {
+      "Width": 4096,
+      "Height": 4096,
+      "Format": "D32_Float"
+    },
+    "_ScreenDepth0": {
+      "Source": "OutputSize",
+      "Format": "D32_Float"
+    },
+    "_ScreenColor0": {
+      "Source": "OutputSize",
+      "Format": "R16G16B16A16_Float"
+    },
+    "_ScreenColor1": {
+      "Source": "OutputSize",
+      "Format": "R16G16B16A16_Float"
+    },
+    "_ScreenColor2": {
+      "Source": "OutputSize",
+      "Format": "R16G16B16A16_Float"
+    },
+    "_ScreenColor3": {
+      "Source": "OutputSize",
+      "Format": "R16G16B16A16_Float"
+    },
+    "_RayTracing0": {
+      "Source": "OutputSize",
+      "Format": "R16G16B16A16_Float"
+    },
+    "_Blur0": {
+      "Multiplier": "0.5",
+      "Source": "OutputSize",
+      "Format": "R16G16B16A16_Float"
+    },
+    "_Result": {
+      "Source": "OutputSize",
+      "Format": "R16G16B16A16_Float"
+    },
+    "_PreviousResult": {
+      "Source": "OutputSize",
+      "Format": "R16G16B16A16_Float"
+    },
+    "_PreviousScreenDepth0": {
+      "Source": "OutputSize",
+      "Format": "D32_Float"
+    },
+    "_BRDFLUT": {
+      "Width": 256,
+      "Height": 256,
+      "Flag": "Shared",
+      "Format": "R16G16B16A16_Float"
+    }
+  },
+  "RenderTargetCubes": {
+    "_EnvironmentCapture": {
+      "Width": 64,
+      "Height": 64,
+      "Format": "R16G16B16A16_UNorm"
+    }
+  },
+  "DynamicBuffers": {
+    "GIBuffer": {
+      "Width": 589824
+    },
+    "GIBufferWrite": {
+      "Width": 589824
+    }
+  },
+  "Passes": {
+    "PreprocessBRDF": {
+      "UnionShader": "UnionShaderPreprocess.cs",
+      "SRVs": [
+        {
+          "Index": "0",
+          "ResourceType": "TextureCube",
+          "Resource": "_SkyBoxReflect"
+        }
+      ],
+      "UAVs": [
+        {
+          "Index": "0",
+          "ResourceType": "Texture2D",
+          "Resource": "_BRDFLUT"
+        }
+      ],
+      "CBVs": [
+        {
+          "Index": "0"
+        }
+      ]
+    },
+    "ShadowMapPass0": {
+      "Properties": {
+        "ShadowMap": ""
+      },
+      "UnionShader": "UnionShaderShadowMap.cs",
+      "CBVs": [
+        {
+          "Index": "1",
+          "Datas": [
+            "World",
+            "DirectionalLightMatrix0"
+          ]
+        },
+        {
+          "Index": "1",
+          "Datas": [
+            "World",
+            "DirectionalLightMatrix1"
+          ]
+        },
+        {
+          "Index": "1",
+          "Datas": [
+            "World",
+            "_PointLightMatrix"
+          ]
+        }
+      ]
+    },
+    "GBufferPass": {
+      "UnionShader": "UnionShaderDeferred.cs",
+      "CBVs": [
+        {
+          "Index": "1",
+          "Datas": [
+            "World",
+            "Camera",
+            "Metallic",
+            "Roughness",
+            "Emissive",
+            "Specular",
+            "AO"
+          ]
+        }
+      ],
+      "SRVs": [
+        {
+          "Index": "0",
+          "ResourceType": "Texture2D",
+          "Resource": "_Albedo"
+        },
+        {
+          "Index": "1",
+          "ResourceType": "Texture2D",
+          "Resource": "_Metallic",
+          "Flags": "Linear"
+        },
+        {
+          "Index": "2",
+          "ResourceType": "Texture2D",
+          "Resource": "_Roughness",
+          "Flags": "Linear"
+        },
+        {
+          "Index": "3",
+          "ResourceType": "Texture2D",
+          "Resource": "_Emissive"
+        },
+        {
+          "Index": "4",
+          "ResourceType": "Texture2D",
+          "Resource": "_Normal",
+          "Flags": "Linear"
+        }
+      ]
+    },
+    "DeferredFinalPass": {
+      "UnionShader": "UnionShaderDeferred.cs",
+      "CBVs": [
+        {
+          "Index": "0",
+          "Datas": [
+            "Camera",
+            "CameraInvert",
+            "CameraInfo",
+            "CameraPosition",
+            "IndirectMultiplier",
+            "FogColor",
+            "FogDensity",
+            "FogStartDistance",
+            "FogEndDistance",
+            "WidthHeight",
+            "Brightness",
+            "VolumetricLightingSampleCount",
+            "VolumetricLightingDistance",
+            "VolumetricLightingIntensity",
+            "DirectionalLightMatrix0",
+            "DirectionalLightMatrix1",
+            "DirectionalLight",
+            "GIVolumePosition",
+            "AODistance",
+            "GIVolumeSize",
+            "AOLimit",
+            "AORaySampleCount",
+            "RandomI",
+            "LightMapSplit"
+          ]
+        },
+        {
+          "Index": "1",
+          "Datas": [
+            "PointLights"
+          ]
+        }
+      ],
+      "SRVs": [
+        {
+          "Index": "0",
+          "ResourceType": "Texture2D",
+          "Resource": "_ScreenColor0"
+        },
+        {
+          "Index": "1",
+          "ResourceType": "Texture2D",
+          "Resource": "_ScreenColor1"
+        },
+        {
+          "Index": "2",
+          "ResourceType": "Texture2D",
+          "Resource": "_ScreenColor2"
+        },
+        {
+          "Index": "3",
+          "ResourceType": "Texture2D",
+          "Resource": "_ScreenColor3"
+        },
+        {
+          "Index": "4",
+          "ResourceType": "TextureCube",
+          "Resource": "_SkyBoxReflect"
+        },
+        {
+          "Index": "5",
+          "ResourceType": "Texture2D",
+          "Resource": "_ScreenDepth0"
+        },
+        {
+          "Index": "6",
+          "ResourceType": "Texture2D",
+          "Resource": "_ShadowMap0"
+        },
+        {
+          "Index": "7",
+          "ResourceType": "TextureCube",
+          "Resource": "_SkyBox"
+        },
+        {
+          "Index": "8",
+          "ResourceType": "Texture2D",
+          "Resource": "_BRDFLUT",
+          "Flags": "Linear"
+        },
+        {
+          "Index": "9",
+          "ResourceType": "Buffer",
+          "Resource": "GIBuffer"
+        }
+      ]
+    },
+    "DenoisePass": {
+      "UnionShader": "UnionShaderDeferred.cs",
+      "BlendMode": "Add",
+      "CBVs": [
+        {
+          "Index": "0",
+          "Datas": [
+            "Camera",
+            "CameraInvert",
+            "CameraPosition",
+            "IndirectMultiplier",
+            "WidthHeight"
+          ]
+        }
+      ],
+      "SRVs": [
+        {
+          "Index": "0",
+          "ResourceType": "Texture2D",
+          "Resource": "_RayTracing0"
+        },
+        {
+          "Index": "1",
+          "ResourceType": "Texture2D",
+          "Resource": "_ScreenColor1"
+        },
+        {
+          "Index": "2",
+          "ResourceType": "Texture2D",
+          "Resource": "_ScreenDepth0"
+        }
+      ]
+    },
+    "DrawTransparentPass": {
+      "UnionShader": "UnionShaderPBRForward.cs",
+      "BlendMode": "Alpha",
+      "CBVs": [
+        {
+          "Index": "1",
+          "Datas": [
+            "World",
+            "PointLights",
+            "Metallic",
+            "Roughness",
+            "Emissive",
+            "Specular"
+          ]
+        },
+        {
+          "Index": 2,
+          "Datas": [
+            "Camera",
+            "CameraView",
+            "CameraPosition",
+            "Brightness",
+            "CameraInfo",
+            "DirectionalLightMatrix0",
+            "DirectionalLightMatrix1",
+            "DirectionalLight",
+            "IndirectMultiplier",
+            "FogColor",
+            "FogDensity",
+            "FogStartDistance",
+            "FogEndDistance",
+            "LightMapSplit",
+            "GIVolumePosition",
+            "GIVolumeSize"
+          ]
+        }
+      ],
+      "SRVs": [
+        {
+          "Index": "0",
+          "ResourceType": "Texture2D",
+          "Resource": "_Albedo"
+        },
+        {
+          "Index": "1",
+          "ResourceType": "Texture2D",
+          "Resource": "_Metallic",
+          "Flags": "Linear"
+        },
+        {
+          "Index": "2",
+          "ResourceType": "Texture2D",
+          "Resource": "_Roughness",
+          "Flags": "Linear"
+        },
+        {
+          "Index": "3",
+          "ResourceType": "Texture2D",
+          "Resource": "_Emissive"
+        },
+        {
+          "Index": "4",
+          "ResourceType": "Texture2D",
+          "Resource": "_ShadowMap0"
+        },
+        {
+          "Index": "5",
+          "ResourceType": "TextureCube",
+          "Resource": "_SkyBoxReflect"
+        },
+        {
+          "Index": "6",
+          "ResourceType": "Texture2D",
+          "Resource": "_BRDFLUT",
+          "Flags": "Linear"
+        },
+        {
+          "Index": "7",
+          "ResourceType": "Texture2D",
+          "Resource": "_Normal",
+          "Flags": "Linear"
+        },
+        {
+          "Index": "8",
+          "ResourceType": "Buffer",
+          "Resource": "GIBuffer"
+        }
+      ]
+    },
+    "BloomBlur1": {
+      "UnionShader": "UnionShaderBloom.cs",
+      "CBVs": [
+        {
+          "Index": "0"
+        }
+      ],
+      "SRVs": [
+        {
+          "Index": "0",
+          "ResourceType": "Texture2D",
+          "Resource": "_Result"
+        }
+      ]
+    },
+    "BloomBlur2": {
+      "UnionShader": "UnionShaderBloom.cs",
+      "BlendMode": "Add",
+      "CBVs": [
+        {
+          "Index": "0"
+        }
+      ],
+      "SRVs": [
+        {
+          "Index": "0",
+          "ResourceType": "Texture2D",
+          "Resource": "_Blur0"
+        }
+      ]
+    },
+    "TAAPass": {
+      "UnionShader": "UnionShaderPostProcessing.cs",
+      "CBVs": [
+        {
+          "Index": "0"
+        }
+      ],
+      "SRVs": [
+        {
+          "Index": "0",
+          "ResourceType": "Texture2D",
+          "Resource": "_ScreenDepth0"
+        },
+        {
+          "Index": "1",
+          "ResourceType": "Texture2D",
+          "Resource": "_PreviousResult"
+        },
+        {
+          "Index": "2",
+          "ResourceType": "Texture2D",
+          "Resource": "_PreviousScreenDepth0"
+        }
+      ],
+      "UAVs": [
+        {
+          "Index": "0",
+          "ResourceType": "Texture2D",
+          "Resource": "_Result"
+        }
+      ]
+    },
+    "PostProcessingPass": {
+      "UnionShader": "UnionShaderPostProcessing.cs",
+      "CBVs": [
+        {
+          "Index": "0"
+        }
+      ],
+      "SRVs": [
+        {
+          "Index": "0",
+          "ResourceType": "Texture2D",
+          "Resource": "_Result"
+        },
+        {
+          "Index": "1",
+          "ResourceType": "Texture2D",
+          "Resource": "_ScreenDepth0"
+        },
+        {
+          "Index": "2",
+          "ResourceType": "Texture2D",
+          "Resource": "_PreviousResult"
+        },
+        {
+          "Index": "3",
+          "ResourceType": "Texture2D",
+          "Resource": "_PreviousScreenDepth0"
+        }
+      ]
+    },
+    "RayTracingPass": {
+      "RayTracingShader": "RayTracing.json",
+      "UnionShader": "UnionShaderRayTracing.cs",
+      "CBVs": [
+        {
+          "Index": "0",
+          "Datas": [
+            "Camera",
+            "CameraInvert",
+            "CameraPosition",
+            "IndirectMultiplier",
+            "GIVolumePosition",
+            "RayTracingReflectionQuality",
+            "GIVolumeSize",
+            "RandomI",
+            "RayTracingReflectionThreshold"
+          ]
+        },
+        {
+          "Index": "1",
+          "Datas": [
+            "World",
+            "Camera",
+            "CameraInvert",
+            "DirectionalLightMatrix0",
+            "DirectionalLightMatrix1",
+            "DirectionalLight",
+            "Metallic",
+            "Roughness",
+            "Emissive",
+            "Specular"
+          ]
+        }
+      ],
+      "SRVs": [
+        {
+          "Index": "1",
+          "ResourceType": "TextureCube",
+          "Resource": "_SkyBoxReflect"
+        },
+        {
+          "Index": "2",
+          "ResourceType": "Texture2D",
+          "Resource": "_BRDFLUT",
+          "Flags": "Linear"
+        },
+        {
+          "Index": "3",
+          "ResourceType": "Texture2D",
+          "Resource": "_ScreenDepth0"
+        },
+        {
+          "Index": "4",
+          "ResourceType": "Texture2D",
+          "Resource": "_ScreenColor0"
+        },
+        {
+          "Index": "5",
+          "ResourceType": "Texture2D",
+          "Resource": "_ScreenColor1"
+        },
+        {
+          "Index": "6",
+          "ResourceType": "Texture2D",
+          "Resource": "_ScreenColor2"
+        },
+        {
+          "Index": "7",
+          "ResourceType": "Texture2D",
+          "Resource": "_ShadowMap0"
+        },
+        {
+          "Index": "8",
+          "ResourceType": "Buffer",
+          "Resource": "GIBuffer"
+        }
+      ],
+      "UAVs": [
+        {
+          "Index": "0",
+          "ResourceType": "Texture2D",
+          "Resource": "_RayTracing0"
+        },
+        {
+          "Index": "1",
+          "ResourceType": "Buffer",
+          "Resource": "GIBufferWrite"
+        }
+      ]
+    }
+  },
+  "UnionShaders": {
+  },
+  "RayTracingShaders": {
+    "RayTracing.json": "RayTracing.json"
+  },
+  "Dispatcher": "DRDispatcher.cs",
+  "ShowTextures": {
+    "_Albedo": "",
+    "_Metallic": "",
+    "_Roughness": "",
+    "_Emissive": "",
+    "_Normal": ""
+  },
+  "ShowSettingTextures": {
+  },
+  "Texture2Ds": {
+  },
+  "ShowParameters": {
+    "Transparent": {
+      "Name": "透明材质",
+      "Type": "bool"
+    },
+    "Metallic": {
+      "Name": "金属度",
+      "Type": "sliderFloat",
+      "Min": "0",
+      "Max": "1",
+      "Step": "0.01"
+    },
+    "Roughness": {
+      "Name": "粗糙度",
+      "Type": "sliderFloat",
+      "Default": "0.8",
+      "Min": "0",
+      "Max": "1",
+      "Step": "0.01"
+    },
+    "Specular": {
+      "Name": "高光",
+      "Type": "sliderFloat",
+      "Default": "0.5",
+      "Min": "0",
+      "Max": "1",
+      "Step": "0.01"
+    },
+    "Emissive": {
+      "Name": "自发光",
+      "Type": "float",
+      "Step": "0.01"
+    },
+    "AO": {
+      "Name": "遮蔽",
+      "Type": "sliderFloat",
+      "Step": "0.01",
+      "Default": "1",
+      "Min": "0",
+      "Max": "1"
+    },
+    "IOR": {
+      "Name": "IOR",
+      "Type": "float",
+      "Default": "1.46",
+      "Step": "0.01"
+    },
+    "Refraction": {
+      "Name": "折射",
+      "Type": "bool"
+    },
+    "CastShadow": {
+      "Name": "投射阴影",
+      "Type": "bool",
+      "Default": "true"
+    },
+    "ReceiveShadow": {
+      "Name": "接收阴影",
+      "Type": "bool",
+      "Default": "true"
+    },
+    "UseNormalMap": {
+      "Name": "使用法线贴图",
+      "Type": "bool",
+      "Default": "false"
+    }
+  },
+  "ShowSettingParameters": {
+    "IndirectMultiplier": {
+      "Name": "天空盒亮度",
+      "Type": "float",
+      "Default": "3",
+      "Step": "0.01",
+      "Min": "0"
+    },
+    "Brightness": {
+      "Name": "亮度调节",
+      "Type": "float",
+      "Default": "1",
+      "Step": "0.01",
+      "Min": "0"
+    },
+    "EnableRayTracing": {
+      "Name": "启用光线追踪（如果有）",
+      "Type": "bool",
+      "Default": "false"
+    },
+    "RayTracingReflectionThreshold": {
+      "Name": "光线追踪反射阈值",
+      "Type": "float",
+      "Default": "0.5",
+      "Step": "0.01",
+      "Min": "0",
+      "Max": "1"
+    },
+    "RayTracingReflectionQuality": {
+      "Name": "光线追踪反射质量",
+      "Type": "float",
+      "Default": "1",
+      "Step": "0.01",
+      "Min": "0",
+      "Max": "5"
+    },
+    "UpdateGI": {
+      "Name": "更新全局光照（需要光线追踪）",
+      "Type": "bool",
+      "Default": "false"
+    },
+    "UseGI": {
+      "Name": "使用全局光照",
+      "Type": "bool",
+      "Default": "false"
+    },
+    "GIVolumePosition": {
+      "Name": "全局光照体积位置",
+      "Type": "float3",
+      "Default": "[0,25.1,2]"
+    },
+    "GIVolumeSize": {
+      "Name": "全局光照体积大小",
+      "Type": "float3",
+      "Default": "[200,50,200]",
+      "Min": "10"
+    },
+    "EnableBloom": {
+      "Name": "启用泛光",
+      "Type": "bool"
+    },
+    "BloomThreshold": {
+      "Name": "泛光阈值",
+      "Type": "float",
+      "Default": "1.05",
+      "Step": "0.01",
+      "Min": "0"
+    },
+    "BloomIntensity": {
+      "Name": "泛光强度",
+      "Type": "float",
+      "Default": "0.1",
+      "Step": "0.01",
+      "Min": "0"
+    },
+    "EnableFog": {
+      "Name": "启用雾",
+      "Type": "bool",
+      "Default": "true"
+    },
+    "FogColor": {
+      "Name": "雾颜色",
+      "Type": "color3",
+      "Default": "[0.4,0.4,0.6]"
+    },
+    "FogDensity": {
+      "Name": "雾密度",
+      "Type": "float",
+      "Default": "0.005",
+      "Step": "0.001",
+      "Min": "0.001"
+    },
+    "FogStartDistance": {
+      "Name": "雾开始距离",
+      "Type": "float",
+      "Default": "5"
+    },
+    "FogEndDistance": {
+      "Name": "雾结束距离",
+      "Type": "float",
+      "Default": "100000"
+    },
+    "EnableSSAO": {
+      "Name": "启用SSAO",
+      "Type": "bool",
+      "Default": "false"
+    },
+    "AODistance": {
+      "Name": "AO距离",
+      "Type": "float",
+      "Default": "1",
+      "Step": "0.1",
+      "Min": "0.1"
+    },
+    "AOLimit": {
+      "Name": "AO限制",
+      "Type": "float",
+      "Default": "0.5",
+      "Step": "0.1",
+      "Min": "0.1"
+    },
+    "AORaySampleCount": {
+      "Name": "AO光线采样次数",
+      "Type": "int",
+      "Default": "32",
+      "Min": "1",
+      "Max": "256"
+    },
+    "EnableVolumetricLighting": {
+      "Name": "启用体积光",
+      "Type": "bool",
+      "Default": "false"
+    },
+    "VolumetricLightingSampleCount": {
+      "Name": "体积光采样次数",
+      "Type": "sliderInt",
+      "Default": "16",
+      "Min": "16",
+      "Max": "256"
+    },
+    "VolumetricLightingDistance": {
+      "Name": "体积光距离",
+      "Type": "float",
+      "Default": "12"
+    },
+    "VolumetricLightingIntensity": {
+      "Name": "体积光强度",
+      "Type": "float",
+      "Default": "0.001",
+      "Step": "0.0001",
+      "Format": "%.4f"
+    },
+    "EnableTAA": {
+      "Name": "启用TAA抗锯齿",
+      "Type": "bool",
+      "Default": "false",
+      "Tooltip": ""
+    },
+    "TAAFrameFactor": {
+      "Name": "TAA当前帧因子",
+      "Type": "float",
+      "Default": "0.33",
+      "Step": "0.01",
+      "Min": "0.001"
+    }
+  }
+}

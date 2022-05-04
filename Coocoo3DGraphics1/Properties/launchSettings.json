@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Coocoo3DGraphics1": {
+      "commandName": "Project",
+      "nativeDebugging": true
+    }
+  }
+}
