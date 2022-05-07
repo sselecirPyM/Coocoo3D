@@ -83,7 +83,7 @@ namespace Coocoo3D.RenderPipeline
         public SwapChain swapChain = new SwapChain();
 
         public RenderPipelineDynamicContext dynamicContextRead = new();
-        public RenderPipelineDynamicContext dynamicContextWrite = new();
+        private RenderPipelineDynamicContext dynamicContextWrite = new();
 
         public List<CBuffer> CBs_Bone = new();
 
@@ -133,7 +133,7 @@ namespace Coocoo3D.RenderPipeline
             currentChannel = AddVisualChannel("main");
         }
 
-        public void BeginDynamicContext(Scene scene)
+        public RenderPipelineDynamicContext GetDynamicContext(Scene scene)
         {
             dynamicContextWrite.FrameBegin();
             dynamicContextWrite.settings = scene.settings.GetClone();
@@ -142,7 +142,20 @@ namespace Coocoo3D.RenderPipeline
 
             dynamicContextWrite.frameRenderIndex = frameRenderCount;
             dynamicContextWrite.CPUSkinning = CPUSkinning;
+
+            dynamicContextWrite.Time = gameDriverContext.PlayTime;
+            dynamicContextWrite.DeltaTime = gameDriverContext.Playing ? gameDriverContext.DeltaTime : 0;
+
+            dynamicContextWrite.Preprocess(scene.gameObjects);
+
             frameRenderCount++;
+            return dynamicContextWrite;
+        }
+
+        public void Submit(RenderPipelineDynamicContext dynamicContext)
+        {
+            dynamicContextWrite = dynamicContextRead;
+            dynamicContextRead = dynamicContext;
         }
 
         public CBuffer GetBoneBuffer(MMDRendererComponent rendererComponent)

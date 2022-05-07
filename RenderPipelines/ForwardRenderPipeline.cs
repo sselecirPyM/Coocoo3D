@@ -24,11 +24,14 @@ namespace RenderPipelines
         [AutoClear]
         public Texture2D depth;
 
+        [Size("HalfOutput")]
+        [Format(ResourceFormat.R16G16B16A16_Float)]
+        public Texture2D intermedia1;
+
         [Size("Output")]
         [Format(ResourceFormat.R16G16B16A16_Float)]
         public Texture2D noPostProcess;
 
-        [UIShow]
         [Size(4096, 4096)]
         [Format(ResourceFormat.D32_Float)]
         [AutoClear]
@@ -84,7 +87,20 @@ namespace RenderPipelines
         //[UIDragFloat(0.1f, 0, name: "雾结束距离")]
         public float FogEndDistance = 100000;
 
+        [UIShow(name: "启用泛光")]
+        public bool EnableBloom;
+        [Indexable]
+        [UIDragFloat(0.01f, name: "泛光阈值")]
+        public float BloomThreshold = 1.05f;
+        [Indexable]
+        [UIDragFloat(0.01f, name: "泛光强度")]
+        public float BloomIntensity = 0.1f;
+
         #region Material Parameters
+        [Indexable]
+        [UIShow(UIShowType.Material, "透明材质")]
+        public bool IsTransparent;
+
         [Indexable]
         [UISlider(0.0f, 1.0f, UIShowType.Material, "金属")]
         public float Metallic;
@@ -135,42 +151,25 @@ namespace RenderPipelines
 
         #endregion
 
-        public DrawQuadPass postProcess = new DrawQuadPass()
-        {
-            shader = "PostProcessing.hlsl",
-            renderTargets = new string[]
-            {
-                nameof(output)
-            },
-            //depthStencil = null,
-            psoDesc = new PSODesc()
-            {
-                blendState = BlendState.None,
-                cullMode = CullMode.None,
-            },
-            srvs = new string[]
-            {
-                nameof(noPostProcess),
-            },
-            cbvs = new object[][]
-            {
-                new object []
-                {
-
-                }
-            }
-        };
-
         ForwardRenderPass forwordRenderPass = new ForwardRenderPass()
         {
             renderTarget = nameof(noPostProcess),
             depthStencil = nameof(depth),
         };
 
+        public PostProcessPass postProcess = new PostProcessPass()
+        {
+            inputColor = nameof(noPostProcess),
+            inputDepth = nameof(depth),
+            output = nameof(output),
+
+        };
+
         public override void BeforeRender()
         {
             renderWrap.GetOutputSize(out int width, out int height);
             renderWrap.SetSize("Output", width, height);
+            renderWrap.SetSize("HalfOutput", (width + 1) / 2, (height + 1) / 2);
             renderWrap.texLoading = renderWrap.GetTex2DLoaded("loading.png");
             renderWrap.texError = renderWrap.GetTex2DLoaded("error.png");
         }
@@ -181,6 +180,8 @@ namespace RenderPipelines
             var camera = renderWrap.Camera;
             forwordRenderPass.SetCamera(camera);
             forwordRenderPass.Execute(renderWrap);
+
+            postProcess.EnableBloom = EnableBloom;
             postProcess.Execute(renderWrap);
         }
 

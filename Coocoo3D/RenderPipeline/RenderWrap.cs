@@ -34,9 +34,9 @@ namespace Coocoo3D.RenderPipeline
         public float DeltaTime { get => (float)rpc.dynamicContextRead.DeltaTime; }
         public float RealDeltaTime { get => (float)rpc.dynamicContextRead.RealDeltaTime; }
 
-        public IList<DirectionalLightData> directionalLights { get => rpc.dynamicContextRead.directionalLights; }
+        public IReadOnlyList<DirectionalLightData> directionalLights { get => rpc.dynamicContextRead.directionalLights; }
 
-        public IList<PointLightData> pointLights { get => rpc.dynamicContextRead.pointLights; }
+        public IReadOnlyList<PointLightData> pointLights { get => rpc.dynamicContextRead.pointLights; }
 
         public CameraData Camera { get => visualChannel.cameraData; }
 
@@ -79,7 +79,7 @@ namespace Coocoo3D.RenderPipeline
             graphicsContext.DrawIndexedInstanced(6, instanceCount, 0, 0, 0);
         }
 
-        public void SetSRVs(IList<string> textures, RenderMaterial material = null)
+        public void SetSRVs(IReadOnlyList<string> textures, RenderMaterial material = null)
         {
             if (textures == null) return;
             var graphicsContext = this.graphicsContext;
@@ -101,7 +101,7 @@ namespace Coocoo3D.RenderPipeline
             }
         }
 
-        public void SetUAVs(IList<string> textures, RenderMaterial material = null)
+        public void SetUAVs(IReadOnlyList<string> textures, RenderMaterial material = null)
         {
             if (textures == null) return;
             var graphicsContext = this.graphicsContext;
@@ -128,30 +128,6 @@ namespace Coocoo3D.RenderPipeline
             graphicsContext.SetUAVTSlot(textureCube, slot);
         }
 
-        //public void SetSRVs(List<SlotRes> SRVs, RenderMaterial material = null)
-        //{
-        //    if (SRVs == null) return;
-        //    var graphicsContext = this.graphicsContext;
-        //    foreach (var resd in SRVs)
-        //    {
-        //        if (resd.ResourceType == "TextureCube")
-        //        {
-        //            graphicsContext.SetSRVTSlot(rpc._GetTexCubeByName(visualChannel, resd.Resource), resd.Index);
-        //        }
-        //        else if (resd.ResourceType == "Texture2D")
-        //        {
-        //            if (resd.Flags.HasFlag(SlotResourceFlag.Linear))
-        //                graphicsContext.SetSRVTSlotLinear(GetTex2DFallBack(resd.Resource, material), resd.Index);
-        //            else
-        //                graphicsContext.SetSRVTSlot(GetTex2DFallBack(resd.Resource, material), resd.Index);
-        //        }
-        //        else if (resd.ResourceType == "Buffer")
-        //        {
-        //            graphicsContext.SetSRVTSlot(GetBuffer(resd.Resource), resd.Index);
-        //        }
-        //    }
-        //}
-
         public void SetSRV(TextureCube textureCube, int slot)
         {
             graphicsContext.SetSRVTSlot(textureCube, slot);
@@ -166,30 +142,6 @@ namespace Coocoo3D.RenderPipeline
         {
             graphicsContext.SetUAVTSlot(textureCube, mipIndex, slot);
         }
-
-        //public void SetUAVs(List<SlotRes> UAVs, RenderMaterial material = null)
-        //{
-        //    if (UAVs == null) return;
-        //    var graphicsContext = this.graphicsContext;
-        //    foreach (var resd in UAVs)
-        //    {
-        //        if (resd.ResourceType == "TextureCube")
-        //        {
-        //            graphicsContext.SetUAVTSlot(rpc._GetTexCubeByName(visualChannel, resd.Resource), resd.Index);
-        //        }
-        //        else if (resd.ResourceType == "Texture2D")
-        //        {
-        //            //if (resd.Flags.HasFlag(SlotResFlag.Linear))
-        //            //    graphicsContext.SetUAVTSlotLinear(GetTex2DFallBack(resd.Resource, material), resd.Index);
-        //            //else
-        //            graphicsContext.SetUAVTSlot(GetTex2DFallBack(resd.Resource, material), resd.Index);
-        //        }
-        //        else if (resd.ResourceType == "Buffer")
-        //        {
-        //            graphicsContext.SetUAVTSlot(GetBuffer(resd.Resource), resd.Index);
-        //        }
-        //    }
-        //}
 
         TextureCube GetTexCube(string name)
         {
@@ -211,21 +163,37 @@ namespace Coocoo3D.RenderPipeline
 
         public Texture2D GetTex2D(string name, RenderMaterial material = null)
         {
+            return GetTex2D(name, out _, material);
+        }
+
+        public Texture2D GetTex2D(string name, out bool isLinear, RenderMaterial material = null)
+        {
+            isLinear = false;
             if (string.IsNullOrEmpty(name))
                 return null;
 
             if (RenderPipelineView.RenderTextures.TryGetValue(name, out var usage) && usage.texture2D != null)
             {
+                isLinear = usage.srgbAttribute == null;
                 if (material != null && material.Parameters.TryGetValue(name, out var o1) && o1 is string texturePath)
-                    return _GetTex2DByName(texturePath);
+                    return GetTex2DByName(texturePath);
 
                 if (RenderPipelineView.textureReplacement.TryGetValue(name, out var replacement))
-                    return _GetTex2DByName(replacement);
+                    return GetTex2DByName(replacement);
 
                 return usage.texture2D;
             }
 
             return null;
+        }
+
+        public bool SlotIsLinear(string name)
+        {
+            if (RenderPipelineView.RenderTextures.TryGetValue(name, out var usage))
+            {
+                return usage.srgbAttribute == null;
+            }
+            return false;
         }
 
         public TextureCube GetTexCube(string name, RenderMaterial material = null)
@@ -264,7 +232,7 @@ namespace Coocoo3D.RenderPipeline
             return rpc.mainCaches.GetTextureLoaded(Path.GetFullPath(name, BasePath), graphicsContext);
         }
 
-        internal Texture2D _GetTex2DByName(string name)
+        internal Texture2D GetTex2DByName(string name)
         {
             if (string.IsNullOrEmpty(name))
                 return null;
@@ -288,7 +256,7 @@ namespace Coocoo3D.RenderPipeline
 
         RootSignature rootSignature;
 
-        public void SetShader(string path, in PSODesc desc, List<(string, string)> keywords = null, bool vs = true, bool ps = true, bool gs = false)
+        public void SetShader(string path, in PSODesc desc, IReadOnlyList<(string, string)> keywords = null, bool vs = true, bool ps = true, bool gs = false)
         {
             var cache = rpc.mainCaches;
 
@@ -445,7 +413,7 @@ namespace Coocoo3D.RenderPipeline
         {
             graphicsContext.SetRTVDSV(target, depth, Vector4.Zero, clearRT, clearDepth);
         }
-        public void SetRenderTarget(IList<string> rts, string depthStencil1, bool clearRT, bool clearDepth)
+        public void SetRenderTarget(IReadOnlyList<string> rts, string depthStencil1, bool clearRT, bool clearDepth)
         {
             Texture2D depthStencil = GetTex2D(depthStencil1);
             Texture2D[] renderTargets = null;
@@ -479,15 +447,6 @@ namespace Coocoo3D.RenderPipeline
         public void SetScissorRectAndViewport(int left, int top, int right, int bottom)
         {
             graphicsContext.RSSetScissorRectAndViewport(left, top, right, bottom);
-        }
-
-        public void SetTextureSRV(string textureName, int slot)
-        {
-            graphicsContext.SetSRVTSlot(GetTex2DFallBack(textureName, null), slot);
-        }
-        public void SetTextureSRV(RenderMaterial material, string textureName, int slot)
-        {
-            graphicsContext.SetSRVTSlot(GetTex2DFallBack(textureName, material), slot);
         }
 
         public void SetCBV(CBuffer cBuffer, int slot)
@@ -549,7 +508,7 @@ namespace Coocoo3D.RenderPipeline
             dataFinders.Clear();
         }
 
-        public void Write(List<object> datas, GPUWriter writer, RenderMaterial material = null)
+        public void Write(IReadOnlyList<object> datas, GPUWriter writer, RenderMaterial material = null)
         {
             foreach (var obj in datas)
                 WriteObject(obj, writer, material);

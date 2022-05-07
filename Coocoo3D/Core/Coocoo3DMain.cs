@@ -62,8 +62,8 @@ namespace Coocoo3D.Core
                     timeManager.AbsoluteTimeInput(stopwatch1.ElapsedTicks);
                     if (timeManager.RealTimerCorrect("render", frameInterval, out _)) continue;
 
-                    RenderFrame();
-                    if (performanceSettings.SaveCpuPower && !RPContext.recording && !performanceSettings.VSync)
+                    bool rendered = RenderFrame();
+                    if (performanceSettings.SaveCpuPower && !RPContext.recording && !(performanceSettings.VSync && rendered))
                         System.Threading.Thread.Sleep(1);
                 }
             });
@@ -88,6 +88,19 @@ namespace Coocoo3D.Core
         GraphicsContext graphicsContext { get => RPContext.graphicsContext; }
         Task RenderTask1;
 
+        private void Simulation()
+        {
+            var gdc = GameDriverContext;
+
+            CurrentScene.DealProcessList();
+            if (CurrentScene.setTransform.Count != 0) gdc.RequireResetPhysics = true;
+            if (gdc.Playing || gdc.RequireResetPhysics)
+            {
+                CurrentScene.Simulation(gdc.PlayTime, gdc.DeltaTime, gdc.RequireResetPhysics);
+                gdc.RequireResetPhysics = false;
+            }
+        }
+
         private bool RenderFrame()
         {
             double deltaTime = timeManager.GetDeltaTime();
@@ -98,28 +111,12 @@ namespace Coocoo3D.Core
                 return false;
             }
             timeManager.RealCounter("fps", 1, out framePerSecond);
+            Simulation();
 
-            #region Scene Simulation
-
-            CurrentScene.DealProcessList();
-
-            RPContext.BeginDynamicContext(CurrentScene);
-            RPContext.dynamicContextWrite.Time = gdc.PlayTime;
-            RPContext.dynamicContextWrite.DeltaTime = gdc.Playing ? gdc.DeltaTime : 0;
-            RPContext.dynamicContextWrite.RealDeltaTime = deltaTime;
-
-            if (CurrentScene.setTransform.Count != 0) gdc.RequireResetPhysics = true;
-            if (gdc.Playing || gdc.RequireResetPhysics)
-            {
-                CurrentScene.Simulation(gdc.PlayTime, gdc.DeltaTime, gdc.RequireResetPhysics);
-                gdc.RequireResetPhysics = false;
-            }
-
-            RPContext.dynamicContextWrite.Preprocess(CurrentScene.gameObjects);
-
-            #endregion
+            var dynamicContext = RPContext.GetDynamicContext(CurrentScene);
+            dynamicContext.RealDeltaTime = deltaTime;
             if (RenderTask1 != null && RenderTask1.Status != TaskStatus.RanToCompletion) RenderTask1.Wait();
-            (RPContext.dynamicContextRead, RPContext.dynamicContextWrite) = (RPContext.dynamicContextWrite, RPContext.dynamicContextRead);
+            RPContext.Submit(dynamicContext);
             if (RequireResize.SetFalse())
             {
                 RPContext.swapChain.Resize(NewSize.X, NewSize.Y);
@@ -135,7 +132,6 @@ namespace Coocoo3D.Core
             graphicsContext.Begin();
             RPContext.UpdateGPUResource();
 
-            HybirdRenderPipeline.BeginFrame(RPContext);
             if (performanceSettings.MultiThreadRendering)
                 RenderTask1 = Task.Run(RenderFunction);
             else
@@ -145,6 +141,7 @@ namespace Coocoo3D.Core
         }
         void RenderFunction()
         {
+            HybirdRenderPipeline.BeginFrame(RPContext);
             HybirdRenderPipeline.RenderCamera(RPContext);
             HybirdRenderPipeline.EndFrame(RPContext);
 

@@ -116,8 +116,6 @@ cbuffer cb0 : register(b0)
 cbuffer cb1 : register(b0, space1)
 {
 	float4x4 g_mWorld;
-	float4x4 g_mWorldToProj1;
-	float4x4 g_mProjToWorld1;
 	float4x4 LightMapVP;
 	float4x4 LightMapVP1;
 	LightInfo Lightings[1];
@@ -202,11 +200,11 @@ void rayGen()
 			}
 		}
 		specReflectColor = specReflectColor / max(weight, 1e-4) * GF;
-		gOutput[launchIndex.xy] = float4(specReflectColor, 0);
+		gOutput[launchIndex.xy] += float4(specReflectColor, 0);
 	}
 	else
 	{
-		gOutput[launchIndex.xy] = float4(EnvCube.SampleLevel(s0, reflect(-V, N), sqrt(max(roughness, 1e-5)) * 4) * g_skyBoxMultiple * GF, 0);
+		gOutput[launchIndex.xy] += float4(EnvCube.SampleLevel(s0, reflect(-V, N), sqrt(max(roughness, 1e-5)) * 4).rgb * g_skyBoxMultiple * GF, 0);
 	}
 }
 

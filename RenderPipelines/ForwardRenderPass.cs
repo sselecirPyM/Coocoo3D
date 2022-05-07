@@ -211,10 +211,36 @@ namespace RenderPipelines
                 drawShadowMap.Execute(renderWrap);
             }
             drawSkyBox.Execute(renderWrap);
+
+            drawObject.psoDesc.blendState = BlendState.None;
+            drawObject.filter = FilterOpaque;
             drawObject.Execute(renderWrap);
+
+            drawObject.psoDesc.blendState = BlendState.Alpha;
+            drawObject.filter = FilterTransparent;
+            drawObject.Execute(renderWrap);
+
             renderWrap.PopParameters();
 
             drawObject.keywords.Clear();
+        }
+
+        static bool FilterOpaque(RenderWrap renderWrap, MeshRenderable renderable, List<(string, string)> keywords)
+        {
+            if (true.Equals(renderWrap.GetIndexableValue("IsTransparent", renderable.material)))
+            {
+                return false;
+            }
+            return true;
+        }
+
+        static bool FilterTransparent(RenderWrap renderWrap, MeshRenderable renderable, List<(string, string)> keywords)
+        {
+            if (true.Equals(renderWrap.GetIndexableValue("IsTransparent", renderable.material)))
+            {
+                return true;
+            }
+            return false;
         }
     }
 }

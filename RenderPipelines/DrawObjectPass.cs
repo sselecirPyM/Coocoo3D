@@ -57,9 +57,9 @@ namespace RenderPipelines
             }
 
             keywords2.Clear();
-            keywords2.AddRange(this.keywords);
             foreach (var renderable in renderWrap.MeshRenderables())
             {
+                keywords2.AddRange(this.keywords);
                 if (filter != null && !filter.Invoke(renderWrap, renderable, keywords2)) continue;
                 foreach (var keyMap in AutoKeyMap)
                 {
@@ -70,6 +70,10 @@ namespace RenderPipelines
                 {
                     keywords2.Add(new("SKINNING", "1"));
                 }
+                if (renderable.material.DrawDoubleFace)
+                    desc.cullMode = CullMode.None;
+                else
+                    desc.cullMode = CullMode.Back;
                 renderWrap.SetShader(shader, desc, keywords2, enableVS, enablePS, enableGS);
 
                 if (renderable.gpuSkinning)
@@ -83,10 +87,8 @@ namespace RenderPipelines
                 renderWrap.SetSRVs(srvs, renderable.material);
 
                 renderWrap.Draw(renderable);
-                if (keywords2.Count - this.keywords.Count > 0)
-                    keywords2.RemoveRange(this.keywords.Count, keywords2.Count - this.keywords.Count);
+                keywords2.Clear();
             }
-            keywords2.Clear();
         }
     }
 }

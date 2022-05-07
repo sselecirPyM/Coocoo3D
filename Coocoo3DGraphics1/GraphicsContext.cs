@@ -221,11 +221,6 @@ namespace Coocoo3DGraphics
 
             currentRootSignature = currentRTPSO.globalRootSignature;
             SetSRVRSlot(call.tpas.resource.GPUVirtualAddress, 0);
-            byte[] data = new byte[32];
-            MemoryStream memoryStream = new MemoryStream();
-            BinaryWriter writer = new BinaryWriter(memoryStream);
-            memcpy(data, pRtsoProps.GetShaderIdentifier(call.rayGenShader).ToPointer(), D3D12ShaderIdentifierSizeInBytes);
-            writer.Write(data);
 
             {
                 int cbvOffset = 0;
@@ -284,6 +279,11 @@ namespace Coocoo3DGraphics
                 }
             }
 
+            byte[] data = new byte[32];
+            MemoryStream memoryStream = new MemoryStream();
+            BinaryWriter writer = new BinaryWriter(memoryStream);
+            memcpy(data, pRtsoProps.GetShaderIdentifier(call.rayGenShader).ToPointer(), D3D12ShaderIdentifierSizeInBytes);
+            writer.Write(data);
             ulong gpuaddr;
             int length1 = (int)memoryStream.Position;
             GetRingBuffer().Upload(new Span<byte>(memoryStream.GetBuffer(), 0, length1), out gpuaddr);
@@ -828,7 +828,7 @@ namespace Coocoo3DGraphics
 
         public void SetRTV(Texture2D RTV, Vector4 color, bool clear) => SetRTVDSV(RTV, null, color, clear, false);
 
-        public void SetRTV(IList<Texture2D> RTVs, Vector4 color, bool clear) => SetRTVDSV(RTVs, null, color, clear, false);
+        public void SetRTV(IReadOnlyList<Texture2D> RTVs, Vector4 color, bool clear) => SetRTVDSV(RTVs, null, color, clear, false);
 
         public void SetDSV(Texture2D texture, bool clear)
         {
@@ -891,7 +891,7 @@ namespace Coocoo3DGraphics
             }
         }
 
-        public void SetRTVDSV(IList<Texture2D> RTVs, Texture2D DSV, Vector4 color, bool clearRTV, bool clearDSV)
+        public void SetRTVDSV(IReadOnlyList<Texture2D> RTVs, Texture2D DSV, Vector4 color, bool clearRTV, bool clearDSV)
         {
             m_commandList.RSSetScissorRect(RTVs[0].width, RTVs[0].height);
             m_commandList.RSSetViewport(0, 0, RTVs[0].width, RTVs[0].height);

@@ -29,31 +29,31 @@ namespace RenderPipelines
         [Format(ResourceFormat.R16G16B16A16_Float)]
         public Texture2D noPostProcess;
 
-        [UIShow]
         [Size("Output")]
         [Format(ResourceFormat.R16G16B16A16_Float)]
         [AutoClear]
         public Texture2D gbuffer0;
 
-        [UIShow]
         [Size("Output")]
         [Format(ResourceFormat.R16G16B16A16_Float)]
         [AutoClear]
         public Texture2D gbuffer1;
 
-        [UIShow]
         [Size("Output")]
         [Format(ResourceFormat.R16G16B16A16_Float)]
         [AutoClear]
         public Texture2D gbuffer2;
 
-        [UIShow]
         [Size("Output")]
         [Format(ResourceFormat.R16G16B16A16_Float)]
         [AutoClear]
         public Texture2D gbuffer3;
 
-        [UIShow]
+
+        [Size("HalfOutput")]
+        [Format(ResourceFormat.R16G16B16A16_Float)]
+        public Texture2D intermedia1;
+
         [Size(4096, 4096)]
         [Format(ResourceFormat.D32_Float)]
         [AutoClear]
@@ -109,6 +109,15 @@ namespace RenderPipelines
         //[UIDragFloat(0.1f, 0, name: "雾结束距离")]
         public float FogEndDistance = 100000;
 
+        [UIShow(name: "启用泛光")]
+        public bool EnableBloom;
+        [Indexable]
+        [UIDragFloat(0.01f, name: "泛光阈值")]
+        public float BloomThreshold = 1.05f;
+        [Indexable]
+        [UIDragFloat(0.01f, name: "泛光强度")]
+        public float BloomIntensity = 0.1f;
+
         [Indexable]
         [UIShow(name: "启用体积光")]
         public bool EnableVolumetricLighting;
@@ -140,6 +149,17 @@ namespace RenderPipelines
         [Indexable]
         [UIDragInt(1, 0, 128, name: "AO光线采样次数")]
         public int AORaySampleCount = 32;
+
+        [UIShow(name: "启用光线追踪")]
+        public bool EnableRayTracing;
+
+        [Indexable]
+        [UIDragFloat(0.01f, 0, 5, name: "光线追踪反射质量")]
+        public float RayTracingReflectionQuality = 1.0f;
+
+        [Indexable]
+        [UIDragFloat(0.01f, 0, 1.0f, name: "光线追踪反射阈值")]
+        public float RayTracingReflectionThreshold = 0.5f;
 
         #endregion
 
@@ -206,42 +226,30 @@ namespace RenderPipelines
 
         #endregion
 
-        public DrawQuadPass postProcess = new DrawQuadPass()
-        {
-            shader = "PostProcessing.hlsl",
-            renderTargets = new string[]
-            {
-                nameof(output)
-            },
-            //depthStencil = null,
-            psoDesc = new PSODesc()
-            {
-                blendState = BlendState.None,
-                cullMode = CullMode.None,
-            },
-            srvs = new string[]
-            {
-                nameof(noPostProcess),
-            },
-            cbvs = new object[][]
-            {
-                new object []
-                {
+        [Indexable]
+        public Matrix4x4 _ViewProjection = Matrix4x4.Identity;
+        [Indexable]
+        public Matrix4x4 _InvertViewProjection = Matrix4x4.Identity;
 
-                }
-            }
-        };
-
-        DeferredRenderPass deferredRenderPass = new DeferredRenderPass()
+        public DeferredRenderPass deferredRenderPass = new DeferredRenderPass()
         {
             renderTarget = nameof(noPostProcess),
             depthStencil = nameof(depth),
+        };
+
+        public PostProcessPass postProcess = new PostProcessPass()
+        {
+            inputColor = nameof(noPostProcess),
+            inputDepth = nameof(depth),
+            output = nameof(output),
+
         };
 
         public override void BeforeRender()
         {
             renderWrap.GetOutputSize(out int width, out int height);
             renderWrap.SetSize("Output", width, height);
+            renderWrap.SetSize("HalfOutput", (width + 1) / 2, (height + 1) / 2);
             renderWrap.texLoading = renderWrap.GetTex2DLoaded("loading.png");
             renderWrap.texError = renderWrap.GetTex2DLoaded("error.png");
         }
@@ -249,10 +257,15 @@ namespace RenderPipelines
         public override void Render()
         {
             deferredRenderPass.Brightness = Brightness;
+            deferredRenderPass.rayTracing = EnableRayTracing;
             var camera = renderWrap.Camera;
             deferredRenderPass.SetCamera(camera);
             deferredRenderPass.Execute(renderWrap);
+
+            postProcess.EnableBloom = EnableBloom;
             postProcess.Execute(renderWrap);
+            _ViewProjection = camera.vpMatrix;
+            _InvertViewProjection = camera.pvMatrix;
         }
 
         public override void AfterRender()

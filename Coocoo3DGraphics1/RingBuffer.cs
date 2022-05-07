@@ -3,16 +3,18 @@ using System.Collections.Generic;
 using System.Text;
 using Vortice.Direct3D12;
 using System.Runtime.InteropServices;
+using static Coocoo3DGraphics.DXHelper;
 
 namespace Coocoo3DGraphics
 {
-    public class RingBuffer : IDisposable
+    internal class RingBuffer : IDisposable
     {
-        public void Init(GraphicsDevice device, int size)
+        public void Init(ID3D12Device device, int size)
         {
             this.size = (size + 255) & ~255;
 
-            device.device.CreateCommittedResource<ID3D12Resource>(new HeapProperties(HeapType.Upload), HeapFlags.None, ResourceDescription.Buffer((ulong)size), ResourceStates.GenericRead, out resource);
+            ThrowIfFailed(device.CreateCommittedResource(new HeapProperties(HeapType.Upload), HeapFlags.None,
+                ResourceDescription.Buffer((ulong)size), ResourceStates.GenericRead, out resource));
             mapped = resource.Map(0);
         }
 
@@ -69,6 +71,8 @@ namespace Coocoo3DGraphics
 
         public void Dispose()
         {
+            resource?.Unmap(0);
+            mapped = IntPtr.Zero;
             resource?.Release();
             resource = null;
         }

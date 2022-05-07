@@ -199,6 +199,24 @@ namespace RenderPipelines
             filter = FilterTransparent,
         };
 
+        RayTracingPass rayTracingPass = new RayTracingPass()
+        {
+            srvs = new string[]
+            {
+                null,
+                "_Environment",
+                "_BRDFLUT",
+                null,//nameof(depth),
+                "gbuffer0",
+                "gbuffer1",
+                "gbuffer2",
+                "_ShadowMap",
+            },
+            RayTracingShader = "RayTracing.json",
+        };
+
+        public bool rayTracing = true;
+
         [Indexable]
         public Matrix4x4 ViewProjection;
         [Indexable]
@@ -252,11 +270,11 @@ namespace RenderPipelines
             InvertViewProjection = camera.pvMatrix;
             CameraPosition = camera.Position;
 
+            rayTracingPass.SetCamera(camera);
         }
 
         public void SetRenderTarget(string renderTarget, string depthStencil)
         {
-            //drawObject.renderTargets[0] = renderTarget;
             this.renderTarget = renderTarget;
             this.depthStencil = depthStencil;
         }
@@ -268,6 +286,9 @@ namespace RenderPipelines
             drawObjectTransparent.renderTargets[0] = renderTarget;
             finalPass.renderTargets[0] = renderTarget;
             finalPass.srvs[5] = depthStencil;
+
+            rayTracingPass.RenderTarget = "gbuffer2";
+            rayTracingPass.srvs[3] = depthStencil;
 
             var dls = renderWrap.directionalLights;
             if (dls.Count > 0)
@@ -290,6 +311,10 @@ namespace RenderPipelines
                 LightDir = Vector3.UnitZ;
                 LightColor = Vector3.Zero;
             }
+            if (rayTracing)
+            {
+                finalPass.keywords.Add(("RAY_TRACING", "1"));
+            }
             if (debugKeywords.TryGetValue(renderWrap.DebugRenderType, out string debugKeyword))
             {
                 finalPass.keywords.Add((debugKeyword, "1"));
@@ -311,6 +336,11 @@ namespace RenderPipelines
                 drawShadowMap.Execute(renderWrap);
             }
             drawGBuffer.Execute(renderWrap);
+            if (rayTracing)
+            {
+                rayTracingPass.RayTracing = rayTracing;
+                rayTracingPass.Execute(renderWrap);
+            }
             finalPass.Execute(renderWrap);
             drawObjectTransparent.Execute(renderWrap);
             renderWrap.PopParameters();

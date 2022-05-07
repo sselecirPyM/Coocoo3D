@@ -25,6 +25,7 @@
     {
       "Name": "RayTracingPass",
       "Type": "RayTracing",
+      "ClearRenderTarget": true,
       "RenderTargets": [
         "_RayTracing0"
       ]
@@ -571,8 +572,6 @@
           "Index": "1",
           "Datas": [
             "World",
-            "Camera",
-            "CameraInvert",
             "DirectionalLightMatrix0",
             "DirectionalLightMatrix1",
             "DirectionalLight",

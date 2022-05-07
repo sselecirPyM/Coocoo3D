@@ -13,17 +13,6 @@ namespace Coocoo3DGraphics
 {
     public class GraphicsDevice
     {
-        public struct recycleResource
-        {
-            public ID3D12Object resource;
-            public ulong removeFrame;
-
-            public recycleResource(ID3D12Object resource, ulong removeFrame)
-            {
-                this.resource = resource;
-                this.removeFrame = removeFrame;
-            }
-        };
 
         public const int CBVSRVUAVDescriptorCount = 65536;
         internal ID3D12Device5 device;
@@ -42,7 +31,7 @@ namespace Coocoo3DGraphics
 
         internal UInt64 currentFenceValue = 3;
 
-        internal List<recycleResource> m_recycleList = new List<recycleResource>();
+        internal List<(ID3D12Object, ulong)> m_recycleList = new List<(ID3D12Object, ulong)>();
         List<ID3D12GraphicsCommandList4> m_commandLists = new List<ID3D12GraphicsCommandList4>();
         List<ID3D12GraphicsCommandList4> m_commandLists1 = new List<ID3D12GraphicsCommandList4>();
 
@@ -125,7 +114,7 @@ namespace Coocoo3DGraphics
                 commandAllocators[i] = commandAllocator;
             }
             ThrowIfFailed(device.CreateFence(currentFenceValue, FenceFlags.None, out fence));
-            superRingBuffer.Init(this, 134217728);
+            superRingBuffer.Init(this.device, 134217728);
             currentFenceValue++;
         }
 
@@ -154,7 +143,7 @@ namespace Coocoo3DGraphics
         internal void ResourceDelayRecycle(ID3D12Object resource)
         {
             if (resource != null)
-                m_recycleList.Add(new recycleResource(resource, currentFenceValue));
+                m_recycleList.Add((resource, currentFenceValue));
         }
 
         public void RenderBegin()
@@ -201,9 +190,9 @@ namespace Coocoo3DGraphics
             ulong completedFrame = fence.CompletedValue;
             m_recycleList.RemoveAll(x =>
             {
-                if (x.removeFrame <= completedFrame)
+                if (x.Item2 <= completedFrame)
                 {
-                    x.resource.Release();
+                    x.Item1.Release();
                     return true;
                 }
                 return false;

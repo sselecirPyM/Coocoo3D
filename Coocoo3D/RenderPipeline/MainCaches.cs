@@ -102,25 +102,25 @@ namespace Coocoo3D.RenderPipeline
                 if (TextureLoading.Count > 6) continue;
 
                 InitFolder(Path.GetDirectoryName(notLoad.Value.fullPath));
-                Dictionary<string, object> taskParam = new();
-                taskParam["pack"] = notLoad.Value;
-                taskParam["knownFile"] = KnownFiles.GetOrCreate(notLoad.Value.fullPath, (string path) => new KnownFile()
+                ValueTuple<Texture2DPack, KnownFile> taskParam = new();
+                taskParam.Item1 = notLoad.Value;
+                taskParam.Item2 = KnownFiles.GetOrCreate(notLoad.Value.fullPath, (string path) => new KnownFile()
                 {
                     fullPath = path,
                 });
 
                 notLoad.Value.loadTask = Task.Factory.StartNew((object a) =>
                 {
-                    var taskParam1 = (Dictionary<string, object>)a;
-                    Texture2DPack texturePack1 = (Texture2DPack)taskParam1["pack"];
-                    var knownFile = (KnownFile)taskParam1["knownFile"];
+                    var taskParam1 = (ValueTuple<Texture2DPack, KnownFile>)a;
+                    var texturePack1 = taskParam1.Item1;
+                    var knownFile = taskParam1.Item2;
 
                     var folder = KnownFolders[Path.GetDirectoryName(knownFile.fullPath)];
 
                     if (LoadTexture(folder, texturePack1, knownFile))
-                        texturePack1.Mark(GraphicsObjectStatus.loaded);
+                        texturePack1.Status = GraphicsObjectStatus.loaded;
                     else
-                        texturePack1.Mark(GraphicsObjectStatus.error);
+                        texturePack1.Status = GraphicsObjectStatus.error;
                     _RequireRender();
                 }, taskParam);
                 TextureLoading[notLoad.Key] = notLoad.Value;
@@ -129,14 +129,18 @@ namespace Coocoo3D.RenderPipeline
             foreach (var loadCompleted in TextureLoading.Where(u => { return u.Value.loadTask != null && u.Value.loadTask.IsCompleted; }).ToArray())
             {
                 var tex1 = TextureCaches.GetOrCreate(loadCompleted.Key);
-
-                if (loadCompleted.Value.loadTask.Status == TaskStatus.RanToCompletion &&
-                   (loadCompleted.Value.Status == GraphicsObjectStatus.loaded ||
-                    loadCompleted.Value.Status == GraphicsObjectStatus.error))
+                var packLoading = loadCompleted.Value;
+                if (packLoading.loadTask.Status == TaskStatus.RanToCompletion &&
+                    TextureReadyToUpload.Count < 3 &&
+                   (packLoading.Status == GraphicsObjectStatus.loaded ||
+                    packLoading.Status == GraphicsObjectStatus.error))
                 {
-                    tex1.fullPath = loadCompleted.Value.fullPath;
-                    tex1.Mark(loadCompleted.Value.Status);
-                    if (uploaders.TryRemove(loadCompleted.Value, out Uploader uploader))
+                    tex1.fullPath = packLoading.fullPath;
+                    if (packLoading.Status != GraphicsObjectStatus.loaded)
+                        tex1.texture2D.Status = packLoading.Status;
+                    tex1.Status = packLoading.Status;
+
+                    if (uploaders.TryRemove(packLoading, out Uploader uploader))
                     {
                         tex1.texture2D.Name = tex1.fullPath;
                         TextureReadyToUpload.Enqueue(new(tex1.texture2D, uploader));
@@ -147,15 +151,15 @@ namespace Coocoo3D.RenderPipeline
             }
         }
 
-        bool LoadTexture(DirectoryInfo folder, Texture2DPack texturePack1, KnownFile knownFile)
+        bool LoadTexture(DirectoryInfo folder, Texture2DPack texturePack, KnownFile knownFile)
         {
             try
             {
                 if (!knownFile.IsModified(folder.GetFiles())) return true;
                 Uploader uploader = new Uploader();
-                if (texturePack1.ReloadTexture(knownFile.file, uploader))
+                if (texturePack.ReloadTexture(knownFile.file, uploader))
                 {
-                    uploaders[texturePack1] = uploader;
+                    uploaders[texturePack] = uploader;
                     return true;
                 }
                 return false;
@@ -549,12 +553,12 @@ namespace Coocoo3D.RenderPipeline
             });
         }
 
-        public PSO GetPSOWithKeywords(List<ValueTuple<string, string>> keywords, string path, bool enableVS = true, bool enablePS = true, bool enableGS = false)
+        public PSO GetPSOWithKeywords(IReadOnlyList<(string, string)> keywords, string path, bool enableVS = true, bool enablePS = true, bool enableGS = false)
         {
             string xPath;
             if (keywords != null)
             {
-                keywords.Sort((x, y) => x.CompareTo(y));
+                //keywords.Sort((x, y) => x.CompareTo(y));
                 StringBuilder stringBuilder = new StringBuilder();
                 stringBuilder.Append(path);
                 foreach (var keyword in keywords)
@@ -678,39 +682,26 @@ namespace Coocoo3D.RenderPipeline
             if (RootSignatures.TryGetValue(s, out RootSignature rs))
                 return rs;
             rs = new RootSignature();
-            rs.Reload(fromString(s));
+            rs.Reload(RSFromString(s));
             RootSignatures[s] = rs;
             return rs;
         }
-        ResourceAccessType[] fromString(string s)
+        static ResourceAccessType[] RSFromString(string s)
         {
             ResourceAccessType[] desc = new ResourceAccessType[s.Length];
             for (int i = 0; i < s.Length; i++)
             {
                 char c = s[i];
-                switch (c)
+                desc[i] = c switch
                 {
-                    case 'C':
-                        desc[i] = ResourceAccessType.CBV;
-                        break;
-                    case 'c':
-                        desc[i] = ResourceAccessType.CBVTable;
-                        break;
-                    case 'S':
-                        desc[i] = ResourceAccessType.SRV;
-                        break;
-                    case 's':
-                        desc[i] = ResourceAccessType.SRVTable;
-                        break;
-                    case 'U':
-                        desc[i] = ResourceAccessType.UAV;
-                        break;
-                    case 'u':
-                        desc[i] = ResourceAccessType.UAVTable;
-                        break;
-                    default:
-                        throw new NotImplementedException("error root signature desc.");
-                }
+                    'C' => ResourceAccessType.CBV,
+                    'c' => ResourceAccessType.CBVTable,
+                    'S' => ResourceAccessType.SRV,
+                    's' => ResourceAccessType.SRVTable,
+                    'U' => ResourceAccessType.UAV,
+                    'u' => ResourceAccessType.UAVTable,
+                    _ => throw new NotImplementedException("error root signature desc."),
+                };
             }
             return desc;
         }

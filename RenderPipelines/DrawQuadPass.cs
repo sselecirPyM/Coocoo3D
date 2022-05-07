@@ -19,9 +19,12 @@ namespace RenderPipelines
 
         public PSODesc psoDesc;
 
-        public string rs = "Csss";
+        public string rs;
 
         public object[][] cbvs;
+
+        public bool clearRenderTarget = false;
+        public bool clearDepth = false;
 
         public override void Execute(RenderWrap renderWrap)
         {
@@ -34,7 +37,7 @@ namespace RenderPipelines
             }
 
             renderWrap.SetRootSignature(rs);
-            renderWrap.SetRenderTarget(renderTargets, depthStencil, true, true);
+            renderWrap.SetRenderTarget(renderTargets, depthStencil, clearRenderTarget, clearDepth);
             var desc = GetPSODesc(renderWrap, psoDesc);
             renderWrap.SetShader(shader, desc, keywords2);
             renderWrap.SetSRVs(srvs, null);
