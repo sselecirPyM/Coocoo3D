@@ -13,7 +13,8 @@ using ProRendererWrap;
 
 namespace RenderPipelines
 {
-    internal class RadeonProRender : RenderPipeline, IDisposable
+    [UIShow(name: "Radeon ProRender")]
+    public class RadeonProRender : RenderPipeline, IDisposable
     {
         [AOV(AOVType.Color)]
         [Size("Output")]

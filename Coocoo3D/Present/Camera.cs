@@ -21,6 +21,18 @@ namespace Coocoo3D.Present
         public Vector3 Position;
         public float far;
         public float near;
+
+        public CameraData GetJitter(Vector2 offset)
+        {
+            CameraData cameraData = this;
+
+            cameraData.pMatrix.M31 += offset.X;
+            cameraData.pMatrix.M32 += offset.Y;
+            cameraData.vpMatrix = Matrix4x4.Multiply(cameraData.vMatrix, cameraData.pMatrix);
+            Matrix4x4.Invert(cameraData.vpMatrix, out cameraData.pvMatrix);
+
+            return cameraData;
+        }
     }
     public class Camera
     {

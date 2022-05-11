@@ -1,12 +1,15 @@
 ﻿using Caprice.Attributes;
 using Coocoo3D.Present;
 using Coocoo3D.RenderPipeline;
+using Coocoo3D.Utility;
 using Coocoo3DGraphics;
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Numerics;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -23,8 +26,8 @@ namespace RenderPipelines
             {
                 blendState = BlendState.None,
                 cullMode = CullMode.None,
-                depthBias = 1000,
-                slopeScaledDepthBias = 1.0f,
+                depthBias = 2000,
+                slopeScaledDepthBias = 1.5f,
             },
             enablePS = false,
             CBVPerObject = new object[]
@@ -129,8 +132,13 @@ namespace RenderPipelines
                     "AODistance",
                     Vector3.Zero,
                     "AOLimit",
-                    "AORaySampleCount"
-
+                    "AORaySampleCount",
+                    nameof(RandomI),
+                    nameof(Split),
+                },
+                new object[]
+                {
+                    null
                 }
             },
             AutoKeyMap =
@@ -139,6 +147,8 @@ namespace RenderPipelines
                 ("EnableSSAO","ENABLE_SSAO")
             }
         };
+
+        public Random random = new Random(0);
 
         public DrawObjectPass drawObjectTransparent = new DrawObjectPass()
         {
@@ -164,6 +174,7 @@ namespace RenderPipelines
             },
             CBVPerObject = new object[]
             {
+                null,
                 null,
                 "Metallic",
                 "Roughness",
@@ -191,6 +202,7 @@ namespace RenderPipelines
                 "FogDensity",
                 "FogStartDistance",
                 "FogEndDistance",
+                nameof(Split),
             },
             AutoKeyMap =
             {
@@ -254,8 +266,14 @@ namespace RenderPipelines
         [Indexable]
         public (int, int) OutputSize;
 
+        [Indexable]
+        public int RandomI;
+
         public string renderTarget;
         public string depthStencil;
+
+        [Indexable]
+        public int Split;
 
         public void SetCamera(CameraData camera)
         {
@@ -290,7 +308,10 @@ namespace RenderPipelines
             rayTracingPass.RenderTarget = "gbuffer2";
             rayTracingPass.srvs[3] = depthStencil;
 
+            RandomI = random.Next();
+
             var dls = renderWrap.directionalLights;
+            var pls = renderWrap.pointLights;
             if (dls.Count > 0)
             {
                 var dl = dls[0];
@@ -318,6 +339,7 @@ namespace RenderPipelines
             if (debugKeywords.TryGetValue(renderWrap.DebugRenderType, out string debugKeyword))
             {
                 finalPass.keywords.Add((debugKeyword, "1"));
+                drawObjectTransparent.keywords.Add((debugKeyword, "1"));
             }
 
             var outputTex = renderWrap.GetRenderTexture2D(renderTarget);
@@ -328,12 +350,40 @@ namespace RenderPipelines
             {
                 renderWrap.SetRenderTarget(null, "_ShadowMap", false, true);
                 var shadowMap = renderWrap.GetRenderTexture2D("_ShadowMap");
+                int width = shadowMap.width;
+                int height = shadowMap.height;
                 drawShadowMap.CBVPerObject[1] = ShadowMapVP;
-                drawShadowMap.scissorViewport = new Rectangle(0, 0, shadowMap.width / 2, shadowMap.height / 2);
+                drawShadowMap.scissorViewport = new Rectangle(0, 0, width / 2, height / 2);
                 drawShadowMap.Execute(renderWrap);
                 drawShadowMap.CBVPerObject[1] = ShadowMapVP1;
-                drawShadowMap.scissorViewport = new Rectangle(shadowMap.width / 2, 0, shadowMap.width / 2, shadowMap.height / 2);
+                drawShadowMap.scissorViewport = new Rectangle(width / 2, 0, width / 2, height / 2);
                 drawShadowMap.Execute(renderWrap);
+            }
+
+            Split = SplitTest(pls.Count * 12);
+            byte[] pointLightData = null;
+            if (pls.Count > 0)
+            {
+                DrawPointShadow(renderWrap);
+                pointLightData = ArrayPool<byte>.Shared.Rent(pls.Count * 32);
+                var spanWriter = new SpanWriter<PointLightData>(MemoryMarshal.Cast<byte, PointLightData>(pointLightData));
+                for (int i = 0; i < pls.Count; i++)
+                {
+                    PointLightData pointLightData1 = new PointLightData
+                    {
+                        Position = pls[i].Position,
+                        Color = pls[i].Color,
+                        Range = pls[i].Range
+                    };
+                    spanWriter.Write(pointLightData1);
+                }
+                finalPass.cbvs[1][0] = (pointLightData, pls.Count * 32);
+                finalPass.keywords.Add(("ENABLE_POINT_LIGHT", "1"));
+                finalPass.keywords.Add(("POINT_LIGHT_COUNT", pls.Count.ToString()));
+
+                drawObjectTransparent.CBVPerObject[1] = (pointLightData, pls.Count * 32);
+                drawObjectTransparent.keywords.Add(("ENABLE_POINT_LIGHT", "1"));
+                drawObjectTransparent.keywords.Add(("POINT_LIGHT_COUNT", pls.Count.ToString()));
             }
             drawGBuffer.Execute(renderWrap);
             if (rayTracing)
@@ -345,15 +395,94 @@ namespace RenderPipelines
             drawObjectTransparent.Execute(renderWrap);
             renderWrap.PopParameters();
 
+            if (pls.Count > 0)
+            {
+                finalPass.cbvs[1][0] = null;
+                drawObjectTransparent.CBVPerObject[1] = null;
+                ArrayPool<byte>.Shared.Return(pointLightData);
+            }
             drawGBuffer.keywords.Clear();
             drawObjectTransparent.keywords.Clear();
             finalPass.keywords.Clear();
         }
 
+        static Matrix4x4 GetShadowMapMatrix(Vector3 pos, Vector3 dir, Vector3 up, float near, float far)
+        {
+            return Matrix4x4.CreateLookAt(pos, pos + dir, up)
+             * Matrix4x4.CreatePerspectiveFieldOfView(1.57079632679f, 1, near, far);
+        }
+
+        static Rectangle GetRectangle(int index, int split, int width, int height)
+        {
+            float xOffset = (float)(index % split) / split;
+            float yOffset = (float)(index / split) / split;
+            float size = 1.0f / split;
+
+            int x = (int)(width * xOffset);
+            int y = (int)(height * (yOffset + 0.5f));
+            int sizeX1 = (int)(width * size);
+            int sizeY1 = (int)(height * size);
+
+            return new Rectangle(x, y, sizeX1, sizeY1);
+        }
+
+        void DrawPointShadow(RenderWrap renderWrap)
+        {
+            int index = 0;
+            var shadowMap = renderWrap.GetRenderTexture2D("_ShadowMap");
+            int width = shadowMap.width;
+            int height = shadowMap.height;
+            foreach (var pl in renderWrap.pointLights)
+            {
+                var lightRange = pl.Range;
+                float near = lightRange * 0.001f;
+                float far = lightRange;
+
+                drawShadowMap.CBVPerObject[1] = GetShadowMapMatrix(pl.Position, new Vector3(1, 0, 0), new Vector3(0, -1, 0), near, far);
+                drawShadowMap.scissorViewport = GetRectangle(index, Split, width, height);
+                drawShadowMap.Execute(renderWrap);
+                index++;
+
+                drawShadowMap.CBVPerObject[1] = GetShadowMapMatrix(pl.Position, new Vector3(-1, 0, 0), new Vector3(0, 1, 0), near, far);
+                drawShadowMap.scissorViewport = GetRectangle(index, Split, width, height);
+                drawShadowMap.Execute(renderWrap);
+                index++;
+
+                drawShadowMap.CBVPerObject[1] = GetShadowMapMatrix(pl.Position, new Vector3(0, 1, 0), new Vector3(0, 0, -1), near, far);
+                drawShadowMap.scissorViewport = GetRectangle(index, Split, width, height);
+                drawShadowMap.Execute(renderWrap);
+                index++;
+
+                drawShadowMap.CBVPerObject[1] = GetShadowMapMatrix(pl.Position, new Vector3(0, -1, 0), new Vector3(0, 0, 1), near, far);
+                drawShadowMap.scissorViewport = GetRectangle(index, Split, width, height);
+                drawShadowMap.Execute(renderWrap);
+                index++;
+
+                drawShadowMap.CBVPerObject[1] = GetShadowMapMatrix(pl.Position, new Vector3(0, 0, 1), new Vector3(-1, 0, 0), near, far);
+                drawShadowMap.scissorViewport = GetRectangle(index, Split, width, height);
+                drawShadowMap.Execute(renderWrap);
+                index++;
+
+                drawShadowMap.CBVPerObject[1] = GetShadowMapMatrix(pl.Position, new Vector3(0, 0, -1), new Vector3(1, 0, 0), near, far);
+                drawShadowMap.scissorViewport = GetRectangle(index, Split, width, height);
+                drawShadowMap.Execute(renderWrap);
+                index++;
+            }
+        }
+
+        static int SplitTest(int v)
+        {
+            int pointLightSplit = 2;
+            for (int i = 4; i * i < v; i += 2)
+                pointLightSplit = i;
+            pointLightSplit *= 2;
+            return pointLightSplit;
+        }
 
         static Dictionary<DebugRenderType, string> debugKeywords = new Dictionary<DebugRenderType, string>()
         {
             { DebugRenderType.Albedo,"DEBUG_ALBEDO"},
+            { DebugRenderType.AO,"DEBUG_AO"},
             { DebugRenderType.Bitangent,"DEBUG_BITANGENT"},
             { DebugRenderType.Depth,"DEBUG_DEPTH"},
             { DebugRenderType.Diffuse,"DEBUG_DIFFUSE"},

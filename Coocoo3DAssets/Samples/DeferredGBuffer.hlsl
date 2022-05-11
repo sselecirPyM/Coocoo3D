@@ -56,9 +56,12 @@ Texture2D Emissive :register(t3);
 Texture2D NormalMap :register(t4);
 float2 NormalEncode(float3 n)
 {
-	float2 enc = normalize(n.xy + float2(1e-6, 0)) * (sqrt(-n.z * 0.5 + 0.5));
-	enc = enc * 0.5 + 0.5;
-	return enc;
+	n.xy /= dot(1, abs(n));
+	if (n.z <= 0)
+	{
+		n.xy = (1 - abs(n.yx)) * (n.xy >= 0 ? float2(1, 1) : float2(-1, -1));
+	}
+	return n.xy;
 }
 
 struct MRTOutput

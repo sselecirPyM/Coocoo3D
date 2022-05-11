@@ -3,6 +3,7 @@ using Coocoo3DGraphics;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -38,5 +39,7 @@ namespace Coocoo3D.RenderPipeline
         public BakeDependencyAttribute bakeDependencyAttribute;
 
         public SrgbAttribute srgbAttribute;
+
+        public FieldInfo fieldInfo;
     }
 }

@@ -8,6 +8,7 @@ using Caprice.Attributes;
 using Coocoo3DGraphics;
 using Coocoo3D.UI.Attributes;
 using System.IO;
+using Coocoo3D.Utility;
 
 namespace Coocoo3D.RenderPipeline
 {
@@ -80,6 +81,7 @@ namespace Coocoo3D.RenderPipeline
                     bakeDependencyAttribute = bakeDependencyAttribute,
                     srgbAttribute = srgbAttribute,
                     name = field.Name,
+                    fieldInfo = field,
                 };
                 RenderTextures[field.Name] = rt;
 
@@ -270,6 +272,25 @@ namespace Coocoo3D.RenderPipeline
             else if (rt.textureCube != null && rt.runtimeBakeAttribute is ITextureCubeBaker baker2)
             {
                 rt.baked = baker2.Bake(rt.textureCube, renderWrap, ref rt.bakeTag);
+            }
+        }
+
+        public void Export(Dictionary<string, object> settings)
+        {
+            foreach (var uiUsage in UIUsages)
+            {
+                settings[uiUsage.Key] = uiUsage.Value.MemberInfo.GetValue<object>(renderPipeline);
+            }
+        }
+
+        public void Import(Dictionary<string, object> settings)
+        {
+            foreach (var uiUsage in UIUsages)
+            {
+                if (settings.TryGetValue(uiUsage.Key, out object value) && uiUsage.Value.MemberInfo.GetGetterType() == value.GetType())
+                {
+                    uiUsage.Value.MemberInfo.SetValue(renderPipeline, value);
+                }
             }
         }
 

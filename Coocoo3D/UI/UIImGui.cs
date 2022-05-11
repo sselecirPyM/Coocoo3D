@@ -11,6 +11,7 @@ using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 using System.IO;
+using System.Reflection;
 
 namespace Coocoo3D.UI
 {
@@ -247,7 +248,11 @@ namespace Coocoo3D.UI
                 string[] newRPs = new string[rpc.RenderPipelineTypes.Length];
                 for (int i = 0; i < newRPs.Length; i++)
                 {
-                    newRPs[i] = rpc.RenderPipelineTypes[i].ToString();
+                    var uiShowAttribute = rpc.RenderPipelineTypes[i].GetCustomAttribute(typeof(UIShowAttribute), true) as UIShowAttribute;
+                    if (uiShowAttribute != null)
+                        newRPs[i] = uiShowAttribute.Name;
+                    else
+                        newRPs[i] = rpc.RenderPipelineTypes[i].ToString();
                     if (rpc.RenderPipelineTypes[i] == rpc.currentChannel.renderPipeline?.GetType())
                     {
                         renderPipelineIndex = i;
@@ -321,7 +326,7 @@ namespace Coocoo3D.UI
         {
             if (view == null) return;
             ImGui.Separator();
-            string filter = ImFilter("过滤参数", "参数名称");
+            string filter = ImFilter("查找参数", "搜索参数名称");
 
             var renderPipeline = view.renderPipeline;
             foreach (var param in view.UIUsages)
@@ -475,7 +480,7 @@ namespace Coocoo3D.UI
         {
             if (view == null) return;
             ImGui.Separator();
-            string filter = ImFilter("过滤参数", "参数名称");
+            string filter = ImFilter("查找参数", "搜索参数名称");
 
             var renderPipeline = view.renderPipeline;
             foreach (var param in view.UIUsages)

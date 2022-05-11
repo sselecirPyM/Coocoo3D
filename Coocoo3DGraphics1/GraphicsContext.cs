@@ -772,6 +772,13 @@ namespace Coocoo3DGraphics
             InReference(mesh.resource);
         }
 
+        public void CopyTexture(Texture2D target, Texture2D source)
+        {
+            target.StateChange(m_commandList, ResourceStates.GenericRead);
+            source.StateChange(m_commandList, ResourceStates.CopyDestination);
+            m_commandList.CopyResource(target.resource, source.resource);
+        }
+
         public void CopyTexture(ReadBackTexture2D target, Texture2D texture2D, int index)
         {
             var backBuffer = texture2D.resource;

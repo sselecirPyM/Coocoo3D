@@ -91,11 +91,12 @@ SamplerState s3 : register(s3);
 #define SH_RESOLUTION (16)
 float3 NormalDecode(float2 enc)
 {
-	float4 nn = float4(enc * 2, 0, 0) + float4(-1, -1, 1, -1);
-	float l = dot(nn.xyz, -nn.xyw);
-	nn.z = l;
-	nn.xy *= sqrt(max(l, 1e-6));
-	return nn.xyz * 2 + float3(0, 0, -1);
+	float3 n = float3(enc, 1 - dot(1, abs(enc)));
+	if (n.z < 0)
+	{
+		n.xy = (1 - abs(n.yx)) * (n.xy >= 0 ? float2(1, 1) : float2(-1, -1));
+	}
+	return normalize(n);
 }
 
 struct VSIn
@@ -183,6 +184,14 @@ float pointInLight(int index, float3 position)
 	return inShadow;
 }
 #endif
+
+float PointShadow(int index, float2 samplePos)
+{
+	float x = (float)(index % g_lightMapSplit) / (float)g_lightMapSplit;
+	float y = (float)(index / g_lightMapSplit) / (float)g_lightMapSplit;
+	float shadowDepth = ShadowMap.SampleLevel(s3, samplePos / g_lightMapSplit + float2(x, y + 0.5), 0);
+	return shadowDepth;
+}
 float4 psmain(PSIn input) : SV_TARGET
 {
 	float2 uv = input.texcoord;
@@ -354,9 +363,7 @@ float4 psmain(PSIn input) : SV_TARGET
 					samplePos.x = 1 - samplePos.x;
 				if (L.x > 0)
 					mapindex++;
-				float _x = (float)(mapindex % g_lightMapSplit) / (float)g_lightMapSplit;
-				float _y = (float)(mapindex / g_lightMapSplit) / (float)g_lightMapSplit;
-				float shadowDepth = ShadowMap.SampleLevel(s3, samplePos / g_lightMapSplit + float2(_x, _y + 0.5), 0);
+				float shadowDepth = PointShadow(mapindex, samplePos);
 				inShadow = (shadowDepth) > getDepth(abs(vl.x), lightRange * 0.001f, lightRange) ? 1 : 0;
 			}
 			else if (absL.y > absL.z)
@@ -367,9 +374,7 @@ float4 psmain(PSIn input) : SV_TARGET
 					samplePos.x = 1 - samplePos.x;
 				if (L.y > 0)
 					mapindex++;
-				float _x = (float)(mapindex % g_lightMapSplit) / (float)g_lightMapSplit;
-				float _y = (float)(mapindex / g_lightMapSplit) / (float)g_lightMapSplit;
-				float shadowDepth = ShadowMap.SampleLevel(s3, samplePos / g_lightMapSplit + float2(_x, _y + 0.5), 0);
+				float shadowDepth = PointShadow(mapindex, samplePos);
 				inShadow = (shadowDepth) > getDepth(abs(vl.y), lightRange * 0.001f, lightRange) ? 1 : 0;
 			}
 			else
@@ -380,9 +385,7 @@ float4 psmain(PSIn input) : SV_TARGET
 					samplePos.x = 1 - samplePos.x;
 				if (L.z > 0)
 					mapindex++;
-				float _x = (float)(mapindex % g_lightMapSplit) / (float)g_lightMapSplit;
-				float _y = (float)(mapindex / g_lightMapSplit) / (float)g_lightMapSplit;
-				float shadowDepth = ShadowMap.SampleLevel(s3, samplePos / g_lightMapSplit + float2(_x, _y + 0.5), 0);
+				float shadowDepth = PointShadow(mapindex, samplePos);
 				inShadow = (shadowDepth) > getDepth(abs(vl.z), lightRange * 0.001f, lightRange) ? 1 : 0;
 			}
 

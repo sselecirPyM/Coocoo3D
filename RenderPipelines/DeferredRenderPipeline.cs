@@ -26,8 +26,16 @@ namespace RenderPipelines
         public Texture2D depth;
 
         [Size("Output")]
+        [Format(ResourceFormat.D32_Float)]
+        public Texture2D depth2;
+
+        [Size("Output")]
         [Format(ResourceFormat.R16G16B16A16_Float)]
         public Texture2D noPostProcess;
+
+        [Size("Output")]
+        [Format(ResourceFormat.R16G16B16A16_Float)]
+        public Texture2D noPostProcess2;
 
         [Size("Output")]
         [Format(ResourceFormat.R16G16B16A16_Float)]
@@ -53,6 +61,9 @@ namespace RenderPipelines
         [Size("HalfOutput")]
         [Format(ResourceFormat.R16G16B16A16_Float)]
         public Texture2D intermedia1;
+        [Size("Output")]
+        [Format(ResourceFormat.R16G16B16A16_Float)]
+        public Texture2D intermedia2;
 
         [Size(4096, 4096)]
         [Format(ResourceFormat.D32_Float)]
@@ -80,6 +91,7 @@ namespace RenderPipelines
         [EnvironmentReflection(nameof(_SkyBox))]
         [BakeDependency(nameof(_SkyBox))]
         public TextureCube _Environment;
+
         #region Parameters
         [Indexable]
         [UIDragFloat(0.01f, 0, name: "天空盒亮度")]
@@ -144,7 +156,7 @@ namespace RenderPipelines
 
         [Indexable]
         [UIDragFloat(0.1f, 0.1f, name: "AO限制")]
-        public float AOLimit = 0.5f;
+        public float AOLimit = 0.3f;
 
         [Indexable]
         [UIDragInt(1, 0, 128, name: "AO光线采样次数")]
@@ -160,6 +172,13 @@ namespace RenderPipelines
         [Indexable]
         [UIDragFloat(0.01f, 0, 1.0f, name: "光线追踪反射阈值")]
         public float RayTracingReflectionThreshold = 0.5f;
+
+        [UIShow(name: "启用TAA")]
+        public bool EnableTAA;
+
+        [UIDragFloat(0.01f,name: "TAA系数")]
+        [Indexable]
+        public float TAAFactor = 0.3f;
 
         #endregion
 
@@ -227,9 +246,24 @@ namespace RenderPipelines
         #endregion
 
         [Indexable]
+        public float cameraFar;
+        [Indexable]
+        public float cameraNear;
+        [Indexable]
+        public Matrix4x4 ViewProjection = Matrix4x4.Identity;
+        [Indexable]
+        public Matrix4x4 InvertViewProjection = Matrix4x4.Identity;
+
+        [Indexable]
         public Matrix4x4 _ViewProjection = Matrix4x4.Identity;
         [Indexable]
         public Matrix4x4 _InvertViewProjection = Matrix4x4.Identity;
+
+        Random random = new Random(0);
+        [Indexable]
+        public int outputWidth;
+        [Indexable]
+        public int outputHeight;
 
         public DeferredRenderPass deferredRenderPass = new DeferredRenderPass()
         {
@@ -242,28 +276,66 @@ namespace RenderPipelines
             inputColor = nameof(noPostProcess),
             inputDepth = nameof(depth),
             output = nameof(output),
+        };
 
+        public TAAPass taaPass = new TAAPass()
+        {
+            target = nameof(noPostProcess),
+            depth = nameof(depth),
+            history = nameof(noPostProcess2),
+            historyDepth = nameof(depth2),
+            cbv = new object[]
+            {
+                nameof(ViewProjection),
+                nameof(InvertViewProjection),
+                nameof(_ViewProjection),
+                nameof(_InvertViewProjection),
+                nameof(outputWidth),
+                nameof(outputHeight),
+                nameof(cameraFar),
+                nameof(cameraNear),
+                nameof(TAAFactor),
+            }
         };
 
         public override void BeforeRender()
         {
-            renderWrap.GetOutputSize(out int width, out int height);
-            renderWrap.SetSize("Output", width, height);
-            renderWrap.SetSize("HalfOutput", (width + 1) / 2, (height + 1) / 2);
+            renderWrap.GetOutputSize(out outputWidth, out outputHeight);
+            renderWrap.SetSize("Output", outputWidth, outputHeight);
+            renderWrap.SetSize("HalfOutput", (outputWidth + 1) / 2, (outputHeight + 1) / 2);
             renderWrap.texLoading = renderWrap.GetTex2DLoaded("loading.png");
             renderWrap.texError = renderWrap.GetTex2DLoaded("error.png");
         }
 
         public override void Render()
         {
+            var camera = renderWrap.Camera;
+            ViewProjection = camera.vpMatrix;
+            InvertViewProjection = camera.pvMatrix;
+            cameraFar = camera.far;
+            cameraNear = camera.near;
+            if (EnableTAA)
+            {
+                Vector2 jitterVector = new Vector2((float)(random.NextDouble() * 2 - 1) / outputWidth, (float)(random.NextDouble() * 2 - 1) / outputHeight);
+                camera = camera.GetJitter(jitterVector);
+            }
+
             deferredRenderPass.Brightness = Brightness;
             deferredRenderPass.rayTracing = EnableRayTracing;
-            var camera = renderWrap.Camera;
+            postProcess.EnableBloom = EnableBloom;
+
             deferredRenderPass.SetCamera(camera);
             deferredRenderPass.Execute(renderWrap);
 
-            postProcess.EnableBloom = EnableBloom;
+            if (EnableTAA)
+            {
+                taaPass.Execute(renderWrap);
+            }
             postProcess.Execute(renderWrap);
+
+            renderWrap.Swap(nameof(noPostProcess), nameof(noPostProcess2));
+            renderWrap.Swap(nameof(depth), nameof(depth2));
+            camera = renderWrap.Camera;
             _ViewProjection = camera.vpMatrix;
             _InvertViewProjection = camera.pvMatrix;
         }

@@ -12,10 +12,6 @@ namespace RenderPipelines
     {
         public BloomPass bloomPass = new BloomPass()
         {
-            renderTargets = new string[]
-            {
-                null,
-            },
             intermediaTexture = "intermedia1",
             cbvs = new object[][]
             {
@@ -66,11 +62,18 @@ namespace RenderPipelines
 
         public void Execute(RenderWrap renderWrap)
         {
-            bloomPass.renderTargets[0] = inputColor;
             if (EnableBloom)
+            {
+                bloomPass.input = inputColor;
+                bloomPass.output = "intermedia2";
                 bloomPass.Execute(renderWrap);
+                postProcess.srvs[0] = "intermedia2";
+            }
+            else
+            {
+                postProcess.srvs[0] = inputColor;
+            }
 
-            postProcess.srvs[0] = inputColor;
             postProcess.renderTargets[0] = output;
             postProcess.Execute(renderWrap);
         }

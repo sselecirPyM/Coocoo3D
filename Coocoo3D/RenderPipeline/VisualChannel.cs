@@ -34,6 +34,8 @@ namespace Coocoo3D.RenderPipeline
         public string newRenderPipelinePath;
         public RenderPipelineContext rpc;
 
+        public Dictionary<string, object> pipelineSettings = new();
+
         public VisualChannel()
         {
         }
@@ -61,11 +63,13 @@ namespace Coocoo3D.RenderPipeline
         {
             if (newRenderPipelineType != null)
             {
-                #region
+                if (renderPipelineView != null)
+                {
+                    renderPipelineView.Export(pipelineSettings);
+                }
                 if (renderPipeline is IDisposable disposable0)
                     disposable0.Dispose();
                 renderPipelineView?.Dispose();
-                #endregion
 
                 SetRenderPipeline((RenderPipeline)Activator.CreateInstance(newRenderPipelineType),
                     rpc, newRenderPipelinePath);
@@ -100,6 +104,7 @@ namespace Coocoo3D.RenderPipeline
             };
             renderPipeline.renderWrap = renderWrap;
             renderPipelineView.renderWrap = renderWrap;
+            renderPipelineView.Import(pipelineSettings);
         }
 
         public void PrepareRenderTarget(PassSetting passSetting, Format outputFormat)

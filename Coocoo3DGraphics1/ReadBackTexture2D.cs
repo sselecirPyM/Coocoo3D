@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using Vortice.Direct3D12;
 using static Coocoo3DGraphics.DXHelper;
+using Range = Vortice.Direct3D12.Range;
 
 namespace Coocoo3DGraphics
 {

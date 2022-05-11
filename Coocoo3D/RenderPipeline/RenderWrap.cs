@@ -113,7 +113,7 @@ namespace Coocoo3D.RenderPipeline
                     if (usage.textureCube != null)
                         graphicsContext.SetUAVTSlot(GetTexCube(usage), i);
                     else if (usage.texture2D != null)
-                        graphicsContext.SetUAVTSlot(GetTex2DFallBack(texture, material), i);
+                        graphicsContext.SetUAVTSlot(GetRenderTexture2D(texture), i);
                 }
             }
         }
@@ -487,7 +487,7 @@ namespace Coocoo3D.RenderPipeline
             return null;
         }
 
-        public void Dispatch(string computeShader, List<(string, string)> keywords, int x = 1, int y = 1, int z = 1)
+        public void Dispatch(string computeShader, IReadOnlyList<(string, string)> keywords, int x = 1, int y = 1, int z = 1)
         {
 
             var shader = rpc.mainCaches.GetComputeShaderWithKeywords(keywords, Path.GetFullPath(computeShader, BasePath));
@@ -534,7 +534,18 @@ namespace Coocoo3D.RenderPipeline
             var pipeline = RenderPipelineView.renderPipeline;
             if (obj is string s)
             {
-                if (indexable.TryGetValue(s, out var memberInfo))
+                bool t0 = false;
+                for (int i = dataFinders.Count - 1; i >= 0; i--)
+                {
+                    var finder = dataFinders[i];
+                    if (finder.Item2.TryGetValue(s, out var memberInfo1))
+                    {
+                        writer.WriteObject(memberInfo1.GetValue<object>(finder.Item1));
+                        t0 = true;
+                        break;
+                    }
+                }
+                if (!t0 && indexable.TryGetValue(s, out var memberInfo))
                 {
                     var type = memberInfo.GetGetterType();
                     if (material != null && material.Parameters.TryGetValue(s, out object obj1) &&
@@ -545,18 +556,6 @@ namespace Coocoo3D.RenderPipeline
                     else
                     {
                         writer.WriteObject(memberInfo.GetValue<object>(pipeline));
-                    }
-                }
-                else
-                {
-                    for (int i = dataFinders.Count - 1; i >= 0; i--)
-                    {
-                        var finder = dataFinders[i];
-                        if (finder.Item2.TryGetValue(s, out var memberInfo1))
-                        {
-                            writer.WriteObject(memberInfo1.GetValue<object>(finder.Item1));
-                            break;
-                        }
                     }
                 }
             }
@@ -572,6 +571,34 @@ namespace Coocoo3D.RenderPipeline
             {
                 writer.WriteObject(obj);
             }
+        }
+
+        public void Swap(string renderTexture1, string renderTexture2)
+        {
+            var rts = RenderPipelineView.RenderTextures;
+            rts.TryGetValue(renderTexture1, out var rt1);
+            rts.TryGetValue(renderTexture2, out var rt2);
+            if (rt1.width == rt2.width && rt1.height == rt2.height && rt1.resourceFormat == rt2.resourceFormat
+                && rt1.depth == rt2.depth && rt1.mips == rt2.mips)
+            {
+                if (rt1.texture2D != null && rt2.texture2D != null)
+                {
+                    (rt1.texture2D, rt2.texture2D) = (rt2.texture2D, rt1.texture2D);
+                    rt1.fieldInfo.SetValue(RenderPipelineView.renderPipeline, rt1.texture2D);
+                    rt2.fieldInfo.SetValue(RenderPipelineView.renderPipeline, rt2.texture2D);
+                }
+                else if (rt1.textureCube != null && rt2.textureCube != null)
+                {
+                    (rt1.textureCube, rt2.textureCube) = (rt2.textureCube, rt1.textureCube);
+                    rt1.fieldInfo.SetValue(RenderPipelineView.renderPipeline, rt1.textureCube);
+                    rt2.fieldInfo.SetValue(RenderPipelineView.renderPipeline, rt2.textureCube);
+                }
+            }
+        }
+
+        public void CopyTexture(Texture2D target, Texture2D source)
+        {
+            graphicsContext.CopyTexture(target, source);
         }
 
     }

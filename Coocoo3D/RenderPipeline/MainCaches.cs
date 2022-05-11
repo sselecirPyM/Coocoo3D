@@ -412,12 +412,12 @@ namespace Coocoo3D.RenderPipeline
             });
         }
 
-        public ComputeShader GetComputeShaderWithKeywords(List<ValueTuple<string, string>> keywords, string path)
+        public ComputeShader GetComputeShaderWithKeywords(IReadOnlyList<ValueTuple<string, string>> keywords, string path)
         {
             string xPath;
             if (keywords != null)
             {
-                keywords.Sort((x, y) => x.CompareTo(y));
+                //keywords.Sort((x, y) => x.CompareTo(y));
                 StringBuilder stringBuilder = new StringBuilder();
                 stringBuilder.Append(path);
                 foreach (var keyword in keywords)
@@ -460,12 +460,12 @@ namespace Coocoo3D.RenderPipeline
             return rayTracingShader;
         }
 
-        public RTPSO GetRTPSO(List<ValueTuple<string, string>> keywords, RayTracingShader shader, string path)
+        public RTPSO GetRTPSO(IReadOnlyList<ValueTuple<string, string>> keywords, RayTracingShader shader, string path)
         {
             string xPath;
             if (keywords != null)
             {
-                keywords.Sort((x, y) => x.CompareTo(y));
+                //keywords.Sort((x, y) => x.CompareTo(y));
                 StringBuilder stringBuilder = new StringBuilder();
                 stringBuilder.Append(path);
                 foreach (var keyword in keywords)

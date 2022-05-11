@@ -162,6 +162,14 @@ namespace Coocoo3D.RenderPipeline.Wrap
                     GetSpacing(16);
                     binaryWriter.Write(values);
                     break;
+                case ValueTuple<byte[], int> values:
+                    GetSpacing(16);
+                    binaryWriter.Write(values.Item1, 0, values.Item2);
+                    break;
+                case ValueTuple<byte[], int, int> values:
+                    GetSpacing(16);
+                    binaryWriter.Write(values.Item1, values.Item2, values.Item3);
+                    break;
             }
         }
 

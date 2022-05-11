@@ -219,6 +219,7 @@ half3 CompositeAllLightResults(half3 indirectResult, half3 mainLightResult, half
 	half3 rawLightSum = max(indirectResult, mainLightResult + additionalLightSumResult); // pick the highest between indirect and direct light
 	return surfaceData.albedo * rawLightSum + emissionResult;
 }
+
 #define SH_RESOLUTION (16)
 SamplerState s0 : register(s0);
 SamplerState s1 : register(s1);
@@ -237,6 +238,14 @@ cbuffer cbAnimMatrices : register(b0)
 {
 	float4x4 g_mConstBoneWorld[MAX_BONE_MATRICES];
 };
+
+float PointShadow(int index, float2 samplePos)
+{
+	float x = (float)(index % g_lightMapSplit) / (float)g_lightMapSplit;
+	float y = (float)(index / g_lightMapSplit) / (float)g_lightMapSplit;
+	float shadowDepth = ShadowMap0.SampleLevel(s3, samplePos / g_lightMapSplit + float2(x, y + 0.5), 0);
+	return shadowDepth;
+}
 
 struct PSSkinnedIn
 {
@@ -421,16 +430,6 @@ float4 psmain(PSSkinnedIn input) : SV_TARGET
 			float3 NdotL = saturate(dot(N, L));
 			float3 LdotH = saturate(dot(L, H));
 			float3 NdotH = saturate(dot(N, H));
-#if ENABLE_DIFFUSE
-			float diffuse_factor = Diffuse_Burley(NdotL, NdotV, LdotH, roughness);
-#else
-			float diffuse_factor = 0;
-#endif
-#if ENABLE_SPECULR
-			float3 specular_factor = Specular_BRDF(alpha, c_specular, NdotV, NdotL, LdotH, NdotH);
-#else
-			float3 specular_factor = 0;
-#endif
 
 			mainLightResult = ShadeSingleLight(surfaceData, lightingData, lightStrength, L, 1, inShadow, false);
 		}
@@ -467,9 +466,8 @@ float4 psmain(PSSkinnedIn input) : SV_TARGET
 				samplePos.x = 1 - samplePos.x;
 			if (L.x > 0)
 				mapindex++;
-			float _x = (float)(mapindex % g_lightMapSplit) / (float)g_lightMapSplit;
-			float _y = (float)(mapindex / g_lightMapSplit) / (float)g_lightMapSplit;
-			float shadowDepth = ShadowMap0.SampleLevel(s3, samplePos / g_lightMapSplit + float2(_x, _y + 0.5), 0);
+
+			float shadowDepth = PointShadow(mapindex, samplePos);
 			inShadow = (shadowDepth) > getDepth(abs(vl.x), lightRange * 0.001f, lightRange) ? 1 : 0;
 		}
 		else if (absL.y > absL.z)
@@ -480,9 +478,7 @@ float4 psmain(PSSkinnedIn input) : SV_TARGET
 				samplePos.x = 1 - samplePos.x;
 			if (L.y > 0)
 				mapindex++;
-			float _x = (float)(mapindex % g_lightMapSplit) / (float)g_lightMapSplit;
-			float _y = (float)(mapindex / g_lightMapSplit) / (float)g_lightMapSplit;
-			float shadowDepth = ShadowMap0.SampleLevel(s3, samplePos / g_lightMapSplit + float2(_x, _y + 0.5), 0);
+			float shadowDepth = PointShadow(mapindex, samplePos);
 			inShadow = (shadowDepth) > getDepth(abs(vl.y), lightRange * 0.001f, lightRange) ? 1 : 0;
 		}
 		else
@@ -493,22 +489,10 @@ float4 psmain(PSSkinnedIn input) : SV_TARGET
 				samplePos.x = 1 - samplePos.x;
 			if (L.z > 0)
 				mapindex++;
-			float _x = (float)(mapindex % g_lightMapSplit) / (float)g_lightMapSplit;
-			float _y = (float)(mapindex / g_lightMapSplit) / (float)g_lightMapSplit;
-			float shadowDepth = ShadowMap0.SampleLevel(s3, samplePos / g_lightMapSplit + float2(_x, _y + 0.5), 0);
+			float shadowDepth = PointShadow(mapindex, samplePos);
 			inShadow = (shadowDepth) > getDepth(abs(vl.z), lightRange * 0.001f, lightRange) ? 1 : 0;
 		}
 
-#if ENABLE_DIFFUSE
-		float diffuse_factor = Diffuse_Burley(NdotL, NdotV, LdotH, roughness);
-#else
-		float diffuse_factor = 0;
-#endif
-#if ENABLE_SPECULR
-		float3 specular_factor = Specular_BRDF(alpha, c_specular, NdotV, NdotL, LdotH, NdotH);
-#else
-		float3 specular_factor = 0;
-#endif
 		float lightStrength1 = sqrt(dot(lightStrength, lightStrength) / 3);
 		additionalLightSumResult += ShadeSingleLight(surfaceData, lightingData, lightStrength / lightStrength1, L, lightStrength1 / lightDistance2, inShadow, true);
 	}
