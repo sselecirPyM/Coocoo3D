@@ -191,6 +191,10 @@ namespace Coocoo3D.RenderPipeline
                 if (bufferSize > bigBuffer.Length)
                     bigBuffer = new byte[bufferSize];
             }
+            Parallel.ForEach(renderers, renderer =>
+            {
+                renderer.ComputeVertexMorph();
+            });
             for (int i = 0; i < renderers.Count; i++)
             {
                 var renderer = renderers[i];

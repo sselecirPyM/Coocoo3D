@@ -92,6 +92,12 @@ namespace RenderPipelines
         [BakeDependency(nameof(_SkyBox))]
         public TextureCube _Environment;
 
+        [Size("GIBufferSize")]
+        public GPUBuffer GIBuffer;
+
+        [Size("GIBufferSize")]
+        public GPUBuffer GIBufferWrite;
+
         #region Parameters
         [Indexable]
         [UIDragFloat(0.01f, 0, name: "天空盒亮度")]
@@ -155,7 +161,7 @@ namespace RenderPipelines
         public float AODistance = 1;
 
         [Indexable]
-        [UIDragFloat(0.1f, 0.1f, name: "AO限制")]
+        [UIDragFloat(0.01f, 0.1f, name: "AO限制")]
         public float AOLimit = 0.3f;
 
         [Indexable]
@@ -173,10 +179,25 @@ namespace RenderPipelines
         [UIDragFloat(0.01f, 0, 1.0f, name: "光线追踪反射阈值")]
         public float RayTracingReflectionThreshold = 0.5f;
 
-        [UIShow(name: "启用TAA")]
+        [UIShow(name: "更新全局光照")]
+        public bool UpdateGI;
+
+        [Indexable]
+        [UIDragFloat(1.0f, name: "全局光照位置")]
+        public Vector3 GIVolumePosition = new Vector3(0, 2.5f, 0);
+
+        [Indexable]
+        [UIDragFloat(1.0f, name: "全局光照范围")]
+        public Vector3 GIVolumeSize = new Vector3(20, 5, 20);
+
+        [Indexable]
+        [UIShow(name: "使用全局光照")]
+        public bool UseGI;
+
+        [UIShow(name: "启用TAA抗锯齿")]
         public bool EnableTAA;
 
-        [UIDragFloat(0.01f,name: "TAA系数")]
+        [UIDragFloat(0.01f, name: "TAA系数")]
         [Indexable]
         public float TAAFactor = 0.3f;
 
@@ -303,6 +324,7 @@ namespace RenderPipelines
             renderWrap.GetOutputSize(out outputWidth, out outputHeight);
             renderWrap.SetSize("Output", outputWidth, outputHeight);
             renderWrap.SetSize("HalfOutput", (outputWidth + 1) / 2, (outputHeight + 1) / 2);
+            renderWrap.SetSize("GIBufferSize", 589824, 1);
             renderWrap.texLoading = renderWrap.GetTex2DLoaded("loading.png");
             renderWrap.texError = renderWrap.GetTex2DLoaded("error.png");
         }
@@ -322,6 +344,7 @@ namespace RenderPipelines
 
             deferredRenderPass.Brightness = Brightness;
             deferredRenderPass.rayTracing = EnableRayTracing;
+            deferredRenderPass.updateGI = UpdateGI;
             postProcess.EnableBloom = EnableBloom;
 
             deferredRenderPass.SetCamera(camera);

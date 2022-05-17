@@ -65,11 +65,12 @@ float4 ImportanceSampleGGX(float2 E, float a2)
 
 float3 NormalDecode(float2 enc)
 {
-	float4 nn = float4(enc * 2, 0, 0) + float4(-1, -1, 1, -1);
-	float l = dot(nn.xyz, -nn.xyw);
-	nn.z = l;
-	nn.xy *= sqrt(max(l, 1e-6));
-	return nn.xyz * 2 + float3(0, 0, -1);
+	float3 n = float3(enc, 1 - dot(1, abs(enc)));
+	if (n.z < 0)
+	{
+		n.xy = (1 - abs(n.yx)) * (n.xy >= 0 ? float2(1, 1) : float2(-1, -1));
+	}
+	return normalize(n);
 }
 
 struct LightInfo

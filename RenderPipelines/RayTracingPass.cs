@@ -38,16 +38,16 @@ namespace RenderPipelines
             nameof(InvertViewProjection),
             nameof(CameraPosition),
             "SkyLightMultiple",
-            Vector3.Zero,//"GIVolumePosition",
+            "GIVolumePosition",//"GIVolumePosition",
             "RayTracingReflectionQuality",
-            Vector3.Zero,//"GIVolumeSize",
+            "GIVolumeSize",//"GIVolumeSize",
             "RandomI",
             "RayTracingReflectionThreshold"
         };
 
         object[] cbv1 =
         {
-            null,//trnsform
+            null,//transform
             "ShadowMapVP",
             "ShadowMapVP1",
             "LightDir",
@@ -62,7 +62,7 @@ namespace RenderPipelines
 
         public string[] srvs;
 
-        private string[] uavs = { null };
+        private string[] uavs = { null, "GIBufferWrite" };
 
         [Indexable]
         public Matrix4x4 ViewProjection;
@@ -113,8 +113,7 @@ namespace RenderPipelines
             }
             if (UseGI)
                 keywords.Add(new("ENABLE_GI", "1"));
-            var rtpso = mainCaches.GetRTPSO(keywords,
-            rayTracingShader,
+            var rtpso = mainCaches.GetRTPSO(keywords, rayTracingShader,
             Path.GetFullPath(rayTracingShader.hlslFile, Path.GetDirectoryName(path1)));
 
             if (!graphicsContext.SetPSO(rtpso)) return;
@@ -145,6 +144,7 @@ namespace RenderPipelines
                 inst.SRVs.Add(5, renderWrap.GetTex2DFallBack("_Emissive", material));
                 inst.SRVs.Add(6, renderWrap.GetTex2DFallBack("_Metallic", material));
                 inst.SRVs.Add(7, renderWrap.GetTex2DFallBack("_Roughness", material));
+                inst.SRVs.Add(8, renderWrap.GetTex2DFallBack("_Roughness", material));
                 inst.CBVs = new();
                 inst.CBVs.Add(0, cbvData1);
                 tpas.instances.Add(inst);
@@ -164,7 +164,7 @@ namespace RenderPipelines
             for (int i = 0; i < uavs.Length; i++)
             {
                 string uav = uavs[i];
-                call.UAVs[i] = renderWrap.GetRenderTexture2D(uav);
+                call.UAVs[i] = renderWrap.GetResourceFallBack(uav);
             }
 
             call.SRVs = new();
@@ -175,7 +175,7 @@ namespace RenderPipelines
                 if (i == 1)
                     call.SRVs[i] = renderWrap.GetTexCube(srv);
                 else
-                    call.SRVs[i] = renderWrap.GetTex2DFallBack(srv);
+                    call.SRVs[i] = renderWrap.GetResourceFallBack(srv);
                 if (renderWrap.SlotIsLinear(srv))
                     call.srvFlags[i] = 1;
             }
@@ -184,12 +184,12 @@ namespace RenderPipelines
             call.CBVs.Add(0, cbvData0);
             call.missShaders = new[] { "miss" };
 
-            //if (RayTracingGI)
-            //{
-            //    call.rayGenShader = "rayGenGI";
-            //    graphicsContext.DispatchRays(16, 16, 16, call);
-            //    //param.SwapBuffer("GIBuffer", "GIBufferWrite");
-            //}
+            if (RayTracingGI)
+            {
+                call.rayGenShader = "rayGenGI";
+                graphicsContext.DispatchRays(16, 16, 16, call);
+                renderWrap.Swap("GIBuffer", "GIBufferWrite");
+            }
             if (RayTracing)
             {
                 call.rayGenShader = "rayGen";

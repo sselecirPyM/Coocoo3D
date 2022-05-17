@@ -200,7 +200,7 @@ namespace Coocoo3D.Core
             void UpdateGameObject1(MMDRendererComponent rendererComponent)
             {
                 rendererComponent?.ComputeMotion(playTime, mainCaches.GetMotion(rendererComponent.motionPath));
-                rendererComponent?.ComputeVertexMorph();
+                //rendererComponent?.ComputeVertexMorph();
             }
             Parallel.ForEach(rendererComponents, UpdateGameObject1);
         }

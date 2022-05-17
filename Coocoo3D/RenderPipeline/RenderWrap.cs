@@ -97,6 +97,10 @@ namespace Coocoo3D.RenderPipeline
                         else
                             graphicsContext.SetSRVTSlotLinear(GetTex2DFallBack(texture, material), i);
                     }
+                    else if (usage.gpuBuffer != null)
+                    {
+                        graphicsContext.SetSRVTSlot(usage.gpuBuffer, i);
+                    }
                 }
             }
         }
@@ -114,6 +118,8 @@ namespace Coocoo3D.RenderPipeline
                         graphicsContext.SetUAVTSlot(GetTexCube(usage), i);
                     else if (usage.texture2D != null)
                         graphicsContext.SetUAVTSlot(GetRenderTexture2D(texture), i);
+                    else if (usage.gpuBuffer != null)
+                        graphicsContext.SetUAVTSlot(usage.gpuBuffer, i);
                 }
             }
         }
@@ -126,6 +132,16 @@ namespace Coocoo3D.RenderPipeline
         public void SetUAV(TextureCube textureCube, int slot)
         {
             graphicsContext.SetUAVTSlot(textureCube, slot);
+        }
+
+        public void SetUAV(GPUBuffer buffer, int slot)
+        {
+            graphicsContext.SetUAVTSlot(buffer, slot);
+        }
+
+        public void SetSRV(GPUBuffer buffer, int slot)
+        {
+            graphicsContext.SetSRVTSlot(buffer, slot);
         }
 
         public void SetSRV(TextureCube textureCube, int slot)
@@ -293,6 +309,16 @@ namespace Coocoo3D.RenderPipeline
 
         public Texture2D texLoading;
         public Texture2D texError;
+
+        public object GetResourceFallBack(string name, RenderMaterial material = null)
+        {
+            if (RenderPipelineView.RenderTextures.TryGetValue(name, out var tex))
+            {
+                if (tex.gpuBuffer != null)
+                    return tex.gpuBuffer;
+            }
+            return GetTex2DFallBack(name, material);
+        }
 
         public Texture2D GetTex2DFallBack(string name, RenderMaterial material = null)
         {
@@ -592,6 +618,12 @@ namespace Coocoo3D.RenderPipeline
                     (rt1.textureCube, rt2.textureCube) = (rt2.textureCube, rt1.textureCube);
                     rt1.fieldInfo.SetValue(RenderPipelineView.renderPipeline, rt1.textureCube);
                     rt2.fieldInfo.SetValue(RenderPipelineView.renderPipeline, rt2.textureCube);
+                }
+                else if (rt1.gpuBuffer != null && rt2.gpuBuffer != null)
+                {
+                    (rt1.gpuBuffer, rt2.gpuBuffer) = (rt2.gpuBuffer, rt1.gpuBuffer);
+                    rt1.fieldInfo.SetValue(RenderPipelineView.renderPipeline, rt1.gpuBuffer);
+                    rt2.fieldInfo.SetValue(RenderPipelineView.renderPipeline, rt2.gpuBuffer);
                 }
             }
         }

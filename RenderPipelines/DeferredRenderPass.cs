@@ -99,7 +99,7 @@ namespace RenderPipelines
                 "_ShadowMap",
                 "_SkyBox",
                 "_BRDFLUT",
-
+                "GIBuffer",
             },
             cbvs = new object[][]
             {
@@ -128,9 +128,9 @@ namespace RenderPipelines
                     0,
                     nameof(LightColor),
                     0,
-                    Vector3.Zero,
+                    "GIVolumePosition",
                     "AODistance",
-                    Vector3.Zero,
+                    "GIVolumeSize",
                     "AOLimit",
                     "AORaySampleCount",
                     nameof(RandomI),
@@ -144,7 +144,8 @@ namespace RenderPipelines
             AutoKeyMap =
             {
                 ("EnableFog","ENABLE_FOG"),
-                ("EnableSSAO","ENABLE_SSAO")
+                ("EnableSSAO","ENABLE_SSAO"),
+                ("UseGI","ENABLE_GI"),
             }
         };
 
@@ -171,6 +172,7 @@ namespace RenderPipelines
                 "_Environment",
                 "_BRDFLUT",
                 "_Normal",
+                "GIBuffer",
             },
             CBVPerObject = new object[]
             {
@@ -203,10 +205,13 @@ namespace RenderPipelines
                 "FogStartDistance",
                 "FogEndDistance",
                 nameof(Split),
+                "GIVolumePosition",
+                "GIVolumeSize",
             },
             AutoKeyMap =
             {
                 ("UseNormalMap","USE_NORMAL_MAP"),
+                ("UseGI","ENABLE_GI"),
             },
             filter = FilterTransparent,
         };
@@ -223,11 +228,13 @@ namespace RenderPipelines
                 "gbuffer1",
                 "gbuffer2",
                 "_ShadowMap",
+                "GIBuffer",
             },
             RayTracingShader = "RayTracing.json",
         };
 
-        public bool rayTracing = true;
+        public bool rayTracing;
+        public bool updateGI;
 
         [Indexable]
         public Matrix4x4 ViewProjection;
@@ -386,9 +393,10 @@ namespace RenderPipelines
                 drawObjectTransparent.keywords.Add(("POINT_LIGHT_COUNT", pls.Count.ToString()));
             }
             drawGBuffer.Execute(renderWrap);
-            if (rayTracing)
+            if (rayTracing || updateGI)
             {
                 rayTracingPass.RayTracing = rayTracing;
+                rayTracingPass.RayTracingGI = updateGI;
                 rayTracingPass.Execute(renderWrap);
             }
             finalPass.Execute(renderWrap);
@@ -486,6 +494,7 @@ namespace RenderPipelines
             { DebugRenderType.Bitangent,"DEBUG_BITANGENT"},
             { DebugRenderType.Depth,"DEBUG_DEPTH"},
             { DebugRenderType.Diffuse,"DEBUG_DIFFUSE"},
+            { DebugRenderType.DiffuseProbes,"DEBUG_DIFFUSE_PROBES"},
             { DebugRenderType.DiffuseRender,"DEBUG_DIFFUSE_RENDER"},
             { DebugRenderType.Emissive,"DEBUG_EMISSIVE"},
             { DebugRenderType.Normal,"DEBUG_NORMAL"},

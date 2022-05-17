@@ -270,7 +270,7 @@ namespace Coocoo3DGraphics
                         if (call.UAVs != null && call.UAVs.TryGetValue(uavOffset, out object uav0))
                         {
                             if (uav0 is Texture2D tex2d)
-                                SetUAVTSlot(tex2d, uavOffset);
+                                SetRTSlot(tex2d, uavOffset);
                             else if (uav0 is GPUBuffer buffer)
                                 SetUAVTSlot(buffer, uavOffset);
                         }
@@ -425,6 +425,7 @@ namespace Coocoo3DGraphics
             currentCBVs[slot] = addr;
         }
 
+        public void SetRTSlot(Texture2D texture2D, int slot) => currentUAVs[slot] = GetUAVHandle(texture2D,ResourceStates.NonPixelShaderResource).Ptr;
         public void SetUAVTSlot(Texture2D texture2D, int slot) => currentUAVs[slot] = GetUAVHandle(texture2D).Ptr;
         public void SetUAVTSlot(TextureCube textureCube, int slot) => currentUAVs[slot] = GetUAVHandle(textureCube).Ptr;
         public void SetUAVTSlot(GPUBuffer buffer, int slot) => currentUAVs[slot] = GetUAVHandle(buffer).Ptr;
@@ -689,7 +690,8 @@ namespace Coocoo3DGraphics
         public void UpdateDynamicBuffer(GPUBuffer buffer)
         {
             CreateUAVBuffer(buffer.size, ref buffer.resource);
-            buffer.resource.Name = buffer.Name;
+            if (buffer.Name != null)
+                buffer.resource.Name = buffer.Name;
             buffer.resourceStates = ResourceStates.UnorderedAccess;
         }
 
@@ -1184,9 +1186,9 @@ namespace Coocoo3DGraphics
             writer.Write(addr);
         }
 
-        GpuDescriptorHandle GetUAVHandle(Texture2D texture)
+        GpuDescriptorHandle GetUAVHandle(Texture2D texture, ResourceStates state= ResourceStates.UnorderedAccess)
         {
-            texture.StateChange(m_commandList, ResourceStates.UnorderedAccess);
+            texture.StateChange(m_commandList, state);
 
             return CreateUAV(texture.resource, null);
         }
