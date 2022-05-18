@@ -159,7 +159,7 @@ namespace Coocoo3D.UI
             }
             if (ImGui.TreeNode("相机"))
             {
-                ImGui.DragFloat("距离", ref camera.Distance);
+                ImGui.DragFloat("距离", ref camera.Distance,0.01f);
                 ImGui.DragFloat3("焦点", ref camera.LookAtPoint, 0.05f);
                 Vector3 a = camera.Angle / MathF.PI * 180;
                 if (ImGui.DragFloat3("角度", ref a))
@@ -167,8 +167,8 @@ namespace Coocoo3D.UI
                 float fov = camera.Fov / MathF.PI * 180;
                 if (ImGui.DragFloat("FOV", ref fov, 0.5f, 0.1f, 179.9f))
                     camera.Fov = fov * MathF.PI / 180;
-                ImGui.DragFloat("近裁剪", ref camera.nearClip, 0.5f, 0.1f, float.MaxValue);
-                ImGui.DragFloat("远裁剪", ref camera.farClip, 10.0f, 0.1f, float.MaxValue);
+                ImGui.DragFloat("近裁剪", ref camera.nearClip, 0.01f, 0.01f, float.MaxValue);
+                ImGui.DragFloat("远裁剪", ref camera.farClip, 1.0f, 0.01f, float.MaxValue);
 
                 ImGui.Checkbox("使用镜头运动文件", ref camera.CameraMotionOn);
                 ImGui.TreePop();
@@ -240,59 +240,27 @@ namespace Coocoo3D.UI
             ComboBox("调试渲染", ref scene.settings.DebugRenderType);
 
             var rpc = main.RPContext;
-            ImGui.Checkbox("新渲染管线", ref rpc.NewRenderPipeline);
-            if (rpc.NewRenderPipeline)
+            ShowParam1(main, rpc.currentChannel.renderPipelineView);
+            int renderPipelineIndex = 0;
+            string[] newRPs = new string[rpc.RenderPipelineTypes.Length];
+            for (int i = 0; i < newRPs.Length; i++)
             {
-                ShowParam1(main, rpc.currentChannel.renderPipelineView);
-                int renderPipelineIndex = 0;
-                string[] newRPs = new string[rpc.RenderPipelineTypes.Length];
-                for (int i = 0; i < newRPs.Length; i++)
+                var uiShowAttribute = rpc.RenderPipelineTypes[i].GetCustomAttribute(typeof(UIShowAttribute), true) as UIShowAttribute;
+                if (uiShowAttribute != null)
+                    newRPs[i] = uiShowAttribute.Name;
+                else
+                    newRPs[i] = rpc.RenderPipelineTypes[i].ToString();
+                if (rpc.RenderPipelineTypes[i] == rpc.currentChannel.renderPipeline?.GetType())
                 {
-                    var uiShowAttribute = rpc.RenderPipelineTypes[i].GetCustomAttribute(typeof(UIShowAttribute), true) as UIShowAttribute;
-                    if (uiShowAttribute != null)
-                        newRPs[i] = uiShowAttribute.Name;
-                    else
-                        newRPs[i] = rpc.RenderPipelineTypes[i].ToString();
-                    if (rpc.RenderPipelineTypes[i] == rpc.currentChannel.renderPipeline?.GetType())
-                    {
-                        renderPipelineIndex = i;
-                    }
+                    renderPipelineIndex = i;
                 }
+            }
 
-                if (ImGui.Combo("渲染管线", ref renderPipelineIndex, newRPs, newRPs.Length))
-                {
-                    rpc.currentChannel.DelaySetRenderPipeline(rpc.RenderPipelineTypes[renderPipelineIndex], rpc, rpc.rpBasePth);
-                }
-            }
-            else
+            if (ImGui.Combo("渲染管线", ref renderPipelineIndex, newRPs, newRPs.Length))
             {
-                var passSetting = rpc.dynamicContextRead.passSetting;
-                ShowParams(passSetting.ShowSettingParameters, settings.Parameters);
-                ShowTextures(main, "settings", passSetting.ShowSettingTextures, settings.Parameters);
-                int renderPipelineIndex = 0;
-                var passSettings = main.mainCaches.PassSettings;
-                if (passSettings.Count != renderPipelines.Length)
-                {
-                    renderPipelines = new string[passSettings.Count];
-                    renderPipelineKeys = new string[passSettings.Count];
-                }
-                int _i = 0;
-                foreach (var pair in passSettings)
-                {
-                    renderPipelines[_i] = pair.Value.Name;
-                    renderPipelineKeys[_i] = pair.Key;
-                    _i++;
-                }
-                for (int i = 0; i < renderPipelineKeys.Length; i++)
-                {
-                    if (renderPipelineKeys[i] == rpc.currentPassSetting)
-                        renderPipelineIndex = i;
-                }
-                if (ImGui.Combo("渲染管线", ref renderPipelineIndex, renderPipelines, renderPipelines.Length))
-                {
-                    rpc.currentPassSetting = renderPipelineKeys[renderPipelineIndex];
-                }
+                rpc.currentChannel.DelaySetRenderPipeline(rpc.RenderPipelineTypes[renderPipelineIndex], rpc, rpc.rpBasePth);
             }
+
 
             if (ImGui.Button("添加视口"))
             {
@@ -630,161 +598,6 @@ namespace Coocoo3D.UI
                 ImGui.BeginTooltip();
                 ImGui.Text(param.Description);
                 ImGui.EndTooltip();
-            }
-        }
-
-        static void ShowParams(
-            Dictionary<string, RenderPipeline.PassParameter> showParams,
-            Dictionary<string, object> values)
-        {
-            if (showParams == null) return;
-            ImGui.Separator();
-
-            string filter = ImFilter("查找参数", "搜索参数名称");
-
-            bool tempB;
-            float tempF;
-            Vector2 tempF2;
-            Vector3 tempF3;
-            Vector4 tempF4;
-            int tempI;
-            foreach (var param in showParams)
-            {
-                var val = param.Value;
-                if (!Contains(val.Name, filter) && !Contains(param.Key, filter))
-                    continue;
-                if (val.IsHidden)
-                    continue;
-                switch (val.Type)
-                {
-                    case "bool":
-                        {
-                            if (values.TryGetTypedValue(param.Key, out bool x1))
-                                tempB = x1;
-                            else
-                                tempB = (bool)val.defaultValue;
-                            if (ImGui.Checkbox(val.Name, ref tempB))
-                            {
-                                values[param.Key] = tempB;
-                            }
-                        }
-                        break;
-                    case "int":
-                        {
-                            if (values.TryGetTypedValue(param.Key, out int x1))
-                                tempI = x1;
-                            else
-                                tempI = (int)val.defaultValue;
-
-                            if (ImGui.DragInt(val.Name, ref tempI, 1, (int)val.minValue, (int)val.maxValue, val.Format))
-                            {
-                                values[param.Key] = tempI;
-                            }
-                        }
-                        break;
-                    case "sliderInt":
-                        {
-                            if (values.TryGetTypedValue(param.Key, out int x1))
-                                tempI = x1;
-                            else
-                                tempI = (int)val.defaultValue;
-                            if (ImGui.SliderInt(val.Name, ref tempI, (int)val.minValue, (int)val.maxValue, val.Format))
-                            {
-                                values[param.Key] = tempI;
-                            }
-                        }
-                        break;
-                    case "float":
-                        {
-                            if (values.TryGetTypedValue(param.Key, out float x1))
-                                tempF = x1;
-                            else
-                                tempF = (float)val.defaultValue;
-                            if (ImGui.DragFloat(val.Name, ref tempF, (float)val.step, (float)val.minValue, (float)val.maxValue, val.Format))
-                            {
-                                values[param.Key] = tempF;
-                            }
-                        }
-                        break;
-                    case "sliderFloat":
-                        {
-                            if (values.TryGetTypedValue(param.Key, out float x1))
-                                tempF = x1;
-                            else
-                                tempF = (float)val.defaultValue;
-                            if (ImGui.SliderFloat(val.Name, ref tempF, (float)val.minValue, (float)val.maxValue, val.Format))
-                            {
-                                values[param.Key] = tempF;
-                            }
-                        }
-                        break;
-                    case "float2":
-                        {
-                            if (values.TryGetTypedValue(param.Key, out Vector2 x1))
-                                tempF2 = x1;
-                            else
-                                tempF2 = (Vector2)val.defaultValue;
-                            if (ImGui.DragFloat2(val.Name, ref tempF2, (float)val.step, (float)val.minValue, (float)val.maxValue, val.Format))
-                            {
-                                values[param.Key] = tempF2;
-                            }
-                        }
-                        break;
-                    case "float3":
-                        {
-                            if (values.TryGetTypedValue(param.Key, out Vector3 x1))
-                                tempF3 = x1;
-                            else
-                                tempF3 = (Vector3)val.defaultValue;
-                            if (ImGui.DragFloat3(val.Name, ref tempF3, (float)val.step, (float)val.minValue, (float)val.maxValue, val.Format))
-                            {
-                                values[param.Key] = tempF3;
-                            }
-                        }
-                        break;
-                    case "float4":
-                        {
-                            if (values.TryGetTypedValue(param.Key, out Vector4 x1))
-                                tempF4 = x1;
-                            else
-                                tempF4 = (Vector4)val.defaultValue;
-                            if (ImGui.DragFloat4(val.Name, ref tempF4, (float)val.step, (float)val.minValue, (float)val.maxValue, val.Format))
-                            {
-                                values[param.Key] = tempF4;
-                            }
-                        }
-                        break;
-                    case "color3":
-                        {
-                            if (values.TryGetTypedValue(param.Key, out Vector3 x1))
-                                tempF3 = x1;
-                            else
-                                tempF3 = (Vector3)val.defaultValue;
-                            if (ImGui.ColorEdit3(val.Name, ref tempF3, ImGuiColorEditFlags.Float | ImGuiColorEditFlags.HDR))
-                            {
-                                values[param.Key] = tempF3;
-                            }
-                        }
-                        break;
-                    case "color4":
-                        {
-                            if (values.TryGetTypedValue(param.Key, out Vector4 x1))
-                                tempF4 = x1;
-                            else
-                                tempF4 = (Vector4)val.defaultValue;
-                            if (ImGui.ColorEdit4(val.Name, ref tempF4, ImGuiColorEditFlags.Float | ImGuiColorEditFlags.HDR))
-                            {
-                                values[param.Key] = tempF4;
-                            }
-                        }
-                        break;
-                }
-                if (val.Tooltip != null && ImGui.IsItemHovered())
-                {
-                    ImGui.BeginTooltip();
-                    ImGui.Text(val.Tooltip);
-                    ImGui.EndTooltip();
-                }
             }
         }
 
@@ -1161,17 +974,8 @@ vmd格式动作");
                     {
                         StartEditParam();
                     }
-                    var passSetting = main.RPContext.dynamicContextRead.passSetting;
 
-                    if (main.RPContext.NewRenderPipeline)
-                    {
-                        ShowParam1(main, main.RPContext.currentChannel.renderPipelineView, material.Parameters);
-                    }
-                    else
-                    {
-                        ShowParams(passSetting.ShowParameters, material.Parameters);
-                        ShowTextures(main, "material", passSetting.ShowTextures, material.Parameters);
-                    }
+                    ShowParam1(main, main.RPContext.currentChannel.renderPipelineView, material.Parameters);
                 }
             }
             ImGui.EndChild();
@@ -1181,11 +985,22 @@ vmd格式动作");
         {
             var io = ImGui.GetIO();
             var tex = channel.GetAOV(Caprice.Attributes.AOVType.Color);
-            IntPtr imageId = main.widgetRenderer.ShowTexture(tex);
+            Vector2 texSize;
+            IntPtr imageId;
+            if (tex != null)
+            {
+                texSize = new Vector2(tex.width, tex.height);
+                imageId = main.widgetRenderer.ShowTexture(tex);
+            }
+            else
+            {
+                texSize=new Vector2(0, 0);
+                imageId = main.widgetRenderer.ShowTexture(null);
+            }
+
             Vector2 pos = ImGui.GetCursorScreenPos();
             Vector2 spaceSize = Vector2.Max(ImGui.GetWindowSize() - new Vector2(20, 40), new Vector2(100, 100));
             channel.sceneViewSize = new Numerics.Int2((int)spaceSize.X, (int)spaceSize.Y);
-            Vector2 texSize = new Vector2(tex.width, tex.height);
             float factor = MathF.Max(MathF.Min(spaceSize.X / texSize.X, spaceSize.Y / texSize.Y), 0.01f);
             Vector2 imageSize = texSize * factor;
 
@@ -1305,15 +1120,9 @@ vmd格式动作");
                 ImGui.OpenPopup("编辑参数");
                 popupParamEdit = true;
             }
-            var passSetting = main.RPContext.dynamicContextRead.passSetting;
             if (ImGui.BeginPopupModal("编辑参数", ref popupParamEdit))
             {
-                if (main.RPContext.NewRenderPipeline)
-                {
-                    ShowParam1(main, main.RPContext.currentChannel.renderPipelineView, paramEdit);
-                }
-                else
-                    ShowParams(passSetting.ShowParameters, paramEdit);
+                ShowParam1(main, main.RPContext.currentChannel.renderPipelineView, paramEdit);
 
                 if (ImGui.Button("确定"))
                 {
@@ -1517,8 +1326,6 @@ vmd格式动作");
         static Dictionary<string, object> paramEdit;
 
         static string[] lightTypeString = new[] { "方向光", "点光" };
-        static string[] renderPipelines = new string[0] { };
-        static string[] renderPipelineKeys = new string[0] { };
 
         static string ImFilter(string lable, string hint)
         {

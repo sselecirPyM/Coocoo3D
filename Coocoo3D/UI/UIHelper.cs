@@ -88,18 +88,11 @@ namespace Coocoo3D.UI
                     case ".tiff":
                     case ".tga":
                     case ".dds":
-                        main.RPContext.SetSkyBox(file.FullName);
+
                         break;
                     case ".coocoo3dscene":
                         var scene = ReadJsonStream<Coocoo3DScene>(file.OpenRead());
                         scene.ToScene(main);
-                        break;
-                    case ".coocoox":
-                        caches.GetPassSetting(file.FullName);
-                        main.RPContext.currentPassSetting = file.FullName;
-                        break;
-                    case ".cs":
-                        caches.GetUnionShader(file.FullName);
                         break;
                 }
                 main.RequireRender(true);

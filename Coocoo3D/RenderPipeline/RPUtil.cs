@@ -11,17 +11,6 @@ namespace Coocoo3D.RenderPipeline
 {
     internal static class RPUtil
     {
-        public static void Texture2D(Dictionary<string, Texture2D> RTs, string rtName, RenderTarget rt, int x, int y, int mips, GraphicsContext graphicsContext)
-        {
-            if (!RTs.TryGetValue(rtName, out var tex2d))
-            {
-                tex2d = new Texture2D();
-                tex2d.Name = rtName;
-                RTs[rtName] = tex2d;
-            }
-            Texture2D(tex2d, rt.Format, x, y, mips, graphicsContext);
-        }
-
         public static void Texture2D(Texture2D tex2d, Format format, int x, int y, int mips, GraphicsContext graphicsContext)
         {
             if (tex2d.width != x || tex2d.height != y || tex2d.mipLevels != mips || tex2d.GetFormat() != format)
@@ -32,18 +21,6 @@ namespace Coocoo3D.RenderPipeline
                     tex2d.ReloadAsRTVUAV(x, y, mips, format);
                 graphicsContext.UpdateRenderTexture(tex2d);
             }
-        }
-
-        public static void TextureCube(Dictionary<string, TextureCube> RTCs, string rtName, RenderTarget rt, int x, int y, int mips, GraphicsContext graphicsContext)
-        {
-            if (!RTCs.TryGetValue(rtName, out var texCube))
-            {
-                texCube = new TextureCube();
-                texCube.Name = rtName;
-                RTCs[rtName] = texCube;
-            }
-
-            TextureCube(texCube, rt.Format, x, y, mips, graphicsContext);
         }
 
         public static void TextureCube(TextureCube texCube, Format format, int x, int y, int mips, GraphicsContext graphicsContext)

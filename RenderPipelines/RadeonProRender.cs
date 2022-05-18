@@ -108,6 +108,7 @@ namespace RenderPipelines
         public DrawQuadPass postProcess = new DrawQuadPass()
         {
             shader = "PostProcessing.hlsl",
+            rs = "Cs",
             renderTargets = new string[]
             {
                 nameof(output)

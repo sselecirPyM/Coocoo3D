@@ -300,12 +300,6 @@ namespace Coocoo3D.RenderPipeline
         //    return tex2D;
         //}
 
-        public GPUBuffer GetBuffer(string name, RenderMaterial material = null)
-        {
-            if (string.IsNullOrEmpty(name))
-                return null;
-            return rpc._GetBufferByName(visualChannel, name);
-        }
 
         public Texture2D texLoading;
         public Texture2D texError;

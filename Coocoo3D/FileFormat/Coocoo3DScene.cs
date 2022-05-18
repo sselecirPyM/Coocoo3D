@@ -87,7 +87,7 @@ namespace Coocoo3D.FileFormat
         {
             Coocoo3DScene scene = new Coocoo3DScene();
             scene.sceneProperties = new Dictionary<string, string>();
-            scene.sceneProperties.Add("skyBox", main.RPContext.skyBoxTex);
+            //scene.sceneProperties.Add("skyBox", main.RPContext.skyBoxTex);
             scene.objects = new List<CooSceneObject>();
             scene.settings = main.CurrentScene.settings.GetClone();
             foreach (var customValue in scene.settings.Parameters)
@@ -199,7 +199,7 @@ namespace Coocoo3D.FileFormat
             }
             if (sceneProperties.TryGetValue("skyBox", out string skyBox))
             {
-                main.RPContext.SetSkyBox(skyBox);
+                //main.RPContext.SetSkyBox(skyBox);
             }
             foreach (var obj in objects)
             {

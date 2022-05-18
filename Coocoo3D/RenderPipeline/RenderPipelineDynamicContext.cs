@@ -22,7 +22,6 @@ namespace Coocoo3D.RenderPipeline
         public List<PointLightData> pointLights = new();
 
         public Dictionary<MMDRendererComponent, int> findRenderer = new();
-        public PassSetting passSetting;
         public int frameRenderIndex;
         public double Time;
         public double DeltaTime;

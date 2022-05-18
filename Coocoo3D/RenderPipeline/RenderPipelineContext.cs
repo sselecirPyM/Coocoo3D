@@ -61,20 +61,6 @@ namespace Coocoo3D.RenderPipeline
 
         public VisualChannel currentChannel;
 
-        public bool NewRenderPipeline = true;
-
-        public bool SkyBoxChanged = false;
-
-        public string skyBoxName = "_SkyBox";
-        public string skyBoxTex = "Samples/adams_place_bridge_2k.jpg";
-
-        public void SetSkyBox(string path)
-        {
-            if (skyBoxTex == path) return;
-            skyBoxTex = path;
-            SkyBoxChanged = true;
-        }
-
         public Mesh quadMesh = new Mesh();
         public int frameRenderCount;
 
@@ -114,15 +100,9 @@ namespace Coocoo3D.RenderPipeline
             graphicsDevice = new GraphicsDevice();
             graphicsContext.Reload(graphicsDevice);
 
-            SkyBoxChanged = true;
-
             quadMesh.ReloadIndex<int>(4, new int[] { 0, 1, 2, 2, 1, 3 });
             mainCaches.MeshReadyToUpload.Enqueue(quadMesh);
-            DirectoryInfo directoryInfo = new DirectoryInfo("Samples");
-            foreach (var file in directoryInfo.GetFiles("*.coocoox"))
-                mainCaches.GetPassSetting(file.FullName);
             currentPassSetting = Path.GetFullPath(currentPassSetting);
-            skyBoxTex = Path.GetFullPath(skyBoxTex);
             recorder = new Recorder()
             {
                 graphicsDevice = graphicsDevice,
@@ -137,8 +117,6 @@ namespace Coocoo3D.RenderPipeline
         {
             dynamicContextWrite.FrameBegin();
             dynamicContextWrite.settings = scene.settings.GetClone();
-
-            dynamicContextWrite.passSetting = mainCaches.GetPassSetting(currentPassSetting);
 
             dynamicContextWrite.frameRenderIndex = frameRenderCount;
             dynamicContextWrite.CPUSkinning = CPUSkinning;
@@ -323,94 +301,15 @@ namespace Coocoo3D.RenderPipeline
             }
         }
 
-        private Dictionary<string, Texture2D> RTs = new();
-        private Dictionary<string, TextureCube> RTCs = new();
-        private Dictionary<string, GPUBuffer> dynamicBuffers = new();
-
         public void PreConfig()
         {
             while (delayAddVisualChannel.TryDequeue(out var vcName))
                 AddVisualChannel(vcName);
             while (delayRemoveVisualChannel.TryDequeue(out var vcName))
                 RemoveVisualChannel(vcName);
-            var passSetting = dynamicContextRead.passSetting;
-            passSetting.Initialize();
-        }
-
-        public void PrepareRenderTarget(PassSetting passSetting)
-        {
-            if (passSetting.RenderTargets != null)
-                foreach (var rt1 in passSetting.RenderTargets)
-                {
-                    var rt = rt1.Value;
-                    if (!rt.flag.HasFlag(RenderTargetFlag.Shared)) continue;
-                    int x = (int)rt.width;
-                    int y = (int)rt.height;
-                    RPUtil.Texture2D(RTs, rt1.Key, rt, x, y, 1, graphicsContext);
-                }
-            if (passSetting.RenderTargetCubes != null)
-                foreach (var rt1 in passSetting.RenderTargetCubes)
-                {
-                    var rt = rt1.Value;
-                    if (!rt.flag.HasFlag(RenderTargetFlag.Shared)) continue;
-                    int x = (int)rt.width;
-                    int y = (int)rt.height;
-                    RPUtil.TextureCube(RTCs, rt1.Key, rt, x, y, 1, graphicsContext);
-                }
-            if (passSetting.DynamicBuffers != null)
-                foreach (var rt1 in passSetting.DynamicBuffers)
-                {
-                    var rt = rt1.Value;
-                    if (!rt.flag.HasFlag(RenderTargetFlag.Shared)) continue;
-                    RPUtil.DynamicBuffer(dynamicBuffers, rt1.Key, (int)rt.width, graphicsContext);
-                }
         }
 
         public ModelPack GetModelPack(string path) => mainCaches.GetModel(path);
-
-        public Texture2D _GetTex2DByName(VisualChannel visualChannel, string name)
-        {
-            if (string.IsNullOrEmpty(name))
-                return null;
-            if (RTs.TryGetValue(name, out var tex))
-                return tex;
-            else if (visualChannel.RTs.TryGetValue(name, out tex))
-                return tex;
-            else if (mainCaches.TryGetTexture(name, out tex))
-                return tex;
-            return null;
-        }
-        public TextureCube _GetTexCubeByName(VisualChannel visualChannel, string name)
-        {
-            if (string.IsNullOrEmpty(name)) return null;
-            if (RTCs.TryGetValue(name, out var tex))
-                return tex;
-            else if (visualChannel.RTCs.TryGetValue(name, out tex))
-                return tex;
-            return mainCaches.GetTextureCube(name);
-        }
-        public GPUBuffer _GetBufferByName(VisualChannel visualChannel, string name)
-        {
-            if (string.IsNullOrEmpty(name)) return null;
-            if (dynamicBuffers.TryGetValue(name, out var buffer))
-                return buffer;
-            else if (visualChannel.dynamicBuffers.TryGetValue(name, out buffer))
-                return buffer;
-            return null;
-        }
-
-        public Dictionary<string, object> customData = new();
-        public T GetPersistentValue<T>(string name, T defaultValue)
-        {
-            if (customData.TryGetValue(name, out object val) && val is T val1)
-                return val1;
-            return defaultValue;
-        }
-
-        public void SetPersistentValue<T>(string name, T value)
-        {
-            customData[name] = value;
-        }
 
         public void AfterRender()
         {

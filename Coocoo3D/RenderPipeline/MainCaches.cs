@@ -31,13 +31,10 @@ namespace Coocoo3D.RenderPipeline
         public DictionaryWithModifiyIndex<string, MMDMotion> Motions = new();
         public DictionaryWithModifiyIndex<string, ComputeShader> ComputeShaders = new();
 
-        public DictionaryWithModifiyIndex<string, PassSetting> PassSettings = new();
         public DictionaryWithModifiyIndex<string, RayTracingShader> RayTracingShaders = new();
         public DictionaryWithModifiyIndex<string, PSO> PipelineStateObjects = new();
         public DictionaryWithModifiyIndex<string, RTPSO> RTPSOs = new();
         public DictionaryWithModifiyIndex<string, TextureCube> TextureCubes = new();
-        public DictionaryWithModifiyIndex<string, UnionShader> UnionShaders = new();
-        public DictionaryWithModifiyIndex<string, IPassDispatcher> PassDispatchers = new();
         public DictionaryWithModifiyIndex<string, Assembly> Assemblies = new();
         public DictionaryWithModifiyIndex<string, RootSignature> RootSignatures = new();
 
@@ -136,8 +133,7 @@ namespace Coocoo3D.RenderPipeline
                     packLoading.Status == GraphicsObjectStatus.error))
                 {
                     tex1.fullPath = packLoading.fullPath;
-                    if (packLoading.Status != GraphicsObjectStatus.loaded)
-                        tex1.texture2D.Status = packLoading.Status;
+                    tex1.texture2D.Status = packLoading.Status;
                     tex1.Status = packLoading.Status;
 
                     if (uploaders.TryRemove(packLoading, out Uploader uploader))
@@ -267,70 +263,6 @@ namespace Coocoo3D.RenderPipeline
                 var motion = new MMDMotion();
                 motion.Load(motionSet);
                 return motion;
-            });
-        }
-
-        public PassSetting GetPassSetting(string path)
-        {
-            if (!Path.IsPathRooted(path)) path = Path.GetFullPath(path);
-            var passSetting = GetT(PassSettings, path, file =>
-            {
-                var passes = ReadJsonStream<PassSetting>(file.OpenRead());
-                foreach (var res in passes.Passes)
-                {
-                    if (res.Value.SRVs != null)
-                        for (int i = 0; i < res.Value.SRVs.Count; i++)
-                        {
-                            SlotRes srv = res.Value.SRVs[i];
-                            res.Value.SRVs[i] = srv;
-                        }
-                }
-                return passes;
-            });
-            passSetting.path = path;
-            return passSetting;
-        }
-
-        public UnionShader GetUnionShader(string path)
-        {
-            if (string.IsNullOrEmpty(path)) return null;
-            if (!Path.IsPathRooted(path)) path = Path.GetFullPath(path);
-
-            var assembly = GetAssembly(path);
-            if (assembly == null) return null;
-
-            return GetT(UnionShaders, path, file =>
-            {
-                string typeName = Path.GetFileNameWithoutExtension(path);
-                Type type = assembly.GetType(typeName);
-                if (type == null)
-                {
-                    Console.WriteLine(path);
-                    Console.WriteLine("Can not find type \"" + typeName + "\"");
-                    return null;
-                }
-                var info = type.GetMethod("UnionShader");
-                var unionShader = (UnionShader)Delegate.CreateDelegate(typeof(UnionShader), info);
-                return unionShader;
-            });
-        }
-
-        public IPassDispatcher GetPassDispatcher(string path)
-        {
-            if (string.IsNullOrEmpty(path)) return null;
-            if (!Path.IsPathRooted(path)) path = Path.GetFullPath(path);
-
-            var assembly = GetAssembly(path);
-            if (assembly == null) return null;
-
-            return GetT(PassDispatchers, path, file =>
-            {
-                string typeName = Path.GetFileNameWithoutExtension(path);
-
-                Type type = assembly.GetType(typeName);
-                var inst = Activator.CreateInstance(type);
-                var dispatcher = (IPassDispatcher)inst;
-                return dispatcher;
             });
         }
 
@@ -657,24 +589,6 @@ namespace Coocoo3D.RenderPipeline
                 return tex;
             }
             return null;
-        }
-
-        public void GetSkyBox(string s, GraphicsContext context, out TextureCube skyBox, out TextureCube reflect)
-        {
-            skyBox = GetTextureCube(s);
-            reflect = GetTextureCube(s + "Reflect");
-            if (skyBox == null)
-            {
-                skyBox = new TextureCube();
-                reflect = new TextureCube();
-                skyBox.ReloadAsRTVUAV(2048, 2048, 6, Vortice.DXGI.Format.R16G16B16A16_Float);
-                reflect.ReloadAsRTVUAV(512, 512, 6, Vortice.DXGI.Format.R16G16B16A16_Float);
-
-                context.UpdateRenderTexture(skyBox);
-                context.UpdateRenderTexture(reflect);
-                TextureCubes[s] = skyBox;
-                TextureCubes[s + "Reflect"] = reflect;
-            }
         }
 
         public RootSignature GetRootSignature(string s)
