@@ -78,8 +78,6 @@ namespace Coocoo3D.RenderPipeline
 
         public Recorder recorder;
 
-        public string currentPassSetting = "Samples\\samplePasses.coocoox";
-
         internal Wrap.GPUWriter gpuWriter = new Wrap.GPUWriter();
 
         public GameDriverContext gameDriverContext = new GameDriverContext()
@@ -87,9 +85,7 @@ namespace Coocoo3D.RenderPipeline
             FrameInterval = 1 / 240.0f,
         };
 
-        public Type[] RenderPipelineTypes;
-
-        public string rpBasePth;
+        public Type[] RenderPipelineTypes = new Type[0];
 
         public bool recording = false;
 
@@ -102,15 +98,30 @@ namespace Coocoo3D.RenderPipeline
 
             quadMesh.ReloadIndex<int>(4, new int[] { 0, 1, 2, 2, 1, 3 });
             mainCaches.MeshReadyToUpload.Enqueue(quadMesh);
-            currentPassSetting = Path.GetFullPath(currentPassSetting);
             recorder = new Recorder()
             {
                 graphicsDevice = graphicsDevice,
                 graphicsContext = graphicsContext,
             };
-            rpBasePth = Path.GetFullPath("Samples");
-            RenderPipelineTypes = mainCaches.GetTypes(Path.GetFullPath("RenderPipelines.dll"), typeof(RenderPipeline));
+            var dir = new DirectoryInfo("Samples");
+            foreach (var file in dir.EnumerateFiles("*.dll"))
+            {
+                LoadRenderPipelineTypes(file.FullName);
+
+            }
             currentChannel = AddVisualChannel("main");
+        }
+
+        public void LoadRenderPipelineTypes(string path)
+        {
+            try
+            {
+                RenderPipelineTypes = RenderPipelineTypes.Concat(mainCaches.GetTypes(Path.GetFullPath(path), typeof(RenderPipeline))).ToArray();
+            }
+            catch
+            {
+
+            }
         }
 
         public RenderPipelineDynamicContext GetDynamicContext(Scene scene)
@@ -150,12 +161,6 @@ namespace Coocoo3D.RenderPipeline
             meshOverride.Clear();
             #region Update bone data
             var renderers = dynamicContextRead.renderers;
-            while (CBs_Bone.Count < renderers.Count)
-            {
-                CBuffer constantBuffer = new CBuffer();
-                constantBuffer.Mutable = true;
-                CBs_Bone.Add(constantBuffer);
-            }
 
             if (CPUSkinning)
             {
@@ -195,17 +200,31 @@ namespace Coocoo3D.RenderPipeline
                         graphicsContext.EndUpdateMesh(mesh);
                     }
                 }
-                var matrices = renderer.boneMatricesData;
-                for (int k = 0; k < matrices.Length; k++)
-                    matrices[k] = Matrix4x4.Transpose(matrices[k]);
-                graphicsContext.UpdateResource<Matrix4x4>(CBs_Bone[i], matrices);
+            }
+            {
+                while (CBs_Bone.Count < renderers.Count)
+                {
+                    CBuffer constantBuffer = new CBuffer();
+                    constantBuffer.Mutable = true;
+                    CBs_Bone.Add(constantBuffer);
+                }
+                Span<Matrix4x4> mats = stackalloc Matrix4x4[1024];
+                for (int i = 0; i < renderers.Count; i++)
+                {
+                    var renderer = renderers[i];
+                    var matrices = renderer.boneMatricesData;
+                    int l = Math.Min(matrices.Length, 1024);
+                    for (int k = 0; k < l; k++)
+                        mats[k] = Matrix4x4.Transpose(matrices[k]);
+                    graphicsContext.UpdateResource(CBs_Bone[i], mats.Slice(0, matrices.Length));
+                }
             }
             #endregion
         }
         public void Skinning(ModelPack model, MMDRendererComponent renderer, Mesh mesh)
         {
             const int parallelSize = 1024;
-            Span<Vector3> d3 = MemoryMarshal.Cast<byte, Vector3>(new Span<byte>(bigBuffer, 0, bigBuffer.Length / 12 * 12));
+            Span<Vector3> dat0 = MemoryMarshal.Cast<byte, Vector3>(new Span<byte>(bigBuffer, 0, bigBuffer.Length / 12 * 12));
             Parallel.For(0, (model.vertexCount + parallelSize - 1) / parallelSize, u =>
             {
                 Span<Vector3> _d3 = MemoryMarshal.Cast<byte, Vector3>(new Span<byte>(bigBuffer, 0, bigBuffer.Length / 12 * 12));
@@ -233,7 +252,7 @@ namespace Coocoo3D.RenderPipeline
             });
             //graphicsContext.BeginUpdateMesh(mesh);
             //graphicsContext.UpdateMesh(mesh, d3.Slice(0, model.vertexCount), 0);
-            mesh.AddBuffer(d3.Slice(0, model.vertexCount), 0);//for compatibility
+            mesh.AddBuffer(dat0.Slice(0, model.vertexCount), 0);//for compatibility
 
             Parallel.For(0, (model.vertexCount + parallelSize - 1) / parallelSize, u =>
             {
@@ -262,7 +281,7 @@ namespace Coocoo3D.RenderPipeline
             });
 
             //graphicsContext.UpdateMesh(mesh, d3.Slice(0, model.vertexCount), 1);
-            mesh.AddBuffer(d3.Slice(0, model.vertexCount), 1);//for compatibility
+            mesh.AddBuffer(dat0.Slice(0, model.vertexCount), 1);//for compatibility
 
             //graphicsContext.EndUpdateMesh(mesh);
             graphicsContext.UploadMesh(mesh);//for compatibility
@@ -286,7 +305,7 @@ namespace Coocoo3D.RenderPipeline
             visualChannel.Name = name;
             visualChannel.graphicsContext = graphicsContext;
 
-            visualChannel.DelaySetRenderPipeline(RenderPipelineTypes[0], this, rpBasePth);
+            visualChannel.DelaySetRenderPipeline(RenderPipelineTypes[0], this);
 
             return visualChannel;
         }

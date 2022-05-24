@@ -17,13 +17,15 @@ namespace RenderPipelines
 
         public object[] cbv;
 
+        public DebugRenderType DebugRenderType;
+
         public void Execute(RenderWrap renderWrap)
         {
             renderWrap.SetRootSignature("Csssu");
 
             List<(string, string)> keywords = new List<(string, string)>();
             keywords.Add(("ENABLE_TAA", "1"));
-            if (renderWrap.DebugRenderType == DebugRenderType.TAA)
+            if (DebugRenderType == DebugRenderType.TAA)
                 keywords.Add(("DEBUG_TAA", "1"));
 
             var tex = renderWrap.GetTex2D(target);

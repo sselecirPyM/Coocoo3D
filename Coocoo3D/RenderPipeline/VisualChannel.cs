@@ -9,6 +9,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Vortice.DXGI;
 using Caprice.Attributes;
+using System.IO;
 
 namespace Coocoo3D.RenderPipeline
 {
@@ -55,9 +56,9 @@ namespace Coocoo3D.RenderPipeline
             cameraData = camera.GetCameraData();
         }
 
-        public void DelaySetRenderPipeline(Type type, RenderPipelineContext rpc, string basePath)
+        public void DelaySetRenderPipeline(Type type, RenderPipelineContext rpc)
         {
-            newRenderPipelinePath = basePath;
+            newRenderPipelinePath = Path.GetDirectoryName( type.Assembly.Location);
             this.rpc = rpc;
             this.newRenderPipelineType = type;
         }

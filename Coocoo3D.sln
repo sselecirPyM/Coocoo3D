@@ -12,10 +12,13 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Caprice", "Caprice\Caprice.csproj", "{1A867228-F569-40AB-916B-04E9FE88BFD7}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Coocoo3D.Windows", "Coocoo3D.Windows\Coocoo3D.Windows.csproj", "{2996ACF5-0198-449C-911D-5B16107F872B}"
+	ProjectSection(ProjectDependencies) = postProject
+		{02674DFA-333E-418B-9BB6-15359B02F8F8} = {02674DFA-333E-418B-9BB6-15359B02F8F8}
+	EndProjectSection
 EndProject
 Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "Coocoo3DAssets", "Coocoo3DAssets\Coocoo3DAssets.shproj", "{CECB034E-FA44-4D46-A5AB-DAD9AE203A95}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RenderPipelines", "RenderPipelines\RenderPipelines.csproj", "{02674DFA-333E-418B-9BB6-15359B02F8F8}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RenderPipelines", "RenderPipelines\RenderPipelines.csproj", "{02674DFA-333E-418B-9BB6-15359B02F8F8}"
 EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution

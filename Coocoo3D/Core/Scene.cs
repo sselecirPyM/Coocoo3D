@@ -21,8 +21,6 @@ namespace Coocoo3D.Core
     {
         public Settings settings = new Settings()
         {
-            Wireframe = false,
-            SkyBoxMaxQuality = 1024,
         };
 
         public List<GameObject> gameObjects = new();
@@ -247,16 +245,9 @@ namespace Coocoo3D.Core
 
     public class Settings
     {
-        public bool Wireframe;
-        public DebugRenderType DebugRenderType;
-
-        public int SkyBoxMaxQuality;
 
         [NonSerialized]
         public Dictionary<string, object> Parameters = new();
-
-        [NonSerialized]
-        public Dictionary<string, int> ParametersModifyIndex = new();
 
         public Dictionary<string, bool> bValue;
         public Dictionary<string, int> iValue;

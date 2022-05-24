@@ -119,6 +119,7 @@ namespace RenderPipelines
             },
             AutoKeyMap =
             {
+                ("UseNormalMap","USE_NORMAL_MAP"),
                 ("EnableFog","ENABLE_FOG"),
             }
         };
@@ -162,6 +163,8 @@ namespace RenderPipelines
 
         [Indexable]
         public int Split;
+
+        public DebugRenderType DebugRenderType;
 
         public void SetCamera(CameraData camera)
         {
@@ -239,6 +242,11 @@ namespace RenderPipelines
                 drawObject.CBVPerObject[1] = (pointLightData, pls.Count * 32);
                 drawObject.keywords.Add(("ENABLE_POINT_LIGHT", "1"));
                 drawObject.keywords.Add(("POINT_LIGHT_COUNT", pls.Count.ToString()));
+            }
+
+            if (debugKeywords.TryGetValue(DebugRenderType, out string debugKeyword))
+            {
+                drawObject.keywords.Add((debugKeyword, "1"));
             }
 
             drawSkyBox.Execute(renderWrap);
@@ -346,5 +354,24 @@ namespace RenderPipelines
             }
             return false;
         }
+
+        static Dictionary<DebugRenderType, string> debugKeywords = new Dictionary<DebugRenderType, string>()
+        {
+            { DebugRenderType.Albedo,"DEBUG_ALBEDO"},
+            { DebugRenderType.AO,"DEBUG_AO"},
+            { DebugRenderType.Bitangent,"DEBUG_BITANGENT"},
+            { DebugRenderType.Depth,"DEBUG_DEPTH"},
+            { DebugRenderType.Diffuse,"DEBUG_DIFFUSE"},
+            { DebugRenderType.DiffuseProbes,"DEBUG_DIFFUSE_PROBES"},
+            { DebugRenderType.DiffuseRender,"DEBUG_DIFFUSE_RENDER"},
+            { DebugRenderType.Emissive,"DEBUG_EMISSIVE"},
+            { DebugRenderType.Normal,"DEBUG_NORMAL"},
+            { DebugRenderType.Position,"DEBUG_POSITION"},
+            { DebugRenderType.Roughness,"DEBUG_ROUGHNESS"},
+            { DebugRenderType.Specular,"DEBUG_SPECULAR"},
+            { DebugRenderType.SpecularRender,"DEBUG_SPECULAR_RENDER"},
+            { DebugRenderType.Tangent,"DEBUG_TANGENT"},
+            { DebugRenderType.UV,"DEBUG_UV"},
+        };
     }
 }

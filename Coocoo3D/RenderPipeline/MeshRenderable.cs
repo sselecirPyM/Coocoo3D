@@ -20,6 +20,7 @@ namespace Coocoo3D.RenderPipeline
         public RenderMaterial material;
         public Matrix4x4 transform;
         public bool gpuSkinning;
+        public bool drawDoubleFace;
         public RenderableType type;
     }
     public enum RenderableType

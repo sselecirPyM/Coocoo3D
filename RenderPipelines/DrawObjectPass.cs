@@ -70,7 +70,7 @@ namespace RenderPipelines
                 {
                     keywords2.Add(new("SKINNING", "1"));
                 }
-                if (renderable.material.DrawDoubleFace)
+                if (renderable.drawDoubleFace)
                     desc.cullMode = CullMode.None;
                 else
                     desc.cullMode = CullMode.Back;

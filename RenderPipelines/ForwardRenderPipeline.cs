@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Caprice.Attributes;
+using Caprice.Display;
 using Coocoo3D.RenderPipeline;
 using Coocoo3DGraphics;
-using Coocoo3D.UI.Attributes;
 using System.Numerics;
 
 namespace RenderPipelines
@@ -15,7 +15,7 @@ namespace RenderPipelines
     public class ForwardRenderPipeline : RenderPipeline
     {
         [AOV(AOVType.Color)]
-        [Size("Output")]
+        [Size("UnscaledOutput")]
         [Format(ResourceFormat.R8G8B8A8_UNorm)]
         public Texture2D output;
 
@@ -115,6 +115,12 @@ namespace RenderPipelines
         [Indexable]
         public float TAAFactor = 0.3f;
 
+        [UISlider(0.5f, 2.0f, name: "渲染倍数")]
+        public float RenderScale = 1;
+
+        [UIShow(name:"调试渲染")]
+        public DebugRenderType DebugRenderType;
+
         #region Material Parameters
         [Indexable]
         [UIShow(UIShowType.Material, "透明材质")]
@@ -161,6 +167,10 @@ namespace RenderPipelines
         [Format(ResourceFormat.R8G8B8A8_UNorm)]
         [Size(32, 32)]
         public Texture2D _Emissive;
+
+        [Indexable]
+        [UIShow(UIShowType.Material, "使用法线贴图")]
+        public bool UseNormalMap;
 
         [UIShow(UIShowType.Material)]
         [PureColorBaker(0.5f, 0.5f, 1, 1)]
@@ -228,6 +238,9 @@ namespace RenderPipelines
         public override void BeforeRender()
         {
             renderWrap.GetOutputSize(out outputWidth, out outputHeight);
+            renderWrap.SetSize("UnscaledOutput", outputWidth, outputHeight);
+            outputWidth = (int)(outputWidth * RenderScale);
+            outputHeight = (int)(outputHeight * RenderScale);
             renderWrap.SetSize("Output", outputWidth, outputHeight);
             renderWrap.SetSize("HalfOutput", (outputWidth + 1) / 2, (outputHeight + 1) / 2);
             renderWrap.texLoading = renderWrap.GetTex2DLoaded("loading.png");
@@ -248,6 +261,7 @@ namespace RenderPipelines
             }
 
             forwordRenderPass.Brightness = Brightness;
+            forwordRenderPass.DebugRenderType = DebugRenderType;
             postProcess.EnableBloom = EnableBloom;
 
             forwordRenderPass.SetCamera(camera);
@@ -255,6 +269,7 @@ namespace RenderPipelines
 
             if (EnableTAA)
             {
+                taaPass.DebugRenderType = DebugRenderType;
                 taaPass.Execute(renderWrap);
             }
             postProcess.Execute(renderWrap);

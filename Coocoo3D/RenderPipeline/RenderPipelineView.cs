@@ -6,9 +6,9 @@ using System.Threading.Tasks;
 using System.Reflection;
 using Caprice.Attributes;
 using Coocoo3DGraphics;
-using Coocoo3D.UI.Attributes;
 using System.IO;
 using Coocoo3D.Utility;
+using Caprice.Display;
 
 namespace Coocoo3D.RenderPipeline
 {
@@ -279,7 +279,14 @@ namespace Coocoo3D.RenderPipeline
         {
             foreach (var uiUsage in UIUsages)
             {
-                settings[uiUsage.Key] = uiUsage.Value.MemberInfo.GetValue<object>(renderPipeline);
+                object obj = uiUsage.Value.MemberInfo.GetValue<object>(renderPipeline);
+                if (uiUsage.Value.MemberInfo.GetGetterType() == typeof(Texture2D))
+                {
+                    if (textureReplacement.TryGetValue(uiUsage.Key, out var rt))
+                        settings[uiUsage.Key] = rt;
+                }
+                else
+                    settings[uiUsage.Key] = obj;
             }
         }
 
@@ -287,9 +294,18 @@ namespace Coocoo3D.RenderPipeline
         {
             foreach (var uiUsage in UIUsages)
             {
-                if (settings.TryGetValue(uiUsage.Key, out object value) && uiUsage.Value.MemberInfo.GetGetterType() == value.GetType())
+                if (settings.TryGetValue(uiUsage.Key, out object value))
                 {
-                    uiUsage.Value.MemberInfo.SetValue(renderPipeline, value);
+                    var type = uiUsage.Value.MemberInfo.GetGetterType();
+                    if (type == typeof(Texture2D))
+                    {
+                        if(value is string s)
+                        {
+                            textureReplacement[uiUsage.Key] = s;
+                        }
+                    }
+                    else if (type == value.GetType())
+                        uiUsage.Value.MemberInfo.SetValue(renderPipeline, value);
                 }
             }
         }

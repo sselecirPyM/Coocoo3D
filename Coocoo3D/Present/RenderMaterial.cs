@@ -10,11 +10,6 @@ namespace Coocoo3D.Present
     {
         public string Name;
 
-        public int indexOffset;
-        public int indexCount;
-        public int vertexStart;
-        public int vertexCount;
-        public bool DrawDoubleFace;
         public Dictionary<string, object> Parameters = new Dictionary<string, object>();
 
         public Vortice.Mathematics.BoundingBox boundingBox;

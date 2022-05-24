@@ -37,7 +37,8 @@ namespace Coocoo3D.ResourceWrap
         public bool skinning;
         public List<string> textures;
 
-        public List<RenderMaterial> Materials = new List<RenderMaterial>();
+        public List<Submesh> Submeshes = new();
+        public List<RenderMaterial> Materials = new();
 
         public List<RigidBodyDesc> rigidBodyDescs;
         public List<JointDesc> jointDescs;
@@ -198,9 +199,12 @@ namespace Coocoo3D.ResourceWrap
                     var material = _materials[primitive.Material.Value].GetClone();
                     material.Name = Materials.Count.ToString();
                     int vertexStart = positionWriter.currentPosition;
-                    material.vertexStart = vertexStart;
-                    material.indexOffset = indicesWriter.currentPosition;
-                    Materials.Add(material);
+                    var submesh = new Submesh()
+                    {
+                        Name = Materials.Count.ToString(),
+                        vertexStart = positionWriter.currentPosition,
+                        indexOffset = indicesWriter.currentPosition,
+                    };
 
                     primitive.Attributes.TryGetValue("POSITION", out int pos1);
                     var bufferPos1 = GetBuffer<Vector3>(pos1);
@@ -211,24 +215,24 @@ namespace Coocoo3D.ResourceWrap
                     primitive.Attributes.TryGetValue("TEXCOORD_0", out int uv1);
                     uvWriter.Write(GetBuffer<Vector2>(uv1));
 
-                    material.vertexCount = bufferPos1.Length;
+                    submesh.vertexCount = bufferPos1.Length;
                     var format = GetAccessorComponentType(primitive.Indices.Value);
                     if (format == Accessor.ComponentTypeEnum.UNSIGNED_SHORT)
                     {
                         var indices = GetBuffer<ushort>(primitive.Indices.Value);
                         for (int k = 0; k < indices.Length; k++)
                             indicesWriter.Write(indices[k]);
-                        material.indexCount = indices.Length;
+                        submesh.indexCount = indices.Length;
                     }
                     else if (format == Accessor.ComponentTypeEnum.UNSIGNED_INT)
                     {
                         var indices = GetBuffer<uint>(primitive.Indices.Value);
                         for (int k = 0; k < indices.Length; k++)
                             indicesWriter.Write((int)indices[k]);
-                        material.indexCount = indices.Length;
+                        submesh.indexCount = indices.Length;
                     }
 
-                    for (int k = material.indexOffset; k < material.indexOffset + material.indexCount; k += 3)
+                    for (int k = submesh.indexOffset; k < submesh.indexOffset + submesh.indexCount; k += 3)
                     {
                         (indices[k], indices[k + 1], indices[k + 2]) = (indices[k + 2], indices[k + 1], indices[k]);
                     }
@@ -244,8 +248,10 @@ namespace Coocoo3D.ResourceWrap
                     }
                     else
                     {
-                        ComputeTangent(vertexStart, bufferPos1.Length, material.indexOffset, material.indexCount);
+                        ComputeTangent(vertexStart, bufferPos1.Length, submesh.indexOffset, submesh.indexCount);
                     }
+                    Materials.Add(material);
+                    Submeshes.Add(submesh);
                 }
             }
         }
@@ -348,17 +354,22 @@ namespace Coocoo3D.ResourceWrap
                     indices[k + indexOffset] = newIndex - vertexOffset;
                 }
 
-                RenderMaterial material = new RenderMaterial
+                var material = new RenderMaterial
+                {
+                    Name = mmdMat.Name,
+                };
+
+                var submesh = new Submesh()
                 {
                     Name = mmdMat.Name,
                     indexCount = mmdMat.TriangeIndexNum,
                     indexOffset = indexOffset,
                     vertexCount = vertexIndicesLocal.Count,
                     vertexStart = vertexOffset,
+                    DrawDoubleFace = mmdMat.DrawFlags.HasFlag(PMX_DrawFlag.DrawDoubleFace),
                 };
 
                 material.boundingBox = new Vortice.Mathematics.BoundingBox(min, max);
-                material.DrawDoubleFace = mmdMat.DrawFlags.HasFlag(PMX_DrawFlag.DrawDoubleFace);
                 material.Parameters["DiffuseColor"] = mmdMat.DiffuseColor;
                 material.Parameters["SpecularColor"] = mmdMat.SpecularColor;
                 material.Parameters["EdgeSize"] = mmdMat.EdgeScale;
@@ -406,9 +417,10 @@ namespace Coocoo3D.ResourceWrap
                 }
 
                 Materials.Add(material);
+                Submeshes.Add(submesh);
                 vertexOffset += vertexIndicesLocal.Count;
                 vertexIndicesLocal.Clear();
-                ComputeTangent(material.vertexStart, material.vertexCount, material.indexOffset, material.indexCount);
+                ComputeTangent(submesh.vertexStart, submesh.vertexCount, submesh.indexOffset, submesh.indexCount);
             }
 
             morphs = new List<MorphDesc>();

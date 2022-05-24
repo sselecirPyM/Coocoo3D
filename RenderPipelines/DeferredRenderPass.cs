@@ -210,6 +210,7 @@ namespace RenderPipelines
             },
             AutoKeyMap =
             {
+                ("EnableFog","ENABLE_FOG"),
                 ("UseNormalMap","USE_NORMAL_MAP"),
                 ("UseGI","ENABLE_GI"),
             },
@@ -282,6 +283,8 @@ namespace RenderPipelines
         [Indexable]
         public int Split;
 
+        public DebugRenderType DebugRenderType;
+
         public void SetCamera(CameraData camera)
         {
             Far = camera.far;
@@ -343,7 +346,7 @@ namespace RenderPipelines
             {
                 finalPass.keywords.Add(("RAY_TRACING", "1"));
             }
-            if (debugKeywords.TryGetValue(renderWrap.DebugRenderType, out string debugKeyword))
+            if (debugKeywords.TryGetValue(DebugRenderType, out string debugKeyword))
             {
                 finalPass.keywords.Add((debugKeyword, "1"));
                 drawObjectTransparent.keywords.Add((debugKeyword, "1"));

@@ -44,8 +44,6 @@ namespace Coocoo3D.RenderPipeline
 
         Dictionary<Type, Dictionary<string, MemberInfo>> memberInfoCache = new();
 
-        public DebugRenderType DebugRenderType { get => rpc.dynamicContextRead.settings.DebugRenderType; }
-
         public bool Recording { get => rpc.recording; }
 
         public void GetOutputSize(out int width, out int height)
@@ -335,18 +333,23 @@ namespace Coocoo3D.RenderPipeline
 
         internal Mesh GetMesh(string path) => rpc.mainCaches.GetModel(path).GetMesh();
 
+        internal ResourceWrap.ModelPack GetModel(string path) => rpc.mainCaches.GetModel(path);
+
         public IEnumerable<MeshRenderable> MeshRenderables(bool setMesh = true)
         {
             var drp = rpc.dynamicContextRead;
             foreach (var renderer in drp.renderers)
             {
-                var mesh = GetMesh(renderer.meshPath);
+                var model = GetModel(renderer.meshPath);
+                var mesh = model.GetMesh();
                 var meshOverride = rpc.meshOverride[renderer];
                 if (setMesh)
                     graphicsContext.SetMesh(mesh, meshOverride);
                 this.renderer = renderer;
-                foreach (var material in renderer.Materials)
+                for (int i = 0; i < renderer.Materials.Count; i++)
                 {
+                    var material = renderer.Materials[i];
+                    var submesh = model.Submeshes[i];
                     var renderable = new MeshRenderable()
                     {
                         mesh = mesh,
@@ -354,18 +357,22 @@ namespace Coocoo3D.RenderPipeline
                         transform = renderer.LocalToWorld,
                         gpuSkinning = renderer.skinning && !drp.CPUSkinning,
                     };
-                    WriteRenderable(ref renderable, material);
+                    renderable.material = material;
+                    WriteRenderable1(ref renderable, submesh);
                     yield return renderable;
                 }
             }
             foreach (var renderer in drp.meshRenderers)
             {
-                var mesh = GetMesh(renderer.meshPath);
+                var model = GetModel(renderer.meshPath);
+                var mesh = model.GetMesh();
                 if (setMesh)
                     graphicsContext.SetMesh(mesh);
                 this.renderer = null;
-                foreach (var material in renderer.Materials)
+                for (int i = 0; i < renderer.Materials.Count; i++)
                 {
+                    var material = renderer.Materials[i];
+                    var submesh = model.Submeshes[i];
                     var renderable = new MeshRenderable()
                     {
                         mesh = mesh,
@@ -373,7 +380,8 @@ namespace Coocoo3D.RenderPipeline
                         transform = renderer.transform.GetMatrix(),
                         gpuSkinning = false,
                     };
-                    WriteRenderable(ref renderable, material);
+                    renderable.material = material;
+                    WriteRenderable1(ref renderable, submesh);
                     yield return renderable;
                 }
             }
@@ -410,13 +418,13 @@ namespace Coocoo3D.RenderPipeline
             dataFinders.RemoveAt(dataFinders.Count - 1);
         }
 
-        void WriteRenderable(ref MeshRenderable renderable, RenderMaterial material)
+        void WriteRenderable1(ref MeshRenderable renderable, Submesh submesh)
         {
-            renderable.material = material;
-            renderable.indexStart = material.indexOffset;
-            renderable.indexCount = material.indexCount;
-            renderable.vertexStart = material.vertexStart;
-            renderable.vertexCount = material.vertexCount;
+            renderable.indexStart = submesh.indexOffset;
+            renderable.indexCount = submesh.indexCount;
+            renderable.vertexStart = submesh.vertexStart;
+            renderable.vertexCount = submesh.vertexCount;
+            renderable.drawDoubleFace = submesh.DrawDoubleFace;
         }
 
         public CBuffer GetBoneBuffer()

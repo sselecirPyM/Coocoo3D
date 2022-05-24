@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Reflection;
 
-namespace Coocoo3D.UI.Attributes
+namespace Caprice.Display
 {
     public class UIUsage
     {

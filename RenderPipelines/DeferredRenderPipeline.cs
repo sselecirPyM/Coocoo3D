@@ -6,8 +6,8 @@ using System.Threading.Tasks;
 using Caprice.Attributes;
 using Coocoo3D.RenderPipeline;
 using Coocoo3DGraphics;
-using Coocoo3D.UI.Attributes;
 using System.Numerics;
+using Caprice.Display;
 
 namespace RenderPipelines
 {
@@ -15,7 +15,7 @@ namespace RenderPipelines
     public class DeferredRenderPipeline : RenderPipeline
     {
         [AOV(AOVType.Color)]
-        [Size("Output")]
+        [Size("UnscaledOutput")]
         [Format(ResourceFormat.R8G8B8A8_UNorm)]
         public Texture2D output;
 
@@ -201,6 +201,12 @@ namespace RenderPipelines
         [Indexable]
         public float TAAFactor = 0.3f;
 
+        [UISlider(0.5f, 2.0f, name: "渲染倍数")]
+        public float RenderScale = 1;
+
+        [UIShow(name: "调试渲染")]
+        public DebugRenderType DebugRenderType;
+
         #endregion
 
         #region Material Parameters
@@ -322,6 +328,9 @@ namespace RenderPipelines
         public override void BeforeRender()
         {
             renderWrap.GetOutputSize(out outputWidth, out outputHeight);
+            renderWrap.SetSize("UnscaledOutput", outputWidth, outputHeight);
+            outputWidth = (int)(outputWidth * RenderScale);
+            outputHeight = (int)(outputHeight * RenderScale);
             renderWrap.SetSize("Output", outputWidth, outputHeight);
             renderWrap.SetSize("HalfOutput", (outputWidth + 1) / 2, (outputHeight + 1) / 2);
             renderWrap.SetSize("GIBufferSize", 589824, 1);
@@ -345,6 +354,7 @@ namespace RenderPipelines
             deferredRenderPass.Brightness = Brightness;
             deferredRenderPass.rayTracing = EnableRayTracing;
             deferredRenderPass.updateGI = UpdateGI;
+            deferredRenderPass.DebugRenderType = DebugRenderType;
             postProcess.EnableBloom = EnableBloom;
 
             deferredRenderPass.SetCamera(camera);
@@ -352,6 +362,7 @@ namespace RenderPipelines
 
             if (EnableTAA)
             {
+                taaPass.DebugRenderType = DebugRenderType;
                 taaPass.Execute(renderWrap);
             }
             postProcess.Execute(renderWrap);

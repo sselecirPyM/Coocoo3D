@@ -1,7 +1,6 @@
 ﻿using Coocoo3D.Components;
 using Coocoo3D.Core;
 using Coocoo3D.Present;
-using Coocoo3D.UI.Attributes;
 using Coocoo3D.Utility;
 using ImGuiNET;
 using System;
@@ -12,6 +11,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.IO;
 using System.Reflection;
+using Caprice.Display;
 
 namespace Coocoo3D.UI
 {
@@ -159,7 +159,7 @@ namespace Coocoo3D.UI
             }
             if (ImGui.TreeNode("相机"))
             {
-                ImGui.DragFloat("距离", ref camera.Distance,0.01f);
+                ImGui.DragFloat("距离", ref camera.Distance, 0.01f);
                 ImGui.DragFloat3("焦点", ref camera.LookAtPoint, 0.05f);
                 Vector3 a = camera.Angle / MathF.PI * 180;
                 if (ImGui.DragFloat3("角度", ref a))
@@ -232,12 +232,6 @@ namespace Coocoo3D.UI
             {
                 main.frameInterval = Math.Clamp(1 / a, 1e-4f, 1f);
             }
-            var scene = main.CurrentScene;
-            ref Settings settings = ref scene.settings;
-            ImGui.Checkbox("线框", ref settings.Wireframe);
-            ImGui.SliderInt("天空盒最高质量", ref settings.SkyBoxMaxQuality, 256, 2048);
-
-            ComboBox("调试渲染", ref scene.settings.DebugRenderType);
 
             var rpc = main.RPContext;
             ShowParam1(main, rpc.currentChannel.renderPipelineView);
@@ -258,7 +252,7 @@ namespace Coocoo3D.UI
 
             if (ImGui.Combo("渲染管线", ref renderPipelineIndex, newRPs, newRPs.Length))
             {
-                rpc.currentChannel.DelaySetRenderPipeline(rpc.RenderPipelineTypes[renderPipelineIndex], rpc, rpc.rpBasePth);
+                rpc.currentChannel.DelaySetRenderPipeline(rpc.RenderPipelineTypes[renderPipelineIndex], rpc);
             }
 
 
@@ -601,26 +595,6 @@ namespace Coocoo3D.UI
             }
         }
 
-        static void ShowTextures(Coocoo3DMain main, string id, Dictionary<string, string> showTextures, Dictionary<string, object> textures)
-        {
-            if (showTextures == null) return;
-            if (showTextures.Count == 0) return;
-            string filter = ImFilter("查找纹理", "查找纹理");
-            foreach (var texSlot in showTextures)
-            {
-                string texture0 = null;
-                bool hasTexture = textures.TryGetValue(texSlot.Key, out var o1);
-                if (o1 is string s0)
-                    texture0 = s0;
-
-                if (!Contains(texSlot.Key, filter) && (!hasTexture || !Contains(texture0, filter))) continue;
-                if (ShowTexture(main, id, texSlot.Key, ref texture0))
-                {
-                    textures[texSlot.Key] = texture0;
-                }
-            }
-        }
-
         static bool ShowTexture(Coocoo3DMain main, string id, string slot, ref string texPath, Coocoo3DGraphics.Texture2D texture = null)
         {
             bool textureChange = false;
@@ -768,15 +742,6 @@ namespace Coocoo3D.UI
 vmd格式动作");
                 ImGui.TreePop();
             }
-            if (ImGui.TreeNode("编写着色器"))
-            {
-                ImGui.TextWrapped(@"首先把Samples文件夹里的内容，复制粘贴到硬盘上的其他位置，然后开始修改。
-双击.coocoox文件来加载。
-点击设置里的重新加载着色器来重新加载。
-文件的格式每个版本都可能有些许改动。
-");
-                ImGui.TreePop();
-            }
             if (ImGui.Button("显示ImGuiDemoWindow"))
             {
                 demoWindowOpen = true;
@@ -912,7 +877,7 @@ vmd格式动作");
         {
             if (ImGui.TreeNode("材质"))
             {
-                ShowMaterials(main, renderer.Materials);
+                ShowMaterials(main, main.mainCaches.GetModel(renderer.meshPath).Submeshes, renderer.Materials);
                 ImGui.TreePop();
             }
             if (ImGui.TreeNode("变形"))
@@ -943,21 +908,21 @@ vmd格式动作");
         {
             if (ImGui.TreeNode("材质"))
             {
-                ShowMaterials(main, renderer.Materials);
+                ShowMaterials(main, main.mainCaches.GetModel(renderer.meshPath).Submeshes, renderer.Materials);
                 ImGui.TreePop();
             }
         }
 
-        static void ShowMaterials(Coocoo3DMain main, List<RenderMaterial> materials)
+        static void ShowMaterials(Coocoo3DMain main, List<Submesh> submeshes, List<RenderMaterial> materials)
         {
             if (ImGui.BeginChild("materials", new Vector2(120, 400)))
             {
                 ImGui.PushItemWidth(120);
                 for (int i = 0; i < materials.Count; i++)
                 {
-                    RenderMaterial material = materials[i];
+                    var submesh = submeshes[i];
                     bool selected = i == materialSelectIndex;
-                    ImGui.Selectable(string.Format("{0}##{1}", material.Name, i), ref selected);
+                    ImGui.Selectable(string.Format("{0}##{1}", submesh.Name, i), ref selected);
                     if (selected) materialSelectIndex = i;
                 }
                 ImGui.PopItemWidth();
@@ -969,7 +934,8 @@ vmd格式动作");
                 if (materialSelectIndex >= 0 && materialSelectIndex < materials.Count)
                 {
                     var material = materials[materialSelectIndex];
-                    ImGui.Text(material.Name);
+                    var submesh = submeshes[materialSelectIndex];
+                    ImGui.Text(submesh.Name);
                     if (ImGui.Button("修改此物体所有材质"))
                     {
                         StartEditParam();
@@ -994,7 +960,7 @@ vmd格式动作");
             }
             else
             {
-                texSize=new Vector2(0, 0);
+                texSize = new Vector2(0, 0);
                 imageId = main.widgetRenderer.ShowTexture(null);
             }
 
