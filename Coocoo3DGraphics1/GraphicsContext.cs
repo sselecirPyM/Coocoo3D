@@ -339,9 +339,9 @@ namespace Coocoo3DGraphics
                             if (inst.SRVs != null && inst.SRVs.TryGetValue(srvOffset, out object srv0))
                             {
                                 if (srv0 is Texture2D tex2d)
-                                    writer.Write(GetSRVHandle(tex2d).Ptr);
+                                    writer.Write(GetSRVHandle(tex2d).ptr);
                                 else if (srv0 is GPUBuffer buffer)
-                                    writer.Write(GetSRVHandle(buffer).Ptr);
+                                    writer.Write(GetSRVHandle(buffer).ptr);
                                 else if (srv0 is ID3D12Resource resource)
                                     writer.Write(InReferenceAddr(resource));
                                 else
@@ -405,15 +405,15 @@ namespace Coocoo3DGraphics
             currentInputLayout = inputLayout;
         }
 
-        public void SetSRVTSlotLinear(Texture2D texture, int slot) => currentSRVs[slot] = GetSRVHandle(texture, true).Ptr;
+        public void SetSRVTSlotLinear(Texture2D texture, int slot) => currentSRVs[slot] = GetSRVHandle(texture, true).ptr;
 
-        public void SetSRVTSlot(Texture2D texture, int slot) => currentSRVs[slot] = GetSRVHandle(texture).Ptr;
+        public void SetSRVTSlot(Texture2D texture, int slot) => currentSRVs[slot] = GetSRVHandle(texture).ptr;
 
-        public void SetSRVTSlot(TextureCube texture, int slot) => currentSRVs[slot] = GetSRVHandle(texture).Ptr;
+        public void SetSRVTSlot(TextureCube texture, int slot) => currentSRVs[slot] = GetSRVHandle(texture).ptr;
 
-        public void SetSRVTSlot(GPUBuffer buffer, int slot) => currentSRVs[slot] = GetSRVHandle(buffer).Ptr;
+        public void SetSRVTSlot(GPUBuffer buffer, int slot) => currentSRVs[slot] = GetSRVHandle(buffer).ptr;
 
-        public void SetSRVTLim(TextureCube texture, int mips, int slot) => currentSRVs[slot] = GetSRVHandleWithMip(texture, mips).Ptr;
+        public void SetSRVTLim(TextureCube texture, int mips, int slot) => currentSRVs[slot] = GetSRVHandleWithMip(texture, mips).ptr;
 
         void SetSRVRSlot(ulong gpuAddr, int slot) => currentSRVs[slot] = gpuAddr;
 
@@ -425,10 +425,10 @@ namespace Coocoo3DGraphics
             currentCBVs[slot] = addr;
         }
 
-        public void SetRTSlot(Texture2D texture2D, int slot) => currentUAVs[slot] = GetUAVHandle(texture2D,ResourceStates.NonPixelShaderResource).Ptr;
-        public void SetUAVTSlot(Texture2D texture2D, int slot) => currentUAVs[slot] = GetUAVHandle(texture2D).Ptr;
-        public void SetUAVTSlot(TextureCube textureCube, int slot) => currentUAVs[slot] = GetUAVHandle(textureCube).Ptr;
-        public void SetUAVTSlot(GPUBuffer buffer, int slot) => currentUAVs[slot] = GetUAVHandle(buffer).Ptr;
+        public void SetRTSlot(Texture2D texture2D, int slot) => currentUAVs[slot] = GetUAVHandle(texture2D,ResourceStates.NonPixelShaderResource).ptr;
+        public void SetUAVTSlot(Texture2D texture2D, int slot) => currentUAVs[slot] = GetUAVHandle(texture2D).ptr;
+        public void SetUAVTSlot(TextureCube textureCube, int slot) => currentUAVs[slot] = GetUAVHandle(textureCube).ptr;
+        public void SetUAVTSlot(GPUBuffer buffer, int slot) => currentUAVs[slot] = GetUAVHandle(buffer).ptr;
 
         public void SetUAVTSlot(TextureCube texture, int mipIndex, int slot)
         {
@@ -444,16 +444,16 @@ namespace Coocoo3DGraphics
                 Format = texture.uavFormat,
             };
 
-            currentUAVs[slot] = CreateUAV(texture.resource, uavDesc).Ptr;
+            currentUAVs[slot] = CreateUAV(texture.resource, uavDesc).ptr;
         }
 
         public unsafe void UpdateCBStaticResource<T>(CBuffer buffer, ID3D12GraphicsCommandList commandList, Span<T> data) where T : unmanaged
         {
-            commandList.ResourceBarrierTransition(buffer.resource, ResourceStates.GenericRead, ResourceStates.CopyDestination);
+            commandList.ResourceBarrierTransition(buffer.resource, ResourceStates.GenericRead, ResourceStates.CopyDest);
 
             GetRingBuffer().Upload<T>(m_commandList, data, buffer.resource);
 
-            commandList.ResourceBarrierTransition(buffer.resource, ResourceStates.CopyDestination, ResourceStates.GenericRead);
+            commandList.ResourceBarrierTransition(buffer.resource, ResourceStates.CopyDest, ResourceStates.GenericRead);
         }
 
         public void UpdateCBResource<T>(CBuffer buffer, ID3D12GraphicsCommandList commandList, Span<T> data) where T : unmanaged
@@ -472,7 +472,7 @@ namespace Coocoo3DGraphics
                 {
                     mesh1.vertex = mesh.vtBuffersDisposed[index1].vertex;
                     mesh1.actualLength = mesh.vtBuffersDisposed[index1].actualLength;
-                    m_commandList.ResourceBarrierTransition(mesh1.vertex, ResourceStates.GenericRead, ResourceStates.CopyDestination);
+                    m_commandList.ResourceBarrierTransition(mesh1.vertex, ResourceStates.GenericRead, ResourceStates.CopyDest);
 
                     mesh.vtBuffersDisposed.RemoveAt(index1);
                 }
@@ -485,7 +485,7 @@ namespace Coocoo3DGraphics
                 mesh1.vertex.Name = "vertex buffer" + vtBuf.Key;
 
                 GetRingBuffer().Upload<byte>(m_commandList, mesh1.data, mesh1.vertex);
-                m_commandList.ResourceBarrierTransition(mesh1.vertex, ResourceStates.CopyDestination, ResourceStates.GenericRead);
+                m_commandList.ResourceBarrierTransition(mesh1.vertex, ResourceStates.CopyDest, ResourceStates.GenericRead);
                 InReference(mesh1.vertex);
 
                 mesh1.vertexBufferView.BufferLocation = mesh1.vertex.GPUVirtualAddress;
@@ -509,11 +509,11 @@ namespace Coocoo3DGraphics
                 }
                 else
                 {
-                    m_commandList.ResourceBarrierTransition(indexBuffer, ResourceStates.GenericRead, ResourceStates.CopyDestination);
+                    m_commandList.ResourceBarrierTransition(indexBuffer, ResourceStates.GenericRead, ResourceStates.CopyDest);
                 }
                 GetRingBuffer().Upload<byte>(m_commandList, new Span<byte>(mesh.m_indexData, 0, indexBufferLength), indexBuffer);
 
-                m_commandList.ResourceBarrierTransition(indexBuffer, ResourceStates.CopyDestination, ResourceStates.GenericRead);
+                m_commandList.ResourceBarrierTransition(indexBuffer, ResourceStates.CopyDest, ResourceStates.GenericRead);
                 InReference(indexBuffer);
                 mesh.indexBufferView.BufferLocation = indexBuffer.GPUVirtualAddress;
                 mesh.indexBufferView.SizeInBytes = indexBufferLength;
@@ -542,7 +542,7 @@ namespace Coocoo3DGraphics
             {
                 vtBuf.vertex = mesh.vtBuffersDisposed[index1].vertex;
                 vtBuf.actualLength = mesh.vtBuffersDisposed[index1].actualLength;
-                m_commandList.ResourceBarrierTransition(vtBuf.vertex, ResourceStates.GenericRead, ResourceStates.CopyDestination);
+                m_commandList.ResourceBarrierTransition(vtBuf.vertex, ResourceStates.GenericRead, ResourceStates.CopyDest);
 
                 mesh.vtBuffersDisposed.RemoveAt(index1);
             }
@@ -556,7 +556,7 @@ namespace Coocoo3DGraphics
 
             GetRingBuffer().Upload(m_commandList, data, vtBuf.vertex);
 
-            m_commandList.ResourceBarrierTransition(vtBuf.vertex, ResourceStates.CopyDestination, ResourceStates.GenericRead);
+            m_commandList.ResourceBarrierTransition(vtBuf.vertex, ResourceStates.CopyDest, ResourceStates.GenericRead);
             InReference(vtBuf.vertex);
             vtBuf.vertexBufferView.BufferLocation = vtBuf.vertex.GPUVirtualAddress;
             vtBuf.vertexBufferView.StrideInBytes = sizeInBytes / mesh.m_vertexCount;
@@ -609,7 +609,7 @@ namespace Coocoo3DGraphics
             for (int i = 0; i < textureDesc.MipLevels; i++)
             {
                 SubresourceData subresourcedata = new SubresourceData();
-                subresourcedata.DataPointer = pdata;
+                subresourcedata.Data = pdata;
                 subresourcedata.RowPitch = (IntPtr)(width * bitsPerPixel / 8);
                 subresourcedata.SlicePitch = (IntPtr)(width * height * bitsPerPixel / 8);
                 pdata += width * height * bitsPerPixel / 8;
@@ -621,7 +621,7 @@ namespace Coocoo3DGraphics
 
             UpdateSubresources(m_commandList, texture.resource, uploadBuffer, 0, 0, textureDesc.MipLevels, subresources);
 
-            m_commandList.ResourceBarrierTransition(texture.resource, ResourceStates.CopyDestination, ResourceStates.GenericRead);
+            m_commandList.ResourceBarrierTransition(texture.resource, ResourceStates.CopyDest, ResourceStates.GenericRead);
             InReference(texture.resource);
             texture.resourceStates = ResourceStates.GenericRead;
 
@@ -644,7 +644,7 @@ namespace Coocoo3DGraphics
             for (int i = 0; i < texture.mipLevels; i++)
             {
                 SubresourceData subresourcedata = new SubresourceData();
-                subresourcedata.DataPointer = pdata;
+                subresourcedata.Data = pdata;
                 subresourcedata.RowPitch = (IntPtr)(width * bitsPerPixel / 8);
                 subresourcedata.SlicePitch = (IntPtr)(width * height * bitsPerPixel / 8);
                 pdata += width * height * bitsPerPixel / 8;
@@ -653,7 +653,7 @@ namespace Coocoo3DGraphics
                 width /= 2;
                 height /= 2;
             }
-            texture.StateChange(m_commandList, ResourceStates.CopyDestination);
+            texture.StateChange(m_commandList, ResourceStates.CopyDest);
             UpdateSubresources(m_commandList, texture.resource, uploadBuffer, 0, 0, texture.mipLevels, subresources);
             texture.StateChange(m_commandList, ResourceStates.GenericRead);
             InReference(texture.resource);
@@ -750,11 +750,11 @@ namespace Coocoo3DGraphics
             if (mesh.size < totalSize)
             {
                 int newSize = totalSize + 65536;
-                CreateBuffer(newSize, ref mesh.resource, ResourceStates.CopyDestination);
-                mesh.resourceStates = ResourceStates.CopyDestination;
+                CreateBuffer(newSize, ref mesh.resource, ResourceStates.CopyDest);
+                mesh.resourceStates = ResourceStates.CopyDest;
                 mesh.size = newSize;
             }
-            mesh.StateChange(m_commandList, ResourceStates.CopyDestination);
+            mesh.StateChange(m_commandList, ResourceStates.CopyDest);
             GetRingBuffer().Upload<byte>(m_commandList, vertexData, mesh.resource, 0);
             GetRingBuffer().Upload<byte>(m_commandList, indexData, mesh.resource, alignedVertSize);
             mesh.StateChange(m_commandList, ResourceStates.GenericRead);
@@ -777,7 +777,7 @@ namespace Coocoo3DGraphics
         public void CopyTexture(Texture2D target, Texture2D source)
         {
             target.StateChange(m_commandList, ResourceStates.GenericRead);
-            source.StateChange(m_commandList, ResourceStates.CopyDestination);
+            source.StateChange(m_commandList, ResourceStates.CopyDest);
             m_commandList.CopyResource(target.resource, source.resource);
         }
 
@@ -1010,7 +1010,7 @@ namespace Coocoo3DGraphics
                 else if (d == ResourceAccessType.CBVTable)
                 {
                     if (currentCBVs.TryGetValue(cbvOffset, out ulong addr))
-                        m_commandList.SetComputeRootDescriptorTable(i, new GpuDescriptorHandle() { Ptr = addr });
+                        m_commandList.SetComputeRootDescriptorTable(i, new GpuDescriptorHandle() { ptr = addr });
                     cbvOffset++;
                 }
                 else if (d == ResourceAccessType.SRV)
@@ -1022,7 +1022,7 @@ namespace Coocoo3DGraphics
                 else if (d == ResourceAccessType.SRVTable)
                 {
                     if (currentSRVs.TryGetValue(srvOffset, out ulong addr))
-                        m_commandList.SetComputeRootDescriptorTable(i, new GpuDescriptorHandle() { Ptr = addr });
+                        m_commandList.SetComputeRootDescriptorTable(i, new GpuDescriptorHandle() { ptr = addr });
                     srvOffset++;
                 }
                 else if (d == ResourceAccessType.UAV)
@@ -1034,7 +1034,7 @@ namespace Coocoo3DGraphics
                 else if (d == ResourceAccessType.UAVTable)
                 {
                     if (currentUAVs.TryGetValue(uavOffset, out ulong addr))
-                        m_commandList.SetComputeRootDescriptorTable(i, new GpuDescriptorHandle() { Ptr = addr });
+                        m_commandList.SetComputeRootDescriptorTable(i, new GpuDescriptorHandle() { ptr = addr });
                     uavOffset++;
                 }
             }
@@ -1063,7 +1063,7 @@ namespace Coocoo3DGraphics
                 else if (d == ResourceAccessType.CBVTable)
                 {
                     if (currentCBVs.TryGetValue(cbvOffset, out ulong addr))
-                        m_commandList.SetGraphicsRootDescriptorTable(i, new GpuDescriptorHandle() { Ptr = addr });
+                        m_commandList.SetGraphicsRootDescriptorTable(i, new GpuDescriptorHandle() { ptr = addr });
                     cbvOffset++;
                 }
                 else if (d == ResourceAccessType.SRV)
@@ -1075,7 +1075,7 @@ namespace Coocoo3DGraphics
                 else if (d == ResourceAccessType.SRVTable)
                 {
                     if (currentSRVs.TryGetValue(srvOffset, out ulong addr))
-                        m_commandList.SetGraphicsRootDescriptorTable(i, new GpuDescriptorHandle() { Ptr = addr });
+                        m_commandList.SetGraphicsRootDescriptorTable(i, new GpuDescriptorHandle() { ptr = addr });
                     srvOffset++;
                 }
                 else if (d == ResourceAccessType.UAV)
@@ -1087,7 +1087,7 @@ namespace Coocoo3DGraphics
                 else if (d == ResourceAccessType.UAVTable)
                 {
                     if (currentUAVs.TryGetValue(uavOffset, out ulong addr))
-                        m_commandList.SetGraphicsRootDescriptorTable(i, new GpuDescriptorHandle() { Ptr = addr });
+                        m_commandList.SetGraphicsRootDescriptorTable(i, new GpuDescriptorHandle() { ptr = addr });
                     uavOffset++;
                 }
             }
@@ -1144,7 +1144,7 @@ namespace Coocoo3DGraphics
             presents[swapChain] = vsync;
         }
 
-        void CreateBuffer(int bufferLength, ref ID3D12Resource resource, ResourceStates resourceStates = ResourceStates.CopyDestination, HeapType heapType = HeapType.Default)
+        void CreateBuffer(int bufferLength, ref ID3D12Resource resource, ResourceStates resourceStates = ResourceStates.CopyDest, HeapType heapType = HeapType.Default)
         {
             graphicsDevice.ResourceDelayRecycle(resource);
             ThrowIfFailed(graphicsDevice.device.CreateCommittedResource(
@@ -1168,7 +1168,7 @@ namespace Coocoo3DGraphics
         }
 
         void CreateResource(ResourceDescription resourceDescription, ClearValue? clearValue, ref ID3D12Resource resource,
-            ResourceStates resourceStates = ResourceStates.CopyDestination, HeapType heapType = HeapType.Default)
+            ResourceStates resourceStates = ResourceStates.CopyDest, HeapType heapType = HeapType.Default)
         {
             graphicsDevice.ResourceDelayRecycle(resource);
             ThrowIfFailed(graphicsDevice.device.CreateCommittedResource(

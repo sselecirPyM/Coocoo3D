@@ -212,6 +212,17 @@ namespace Coocoo3D.ResourceWrap
                     primitive.Attributes.TryGetValue("NORMAL", out int norm1);
                     normalWriter.Write(GetBuffer<Vector3>(norm1));
 
+                    Vector3 min;
+                    Vector3 max;
+                    min = bufferPos1[0];
+                    max = min;
+                    for (int k = 0; k < bufferPos1.Length; k++)
+                    {
+                        min = Vector3.Min(min, bufferPos1[k]);
+                        max = Vector3.Max(max, bufferPos1[k]);
+                    }
+                    submesh.boundingBox = new Vortice.Mathematics.BoundingBox(min, max);
+
                     primitive.Attributes.TryGetValue("TEXCOORD_0", out int uv1);
                     uvWriter.Write(GetBuffer<Vector2>(uv1));
 
@@ -367,9 +378,9 @@ namespace Coocoo3D.ResourceWrap
                     vertexCount = vertexIndicesLocal.Count,
                     vertexStart = vertexOffset,
                     DrawDoubleFace = mmdMat.DrawFlags.HasFlag(PMX_DrawFlag.DrawDoubleFace),
+                    boundingBox = new Vortice.Mathematics.BoundingBox(min, max),
                 };
 
-                material.boundingBox = new Vortice.Mathematics.BoundingBox(min, max);
                 material.Parameters["DiffuseColor"] = mmdMat.DiffuseColor;
                 material.Parameters["SpecularColor"] = mmdMat.SpecularColor;
                 material.Parameters["EdgeSize"] = mmdMat.EdgeScale;

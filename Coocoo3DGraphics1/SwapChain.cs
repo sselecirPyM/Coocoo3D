@@ -78,7 +78,7 @@ namespace Coocoo3DGraphics
                 swapChainDescription1.Stereo = false;
                 swapChainDescription1.SampleDescription.Count = 1;                         // 请不要使用多采样。
                 swapChainDescription1.SampleDescription.Quality = 0;
-                swapChainDescription1.Usage = Usage.RenderTargetOutput;
+                swapChainDescription1.BufferUsage = Usage.RenderTargetOutput;
                 swapChainDescription1.BufferCount = c_frameCount;                   // 使用三重缓冲最大程度地减小延迟。
                 swapChainDescription1.SwapEffect = SwapEffect.FlipSequential;
                 swapChainDescription1.Flags = SwapChainFlags.AllowTearing;
@@ -114,7 +114,7 @@ namespace Coocoo3DGraphics
 
         internal void EndRenderTarget(ID3D12GraphicsCommandList graphicsCommandList)
         {
-            int index = m_swapChain.GetCurrentBackBufferIndex();
+            int index = m_swapChain.CurrentBackBufferIndex;
             var state = renderTargetResourceStates[index];
             var stateAfter = ResourceStates.Present;
             if (state != stateAfter)
@@ -126,7 +126,7 @@ namespace Coocoo3DGraphics
 
         internal ID3D12Resource GetResource(ID3D12GraphicsCommandList graphicsCommandList)
         {
-            int index = m_swapChain.GetCurrentBackBufferIndex();
+            int index = m_swapChain.CurrentBackBufferIndex;
             var state = renderTargetResourceStates[index];
             var stateAfter = ResourceStates.RenderTarget;
             if (state != stateAfter)

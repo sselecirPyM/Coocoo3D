@@ -72,7 +72,7 @@ namespace Coocoo3DGraphics
             for (uint z = 0; z < NumSlices; ++z)
             {
                 byte* pDestSlice = (byte*)(pDest->pData) + pDest->SlicePitch * z;
-                byte* pSrcSlice = (byte*)(pSrc.DataPointer) + (long)pSrc.SlicePitch * z;
+                byte* pSrcSlice = (byte*)(pSrc.Data) + (long)pSrc.SlicePitch * z;
                 for (int y = 0; y < NumRows; ++y)
                 {
                     new Span<byte>(pSrcSlice + ((long)pSrc.RowPitch * y), RowSizeInBytes).CopyTo(new Span<byte>(pDestSlice + (long)pDest->RowPitch * y, RowSizeInBytes));
@@ -103,8 +103,7 @@ namespace Coocoo3DGraphics
             }
 
             byte* pData;
-            IntPtr data1 = pIntermediate.Map(0, null);
-            pData = (byte*)data1;
+            pIntermediate.Map(0, null,&pData);
 
             for (int i = 0; i < NumSubresources; ++i)
             {

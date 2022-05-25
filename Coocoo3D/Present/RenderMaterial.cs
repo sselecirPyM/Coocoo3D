@@ -12,8 +12,6 @@ namespace Coocoo3D.Present
 
         public Dictionary<string, object> Parameters = new Dictionary<string, object>();
 
-        public Vortice.Mathematics.BoundingBox boundingBox;
-
         public RenderMaterial GetClone()
         {
             var mat = (RenderMaterial)MemberwiseClone();

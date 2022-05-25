@@ -15,5 +15,7 @@ namespace Coocoo3D.Present
         public int vertexStart;
         public int vertexCount;
         public bool DrawDoubleFace;
+
+        public Vortice.Mathematics.BoundingBox boundingBox;
     }
 }

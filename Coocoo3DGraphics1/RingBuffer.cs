@@ -9,13 +9,15 @@ namespace Coocoo3DGraphics
 {
     internal class RingBuffer : IDisposable
     {
-        public void Init(ID3D12Device device, int size)
+        public unsafe void Init(ID3D12Device device, int size)
         {
             this.size = (size + 255) & ~255;
 
             ThrowIfFailed(device.CreateCommittedResource(new HeapProperties(HeapType.Upload), HeapFlags.None,
                 ResourceDescription.Buffer((ulong)size), ResourceStates.GenericRead, out resource));
-            mapped = resource.Map(0);
+            void* ptr1 = null;
+            resource.Map(0, &ptr1);
+            mapped = new IntPtr(ptr1);
         }
 
         IntPtr Upload(ID3D12GraphicsCommandList commandList, int size, ID3D12Resource target, int offset)

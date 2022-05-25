@@ -27,9 +27,9 @@ namespace Coocoo3DGraphics
         public void GetTempHandle(out CpuDescriptorHandle cpuHandle, out GpuDescriptorHandle gpuHandle)
         {
             CpuDescriptorHandle cpuHandle1 = heap.GetCPUDescriptorHandleForHeapStart();
-            cpuHandle1.Ptr += allocatedCount * IncrementSize;
+            cpuHandle1.ptr += (nuint)(allocatedCount * IncrementSize);
             GpuDescriptorHandle gpuHandle1 = heap.GetGPUDescriptorHandleForHeapStart();
-            gpuHandle1.Ptr += (ulong)(allocatedCount * IncrementSize);
+            gpuHandle1.ptr += (ulong)(allocatedCount * IncrementSize);
 
             allocatedCount = (allocatedCount + 1) % descriptorCount;
             cpuHandle = cpuHandle1;
@@ -40,7 +40,7 @@ namespace Coocoo3DGraphics
         public CpuDescriptorHandle GetTempCpuHandle()
         {
             CpuDescriptorHandle cpuHandle1 = heap.GetCPUDescriptorHandleForHeapStart();
-            cpuHandle1.Ptr += allocatedCount * IncrementSize;
+            cpuHandle1.ptr += (nuint)(allocatedCount * IncrementSize);
 
             allocatedCount = (allocatedCount + 1) % descriptorCount;
             return cpuHandle1;

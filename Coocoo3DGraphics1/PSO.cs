@@ -247,13 +247,13 @@ namespace Coocoo3DGraphics
             rasterizerDescription.SlopeScaledDepthBias = psoDesc.slopeScaledDepthBias;
             if (psoDesc.dsvFormat != Format.Unknown)
             {
-                state.DepthStencilState = new DepthStencilDescription(true, true);
+                state.DepthStencilState = new DepthStencilDescription(true, DepthWriteMask.All, ComparisonFunction.Less);
                 state.DepthStencilFormat = psoDesc.dsvFormat;
                 rasterizerDescription.DepthClipEnable = true;
             }
             else
             {
-                state.DepthStencilState = new DepthStencilDescription(false, false);
+                state.DepthStencilState = new DepthStencilDescription();
             }
 
             state.RasterizerState = rasterizerDescription;
