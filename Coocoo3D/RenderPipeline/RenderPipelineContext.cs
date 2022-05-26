@@ -62,6 +62,7 @@ namespace Coocoo3D.RenderPipeline
         public VisualChannel currentChannel;
 
         public Mesh quadMesh = new Mesh();
+        public Mesh cubeMesh = new Mesh();
         public int frameRenderCount;
 
         public GraphicsDevice graphicsDevice;
@@ -98,6 +99,23 @@ namespace Coocoo3D.RenderPipeline
 
             quadMesh.ReloadIndex<int>(4, new int[] { 0, 1, 2, 2, 1, 3 });
             mainCaches.MeshReadyToUpload.Enqueue(quadMesh);
+
+            cubeMesh.ReloadIndex<int>(4, new int[]
+            {
+                0,1,2,
+                2,1,3,
+                0,2,4,
+                2,6,4,
+                1,5,7,
+                3,1,7,
+                2,3,7,
+                2,7,6,
+                1,0,4,
+                1,4,5,
+                4,7,5,
+                4,6,7,
+            });
+            mainCaches.MeshReadyToUpload.Enqueue(cubeMesh);
             recorder = new Recorder()
             {
                 graphicsDevice = graphicsDevice,

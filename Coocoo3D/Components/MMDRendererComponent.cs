@@ -14,7 +14,7 @@ namespace Coocoo3D.Components
     {
         public string meshPath;
         public string motionPath = "";
-        public Transform transform;
+        public Transform transform = new Transform(Vector3.Zero, Quaternion.Identity);
         public MMDMorphStateComponent morphStateComponent = new();
         public bool LockMotion;
 

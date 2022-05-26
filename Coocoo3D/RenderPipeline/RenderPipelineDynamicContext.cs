@@ -20,6 +20,7 @@ namespace Coocoo3D.RenderPipeline
 
         public List<DirectionalLightData> directionalLights = new();
         public List<PointLightData> pointLights = new();
+        public List<DecalComponent> decals = new();
 
         public Dictionary<MMDRendererComponent, int> findRenderer = new();
         public int frameRenderIndex;
@@ -57,6 +58,11 @@ namespace Coocoo3D.RenderPipeline
                 {
                     particleEffects.Add(particleEffect);
                 }
+                if(gameObject.TryGetComponent(out DecalComponent decal))
+                {
+                    decal.transform = gameObject.Transform;
+                    decals.Add(decal);
+                }
             }
             for (int i = 0; i < renderers.Count; i++)
             {
@@ -73,6 +79,7 @@ namespace Coocoo3D.RenderPipeline
             findRenderer.Clear();
             particleEffects.Clear();
             meshRenderers.Clear();
+            decals.Clear();
         }
     }
 }

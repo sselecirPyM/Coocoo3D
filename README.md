@@ -13,6 +13,7 @@
 
 ## 图形功能
 * 可编程渲染管线
+* 贴花
 * 烘焙天空盒
 * 后处理
 * 光线追踪反射
@@ -36,6 +37,9 @@
 ![屏幕截图 2022-03-14 213859](https://user-images.githubusercontent.com/63526047/158183752-837d9481-96b8-4097-ae7a-1c15477a217e.png)
 
 ![屏幕截图 2022-03-17 131925](https://user-images.githubusercontent.com/63526047/158742418-dca992c7-bc91-4bdb-8569-0a541887cd5e.png)
+
+贴花支持
+![屏幕截图 2022-05-26 201224](https://user-images.githubusercontent.com/63526047/170485548-466c2199-ccdb-41fc-9c2f-a1930d77ce73.png)
 
 ## 使用Radeon Prorender
 RadeonProRender64.dll和Northstar64.dll未包含在此存储库中，请从Radeon Prorender SDK中获取。

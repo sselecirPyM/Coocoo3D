@@ -40,12 +40,10 @@ namespace Coocoo3DGraphics
     }
     public enum BlendState
     {
-        none = 0,
-        alpha = 1,
-        add = 2,
         None = 0,
         Alpha = 1,
         Add = 2,
+        PreserveAlpha = 3,
     };
     public enum InputLayout
     {
@@ -153,15 +151,18 @@ namespace Coocoo3DGraphics
             );
         static readonly BlendDescription blendStateAdd = new BlendDescription(Blend.One, Blend.One);
         static readonly BlendDescription blendStateAlpha = new BlendDescription(Blend.SourceAlpha, Blend.InverseSourceAlpha, Blend.One, Blend.InverseSourceAlpha);
+        static readonly BlendDescription blendStatePreserveAlpha = new BlendDescription(Blend.SourceAlpha, Blend.InverseSourceAlpha, Blend.Zero, Blend.One);
 
         BlendDescription BlendDescSelect(BlendState blendState)
         {
-            if (blendState == BlendState.none)
+            if (blendState == BlendState.None)
                 return new BlendDescription(Blend.One, Blend.Zero);
-            else if (blendState == BlendState.alpha)
+            else if (blendState == BlendState.Alpha)
                 return blendStateAlpha;
-            else if (blendState == BlendState.add)
+            else if (blendState == BlendState.Add)
                 return blendStateAdd;
+            else if (blendState == BlendState.PreserveAlpha)
+                return blendStatePreserveAlpha;
             return new BlendDescription();
         }
 

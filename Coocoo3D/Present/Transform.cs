@@ -11,11 +11,20 @@ namespace Coocoo3D.Present
     {
         public Vector3 position;
         public Quaternion rotation;
+        public Vector3 scale;
 
         public Transform(Vector3 position, Quaternion rotation)
         {
             this.position = position;
             this.rotation = rotation;
+            this.scale = Vector3.One;
+        }
+
+        public Transform(Vector3 position, Quaternion rotation,Vector3 scale)
+        {
+            this.position = position;
+            this.rotation = rotation;
+            this.scale = scale;
         }
 
         public override bool Equals(object obj)
@@ -26,7 +35,8 @@ namespace Coocoo3D.Present
         public bool Equals(Transform other)
         {
             return position.Equals(other.position) &&
-                   rotation.Equals(other.rotation);
+                   rotation.Equals(other.rotation) &&
+                   scale.Equals(other.scale);
         }
 
         public override int GetHashCode()
@@ -46,7 +56,7 @@ namespace Coocoo3D.Present
 
         public Matrix4x4 GetMatrix()
         {
-            return Matrix4x4.CreateFromQuaternion(rotation) * Matrix4x4.CreateTranslation(position);
+            return Matrix4x4.CreateScale(scale) * Matrix4x4.CreateFromQuaternion(rotation) * Matrix4x4.CreateTranslation(position);
         }
     }
 }

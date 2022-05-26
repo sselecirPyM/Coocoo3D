@@ -24,5 +24,6 @@ namespace Caprice.Display
         All = 0,
         Global,
         Material,
+        Decal,
     }
 }

@@ -271,7 +271,11 @@ namespace RenderPipelines
         public Texture2D _Normal;
 
         #endregion
-
+        #region Decal Parameters
+        [UIShow(UIShowType.Decal, "贴花颜色")]
+        [Srgb]
+        public Texture2D DecalColor;
+        #endregion
         [Indexable]
         public float cameraFar;
         [Indexable]

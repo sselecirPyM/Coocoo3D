@@ -22,17 +22,20 @@ namespace Coocoo3D.FileFormat
             name = obj.Name;
             position = obj.Transform.position;
             rotation = obj.Transform.rotation;
+            scale = obj.Transform.scale;
         }
         public string type;
         public string path;
         public string name;
         public bool? skinning;
         public Vector3 position;
-        public Quaternion rotation;
+        public Quaternion rotation = Quaternion.Identity;
+        public Vector3 scale = Vector3.One;
         public Dictionary<string, string> properties;
         public Dictionary<string, _cooMaterial> materials;
         public CooSceneObjectLighting lighting;
         public CooSceneObjectParticle particle;
+        public CooSceneObjectDecal decal;
     }
     public class CooSceneObjectLighting
     {
@@ -55,9 +58,12 @@ namespace Coocoo3D.FileFormat
         public string file;
         public int count;
     }
+    public class CooSceneObjectDecal
+    {
+        public _cooMaterial material;
+    }
     public class _cooMaterial
     {
-
         public Dictionary<string, bool> bValue;
         public Dictionary<string, int> iValue;
         public Dictionary<string, float> fValue;
@@ -141,7 +147,6 @@ namespace Coocoo3D.FileFormat
                     foreach (var material in meshRenderer.Materials)
                     {
                         _cooMaterial material1 = new _cooMaterial();
-                        //material1.strValue = new Dictionary<string, string>(material.textures);
 
                         sceneObject.materials[material.Name] = material1;
 
@@ -167,18 +172,26 @@ namespace Coocoo3D.FileFormat
                     scene.objects.Add(sceneObject);
                 }
                 var particle = obj.GetComponent<ParticleEffectComponent>();
-                if(particle != null)
+                if (particle != null)
                 {
                     CooSceneObject particleObject = new CooSceneObject(obj);
                     particleObject.type = "particle";
                     particleObject.particle = new CooSceneObjectParticle();
-                    
+                    scene.objects.Add(particleObject);
+                }
+                var decal = obj.GetComponent<DecalComponent>();
+                if (decal != null)
+                {
+                    CooSceneObject decalObject = new CooSceneObject(obj);
+                    decalObject.type = "decal";
+                    decalObject.decal = new CooSceneObjectDecal() { material = Mat2Mat(decal.material) };
+                    scene.objects.Add(decalObject);
                 }
             }
 
             return scene;
         }
-        void _func2<T>(Dictionary<string, T> dict, Dictionary<string, object> target)
+        static void _func2<T>(Dictionary<string, T> dict, Dictionary<string, object> target)
         {
             if (dict != null)
                 foreach (var f1 in dict)
@@ -222,11 +235,11 @@ namespace Coocoo3D.FileFormat
                     }
                     if (obj.materials != null)
                     {
-                        Mat2Mat(obj.materials, renderer.Materials, main);
+                        Mat2Mat(obj.materials, renderer.Materials);
                     }
                     main.CurrentScene.AddGameObject(gameObject);
                 }
-                else if(obj.type == "model")
+                else if (obj.type == "model")
                 {
                     string path = obj.path;
                     ModelPack modelPack = main.mainCaches.GetModel(path);
@@ -236,7 +249,7 @@ namespace Coocoo3D.FileFormat
 
                     if (obj.materials != null)
                     {
-                        Mat2Mat(obj.materials, renderer.Materials, main);
+                        Mat2Mat(obj.materials, renderer.Materials);
                     }
                     main.CurrentScene.AddGameObject(gameObject);
                 }
@@ -262,16 +275,26 @@ namespace Coocoo3D.FileFormat
                         particleEffectComponent.particleCount = obj.particle.count;
                         particleEffectComponent.particleFile = obj.particle.file;
                     }
+                    main.CurrentScene.AddGameObject(gameObject);
+                }
+                else if (obj.type == "decal")
+                {
+                    DecalComponent decalComponent = new DecalComponent();
+                    gameObject.AddComponent(decalComponent);
+                    if (obj.decal != null)
+                    {
+                        decalComponent.material = Mat2Mat(obj.decal.material);
+                    }
+                    main.CurrentScene.AddGameObject(gameObject);
                 }
             }
             main.GameDriverContext.RequireResetPhysics = true;
         }
-        void Mat2Mat(Dictionary<string, _cooMaterial> materials, List<RenderMaterial> renderMaterials, Coocoo3DMain main)
+        static void Mat2Mat(Dictionary<string, _cooMaterial> materials, List<RenderMaterial> renderMaterials)
         {
             foreach (var mat in renderMaterials)
             {
                 if (!materials.TryGetValue(mat.Name, out _cooMaterial mat1)) continue;
-
 
                 _func2(mat1.fValue, mat.Parameters);
                 _func2(mat1.f2Value, mat.Parameters);
@@ -280,23 +303,43 @@ namespace Coocoo3D.FileFormat
                 _func2(mat1.iValue, mat.Parameters);
                 _func2(mat1.bValue, mat.Parameters);
                 _func2(mat1.strValue, mat.Parameters);
-
-                //if (mat1.strValue != null)
-                //{
-                //    mat.textures = new Dictionary<string, string>(mat1.strValue);
-                //    foreach (var tex in mat.textures)
-                //    {
-                //        main.mainCaches.Texture(tex.Value);
-                //    }
-                //}
             }
+        }
+        static RenderMaterial Mat2Mat(_cooMaterial material)
+        {
+            RenderMaterial mat = new RenderMaterial();
+
+            _func2(material.fValue, mat.Parameters);
+            _func2(material.f2Value, mat.Parameters);
+            _func2(material.f3Value, mat.Parameters);
+            _func2(material.f4Value, mat.Parameters);
+            _func2(material.iValue, mat.Parameters);
+            _func2(material.bValue, mat.Parameters);
+            _func2(material.strValue, mat.Parameters);
+            return mat;
+        }
+        static _cooMaterial Mat2Mat(RenderMaterial material)
+        {
+            _cooMaterial material1 = new();
+
+            foreach (var customValue in material.Parameters)
+            {
+                if (_func1(ref material1.fValue, customValue)) continue;
+                if (_func1(ref material1.f2Value, customValue)) continue;
+                if (_func1(ref material1.f3Value, customValue)) continue;
+                if (_func1(ref material1.f4Value, customValue)) continue;
+                if (_func1(ref material1.bValue, customValue)) continue;
+                if (_func1(ref material1.iValue, customValue)) continue;
+                if (_func1(ref material1.strValue, customValue)) continue;
+            }
+            return material1;
         }
         GameObject GetGameObject(CooSceneObject obj)
         {
             GameObject gameObject = new GameObject();
 
             gameObject.Name = obj.name ?? string.Empty;
-            gameObject.Transform = new(obj.position, obj.rotation);
+            gameObject.Transform = new(obj.position, obj.rotation, obj.scale);
             return gameObject;
         }
     }

@@ -59,7 +59,7 @@ namespace Coocoo3D.RenderPipeline
 
 
             PSODesc desc;
-            desc.blendState = BlendState.alpha;
+            desc.blendState = BlendState.Alpha;
             desc.cullMode = CullMode.None;
             desc.depthBias = 0;
             desc.slopeScaledDepthBias = 0;

@@ -78,8 +78,33 @@ namespace RenderPipelines
             },
             filter = FilterOpaque,
         };
+        public DrawDecalPass decalPass = new DrawDecalPass()
+        {
+            shader = "DeferredDecal.hlsl",
+            rs = "CCCssss",
+            renderTargets = new string[1]
+            {
+                "gbuffer0"
+            },
+            psoDesc = new PSODesc()
+            {
+                blendState = BlendState.PreserveAlpha,
+                cullMode = CullMode.Front,
+            },
+            srvs = new string[]
+            {
+                null,
+                "DecalColor"
+            },
+            CBVPerObject = new object[]
+            {
+                null,
+                null,
+            }
+        };
         public DrawQuadPass finalPass = new DrawQuadPass()
         {
+            clearRenderTarget = true,
             rs = "CCCsssssssssss",
             shader = "DeferredFinal.hlsl",
             renderTargets = new string[1],
@@ -299,6 +324,7 @@ namespace RenderPipelines
             CameraPosition = camera.Position;
 
             rayTracingPass.SetCamera(camera);
+            decalPass.viewProj = ViewProjection;
         }
 
         public void SetRenderTarget(string renderTarget, string depthStencil)
@@ -312,6 +338,7 @@ namespace RenderPipelines
             drawGBuffer.depthStencil = depthStencil;
             drawObjectTransparent.depthStencil = depthStencil;
             drawObjectTransparent.renderTargets[0] = renderTarget;
+            decalPass.srvs[0] = depthStencil;
             finalPass.renderTargets[0] = renderTarget;
             finalPass.srvs[5] = depthStencil;
 
@@ -396,6 +423,7 @@ namespace RenderPipelines
                 drawObjectTransparent.keywords.Add(("POINT_LIGHT_COUNT", pls.Count.ToString()));
             }
             drawGBuffer.Execute(renderWrap);
+            decalPass.Execute(renderWrap);
             if (rayTracing || updateGI)
             {
                 rayTracingPass.RayTracing = rayTracing;

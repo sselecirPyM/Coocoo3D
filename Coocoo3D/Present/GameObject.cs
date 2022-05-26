@@ -14,7 +14,7 @@ namespace Coocoo3D.Present
         public string Description = string.Empty;
         public int layoutMask;
 
-        public Transform Transform;
+        public Transform Transform = new Transform(Vector3.Zero, Quaternion.Identity);
 
         public override string ToString()
         {

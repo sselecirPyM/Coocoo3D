@@ -38,6 +38,8 @@ namespace Coocoo3D.RenderPipeline
 
         public IReadOnlyList<PointLightData> pointLights { get => rpc.dynamicContextRead.pointLights; }
 
+        public IReadOnlyList<DecalComponent> decals { get => rpc.dynamicContextRead.decals; }
+
         public CameraData Camera { get => visualChannel.cameraData; }
 
         List<(object, Dictionary<string, MemberInfo>)> dataFinders = new();
@@ -70,11 +72,23 @@ namespace Coocoo3D.RenderPipeline
             graphicsContext.DrawIndexed(renderable.indexCount, renderable.indexStart, renderable.vertexStart);
         }
 
+        public void Draw(int indexCount, int startIndexLocation, int baseVertexLocation)
+        {
+            graphicsContext.DrawIndexed(indexCount, startIndexLocation, baseVertexLocation);
+        }
+
         public void DrawQuad(int instanceCount = 1)
         {
             var graphicsContext = this.graphicsContext;
             graphicsContext.SetMesh(rpc.quadMesh);
             graphicsContext.DrawIndexedInstanced(6, instanceCount, 0, 0, 0);
+        }
+
+        public void DrawCube(int instanceCount = 1)
+        {
+            var graphicsContext = this.graphicsContext;
+            graphicsContext.SetMesh(rpc.cubeMesh);
+            graphicsContext.DrawIndexedInstanced(36, instanceCount, 0, 0, 0);
         }
 
         public void SetSRVs(IReadOnlyList<string> textures, RenderMaterial material = null)

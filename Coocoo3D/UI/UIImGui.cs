@@ -43,6 +43,7 @@ namespace Coocoo3D.UI
             {
                 selectedObject = main.SelectedGameObjects[0];
                 position = selectedObject.Transform.position;
+                scale = selectedObject.Transform.scale;
                 if (rotationCache != selectedObject.Transform.rotation)
                 {
                     rotation = QuaternionToEularYXZ(selectedObject.Transform.rotation);
@@ -135,7 +136,7 @@ namespace Coocoo3D.UI
                 }
                 if (transformChange)
                 {
-                    main.CurrentScene.setTransform[selectedObject] = new(position, rotationCache);
+                    main.CurrentScene.setTransform[selectedObject] = new(position, rotationCache, scale);
                 }
             }
         }
@@ -234,7 +235,7 @@ namespace Coocoo3D.UI
             }
 
             var rpc = main.RPContext;
-            ShowParam1(main, rpc.currentChannel.renderPipelineView);
+            ShowParams(main, rpc.currentChannel.renderPipelineView);
             int renderPipelineIndex = 0;
             string[] newRPs = new string[rpc.RenderPipelineTypes.Length];
             for (int i = 0; i < newRPs.Length; i++)
@@ -284,7 +285,7 @@ namespace Coocoo3D.UI
             ImGui.TextUnformatted("绘制三角形数：" + main.drawTriangleCount); ;
         }
 
-        static void ShowParam1(Coocoo3DMain main, RenderPipeline.RenderPipelineView view)
+        static void ShowParams(Coocoo3DMain main, RenderPipeline.RenderPipelineView view)
         {
             if (view == null) return;
             ImGui.Separator();
@@ -294,6 +295,7 @@ namespace Coocoo3D.UI
             foreach (var param in view.UIUsages)
             {
                 var val = param.Value;
+                string name = val.MemberInfo.Name;
 
                 if (val.UIShowType != UIShowType.All && val.UIShowType != UIShowType.Global) continue;
                 if (!Contains(val.Name, filter) && !Contains(param.Key, filter))
@@ -311,134 +313,34 @@ namespace Coocoo3D.UI
                 }
                 else
                 {
-                    ShowParam1(main, val, view);
+                    ShowParam1(main, val, view, () =>
+                    {
+                        if (member.GetGetterType() == typeof(Coocoo3DGraphics.Texture2D))
+                        {
+                            view.textureReplacement.TryGetValue(name, out string rep);
+                            return rep;
+                        }
+                        else
+                            return member.GetValue<object>(renderPipeline);
+                    },
+                    (object o1) =>
+                    {
+                        if (member.GetGetterType() == typeof(Coocoo3DGraphics.Texture2D))
+                        {
+                            view.SetReplacement(name, (string)o1);
+                            view.InvalidDependents(name);
+                        }
+                        else
+                        {
+                            member.SetValue(renderPipeline, o1);
+                            view.InvalidDependents(name);
+                        }
+                    });
                 }
             }
         }
 
-        static void ShowParam1(Coocoo3DMain main, UIUsage param, RenderPipeline.RenderPipelineView view)
-        {
-            var renderPipeline = view.renderPipeline;
-            var member = param.MemberInfo;
-            object obj = member.GetValue<object>(renderPipeline);
-
-            string displayName = param.Name;
-            string name = member.Name;
-            var sliderAttribute = param.sliderAttribute;
-            var colorAttribute = param.colorAttribute;
-            var dragFloatAttribute = param.dragFloatAttribute;
-            var dragIntAttribute = param.dragIntAttribute;
-            switch (obj)
-            {
-                case bool val:
-                    if (ImGui.Checkbox(displayName, ref val))
-                    {
-                        member.SetValue(renderPipeline, val);
-                        view.InvalidDependents(name);
-                    }
-                    break;
-                case float val:
-                    if (sliderAttribute != null)
-                    {
-                        if (ImGui.SliderFloat(displayName, ref val, sliderAttribute.Min, sliderAttribute.Max))
-                        {
-                            member.SetValue(renderPipeline, val);
-                            view.InvalidDependents(name);
-                        }
-                    }
-                    else if (dragFloatAttribute != null)
-                    {
-                        if (ImGui.DragFloat(displayName, ref val, dragFloatAttribute.Step, dragFloatAttribute.Min, dragFloatAttribute.Max))
-                        {
-                            member.SetValue(renderPipeline, val);
-                            view.InvalidDependents(name);
-                        }
-                    }
-                    break;
-                case Vector2 val:
-                    if (dragFloatAttribute != null)
-                    {
-                        if (ImGui.DragFloat2(displayName, ref val, dragFloatAttribute.Step, dragFloatAttribute.Min, dragFloatAttribute.Max))
-                        {
-                            member.SetValue(renderPipeline, val);
-                            view.InvalidDependents(name);
-                        }
-                    }
-                    break;
-                case Vector3 val:
-                    if (colorAttribute != null)
-                    {
-                        if (ImGui.ColorEdit3(displayName, ref val, ImGuiColorEditFlags.Float | ImGuiColorEditFlags.HDR))
-                        {
-                            member.SetValue(renderPipeline, val);
-                            view.InvalidDependents(name);
-                        }
-                    }
-                    else if (dragFloatAttribute != null)
-                    {
-                        if (ImGui.DragFloat3(displayName, ref val, dragFloatAttribute.Step, dragFloatAttribute.Min, dragFloatAttribute.Max))
-                        {
-                            member.SetValue(renderPipeline, val);
-                            view.InvalidDependents(name);
-                        }
-                    }
-                    break;
-                case Vector4 val:
-                    if (colorAttribute != null)
-                    {
-                        if (ImGui.ColorEdit4(displayName, ref val, ImGuiColorEditFlags.Float | ImGuiColorEditFlags.HDR))
-                        {
-                            member.SetValue(renderPipeline, val);
-                            view.InvalidDependents(name);
-                        }
-                    }
-                    else if (dragFloatAttribute != null)
-                    {
-                        if (ImGui.DragFloat4(displayName, ref val, dragFloatAttribute.Step, dragFloatAttribute.Min, dragFloatAttribute.Max))
-                        {
-                            member.SetValue(renderPipeline, val);
-                            view.InvalidDependents(name);
-                        }
-                    }
-                    break;
-                case int val:
-                    if (dragIntAttribute != null)
-                    {
-                        if (ImGui.DragInt(displayName, ref val, dragIntAttribute.Step, dragIntAttribute.Min, dragIntAttribute.Max))
-                        {
-                            member.SetValue(renderPipeline, val);
-                            view.InvalidDependents(name);
-                        }
-                    }
-                    break;
-                case string val:
-                    if (ImGui.InputText(displayName, ref val, 256))
-                    {
-                        member.SetValue(renderPipeline, val);
-                        view.InvalidDependents(name);
-                    }
-                    break;
-                case Coocoo3DGraphics.Texture2D tex2d:
-                    view.textureReplacement.TryGetValue(name, out string rep);
-                    if (ShowTexture(main, "global", name, ref rep, tex2d))
-                    {
-                        view.SetReplacement(name, rep);
-                        view.InvalidDependents(name);
-                    }
-                    break;
-                default:
-                    ImGui.Text(displayName + " 不支持的类型");
-                    break;
-            }
-            if (param.Description != null && ImGui.IsItemHovered())
-            {
-                ImGui.BeginTooltip();
-                ImGui.Text(param.Description);
-                ImGui.EndTooltip();
-            }
-        }
-
-        static void ShowParam1(Coocoo3DMain main, RenderPipeline.RenderPipelineView view, Dictionary<string, object> parameters)
+        static void ShowParams(Coocoo3DMain main, UIShowType showType, RenderPipeline.RenderPipelineView view, Dictionary<string, object> parameters)
         {
             if (view == null) return;
             ImGui.Separator();
@@ -448,9 +350,10 @@ namespace Coocoo3D.UI
             foreach (var param in view.UIUsages)
             {
                 var val = param.Value;
+                string name = val.MemberInfo.Name;
 
-                if (val.UIShowType != UIShowType.All && val.UIShowType != UIShowType.Material) continue;
-                if (!Contains(val.Name, filter) && !Contains(param.Key, filter))
+                if (val.UIShowType != UIShowType.All && val.UIShowType != showType) continue;
+                if (!Contains(name, filter) && !Contains(param.Key, filter))
                     continue;
 
                 var member = val.MemberInfo;
@@ -462,12 +365,18 @@ namespace Coocoo3D.UI
                 }
                 else
                 {
-                    ShowParam1(main, val, view, parameters);
+                    ShowParam1(main, val, view, () =>
+                    {
+                        parameters.TryGetValue(name, out var parameter);
+                        return parameter;
+                    },
+                    (object o1) => { parameters[name] = o1; },
+                    true);
                 }
             }
         }
 
-        static void ShowParam1(Coocoo3DMain main, UIUsage param, RenderPipeline.RenderPipelineView view, Dictionary<string, object> parameters)
+        static void ShowParam1(Coocoo3DMain main, UIUsage param, RenderPipeline.RenderPipelineView view, Func<object> getter, Action<object> setter, bool viewOverride = false)
         {
             var renderPipeline = view.renderPipeline;
             var member = param.MemberInfo;
@@ -478,9 +387,10 @@ namespace Coocoo3D.UI
             string name = member.Name;
 
             bool propertyOverride = false;
-            if (parameters.TryGetValue(name, out var parameter) && type == parameter.GetType())
+            object parameter = getter.Invoke();
+            if (parameter != null && type == parameter.GetType())
             {
-                propertyOverride = true;
+                propertyOverride = viewOverride;
                 obj = parameter;
             }
             if (propertyOverride)
@@ -494,7 +404,7 @@ namespace Coocoo3D.UI
                 case bool val:
                     if (ImGui.Checkbox(displayName, ref val))
                     {
-                        parameters[name] = val;
+                        setter.Invoke(val);
                     }
                     break;
                 case float val:
@@ -502,14 +412,14 @@ namespace Coocoo3D.UI
                     {
                         if (ImGui.SliderFloat(displayName, ref val, sliderAttribute.Min, sliderAttribute.Max))
                         {
-                            parameters[name] = val;
+                            setter.Invoke(val);
                         }
                     }
                     else if (dragFloatAttribute != null)
                     {
                         if (ImGui.DragFloat(displayName, ref val, dragFloatAttribute.Step, dragFloatAttribute.Min, dragFloatAttribute.Max))
                         {
-                            parameters[name] = val;
+                            setter.Invoke(val);
                         }
                     }
                     break;
@@ -518,7 +428,7 @@ namespace Coocoo3D.UI
                     {
                         if (ImGui.DragFloat2(displayName, ref val, dragFloatAttribute.Step, dragFloatAttribute.Min, dragFloatAttribute.Max))
                         {
-                            parameters[name] = val;
+                            setter.Invoke(val);
                         }
                     }
                     break;
@@ -527,14 +437,14 @@ namespace Coocoo3D.UI
                     {
                         if (ImGui.ColorEdit3(displayName, ref val))
                         {
-                            parameters[name] = val;
+                            setter.Invoke(val);
                         }
                     }
                     else if (dragFloatAttribute != null)
                     {
                         if (ImGui.DragFloat3(displayName, ref val, dragFloatAttribute.Step, dragFloatAttribute.Min, dragFloatAttribute.Max))
                         {
-                            parameters[name] = val;
+                            setter.Invoke(val);
                         }
                     }
                     break;
@@ -543,14 +453,14 @@ namespace Coocoo3D.UI
                     {
                         if (ImGui.ColorEdit4(displayName, ref val))
                         {
-                            parameters[name] = val;
+                            setter.Invoke(val);
                         }
                     }
                     else if (dragFloatAttribute != null)
                     {
                         if (ImGui.DragFloat4(displayName, ref val, dragFloatAttribute.Step, dragFloatAttribute.Min, dragFloatAttribute.Max))
                         {
-                            parameters[name] = val;
+                            setter.Invoke(val);
                         }
                     }
                     break;
@@ -559,25 +469,26 @@ namespace Coocoo3D.UI
                     {
                         if (ImGui.DragInt(displayName, ref val, dragIntAttribute.Step, dragIntAttribute.Min, dragIntAttribute.Max))
                         {
-                            parameters[name] = val;
+                            setter.Invoke(val);
                         }
                     }
                     break;
                 case string val:
                     if (ImGui.InputText(displayName, ref val, 256))
                     {
-                        parameters[name] = val;
+                        setter.Invoke(val);
                     }
                     break;
                 case Coocoo3DGraphics.Texture2D tex2d:
                     string rep = null;
-                    if (parameters.TryGetValue(name, out object o1) && o1 is string o2)
+                    object o1 = getter.Invoke();
+                    if (o1 is string o2)
                     {
                         rep = o2;
                     }
-                    if (ShowTexture(main, "global", name, ref rep, tex2d))
+                    if (ShowTexture(main, displayName, "global", name, ref rep, tex2d))
                     {
-                        parameters[name] = rep;
+                        setter.Invoke(rep);
                     }
                     break;
                 default:
@@ -595,14 +506,14 @@ namespace Coocoo3D.UI
             }
         }
 
-        static bool ShowTexture(Coocoo3DMain main, string id, string slot, ref string texPath, Coocoo3DGraphics.Texture2D texture = null)
+        static bool ShowTexture(Coocoo3DMain main, string displayName, string id, string slot, ref string texPath, Coocoo3DGraphics.Texture2D texture = null)
         {
             bool textureChange = false;
             var cache = main.mainCaches;
             bool hasTexture = texPath != null && cache.TryGetTexture(texPath, out texture);
 
             IntPtr imageId = main.widgetRenderer.ShowTexture(texture);
-            ImGui.Text(slot);
+            ImGui.Text(displayName);
             Vector2 imageSize = new Vector2(120, 120);
             if (ImGui.ImageButton(imageId, imageSize))
             {
@@ -762,9 +673,14 @@ vmd格式动作");
             //ImGui.SameLine();
             //if (ImGui.Button("新体积"))
             //{
-            //    UISharedCode.NewVolume(main);
+            //    NewVolume(main);
             //}
             //ImGui.SameLine();
+            if (ImGui.Button("新贴花"))
+            {
+                NewDecal(main);
+            }
+            ImGui.SameLine();
             bool removeObject = false;
             if (ImGui.Button("移除物体"))
             {
@@ -815,6 +731,7 @@ vmd格式动作");
             var renderer = gameObject.GetComponent<MMDRendererComponent>();
             var meshRenderer = gameObject.GetComponent<MeshRendererComponent>();
             var particleEffect = gameObject.GetComponent<ParticleEffectComponent>();
+            var decal = gameObject.GetComponent<DecalComponent>();
 
             ImGui.InputText("名称", ref gameObject.Name, 256);
             if (ImGui.TreeNode("描述"))
@@ -851,6 +768,10 @@ vmd格式动作");
             if (meshRenderer != null)
             {
                 RendererComponent(main, meshRenderer);
+            }
+            if (decal != null)
+            {
+                DecalComponent(main, gameObject, decal);
             }
             if (lighting != null && ImGui.TreeNode("光照"))
             {
@@ -941,10 +862,21 @@ vmd格式动作");
                         StartEditParam();
                     }
 
-                    ShowParam1(main, main.RPContext.currentChannel.renderPipelineView, material.Parameters);
+                    ShowParams(main, UIShowType.Material, main.RPContext.currentChannel.renderPipelineView, material.Parameters);
                 }
             }
             ImGui.EndChild();
+        }
+
+        static void DecalComponent(Coocoo3DMain main, GameObject gameObject, DecalComponent decal)
+        {
+            if (ImGui.TreeNode("贴花"))
+            {
+                ImGui.Checkbox("显示包围盒", ref showDecalBounding);
+                ImGui.DragFloat3("大小", ref gameObject.Transform.scale, 0.01f);
+                ShowParams(main, UIShowType.Decal, main.RPContext.currentChannel.renderPipelineView, decal.material.Parameters);
+                ImGui.TreePop();
+            }
         }
 
         static void SceneView(Coocoo3DMain main, RenderPipeline.VisualChannel channel, float mouseWheelDelta, Vector2 mouseMoveDelta)
@@ -974,39 +906,8 @@ vmd格式动作");
             ImGui.InvisibleButton("X", imageSize, ImGuiButtonFlags.MouseButtonLeft | ImGuiButtonFlags.MouseButtonRight | ImGuiButtonFlags.MouseButtonMiddle);
             var drawList = ImGui.GetWindowDrawList();
             drawList.AddImage(imageId, pos, pos + imageSize);
-            var vpMatrix = channel.cameraData.vpMatrix;
-            ImGui.PushClipRect(pos, pos + imageSize, true);
-            foreach (var light in main.RPContext.dynamicContextRead.pointLights)
-            {
-                Vector4 p1 = Vector4.Transform(new Vector4(light.Position, 1), vpMatrix);
-                p1 /= p1.W;
-                p1.Y = -p1.Y;
-                Vector2 basePos = pos + (new Vector2(p1.X, p1.Y) * 0.5f + new Vector2(0.5f, 0.5f)) * imageSize;
-                if (p1.X > -1 && p1.X < 1 && p1.Y > -1 && p1.Y < 1)
-                    drawList.AddTriangle(basePos + new Vector2(-0.8660254f, -0.5f) * 10, basePos + new Vector2(0, 1) * 10, basePos + new Vector2(0.8660254f, -0.5f) * 10, 0xffffffff, 2);
-            }
-            int hoveredIndex = -1;
-            string toolTipMessage = "";
-            Vector2 mousePos = ImGui.GetMousePos();
-            var scene = main.CurrentScene;
-            for (int i = 0; i < scene.gameObjects.Count; i++)
-            {
-                GameObject obj = scene.gameObjects[i];
-                Vector4 p1 = Vector4.Transform(new Vector4(obj.Transform.position, 1), vpMatrix);
-                p1 /= p1.W;
-                p1.Y = -p1.Y;
-                Vector2 basePos = pos + (new Vector2(p1.X, p1.Y) * 0.5f + new Vector2(0.5f, 0.5f)) * imageSize;
-                Vector2 p2 = Vector2.Abs(basePos - mousePos);
-                if (p2.X < 10 && p2.Y < 10)
-                {
-                    toolTipMessage += obj.Name + "\n";
-                    hoveredIndex = i;
-                    drawList.AddNgon(basePos, 10, 0xffffffff, 4);
-                }
-                if (gameObjectSelectIndex == i)
-                    drawList.AddNgon(basePos, 10, 0xffffff77, 4);
-            }
-            ImGui.PopClipRect();
+            DrawGizmo(main, channel, pos, imageSize);
+
             if (ImGui.IsItemActive())
             {
                 if (io.MouseDown[1])
@@ -1018,6 +919,51 @@ vmd格式动作");
             if (ImGui.IsItemHovered())
             {
                 channel.camera.Distance += mouseWheelDelta * 0.6f;
+            }
+        }
+
+        static void DrawGizmo(Coocoo3DMain main, RenderPipeline.VisualChannel channel, Vector2 imagePosition, Vector2 imageSize)
+        {
+            var io = ImGui.GetIO();
+            Vector2 mousePos = ImGui.GetMousePos();
+            int hoveredIndex = -1;
+            string toolTipMessage = "";
+            var scene = main.CurrentScene;
+            var vpMatrix = channel.cameraData.vpMatrix;
+
+            ImGui.PushClipRect(imagePosition, imagePosition + imageSize, true);
+            var drawList = ImGui.GetWindowDrawList();
+
+            foreach (var light in main.RPContext.dynamicContextRead.pointLights)
+            {
+                Vector2 lPosition = TransformToViewport(light.Position, vpMatrix, out bool canView);
+                Vector2 basePos = imagePosition + (lPosition * 0.5f + new Vector2(0.5f, 0.5f)) * imageSize;
+                if (canView && lPosition.X > -1 && lPosition.X < 1 && lPosition.Y > -1 && lPosition.Y < 1)
+                    drawList.AddTriangle(basePos + new Vector2(-0.8660254f, -0.5f) * 10, basePos + new Vector2(0, 1) * 10, basePos + new Vector2(0.8660254f, -0.5f) * 10, 0xffffffff, 2);
+            }
+            for (int i = 0; i < scene.gameObjects.Count; i++)
+            {
+                GameObject obj = scene.gameObjects[i];
+                Vector3 position = obj.Transform.position;
+                Vector2 basePos = imagePosition + (TransformToImage(position, vpMatrix, out bool canView)) * imageSize;
+                Vector2 p2 = Vector2.Abs(basePos - mousePos);
+                if (p2.X < 10 && p2.Y < 10 && canView)
+                {
+                    toolTipMessage += obj.Name + "\n";
+                    hoveredIndex = i;
+                    drawList.AddNgon(basePos, 10, 0xffffffff, 4);
+                }
+                if (gameObjectSelectIndex == i && canView)
+                    drawList.AddNgon(basePos, 10, 0xffffff77, 4);
+                if (obj.TryGetComponent(out DecalComponent decal)&& showDecalBounding)
+                {
+                    DrawCube(drawList, imagePosition, imageSize, obj.Transform, vpMatrix);
+                }
+            }
+            ImGui.PopClipRect();
+
+            if (ImGui.IsItemHovered())
+            {
                 if (io.MouseReleased[0] && ImGui.IsItemFocused())
                 {
                     gameObjectSelectIndex = hoveredIndex;
@@ -1028,6 +974,45 @@ vmd格式动作");
                 ImGui.BeginTooltip();
                 ImGui.Text(toolTipMessage);
                 ImGui.EndTooltip();
+            }
+        }
+
+        static void DrawCube(ImDrawListPtr drawList, Vector2 leftTop, Vector2 imageSize, Transform transform, Matrix4x4 vpMatrix)
+        {
+            Vector3 position = transform.position;
+            Quaternion rotation = transform.rotation;
+            Vector3 scale = transform.scale;
+            vpMatrix = MatrixExt.Transform(position, rotation, scale) * vpMatrix;
+
+            for (int i = 0; i < 4; i++)
+            {
+                float signY = ((i & 2) - 1);
+                float signZ = (((i << 1) & 2) - 1);
+                Vector2 p1 = TransformToImage(new Vector3(1, signY, signZ), vpMatrix, out bool b1);
+                Vector2 p2 = TransformToImage(new Vector3(-1, signY, signZ), vpMatrix, out bool b2);
+                if (b1 || b2)
+                    drawList.AddLine(leftTop + p1 * imageSize,
+                        leftTop + p2 * imageSize, 0xffffffff);
+            }
+            for (int i = 0; i < 4; i++)
+            {
+                float signX = ((i & 2) - 1);
+                float signZ = (((i << 1) & 2) - 1);
+                Vector2 p1 = TransformToImage(new Vector3(signX, 1, signZ), vpMatrix, out bool b1);
+                Vector2 p2 = TransformToImage(new Vector3(signX, -1, signZ), vpMatrix, out bool b2);
+                if (b1 || b2)
+                    drawList.AddLine(leftTop + p1 * imageSize,
+                    leftTop + p2 * imageSize, 0xffffffff);
+            }
+            for (int i = 0; i < 4; i++)
+            {
+                float signX = ((i & 2) - 1);
+                float signY = (((i << 1) & 2) - 1);
+                Vector2 p1 = TransformToImage(new Vector3(signX, signY, 1), vpMatrix, out bool b1);
+                Vector2 p2 = TransformToImage(new Vector3(signX, signY, -1), vpMatrix, out bool b2);
+                if (b1 || b2)
+                    drawList.AddLine(leftTop + p1 * imageSize,
+                    leftTop + p2 * imageSize, 0xffffffff);
             }
         }
 
@@ -1088,7 +1073,7 @@ vmd格式动作");
             }
             if (ImGui.BeginPopupModal("编辑参数", ref popupParamEdit))
             {
-                ShowParam1(main, main.RPContext.currentChannel.renderPipelineView, paramEdit);
+                ShowParams(main, UIShowType.Material, main.RPContext.currentChannel.renderPipelineView, paramEdit);
 
                 if (ImGui.Button("确定"))
                 {
@@ -1178,6 +1163,16 @@ vmd格式动作");
             main.CurrentScene.AddGameObject(gameObject);
         }
 
+        static void NewDecal(Coocoo3DMain main)
+        {
+            DecalComponent decalComponent = new DecalComponent();
+            GameObject gameObject = new GameObject();
+            gameObject.AddComponent(decalComponent);
+            gameObject.Name = "Decal";
+            gameObject.Transform = new(new Vector3(0, 0, 0), Quaternion.CreateFromYawPitchRoll(0, -1.5707963267948966192313216916398f, 0), new Vector3(1, 1, 0.1f));
+            main.CurrentScene.AddGameObject(gameObject);
+        }
+
         static void NewParticle(Coocoo3DMain main)
         {
             ParticleEffectComponent particleEffectComponent = new ParticleEffectComponent();
@@ -1188,6 +1183,21 @@ vmd格式动作");
             main.CurrentScene.AddGameObject(gameObject);
         }
 
+        static Vector2 TransformToViewport(Vector3 vector, Matrix4x4 vp, out bool canView)
+        {
+            Vector4 xPosition = Vector4.Transform(new Vector4(vector, 1), vp);
+            xPosition /= xPosition.W;
+            xPosition.Y = -xPosition.Y;
+            if (xPosition.Z < 0) canView = false;
+            else canView = true;
+            return new Vector2(xPosition.X, xPosition.Y);
+        }
+
+        static Vector2 TransformToImage(Vector3 vector, Matrix4x4 vp, out bool canView)
+        {
+            return TransformToViewport(vector, vp, out canView) * 0.5f + new Vector2(0.5f, 0.5f);
+        }
+
         static string fileOpenId = null;
 
         public static bool initialized = false;
@@ -1195,6 +1205,7 @@ vmd格式动作");
         public static bool demoWindowOpen = false;
         public static Vector3 position;
         public static Vector3 rotation;
+        public static Vector3 scale;
         public static Quaternion rotationCache;
         public static bool rotationChange;
         public static bool positionChange;
@@ -1289,6 +1300,7 @@ vmd格式动作");
 
         static bool requestParamEdit = false;
         static bool popupParamEdit = false;
+        static bool showDecalBounding = true;
         static Dictionary<string, object> paramEdit;
 
         static string[] lightTypeString = new[] { "方向光", "点光" };
