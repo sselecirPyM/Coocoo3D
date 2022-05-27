@@ -33,5 +33,10 @@ namespace Coocoo3D.Components
                 Range = Math.Max(Range, 1e-4f),
             };
         }
+
+        public LightingComponent GetClone()
+        {
+            return (LightingComponent)MemberwiseClone();
+        }
     }
 }

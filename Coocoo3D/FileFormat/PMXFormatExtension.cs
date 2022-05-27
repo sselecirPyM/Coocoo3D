@@ -31,13 +31,15 @@ namespace Coocoo3D.FileFormat
         {
             renderer.bones.Clear();
             renderer.boneMatricesData = new Matrix4x4[modelPack.bones.Count];
-            renderer.bones.AddRange(modelPack.bones);
+
+            foreach (var bone in modelPack.bones)
+                renderer.bones.Add(bone.GetClone());
 
             renderer.cachedBoneKeyFrames.Clear();
             for (int i = 0; i < modelPack.bones.Count; i++)
                 renderer.cachedBoneKeyFrames.Add((Vector3.Zero, Quaternion.Identity));
 
-            renderer.BakeSequenceProcessMatrixsIndex();
+            renderer.Bake();
             renderer.rigidBodyDescs.Clear();
             renderer.rigidBodyDescs.AddRange(modelPack.rigidBodyDescs);
             for (int i = 0; i < modelPack.rigidBodyDescs.Count; i++)
@@ -62,9 +64,8 @@ namespace Coocoo3D.FileFormat
 
             var mesh = modelPack.GetMesh();
             renderer.meshPath = modelPack.fullPath;
-            renderer.meshPosData = modelPack.position;
-            renderer.meshPosData1 = new Vector3[mesh.GetVertexCount()];
-            new Span<Vector3>(renderer.meshPosData).CopyTo(renderer.meshPosData1);
+            renderer.meshPositionCache = new Vector3[mesh.GetVertexCount()];
+            new Span<Vector3>(modelPack.position).CopyTo(renderer.meshPositionCache);
         }
 
         public static MorphSubMorphDesc Translate(PMX_MorphSubMorphDesc desc)

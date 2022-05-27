@@ -7,6 +7,7 @@ using System.Linq;
 using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
+using Coocoo3D.ResourceWrap;
 
 namespace Coocoo3D.Components
 {
@@ -14,20 +15,18 @@ namespace Coocoo3D.Components
     {
         public string meshPath;
         public string motionPath = "";
-        public Transform transform = new Transform(Vector3.Zero, Quaternion.Identity);
+
         public MMDMorphStateComponent morphStateComponent = new();
         public bool LockMotion;
-
-        public Vector3[] meshPosData;
 
         public bool skinning;
 
         public List<RenderMaterial> Materials = new();
 
-        public Vector3[] meshPosData1;
+        public Vector3[] meshPositionCache;
         public bool meshNeedUpdate;
 
-        public void ComputeVertexMorph()
+        public void ComputeVertexMorph(ModelPack model)
         {
             var morphs = morphStateComponent.morphs;
             for (int i = 0; i < morphs.Count; i++)
@@ -38,7 +37,7 @@ namespace Coocoo3D.Components
                 }
             }
             if (!meshNeedUpdate) return;
-            new Span<Vector3>(meshPosData).CopyTo(meshPosData1);
+            new Span<Vector3>(model.position).CopyTo(meshPositionCache);
 
             for (int i = 0; i < morphs.Count; i++)
             {
@@ -49,7 +48,7 @@ namespace Coocoo3D.Components
                 if (computedWeight != 0)
                     for (int j = 0; j < morphVertices.Length; j++)
                     {
-                        meshPosData1[morphVertices[j].VertexIndex] += morphVertices[j].Offset * computedWeight;
+                        meshPositionCache[morphVertices[j].VertexIndex] += morphVertices[j].Offset * computedWeight;
                     }
             }
         }
@@ -69,13 +68,11 @@ namespace Coocoo3D.Components
         public Matrix4x4 LocalToWorld = Matrix4x4.Identity;
         public Matrix4x4 WorldToLocal = Matrix4x4.Identity;
 
-        public Dictionary<int, List<List<int>>> IKNeedUpdateIndexs;
         public List<int> AppendNeedUpdateMatIndexs = new();
         public List<int> PhysicsNeedUpdateMatrixIndexs = new();
 
         public void SetTransform(Transform transform)
         {
-            this.transform = transform;
             LocalToWorld = transform.GetMatrix();
             Matrix4x4.Invert(LocalToWorld, out WorldToLocal);
         }
@@ -253,16 +250,15 @@ namespace Coocoo3D.Components
                                 throw new NotImplementedException();
                         }
                     }
-                    UpdateMatrices(IKNeedUpdateIndexs[boneIndex][j]);
+                    UpdateMatrices(entity.IKChildrenIndex[j]);
                 }
                 posSource = entitySource.GetPos2();
                 if ((posTarget - posSource).LengthSquared() < 1e-6f) break;
             }
         }
 
-        public void BakeSequenceProcessMatrixsIndex()
+        public void Bake()
         {
-            IKNeedUpdateIndexs = new Dictionary<int, List<List<int>>>();
             bool[] bonesTest = new bool[bones.Count];
 
             for (int i = 0; i < bones.Count; i++)
@@ -286,7 +282,7 @@ namespace Coocoo3D.Components
                     }
                     ax.Add(bx);
                 }
-                IKNeedUpdateIndexs[i] = ax;
+                bone.IKChildrenIndex = ax;
             }
             Array.Clear(bonesTest, 0, bones.Count);
             AppendNeedUpdateMatIndexs.Clear();
@@ -424,6 +420,7 @@ namespace Coocoo3D.Components
         public bool IsAppendTranslation;
         public bool IsPhysicsFreeBone;
         public BoneFlags Flags;
+        public List<List<int>> IKChildrenIndex;
 
         public void GetTransformMatrixG(List<BoneEntity> list)
         {
@@ -461,6 +458,11 @@ namespace Coocoo3D.Components
         public override string ToString()
         {
             return string.Format("{0}_{1}", Name, NameEN);
+        }
+
+        public BoneEntity GetClone()
+        {
+            return (BoneEntity)MemberwiseClone();
         }
     }
 }

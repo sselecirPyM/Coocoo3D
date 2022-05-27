@@ -22,7 +22,6 @@ namespace Coocoo3D.RenderPipeline
         public List<PointLightData> pointLights = new();
         public List<DecalComponent> decals = new();
 
-        public Dictionary<MMDRendererComponent, int> findRenderer = new();
         public int frameRenderIndex;
         public double Time;
         public double DeltaTime;
@@ -48,7 +47,7 @@ namespace Coocoo3D.RenderPipeline
                 if (gameObject.TryGetComponent(out MMDRendererComponent renderer))
                 {
                     renderers.Add(renderer);
-                    findRenderer[renderer] = renderers.Count - 1;
+                    //findRenderer[renderer] = renderers.Count - 1;
                 }
                 if (gameObject.TryGetComponent(out MeshRendererComponent meshRenderer))
                 {
@@ -64,10 +63,6 @@ namespace Coocoo3D.RenderPipeline
                     decals.Add(decal);
                 }
             }
-            for (int i = 0; i < renderers.Count; i++)
-            {
-                renderers[i].WriteMatriticesData();
-            }
         }
 
         public void FrameBegin()
@@ -76,7 +71,7 @@ namespace Coocoo3D.RenderPipeline
             pointLights.Clear();
             volumes.Clear();
             renderers.Clear();
-            findRenderer.Clear();
+            //findRenderer.Clear();
             particleEffects.Clear();
             meshRenderers.Clear();
             decals.Clear();

@@ -376,13 +376,13 @@ namespace Coocoo3D.RenderPipeline
                     yield return renderable;
                 }
             }
+            this.renderer = null;
             foreach (var renderer in drp.meshRenderers)
             {
                 var model = GetModel(renderer.meshPath);
                 var mesh = model.GetMesh();
                 if (setMesh)
                     graphicsContext.SetMesh(mesh);
-                this.renderer = null;
                 for (int i = 0; i < renderer.Materials.Count; i++)
                 {
                     var material = renderer.Materials[i];

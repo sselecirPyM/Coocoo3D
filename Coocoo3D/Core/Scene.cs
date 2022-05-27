@@ -50,7 +50,8 @@ namespace Coocoo3D.Core
             {
                 var gameObject = gameObjectLoadList[i];
                 var renderComponent = gameObject.GetComponent<MMDRendererComponent>();
-
+                if(renderComponent != null)
+                    renderComponent.SetTransform(gameObject.Transform);
                 gameObjects.Add(gameObject);
             }
             for (int i = 0; i < gameObjectRemoveList.Count; i++)
@@ -198,9 +199,9 @@ namespace Coocoo3D.Core
             void UpdateGameObject1(MMDRendererComponent rendererComponent)
             {
                 rendererComponent?.ComputeMotion(playTime, mainCaches.GetMotion(rendererComponent.motionPath));
-                //rendererComponent?.ComputeVertexMorph();
             }
             Parallel.ForEach(rendererComponents, UpdateGameObject1);
+            //Parallel.ForEach(rendererComponents, UpdateGameObject1);
         }
 
         public void Simulation(double playTime, double deltaTime, bool resetPhysics)

@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using System.IO;
 using System.Reflection;
 using Caprice.Display;
+using Coocoo3D.FileFormat;
 
 namespace Coocoo3D.UI
 {
@@ -617,6 +618,7 @@ namespace Coocoo3D.UI
                             viewStack.Push(currentFolder);
                             viewRequest = folder;
                             _requireClear = true;
+                            ImGui.SaveIniSettingsToDisk("imgui.ini");
                         }
                         else if (file != null)
                         {
@@ -686,6 +688,12 @@ vmd格式动作");
             {
                 removeObject = true;
             }
+            bool copyObject = false; ;
+            ImGui.SameLine();
+            if (ImGui.Button("复制物体"))
+            {
+                copyObject = true;
+            }
             //while (gameObjectSelected.Count < main.CurrentScene.gameObjects.Count)
             //{
             //    gameObjectSelected.Add(false);
@@ -721,6 +729,11 @@ vmd格式动作");
                     main.CurrentScene.RemoveGameObject(gameObject);
                 main.SelectedGameObjects.Clear();
                 gameObjectSelectIndex = -1;
+            }
+            if (copyObject)
+            {
+                foreach (var gameObject in main.SelectedGameObjects)
+                    DuplicateObject(main, gameObject);
             }
         }
 
@@ -955,7 +968,7 @@ vmd格式动作");
                 }
                 if (gameObjectSelectIndex == i && canView)
                     drawList.AddNgon(basePos, 10, 0xffffff77, 4);
-                if (obj.TryGetComponent(out DecalComponent decal)&& showDecalBounding)
+                if (obj.TryGetComponent(out DecalComponent decal) && showDecalBounding)
                 {
                     DrawCube(drawList, imagePosition, imageSize, obj.Transform, vpMatrix);
                 }
@@ -1181,6 +1194,29 @@ vmd格式动作");
             gameObject.Name = "Particle";
             gameObject.Transform = new(new Vector3(0, 0, 0), Quaternion.Identity);
             main.CurrentScene.AddGameObject(gameObject);
+        }
+
+        static void DuplicateObject(Coocoo3DMain main, GameObject obj)
+        {
+            var newObj = new GameObject();
+            if (obj.TryGetComponent<DecalComponent>(out var decal))
+                newObj.AddComponent(decal.GetClone());
+            if (obj.TryGetComponent<LightingComponent>(out var light))
+                newObj.AddComponent(light.GetClone());
+            if (obj.TryGetComponent<MeshRendererComponent>(out var meshRenderer))
+                newObj.AddComponent(meshRenderer.GetClone());
+            if (obj.TryGetComponent<MMDRendererComponent>(out var mmdRenderer))
+            {
+                newObj.LoadPmx(main.mainCaches.GetModel(mmdRenderer.meshPath));
+                var newRenderer = newObj.GetComponent<MMDRendererComponent>();
+                newRenderer.Materials = mmdRenderer.Materials.Select(u => u.GetClone()).ToList();
+                newRenderer.motionPath = mmdRenderer.motionPath;
+                main.CurrentScene.setTransform[newObj] = obj.Transform;
+            }
+            newObj.Name = obj.Name;
+            newObj.Transform = obj.Transform;
+            newObj.Description = obj.Description;
+            main.CurrentScene.AddGameObject(newObj);
         }
 
         static Vector2 TransformToViewport(Vector3 vector, Matrix4x4 vp, out bool canView)

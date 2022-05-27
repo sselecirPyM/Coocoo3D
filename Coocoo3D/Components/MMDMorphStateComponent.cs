@@ -36,19 +36,18 @@ namespace Coocoo3D.Components
 
         void ComputeWeight1()
         {
-            WeightGroup weightGroup = Weights;
             for (int i = 0; i < morphs.Count; i++)
             {
-                weightGroup.ComputedPrev[i] = weightGroup.Computed[i];
-                weightGroup.Computed[i] = 0;
+                Weights.ComputedPrev[i] = Weights.Computed[i];
+                Weights.Computed[i] = 0;
             }
             for (int i = 0; i < morphs.Count; i++)
             {
                 MorphDesc morph = morphs[i];
                 if (morph.Type == MorphType.Group)
-                    ComputeWeightGroup(morphs, morph, weightGroup.Origin[i], weightGroup.Computed);
+                    ComputeWeightGroup(morphs, morph, Weights.Origin[i], Weights.Computed);
                 else
-                    weightGroup.Computed[i] += weightGroup.Origin[i];
+                    Weights.Computed[i] += Weights.Origin[i];
             }
         }
         void ComputeWeightGroup(IReadOnlyList<MorphDesc> morphs, MorphDesc morph, float rate, float[] computedWeights)

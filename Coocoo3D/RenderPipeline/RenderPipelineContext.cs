@@ -71,6 +71,7 @@ namespace Coocoo3D.RenderPipeline
 
         public RenderPipelineDynamicContext dynamicContextRead = new();
         private RenderPipelineDynamicContext dynamicContextWrite = new();
+        public Dictionary<MMDRendererComponent, int> findRenderer = new();
 
         public List<CBuffer> CBs_Bone = new();
 
@@ -167,7 +168,7 @@ namespace Coocoo3D.RenderPipeline
 
         public CBuffer GetBoneBuffer(MMDRendererComponent rendererComponent)
         {
-            return CBs_Bone[dynamicContextRead.findRenderer[rendererComponent]];
+            return CBs_Bone[findRenderer[rendererComponent]];
         }
 
         LinearPool<Mesh> meshPool = new();
@@ -194,7 +195,7 @@ namespace Coocoo3D.RenderPipeline
             }
             Parallel.ForEach(renderers, renderer =>
             {
-                renderer.ComputeVertexMorph();
+                renderer.ComputeVertexMorph(mainCaches.GetModel(renderer.meshPath));
             });
             for (int i = 0; i < renderers.Count; i++)
             {
@@ -214,12 +215,17 @@ namespace Coocoo3D.RenderPipeline
                     if (renderer.meshNeedUpdate)
                     {
                         graphicsContext.BeginUpdateMesh(mesh);
-                        graphicsContext.UpdateMesh<Vector3>(mesh, renderer.meshPosData1, 0);
+                        graphicsContext.UpdateMesh<Vector3>(mesh, renderer.meshPositionCache, 0);
                         graphicsContext.EndUpdateMesh(mesh);
                     }
                 }
             }
             {
+                for (int i = 0; i < renderers.Count; i++)
+                {
+                    renderers[i].WriteMatriticesData();
+                }
+                findRenderer.Clear();
                 while (CBs_Bone.Count < renderers.Count)
                 {
                     CBuffer constantBuffer = new CBuffer();
@@ -234,7 +240,8 @@ namespace Coocoo3D.RenderPipeline
                     int l = Math.Min(matrices.Length, 1024);
                     for (int k = 0; k < l; k++)
                         mats[k] = Matrix4x4.Transpose(matrices[k]);
-                    graphicsContext.UpdateResource(CBs_Bone[i], mats.Slice(0, matrices.Length));
+                    graphicsContext.UpdateResource(CBs_Bone[i], mats.Slice(0, l));
+                    findRenderer[renderer] = i;
                 }
             }
             #endregion
@@ -250,7 +257,7 @@ namespace Coocoo3D.RenderPipeline
                 int to = Math.Min(from + parallelSize, model.vertexCount);
                 for (int j = from; j < to; j++)
                 {
-                    Vector3 pos0 = renderer.meshPosData1[j];
+                    Vector3 pos0 = renderer.meshPositionCache[j];
                     Vector3 pos1 = Vector3.Zero;
                     int a = 0;
                     for (int k = 0; k < 4; k++)
