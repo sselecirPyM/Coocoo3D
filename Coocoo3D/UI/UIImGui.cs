@@ -140,6 +140,7 @@ namespace Coocoo3D.UI
                     main.CurrentScene.setTransform[selectedObject] = new(position, rotationCache, scale);
                 }
             }
+            main.imguiInput.dropFile = null;
         }
 
         static void Common(Coocoo3DMain main)
@@ -436,7 +437,7 @@ namespace Coocoo3D.UI
                 case Vector3 val:
                     if (colorAttribute != null)
                     {
-                        if (ImGui.ColorEdit3(displayName, ref val))
+                        if (ImGui.ColorEdit3(displayName, ref val, ImGuiColorEditFlags.HDR | ImGuiColorEditFlags.Float))
                         {
                             setter.Invoke(val);
                         }
@@ -452,7 +453,7 @@ namespace Coocoo3D.UI
                 case Vector4 val:
                     if (colorAttribute != null)
                     {
-                        if (ImGui.ColorEdit4(displayName, ref val))
+                        if (ImGui.ColorEdit4(displayName, ref val, ImGuiColorEditFlags.HDR | ImGuiColorEditFlags.Float))
                         {
                             setter.Invoke(val);
                         }
@@ -524,6 +525,12 @@ namespace Coocoo3D.UI
             {
                 cache.Texture(result);
                 texPath = result;
+                textureChange = true;
+            }
+            if (main.imguiInput.dropFile != null && ImGui.IsItemHovered())
+            {
+                cache.Texture(main.imguiInput.dropFile);
+                texPath = main.imguiInput.dropFile;
                 textureChange = true;
             }
             if (hasTexture)
@@ -932,6 +939,10 @@ vmd格式动作");
             if (ImGui.IsItemHovered())
             {
                 channel.camera.Distance += mouseWheelDelta * 0.6f;
+                if (main.imguiInput.dropFile != null)
+                {
+                    openRequest = new FileInfo(main.imguiInput.dropFile);
+                }
             }
         }
 

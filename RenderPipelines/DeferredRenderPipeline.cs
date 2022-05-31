@@ -60,10 +60,10 @@ namespace RenderPipelines
 
         [Size("HalfOutput")]
         [Format(ResourceFormat.R16G16B16A16_Float)]
-        public Texture2D intermedia1;
+        public Texture2D intermedia1;//used by bloom
         [Size("Output")]
         [Format(ResourceFormat.R16G16B16A16_Float)]
-        public Texture2D intermedia2;
+        public Texture2D intermedia2;//used by bloom
 
         [Size(4096, 4096)]
         [Format(ResourceFormat.D32_Float)]
@@ -270,12 +270,36 @@ namespace RenderPipelines
         [Size(32, 32)]
         public Texture2D _Normal;
 
+        [Indexable]
+        [UIShow(UIShowType.Material, "使用Spa")]
+        public bool UseSpa;
+
+        [UIShow(UIShowType.Material)]
+        [PureColorBaker(0, 0, 0, 1)]
+        [Format(ResourceFormat.R8G8B8A8_UNorm)]
+        [Size(32, 32)]
+        [Srgb]
+        public Texture2D _Spa;
+
         #endregion
         #region Decal Parameters
-        [UIShow(UIShowType.Decal, "贴花颜色")]
+        [Indexable]
+        [UIShow(UIShowType.Decal, "启用贴花颜色")]
+        public bool EnableDecalColor = true;
         [Srgb]
-        public Texture2D DecalColor;
+        [UIShow(UIShowType.Decal, "贴花颜色贴图")]
+        public Texture2D DecalColorTexture;
+        [Indexable]
+        [UIShow(UIShowType.Decal, "启用贴花发光")]
+        public bool EnableDecalEmissive;
+        [Srgb]
+        [UIShow(UIShowType.Decal, "贴花发光贴图")]
+        public Texture2D DecalEmissiveTexture;
+        [Indexable]
+        [UIColor(UIShowType.Decal, "发光强度")]
+        public Vector4 _DecalEmissivePower;
         #endregion
+
         [Indexable]
         public float cameraFar;
         [Indexable]

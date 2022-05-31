@@ -178,6 +178,17 @@ namespace RenderPipelines
         [Size(32, 32)]
         public Texture2D _Normal;
 
+        [Indexable]
+        [UIShow(UIShowType.Material, "使用Spa")]
+        public bool UseSpa;
+
+        [UIShow(UIShowType.Material)]
+        [PureColorBaker(0, 0, 0, 1)]
+        [Format(ResourceFormat.R8G8B8A8_UNorm)]
+        [Size(32, 32)]
+        [Srgb]
+        public Texture2D _Spa;
+
         #endregion
 
         [Indexable]

@@ -115,7 +115,6 @@ namespace Coocoo3D.Windows
                             int y = sdlEvent.motion.y;
                             imguiInput.MousePosition(new(x, y));
                             imguiInput.MouseMoveDelta(new(sdlEvent.motion.xrel, sdlEvent.motion.yrel));
-
                         }
                         break;
                     case SDL_EventType.SDL_MOUSEWHEEL:
@@ -123,6 +122,13 @@ namespace Coocoo3D.Windows
                         imguiInput.mouseWheelV += sdlEvent.wheel.y;
                         break;
                     case SDL_EventType.SDL_APP_WILLENTERFOREGROUND:
+                        break;
+                    case SDL_EventType.SDL_DROPFILE:
+                        {
+                            IntPtr file = sdlEvent.drop.file;
+                            string file1 = Marshal.PtrToStringUTF8(file);
+                            imguiInput.dropFile = file1;
+                        }
                         break;
                 }
             } while (SDL_PollEvent(out sdlEvent) == 1);

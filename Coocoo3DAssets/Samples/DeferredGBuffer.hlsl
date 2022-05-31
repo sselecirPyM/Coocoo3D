@@ -17,6 +17,8 @@ cbuffer cb1 : register(b1)
 	float _Emissive;
 	float _Specular;
 	float _AO;
+	float3 g_camLeft;
+	float3 g_camDown;
 }
 
 struct PSSkinnedIn
@@ -54,6 +56,7 @@ Texture2D Metallic :register(t1);
 Texture2D Roughness :register(t2);
 Texture2D Emissive :register(t3);
 Texture2D NormalMap :register(t4);
+Texture2D Spa :register(t5);
 float2 NormalEncode(float3 n)
 {
 	n.xy /= dot(1, abs(n));
@@ -95,6 +98,12 @@ MRTOutput psmain(PSSkinnedIn input) : SV_TARGET
 	float3 c_specular = lerp(_Specular * 0.08f, albedo, _Metallic * metallic1.b);
 	float3 emissive = Emissive.Sample(s1, input.Tex) * _Emissive;
 
+#if USE_SPA
+	float3 t1 = g_camLeft;
+	float3 t2 = g_camDown;
+	float2 spaUV = float2(dot(N, t1) * 0.5 + 0.5, dot(N, t2) * 0.5 + 0.5);
+	emissive += Spa.SampleLevel(s0, spaUV, 0).rgb;
+#endif
 	output.color0 = float4(c_diffuse, c_specular.r);
 	output.color1 = float4(encodedNormal, roughness, c_specular.g);
 	output.color2 = float4(emissive, c_specular.b);

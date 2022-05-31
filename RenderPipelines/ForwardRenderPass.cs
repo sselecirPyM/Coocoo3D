@@ -84,6 +84,7 @@ namespace RenderPipelines
                 "_Environment",
                 "_BRDFLUT",
                 "_Normal",
+                "_Spa",
             },
             CBVPerObject = new object[]
             {
@@ -115,12 +116,15 @@ namespace RenderPipelines
                 "FogDensity",
                 "FogStartDistance",
                 "FogEndDistance",
+                nameof(CameraLeft),
+                nameof(CameraDown),
                 nameof(Split),
             },
             AutoKeyMap =
             {
-                ("UseNormalMap","USE_NORMAL_MAP"),
                 ("EnableFog","ENABLE_FOG"),
+                ("UseNormalMap","USE_NORMAL_MAP"),
+                ("UseSpa","USE_SPA"),
             }
         };
 
@@ -134,6 +138,12 @@ namespace RenderPipelines
         public Matrix4x4 InvertViewProjection;
         [Indexable]
         public Vector3 CameraPosition;
+        [Indexable]
+        public Vector3 CameraLeft;
+        [Indexable]
+        public Vector3 CameraDown;
+        [Indexable]
+        public Vector3 CameraBack;
 
         [Indexable]
         public float Far;
@@ -179,6 +189,10 @@ namespace RenderPipelines
             InvertViewProjection = camera.pvMatrix;
             CameraPosition = camera.Position;
 
+            Matrix4x4 rotateMatrix = Matrix4x4.CreateFromYawPitchRoll(-camera.Angle.Y, -camera.Angle.X, -camera.Angle.Z);
+            CameraLeft = Vector3.Transform(-Vector3.UnitX, rotateMatrix);
+            CameraDown = Vector3.Transform(-Vector3.UnitY, rotateMatrix);
+            CameraBack = Vector3.Transform(-Vector3.UnitZ, rotateMatrix);
         }
 
         public void SetRenderTarget(string renderTarget, string depthStencil)

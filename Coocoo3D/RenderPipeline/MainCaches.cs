@@ -151,7 +151,7 @@ namespace Coocoo3D.RenderPipeline
         {
             try
             {
-                if (!knownFile.IsModified(folder.GetFiles())) return true;
+                if (!knownFile.IsModified(folder.GetFiles()) && texturePack.initialized) return true;
                 Uploader uploader = new Uploader();
                 if (texturePack.ReloadTexture(knownFile.file, uploader))
                 {
@@ -313,7 +313,6 @@ namespace Coocoo3D.RenderPipeline
                     MetadataReference.CreateFromFile (typeof (Vortice.Dxc.Dxc).Assembly.Location),
                     MetadataReference.CreateFromFile (typeof (SharpGen.Runtime.CppObject).Assembly.Location),
                     MetadataReference.CreateFromFile (typeof (SharpGen.Runtime.ComObject).Assembly.Location),
-                    MetadataReference.CreateFromFile (typeof (ProRendererWrap.RPRContext).Assembly.Location),
                 };
                 refs.AddRange(AppDomain.CurrentDomain.GetAssemblies().Where(u => u.GetName().Name.Contains("netstandard") ||
                     u.GetName().Name.Contains("System")).Select(u => MetadataReference.CreateFromFile(u.Location)));

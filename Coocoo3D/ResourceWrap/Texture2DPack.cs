@@ -16,6 +16,8 @@ namespace Coocoo3D.ResourceWrap
         public bool canReload = true;
         public string fullPath;
 
+        public bool initialized = false;
+
         public GraphicsObjectStatus Status;
 
         public Task loadTask;
@@ -57,6 +59,7 @@ namespace Coocoo3D.ResourceWrap
                 }
 
                 Status = GraphicsObjectStatus.loaded;
+                initialized = true;
                 return true;
             }
             catch (Exception e)

@@ -39,6 +39,11 @@ namespace Coocoo3D.UI
         bool previousFocus;
         public bool Focus;
 
+        #region SystemInput
+        public string dropFile;
+
+        #endregion
+
         public void Update()
         {
             var io = ImGui.GetIO();

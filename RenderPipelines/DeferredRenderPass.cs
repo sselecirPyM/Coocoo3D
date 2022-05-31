@@ -12,6 +12,7 @@ using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
+using Vortice.Mathematics;
 
 namespace RenderPipelines
 {
@@ -61,6 +62,7 @@ namespace RenderPipelines
                 "_Roughness",
                 "_Emissive",
                 "_Normal",
+                "_Spa",
             },
             CBVPerObject = new object[]
             {
@@ -71,10 +73,13 @@ namespace RenderPipelines
                 "Emissive",
                 "Specular",
                 "AO",
+                nameof(CameraLeft),
+                nameof(CameraDown),
             },
             AutoKeyMap =
             {
                 ("UseNormalMap","USE_NORMAL_MAP"),
+                ("UseSpa","USE_SPA"),
             },
             filter = FilterOpaque,
         };
@@ -82,9 +87,10 @@ namespace RenderPipelines
         {
             shader = "DeferredDecal.hlsl",
             rs = "CCCssss",
-            renderTargets = new string[1]
+            renderTargets = new string[]
             {
-                "gbuffer0"
+                "gbuffer0",
+                "gbuffer2",
             },
             psoDesc = new PSODesc()
             {
@@ -94,12 +100,19 @@ namespace RenderPipelines
             srvs = new string[]
             {
                 null,
-                "DecalColor"
+                "DecalColorTexture",
+                "DecalEmissiveTexture",
             },
             CBVPerObject = new object[]
             {
                 null,
                 null,
+                "_DecalEmissivePower"
+            },
+            AutoKeyMap =
+            {
+                ("EnableDecalColor","ENABLE_DECAL_COLOR"),
+                ("EnableDecalEmissive","ENABLE_DECAL_EMISSIVE"),
             }
         };
         public DrawQuadPass finalPass = new DrawQuadPass()
@@ -197,6 +210,7 @@ namespace RenderPipelines
                 "_Environment",
                 "_BRDFLUT",
                 "_Normal",
+                "_Spa",
                 "GIBuffer",
             },
             CBVPerObject = new object[]
@@ -229,6 +243,8 @@ namespace RenderPipelines
                 "FogDensity",
                 "FogStartDistance",
                 "FogEndDistance",
+                nameof(CameraLeft),
+                nameof(CameraDown),
                 nameof(Split),
                 "GIVolumePosition",
                 "GIVolumeSize",
@@ -237,6 +253,7 @@ namespace RenderPipelines
             {
                 ("EnableFog","ENABLE_FOG"),
                 ("UseNormalMap","USE_NORMAL_MAP"),
+                ("UseSpa","USE_SPA"),
                 ("UseGI","ENABLE_GI"),
             },
             filter = FilterTransparent,
@@ -272,6 +289,12 @@ namespace RenderPipelines
         public Matrix4x4 InvertViewProjection;
         [Indexable]
         public Vector3 CameraPosition;
+        [Indexable]
+        public Vector3 CameraLeft;
+        [Indexable]
+        public Vector3 CameraDown;
+        [Indexable]
+        public Vector3 CameraBack;
 
         [Indexable]
         public float Far;
@@ -325,6 +348,12 @@ namespace RenderPipelines
 
             rayTracingPass.SetCamera(camera);
             decalPass.viewProj = ViewProjection;
+
+
+            Matrix4x4 rotateMatrix = Matrix4x4.CreateFromYawPitchRoll(-camera.Angle.Y, -camera.Angle.X, -camera.Angle.Z);
+            CameraLeft = Vector3.Transform(-Vector3.UnitX, rotateMatrix);
+            CameraDown = Vector3.Transform(-Vector3.UnitY, rotateMatrix);
+            CameraBack = Vector3.Transform(-Vector3.UnitZ, rotateMatrix);
         }
 
         public void SetRenderTarget(string renderTarget, string depthStencil)
@@ -347,8 +376,32 @@ namespace RenderPipelines
 
             RandomI = random.Next();
 
+            BoundingFrustum frustum = new BoundingFrustum(ViewProjection);
             var dls = renderWrap.directionalLights;
             var pls = renderWrap.pointLights;
+
+            int pointLightCount = 0;
+            byte[] pointLightData = null;
+            if (pls.Count > 0)
+            {
+                pointLightData = ArrayPool<byte>.Shared.Rent(pls.Count * 32);
+                var spanWriter = new SpanWriter<PointLightData>(MemoryMarshal.Cast<byte, PointLightData>(pointLightData));
+                for (int i = 0; i < pls.Count; i++)
+                {
+                    PointLightData pointLight1 = new PointLightData
+                    {
+                        Position = pls[i].Position,
+                        Color = pls[i].Color,
+                        Range = pls[i].Range
+                    };
+                    if (frustum.Intersects(new BoundingSphere(pointLight1.Position, pointLight1.Range)))
+                    {
+                        spanWriter.Write(pointLight1);
+                        pointLightCount++;
+                    }
+                }
+            }
+
             if (dls.Count > 0)
             {
                 var dl = dls[0];
@@ -397,30 +450,19 @@ namespace RenderPipelines
                 drawShadowMap.Execute(renderWrap);
             }
 
-            Split = SplitTest(pls.Count * 12);
-            byte[] pointLightData = null;
-            if (pls.Count > 0)
+            Split = SplitTest(pointLightCount * 12);
+            if (pointLightCount > 0)
             {
-                DrawPointShadow(renderWrap);
-                pointLightData = ArrayPool<byte>.Shared.Rent(pls.Count * 32);
-                var spanWriter = new SpanWriter<PointLightData>(MemoryMarshal.Cast<byte, PointLightData>(pointLightData));
-                for (int i = 0; i < pls.Count; i++)
-                {
-                    PointLightData pointLightData1 = new PointLightData
-                    {
-                        Position = pls[i].Position,
-                        Color = pls[i].Color,
-                        Range = pls[i].Range
-                    };
-                    spanWriter.Write(pointLightData1);
-                }
-                finalPass.cbvs[1][0] = (pointLightData, pls.Count * 32);
-                finalPass.keywords.Add(("ENABLE_POINT_LIGHT", "1"));
-                finalPass.keywords.Add(("POINT_LIGHT_COUNT", pls.Count.ToString()));
+                var pointLightDatas = MemoryMarshal.Cast<byte, PointLightData>(pointLightData).Slice(0, pointLightCount);
+                DrawPointShadow(renderWrap, pointLightDatas);
 
-                drawObjectTransparent.CBVPerObject[1] = (pointLightData, pls.Count * 32);
+                finalPass.cbvs[1][0] = (pointLightData, pointLightCount * 32);
+                finalPass.keywords.Add(("ENABLE_POINT_LIGHT", "1"));
+                finalPass.keywords.Add(("POINT_LIGHT_COUNT", pointLightCount.ToString()));
+
+                drawObjectTransparent.CBVPerObject[1] = (pointLightData, pointLightCount * 32);
                 drawObjectTransparent.keywords.Add(("ENABLE_POINT_LIGHT", "1"));
-                drawObjectTransparent.keywords.Add(("POINT_LIGHT_COUNT", pls.Count.ToString()));
+                drawObjectTransparent.keywords.Add(("POINT_LIGHT_COUNT", pointLightCount.ToString()));
             }
             drawGBuffer.Execute(renderWrap);
             decalPass.Execute(renderWrap);
@@ -465,13 +507,13 @@ namespace RenderPipelines
             return new Rectangle(x, y, sizeX1, sizeY1);
         }
 
-        void DrawPointShadow(RenderWrap renderWrap)
+        void DrawPointShadow(RenderWrap renderWrap, Span<PointLightData> pointLightDatas)
         {
             int index = 0;
             var shadowMap = renderWrap.GetRenderTexture2D("_ShadowMap");
             int width = shadowMap.width;
             int height = shadowMap.height;
-            foreach (var pl in renderWrap.pointLights)
+            foreach (var pl in pointLightDatas)
             {
                 var lightRange = pl.Range;
                 float near = lightRange * 0.001f;

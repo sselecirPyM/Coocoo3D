@@ -19,7 +19,7 @@
     <PackageReference Include="Magick.NET-Q16-AnyCPU" Version="11.1.2" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.2.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
-    <PackageReference Include="SixLabors.ImageSharp" Version="2.1.1" />
+    <PackageReference Include="SixLabors.ImageSharp" Version="2.1.2" />
     <PackageReference Include="Vortice.Dxc" Version="2.1.2" />
     <PackageReference Include="Vortice.DXGI" Version="2.1.2" />
   </ItemGroup>
@@ -27,7 +27,6 @@
   <ItemGroup>
     <ProjectReference Include="..\Caprice\Caprice.csproj" />
     <ProjectReference Include="..\Coocoo3DGraphics1\Coocoo3DGraphics1.csproj" />
-    <ProjectReference Include="..\ProRendererWrap\ProRendererWrap.csproj" />
   </ItemGroup>
 
   <ItemGroup>

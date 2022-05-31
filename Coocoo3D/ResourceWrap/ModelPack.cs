@@ -401,6 +401,18 @@ namespace Coocoo3D.ResourceWrap
                 {
                     material.Parameters["_Albedo"] = whiteTexture;
                 }
+                if (pmx.Textures.Count > mmdMat.SecondaryTextureIndex && mmdMat.SecondaryTextureIndex >= 0)
+                {
+                    string relativePath = pmx.Textures[mmdMat.SecondaryTextureIndex].TexturePath.Replace("//", "\\").Replace('/', '\\');
+                    texPath = Path.GetFullPath(relativePath, folder);
+
+                    material.Parameters["_Spa"] = texPath;
+                    material.Parameters["UseSpa"] = true;
+                }
+                else
+                {
+
+                }
                 material.Parameters["_Metallic"] = whiteTexture;
                 material.Parameters["_Roughness"] = whiteTexture;
                 if (texPath != null && Path.GetFileName(texPath).Contains("diffuse", StringComparison.CurrentCultureIgnoreCase))

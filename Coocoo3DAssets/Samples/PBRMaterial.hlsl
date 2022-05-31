@@ -49,6 +49,8 @@ cbuffer cb2 : register(b2)
 	float _fogDensity;
 	float _startDistance;
 	float _endDistance;
+	float3 g_camLeft;
+	float3 g_camDown;
 	int  g_lightMapSplit;
 	float3 g_GIVolumePosition;
 	float3 g_GIVolumeSize;
@@ -66,7 +68,8 @@ Texture2D ShadowMap : register(t4);
 TextureCube EnvCube : register (t5);
 Texture2D BRDFLut : register(t6);
 Texture2D NormalMap : register(t7);
-StructuredBuffer<SH9C> giBuffer : register(t8);
+Texture2D Spa : register(t8);
+StructuredBuffer<SH9C> giBuffer : register(t9);
 cbuffer cbAnimMatrices : register(b0)
 {
 	float4x4 g_mConstBoneWorld[MAX_BONE_MATRICES];
@@ -174,6 +177,13 @@ float4 psmain(PSSkinnedIn input) : SV_TARGET
 	float3 GF = c_specular * AB.x + AB.y;
 
 	float3 emissive = Emissive.Sample(s1, input.Tex) * _Emissive;
+
+#if USE_SPA
+	float3 t1 = g_camLeft;
+	float3 t2 = g_camDown;
+	float2 spaUV = float2(dot(N, t1) * 0.5 + 0.5, dot(N, t2) * 0.5 + 0.5);
+	emissive += Spa.SampleLevel(s0, spaUV, 0).rgb;
+#endif
 
 #if ENABLE_DIFFUSE
 	float3 skyLight = EnvCube.SampleLevel(s0, N, 5) * g_skyBoxMultiple;

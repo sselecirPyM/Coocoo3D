@@ -3,6 +3,7 @@ cbuffer cb0 : register(b0)
 {
 	float4x4 g_mObjectToProj;
 	float4x4 g_mProjToObject;
+	float4 _DecalEmissivePower;
 	//float _Metallic;
 	//float _Roughness;
 	//float _Emissive;
@@ -41,10 +42,17 @@ PSIn vsmain(VSIn input)
 	return output;
 }
 
-float4 psmain(PSIn input) : SV_TARGET
+struct MRTOutput
 {
-	//float2 uv = input.texcoord;
-	//float2 uv = input.position.xy/ input.position.w * 0.5 + 0.5;
+	float4 color0 : COLOR0;
+	float4 color1 : COLOR1;
+};
+
+MRTOutput psmain(PSIn input) : SV_TARGET
+{
+	MRTOutput output;
+	output.color0 = float4(0, 0, 0, 0);
+	output.color1 = float4(0, 0, 0, 0);
 
 	float2 uv1 = input.texcoord1.xy / input.texcoord1.w;
 	float2 uv = uv1 * 0.5 + 0.5;
@@ -56,10 +64,18 @@ float4 psmain(PSIn input) : SV_TARGET
 	float2 objectUV = float2(objectPos.x * 0.5 + 0.5, 1 - (objectPos.y * 0.5 + 0.5));
 
 	if (all(objectPos.xyz >= -1) && all(objectPos.xyz <= 1))
-		return Albedo.Sample(s1, objectUV);
+	{
+#ifdef ENABLE_DECAL_COLOR
+		output.color0 = Albedo.Sample(s1, objectUV);
+#endif
+#ifdef ENABLE_DECAL_EMISSIVE
+			output.color1 = Emissive.Sample(s1, objectUV) * _DecalEmissivePower;
+#endif
+		return output;
+	}
 	else
 		clip(-0.1);
 
-	return float4(objectPos.xyz, 0);
+	return output;
 	//return float4(uv, 0, 0);
 }
