@@ -354,7 +354,7 @@ namespace Coocoo3D.UI
                 var val = param.Value;
                 string name = val.MemberInfo.Name;
 
-                if (val.UIShowType != UIShowType.All && val.UIShowType != showType) continue;
+                if (val.UIShowType != UIShowType.All && (val.UIShowType & showType) == 0) continue;
                 if (!Contains(name, filter) && !Contains(param.Key, filter))
                     continue;
 
@@ -363,7 +363,12 @@ namespace Coocoo3D.UI
                 var type = obj.GetType();
                 if (type.IsEnum)
                 {
-                    ComboBox(val.Name, ref obj);
+                    if (parameters.TryGetValue(name, out var parameter1))
+                        obj = parameter1;
+                    if (ComboBox(val.Name, ref obj))
+                    {
+                        parameters[name] = obj;
+                    }
                 }
                 else
                 {
@@ -747,10 +752,9 @@ vmd格式动作。支持几乎所有的图片格式。");
 
         static void GameObjectPanel(Coocoo3DMain main, GameObject gameObject)
         {
-            var lighting = gameObject.GetComponent<LightingComponent>();
             var renderer = gameObject.GetComponent<MMDRendererComponent>();
             var meshRenderer = gameObject.GetComponent<MeshRendererComponent>();
-            var decal = gameObject.GetComponent<DecalComponent>();
+            var visual = gameObject.GetComponent<VisualComponent>();
 
             ImGui.InputText("名称", ref gameObject.Name, 256);
             if (ImGui.TreeNode("描述"))
@@ -788,18 +792,9 @@ vmd格式动作。支持几乎所有的图片格式。");
             {
                 RendererComponent(main, meshRenderer);
             }
-            if (decal != null)
+            if (visual != null)
             {
-                DecalComponent(main, gameObject, decal);
-            }
-            if (lighting != null && ImGui.TreeNode("光照"))
-            {
-                int current = (int)lighting.LightingType;
-                ImGui.ColorEdit3("颜色", ref lighting.Color, ImGuiColorEditFlags.HDR | ImGuiColorEditFlags.Float);
-                ImGui.DragFloat("范围", ref lighting.Range);
-                ImGui.Combo("类型", ref current, lightTypeString, 2);
-                ImGui.TreePop();
-                lighting.LightingType = (LightingType)current;
+                VisualComponent(main, gameObject, visual);
             }
         }
 
@@ -877,13 +872,13 @@ vmd格式动作。支持几乎所有的图片格式。");
             ImGui.EndChild();
         }
 
-        static void DecalComponent(Coocoo3DMain main, GameObject gameObject, DecalComponent decal)
+        static void VisualComponent(Coocoo3DMain main, GameObject gameObject, VisualComponent visualComponent)
         {
-            if (ImGui.TreeNode("贴花"))
+            if (ImGui.TreeNode("视觉"))
             {
                 ImGui.Checkbox("显示包围盒", ref showDecalBounding);
                 ImGui.DragFloat3("大小", ref gameObject.Transform.scale, 0.01f);
-                ShowParams(main, UIShowType.Decal, main.RPContext.currentChannel.renderPipelineView, decal.material.Parameters);
+                ShowParams(main, visualComponent.UIShowType, main.RPContext.currentChannel.renderPipelineView, visualComponent.material.Parameters);
                 ImGui.TreePop();
             }
         }
@@ -907,7 +902,7 @@ vmd格式动作。支持几乎所有的图片格式。");
 
             Vector2 pos = ImGui.GetCursorScreenPos();
             Vector2 spaceSize = Vector2.Max(ImGui.GetWindowSize() - new Vector2(20, 40), new Vector2(100, 100));
-            channel.sceneViewSize = new Numerics.Int2((int)spaceSize.X, (int)spaceSize.Y);
+            channel.sceneViewSize = ((int)spaceSize.X, (int)spaceSize.Y);
             float factor = MathF.Max(MathF.Min(spaceSize.X / texSize.X, spaceSize.Y / texSize.Y), 0.01f);
             Vector2 imageSize = texSize * factor;
 
@@ -947,13 +942,6 @@ vmd格式动作。支持几乎所有的图片格式。");
             ImGui.PushClipRect(imagePosition, imagePosition + imageSize, true);
             var drawList = ImGui.GetWindowDrawList();
 
-            foreach (var light in main.RPContext.dynamicContextRead.pointLights)
-            {
-                Vector2 lPosition = TransformToViewport(light.Position, vpMatrix, out bool canView);
-                Vector2 basePos = imagePosition + (lPosition * 0.5f + new Vector2(0.5f, 0.5f)) * imageSize;
-                if (canView && lPosition.X > -1 && lPosition.X < 1 && lPosition.Y > -1 && lPosition.Y < 1)
-                    drawList.AddTriangle(basePos + new Vector2(-0.8660254f, -0.5f) * 10, basePos + new Vector2(0, 1) * 10, basePos + new Vector2(0.8660254f, -0.5f) * 10, 0xffffffff, 2);
-            }
             for (int i = 0; i < scene.gameObjects.Count; i++)
             {
                 GameObject obj = scene.gameObjects[i];
@@ -968,7 +956,7 @@ vmd格式动作。支持几乎所有的图片格式。");
                 }
                 if (gameObjectSelectIndex == i && canView)
                     drawList.AddNgon(basePos, 10, 0xffffff77, 4);
-                if (obj.TryGetComponent(out DecalComponent decal) && showDecalBounding)
+                if (obj.TryGetComponent(out VisualComponent visual) && showDecalBounding)
                 {
                     DrawCube(drawList, imagePosition, imageSize, obj.Transform, vpMatrix);
                 }
@@ -1155,11 +1143,10 @@ vmd格式动作。支持几乎所有的图片格式。");
 
         static void NewLighting(Coocoo3DMain main)
         {
-            LightingComponent lightingComponent = new LightingComponent();
-            lightingComponent.Color = new Vector3(3, 3, 3);
-            lightingComponent.Range = 50;
+            VisualComponent decalComponent = new VisualComponent();
+            decalComponent.UIShowType = UIShowType.Light;
             GameObject gameObject = new GameObject();
-            gameObject.AddComponent(lightingComponent);
+            gameObject.AddComponent(decalComponent);
             gameObject.Name = "Lighting";
             gameObject.Transform = new(new Vector3(0, 1, 0), Quaternion.CreateFromYawPitchRoll(0, 1.3962634015954636615389526147909f, 0));
             main.CurrentScene.AddGameObject(gameObject);
@@ -1167,7 +1154,8 @@ vmd格式动作。支持几乎所有的图片格式。");
 
         static void NewDecal(Coocoo3DMain main)
         {
-            DecalComponent decalComponent = new DecalComponent();
+            VisualComponent decalComponent = new VisualComponent();
+            decalComponent.UIShowType = UIShowType.Decal;
             GameObject gameObject = new GameObject();
             gameObject.AddComponent(decalComponent);
             gameObject.Name = "Decal";
@@ -1178,10 +1166,8 @@ vmd格式动作。支持几乎所有的图片格式。");
         static void DuplicateObject(Coocoo3DMain main, GameObject obj)
         {
             var newObj = new GameObject();
-            if (obj.TryGetComponent<DecalComponent>(out var decal))
-                newObj.AddComponent(decal.GetClone());
-            if (obj.TryGetComponent<LightingComponent>(out var light))
-                newObj.AddComponent(light.GetClone());
+            if (obj.TryGetComponent<VisualComponent>(out var visual))
+                newObj.AddComponent(visual.GetClone());
             if (obj.TryGetComponent<MeshRendererComponent>(out var meshRenderer))
                 newObj.AddComponent(meshRenderer.GetClone());
             if (obj.TryGetComponent<MMDRendererComponent>(out var mmdRenderer))
@@ -1317,8 +1303,6 @@ vmd格式动作。支持几乎所有的图片格式。");
         static bool popupParamEdit = false;
         static bool showDecalBounding = true;
         static Dictionary<string, object> paramEdit;
-
-        static string[] lightTypeString = new[] { "方向光", "点光" };
 
         static string ImFilter(string lable, string hint)
         {

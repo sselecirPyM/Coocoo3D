@@ -377,34 +377,50 @@ namespace RenderPipelines
             RandomI = random.Next();
 
             BoundingFrustum frustum = new BoundingFrustum(ViewProjection);
-            var dls = renderWrap.directionalLights;
-            var pls = renderWrap.pointLights;
 
             int pointLightCount = 0;
-            byte[] pointLightData = null;
-            if (pls.Count > 0)
+            byte[] pointLightData = ArrayPool<byte>.Shared.Rent(64 * 32);
+            DirectionalLightData? directionalLight = null;
+            var pointLightWriter = new SpanWriter<PointLightData>(MemoryMarshal.Cast<byte, PointLightData>(pointLightData));
+            for (int i = 0; i < renderWrap.visuals.Count; i++)
             {
-                pointLightData = ArrayPool<byte>.Shared.Rent(pls.Count * 32);
-                var spanWriter = new SpanWriter<PointLightData>(MemoryMarshal.Cast<byte, PointLightData>(pointLightData));
-                for (int i = 0; i < pls.Count; i++)
+                var visual = renderWrap.visuals[i];
+                var mat = visual.material;
+                if (visual.UIShowType == Caprice.Display.UIShowType.Light)
                 {
-                    PointLightData pointLight1 = new PointLightData
+                    var lightType = (LightType)renderWrap.GetIndexableValue("LightType", mat);
+                    if (lightType == LightType.Directional)
                     {
-                        Position = pls[i].Position,
-                        Color = pls[i].Color,
-                        Range = pls[i].Range
-                    };
-                    if (frustum.Intersects(new BoundingSphere(pointLight1.Position, pointLight1.Range)))
+                        if (directionalLight != null)
+                            continue;
+                        directionalLight = new DirectionalLightData()
+                        {
+                            Color = (Vector3)renderWrap.GetIndexableValue("LightColor", mat),
+                            Direction = Vector3.Transform(-Vector3.UnitZ, visual.transform.rotation),
+                            Rotation = visual.transform.rotation
+                        };
+                    }
+                    else if (lightType == LightType.Point)
                     {
-                        spanWriter.Write(pointLight1);
-                        pointLightCount++;
+                        if (pointLightCount >= 64) continue;
+                        float range = (float)renderWrap.GetIndexableValue("LightRange", mat);
+                        if (frustum.Intersects(new BoundingSphere(visual.transform.position, range)))
+                        {
+                            pointLightWriter.Write(new PointLightData()
+                            {
+                                Color = (Vector3)renderWrap.GetIndexableValue("LightColor", mat),
+                                Position = visual.transform.position,
+                                Range = range,
+                            });
+                            pointLightCount++;
+                        }
                     }
                 }
             }
 
-            if (dls.Count > 0)
+            if (directionalLight != null)
             {
-                var dl = dls[0];
+                var dl = directionalLight.Value;
                 ShadowMapVP = dl.GetLightingMatrix(InvertViewProjection, 0, 0.977f);
                 ShadowMapVP1 = dl.GetLightingMatrix(InvertViewProjection, 0.977f, 0.993f);
                 LightDir = dl.Direction;
@@ -436,7 +452,7 @@ namespace RenderPipelines
             OutputSize = (outputTex.width, outputTex.height);
 
             renderWrap.PushParameters(this);
-            if (dls.Count > 0)
+            if (directionalLight != null)
             {
                 renderWrap.SetRenderTarget(null, "_ShadowMap", false, true);
                 var shadowMap = renderWrap.GetRenderTexture2D("_ShadowMap");
@@ -470,18 +486,17 @@ namespace RenderPipelines
             {
                 rayTracingPass.RayTracing = rayTracing;
                 rayTracingPass.RayTracingGI = updateGI;
-                rayTracingPass.Execute(renderWrap);
+                rayTracingPass.Execute(renderWrap, directionalLight);
             }
             finalPass.Execute(renderWrap);
             drawObjectTransparent.Execute(renderWrap);
             renderWrap.PopParameters();
 
-            if (pls.Count > 0)
-            {
-                finalPass.cbvs[1][0] = null;
-                drawObjectTransparent.CBVPerObject[1] = null;
-                ArrayPool<byte>.Shared.Return(pointLightData);
-            }
+            finalPass.cbvs[1][0] = null;
+            drawObjectTransparent.CBVPerObject[1] = null;
+
+            ArrayPool<byte>.Shared.Return(pointLightData);
+
             drawGBuffer.keywords.Clear();
             drawObjectTransparent.keywords.Clear();
             finalPass.keywords.Clear();

@@ -12,6 +12,7 @@ using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
+using Vortice.Mathematics;
 
 namespace RenderPipelines
 {
@@ -206,14 +207,58 @@ namespace RenderPipelines
             drawSkyBox.renderTargets[0] = renderTarget;
             drawObject.renderTargets[0] = renderTarget;
             drawObject.depthStencil = depthStencil;
-            var dls = renderWrap.directionalLights;
-            var pls = renderWrap.pointLights;
-            if (dls.Count > 0)
+            //var dls = renderWrap.directionalLights;
+            //var pls = renderWrap.pointLights;
+
+            BoundingFrustum frustum = new BoundingFrustum(ViewProjection);
+
+            int pointLightCount = 0;
+            byte[] pointLightData = ArrayPool<byte>.Shared.Rent(64 * 32);
+            DirectionalLightData? directionalLight = null;
+            var pointLightWriter = new SpanWriter<PointLightData>(MemoryMarshal.Cast<byte, PointLightData>(pointLightData));
+            for (int i = 0; i < renderWrap.visuals.Count; i++)
             {
-                ShadowMapVP = dls[0].GetLightingMatrix(InvertViewProjection, 0, 0.977f);
-                ShadowMapVP1 = dls[0].GetLightingMatrix(InvertViewProjection, 0.977f, 0.993f);
-                LightDir = dls[0].Direction;
-                LightColor = dls[0].Color;
+                var visual = renderWrap.visuals[i];
+                var mat = visual.material;
+                if (visual.UIShowType == Caprice.Display.UIShowType.Light)
+                {
+                    var lightType = (LightType)renderWrap.GetIndexableValue("LightType", mat);
+                    if (lightType == LightType.Directional)
+                    {
+                        if (directionalLight != null)
+                            continue;
+                        directionalLight = new DirectionalLightData()
+                        {
+                            Color = (Vector3)renderWrap.GetIndexableValue("LightColor", mat),
+                            Direction = Vector3.Transform(-Vector3.UnitZ, visual.transform.rotation),
+                            Rotation = visual.transform.rotation
+                        };
+                    }
+                    else if (lightType == LightType.Point)
+                    {
+                        if (pointLightCount >= 64) continue;
+                        float range = (float)renderWrap.GetIndexableValue("LightRange", mat);
+                        if (frustum.Intersects(new BoundingSphere(visual.transform.position, range)))
+                        {
+                            pointLightWriter.Write(new PointLightData()
+                            {
+                                Color = (Vector3)renderWrap.GetIndexableValue("LightColor", mat),
+                                Position = visual.transform.position,
+                                Range = range,
+                            });
+                            pointLightCount++;
+                        }
+                    }
+                }
+            }
+
+            if (directionalLight != null)
+            {
+                var dl = directionalLight.Value;
+                ShadowMapVP = dl.GetLightingMatrix(InvertViewProjection, 0, 0.977f);
+                ShadowMapVP1 = dl.GetLightingMatrix(InvertViewProjection, 0.977f, 0.993f);
+                LightDir = dl.Direction;
+                LightColor = dl.Color;
                 drawObject.keywords.Add(("ENABLE_DIRECTIONAL_LIGHT", "1"));
             }
             else
@@ -225,7 +270,7 @@ namespace RenderPipelines
             }
 
             renderWrap.PushParameters(this);
-            if (dls.Count > 0)
+            if (directionalLight != null)
             {
                 renderWrap.ClearTexture("_ShadowMap");
                 var shadowMap = renderWrap.GetRenderTexture2D("_ShadowMap");
@@ -236,26 +281,16 @@ namespace RenderPipelines
                 drawShadowMap.scissorViewport = new Rectangle(shadowMap.width / 2, 0, shadowMap.width / 2, shadowMap.height / 2);
                 drawShadowMap.Execute(renderWrap);
             }
-            Split = SplitTest(pls.Count * 12);
-            byte[] pointLightData = null;
-            if (pls.Count > 0)
+            Split = SplitTest(pointLightCount * 12);
+
+            if (pointLightCount > 0)
             {
-                DrawPointShadow(renderWrap);
-                pointLightData = ArrayPool<byte>.Shared.Rent(pls.Count * 32);
-                var spanWriter = new SpanWriter<PointLightData>(MemoryMarshal.Cast<byte, PointLightData>(pointLightData));
-                for (int i = 0; i < pls.Count; i++)
-                {
-                    PointLightData pointLightData1 = new PointLightData
-                    {
-                        Position = pls[i].Position,
-                        Color = pls[i].Color,
-                        Range = pls[i].Range
-                    };
-                    spanWriter.Write(pointLightData1);
-                }
-                drawObject.CBVPerObject[1] = (pointLightData, pls.Count * 32);
+                var pointLightDatas = MemoryMarshal.Cast<byte, PointLightData>(pointLightData).Slice(0, pointLightCount);
+                DrawPointShadow(renderWrap, pointLightDatas);
+
+                drawObject.CBVPerObject[1] = (pointLightData, pointLightCount * 32);
                 drawObject.keywords.Add(("ENABLE_POINT_LIGHT", "1"));
-                drawObject.keywords.Add(("POINT_LIGHT_COUNT", pls.Count.ToString()));
+                drawObject.keywords.Add(("POINT_LIGHT_COUNT", pointLightCount.ToString()));
             }
 
             if (debugKeywords.TryGetValue(DebugRenderType, out string debugKeyword))
@@ -274,6 +309,8 @@ namespace RenderPipelines
             drawObject.Execute(renderWrap);
 
             renderWrap.PopParameters();
+
+            ArrayPool<byte>.Shared.Return(pointLightData);
 
             drawObject.keywords.Clear();
         }
@@ -298,13 +335,13 @@ namespace RenderPipelines
             return new Rectangle(x, y, sizeX1, sizeY1);
         }
 
-        void DrawPointShadow(RenderWrap renderWrap)
+        void DrawPointShadow(RenderWrap renderWrap, Span<PointLightData> pointLightDatas)
         {
             int index = 0;
             var shadowMap = renderWrap.GetRenderTexture2D("_ShadowMap");
             int width = shadowMap.width;
             int height = shadowMap.height;
-            foreach (var pl in renderWrap.pointLights)
+            foreach (var pl in pointLightDatas)
             {
                 var lightRange = pl.Range;
                 float near = lightRange * 0.001f;

@@ -18,8 +18,8 @@ namespace Coocoo3D.RenderPipeline
         public string Name;
         public Camera camera = new Camera();
         public CameraData cameraData;
-        public Int2 outputSize = new Int2(100, 100);
-        public Int2 sceneViewSize = new Int2(100, 100);
+        public (int, int) outputSize = (100, 100);
+        public (int, int) sceneViewSize = (100, 100);
         public GraphicsContext graphicsContext;
 
         public RenderPipeline renderPipeline;
@@ -58,7 +58,7 @@ namespace Coocoo3D.RenderPipeline
 
         public void DelaySetRenderPipeline(Type type, RenderPipelineContext rpc)
         {
-            newRenderPipelinePath = Path.GetDirectoryName( type.Assembly.Location);
+            newRenderPipelinePath = Path.GetDirectoryName(type.Assembly.Location);
             this.rpc = rpc;
             this.newRenderPipelineType = type;
         }

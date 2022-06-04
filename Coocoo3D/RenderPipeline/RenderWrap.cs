@@ -34,11 +34,7 @@ namespace Coocoo3D.RenderPipeline
         public float DeltaTime { get => (float)rpc.dynamicContextRead.DeltaTime; }
         public float RealDeltaTime { get => (float)rpc.dynamicContextRead.RealDeltaTime; }
 
-        public IReadOnlyList<DirectionalLightData> directionalLights { get => rpc.dynamicContextRead.directionalLights; }
-
-        public IReadOnlyList<PointLightData> pointLights { get => rpc.dynamicContextRead.pointLights; }
-
-        public IReadOnlyList<DecalComponent> decals { get => rpc.dynamicContextRead.decals; }
+        public IReadOnlyList<VisualComponent> visuals { get => rpc.dynamicContextRead.visuals; }
 
         public CameraData Camera { get => visualChannel.cameraData; }
 
@@ -50,8 +46,7 @@ namespace Coocoo3D.RenderPipeline
 
         public void GetOutputSize(out int width, out int height)
         {
-            width = visualChannel.outputSize.X;
-            height = visualChannel.outputSize.Y;
+            (width, height) = visualChannel.outputSize;
         }
 
         public void SetSize(string key, int width, int height)
@@ -516,15 +511,20 @@ namespace Coocoo3D.RenderPipeline
             if (RenderPipelineView.indexables.TryGetValue(key, out var memberInfo))
             {
                 var type = memberInfo.GetGetterType();
-                if (material != null && material.Parameters.TryGetValue(key, out object obj1) &&
-                    obj1.GetType() == type)
+                if (material != null && material.Parameters.TryGetValue(key, out object obj1))
                 {
-                    return obj1;
+                    var objType = obj1.GetType();
+                    if (objType == type)
+                        return obj1;
+                    else if (type.IsEnum && objType == typeof(string))
+                    {
+                        if (Enum.TryParse(type, (string)obj1, out var obj2))
+                        {
+                            return obj2;
+                        }
+                    }
                 }
-                else
-                {
-                    return memberInfo.GetValue<object>(RenderPipelineView.renderPipeline);
-                }
+                return memberInfo.GetValue<object>(RenderPipelineView.renderPipeline);
             }
             return null;
         }

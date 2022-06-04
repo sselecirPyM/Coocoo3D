@@ -22,8 +22,9 @@ namespace Caprice.Display
     public enum UIShowType
     {
         All = 0,
-        Global,
-        Material,
-        Decal,
+        Global = 1,
+        Material = 2,
+        Decal = 4,
+        Light = 8,
     }
 }

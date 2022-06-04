@@ -4,21 +4,9 @@ using System.Linq;
 using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
-using Vortice.Mathematics;
 
-namespace Coocoo3D.Present
+namespace RenderPipelines
 {
-    public enum LightingType : uint
-    {
-        Directional = 0,
-        Point = 1,
-    }
-    public struct PointLightData
-    {
-        public Vector3 Position;
-        public Vector3 Color;
-        public float Range;
-    }
     public struct DirectionalLightData
     {
         public Vector3 Direction;

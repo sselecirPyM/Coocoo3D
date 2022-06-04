@@ -1,21 +1,22 @@
-﻿using Coocoo3D.Present;
+﻿using Caprice.Display;
+using Coocoo3D.Present;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace Coocoo3D.Components
 {
-    public class DecalComponent : Component
+    public class VisualComponent : Component
     {
+        public UIShowType UIShowType;
         public RenderMaterial material = new RenderMaterial();
         public Transform transform;
 
-        public DecalComponent GetClone()
+        public VisualComponent GetClone()
         {
-            var decal = (DecalComponent)MemberwiseClone();
+            var decal = (VisualComponent)MemberwiseClone();
             decal.material = material.GetClone();
             return decal;
         }

@@ -33,32 +33,9 @@ namespace Coocoo3D.FileFormat
         public Vector3 scale = Vector3.One;
         public Dictionary<string, string> properties;
         public Dictionary<string, _cooMaterial> materials;
-        public CooSceneObjectLighting lighting;
-        public CooSceneObjectParticle particle;
-        public CooSceneObjectDecal decal;
+        public CooSceneObjectVisual visual;
     }
-    public class CooSceneObjectLighting
-    {
-        public Vector3 color;
-        public float range;
-        public LightingType type;
-        public CooSceneObjectLighting()
-        {
-
-        }
-        public CooSceneObjectLighting(LightingComponent lighting)
-        {
-            color = lighting.Color;
-            range = lighting.Range;
-            type = lighting.LightingType;
-        }
-    }
-    public class CooSceneObjectParticle
-    {
-        public string file;
-        public int count;
-    }
-    public class CooSceneObjectDecal
+    public class CooSceneObjectVisual
     {
         public _cooMaterial material;
     }
@@ -110,7 +87,6 @@ namespace Coocoo3D.FileFormat
                     foreach (var material in renderer.Materials)
                     {
                         _cooMaterial material1 = new _cooMaterial();
-                        //material1.strValue = new Dictionary<string, string>(material.textures);
 
                         sceneObject.materials[material.Name] = material1;
 
@@ -153,20 +129,15 @@ namespace Coocoo3D.FileFormat
                     }
                     scene.objects.Add(sceneObject);
                 }
-                var lighting = obj.GetComponent<LightingComponent>();
-                if (lighting != null)
-                {
-                    CooSceneObject sceneObject = new CooSceneObject(obj);
-                    sceneObject.type = "lighting";
-                    sceneObject.lighting = new CooSceneObjectLighting(lighting);
-                    scene.objects.Add(sceneObject);
-                }
-                var decal = obj.GetComponent<DecalComponent>();
-                if (decal != null)
+                var visual = obj.GetComponent<VisualComponent>();
+                if (visual != null)
                 {
                     CooSceneObject decalObject = new CooSceneObject(obj);
-                    decalObject.type = "decal";
-                    decalObject.decal = new CooSceneObjectDecal() { material = Mat2Mat(decal.material) };
+                    if (visual.UIShowType == Caprice.Display.UIShowType.Decal)
+                        decalObject.type = "decal";
+                    if (visual.UIShowType == Caprice.Display.UIShowType.Light)
+                        decalObject.type = "lighting";
+                    decalObject.visual = new CooSceneObjectVisual() { material = Mat2Mat(visual.material) };
                     scene.objects.Add(decalObject);
                 }
             }
@@ -226,24 +197,23 @@ namespace Coocoo3D.FileFormat
                 }
                 else if (obj.type == "lighting")
                 {
-                    LightingComponent lightingComponent = new LightingComponent();
+                    VisualComponent lightingComponent = new VisualComponent();
+                    lightingComponent.UIShowType = Caprice.Display.UIShowType.Light;
                     gameObject.AddComponent(lightingComponent);
-                    if (obj.lighting != null)
+                    if (obj.visual != null)
                     {
-                        lightingComponent.Color = obj.lighting.color;
-                        lightingComponent.Range = obj.lighting.range;
-                        lightingComponent.LightingType = obj.lighting.type;
+                        lightingComponent.material = Mat2Mat(obj.visual.material);
                     }
-
                     main.CurrentScene.AddGameObject(gameObject);
                 }
                 else if (obj.type == "decal")
                 {
-                    DecalComponent decalComponent = new DecalComponent();
+                    VisualComponent decalComponent = new VisualComponent();
+                    decalComponent.UIShowType = Caprice.Display.UIShowType.Decal;
                     gameObject.AddComponent(decalComponent);
-                    if (obj.decal != null)
+                    if (obj.visual != null)
                     {
-                        decalComponent.material = Mat2Mat(obj.decal.material);
+                        decalComponent.material = Mat2Mat(obj.visual.material);
                     }
                     main.CurrentScene.AddGameObject(gameObject);
                 }
@@ -291,6 +261,11 @@ namespace Coocoo3D.FileFormat
                 if (_func1(ref material1.bValue, customValue)) continue;
                 if (_func1(ref material1.iValue, customValue)) continue;
                 if (_func1(ref material1.strValue, customValue)) continue;
+                if (customValue.Value != null && customValue.Value.GetType().IsEnum)
+                {
+                    if (material1.strValue == null) material1.strValue = new Dictionary<string, string>();
+                    material1.strValue[customValue.Key] = customValue.Value.ToString();
+                }
             }
             return material1;
         }

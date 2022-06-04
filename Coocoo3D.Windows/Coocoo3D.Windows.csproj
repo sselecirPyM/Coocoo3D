@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Coocoo3D\Coocoo3D.csproj" />
+    <ProjectReference Include="..\ProRendererWrap\ProRendererWrap.csproj" />
   </ItemGroup>
 
   <Import Project="..\Coocoo3DAssets\Coocoo3DAssets.projitems" Label="Shared" />

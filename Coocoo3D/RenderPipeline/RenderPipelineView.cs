@@ -279,6 +279,8 @@ namespace Coocoo3D.RenderPipeline
         {
             foreach (var uiUsage in UIUsages)
             {
+                if (uiUsage.Value.UIShowType != UIShowType.Global && uiUsage.Value.UIShowType != UIShowType.All)
+                    continue;
                 object obj = uiUsage.Value.MemberInfo.GetValue<object>(renderPipeline);
                 if (uiUsage.Value.MemberInfo.GetGetterType() == typeof(Texture2D))
                 {

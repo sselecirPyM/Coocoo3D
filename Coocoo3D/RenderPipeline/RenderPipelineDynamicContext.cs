@@ -13,9 +13,9 @@ namespace Coocoo3D.RenderPipeline
         public List<MMDRendererComponent> renderers = new();
         public List<MeshRendererComponent> meshRenderers = new();
 
-        public List<DirectionalLightData> directionalLights = new();
-        public List<PointLightData> pointLights = new();
-        public List<DecalComponent> decals = new();
+        //public List<DirectionalLightData> directionalLights = new();
+        //public List<PointLightData> pointLights = new();
+        public List<VisualComponent> visuals = new();
 
         public int frameRenderIndex;
         public double Time;
@@ -27,13 +27,13 @@ namespace Coocoo3D.RenderPipeline
         {
             foreach (GameObject gameObject in gameObjects)
             {
-                if (gameObject.TryGetComponent(out LightingComponent lighting))
-                {
-                    if (lighting.LightingType == LightingType.Directional)
-                        directionalLights.Add(lighting.GetDirectionalLightData(gameObject.Transform.rotation));
-                    if (lighting.LightingType == LightingType.Point)
-                        pointLights.Add(lighting.GetPointLightData(gameObject.Transform.position));
-                }
+                //if (gameObject.TryGetComponent(out LightingComponent lighting))
+                //{
+                //    if (lighting.LightingType == LightingType.Directional)
+                //        directionalLights.Add(lighting.GetDirectionalLightData(gameObject.Transform.rotation));
+                //    if (lighting.LightingType == LightingType.Point)
+                //        pointLights.Add(lighting.GetPointLightData(gameObject.Transform.position));
+                //}
                 if (gameObject.TryGetComponent(out MMDRendererComponent renderer))
                 {
                     renderers.Add(renderer);
@@ -42,21 +42,21 @@ namespace Coocoo3D.RenderPipeline
                 {
                     meshRenderers.Add(meshRenderer);
                 }
-                if(gameObject.TryGetComponent(out DecalComponent decal))
+                if (gameObject.TryGetComponent(out VisualComponent visual))
                 {
-                    decal.transform = gameObject.Transform;
-                    decals.Add(decal);
+                    visual.transform = gameObject.Transform;
+                    visuals.Add(visual);
                 }
             }
         }
 
         public void FrameBegin()
         {
-            directionalLights.Clear();
-            pointLights.Clear();
+            //directionalLights.Clear();
+            //pointLights.Clear();
             renderers.Clear();
             meshRenderers.Clear();
-            decals.Clear();
+            visuals.Clear();
         }
     }
 }

@@ -90,6 +90,19 @@ namespace RenderPipelines
         public Texture2D _Emissive;
         #endregion
 
+        #region Light Parameters
+        [Indexable]
+        [UIColor(UIShowType.Light, "光照颜色")]
+        public Vector3 LightColor = new Vector3(3, 3, 3);
+        [Indexable]
+        [UIDragFloat(0.1f, 0.1f, float.MaxValue, UIShowType.Light, "光照范围")]
+        public float LightRange = 50.0f;
+
+        [Indexable]
+        [UIShow(UIShowType.Light, "光照类型")]
+        public LightType LightType;
+        #endregion
+
         RPRContext context;
         RPRScene scene;
         RPRCamera rprCamera;
@@ -198,24 +211,60 @@ namespace RenderPipelines
             scene.AttachLight(envLight);
             lights.Add(envLight);
 
-            foreach (var light in renderWrap.directionalLights)
+            for (int i = 0; i < renderWrap.visuals.Count; i++)
             {
-                var light1 = RPRLight.DirectionalLight(context);
-                light1.SetTransform(Matrix4x4.CreateLookAt(light.Direction, new Vector3(0, 0, 0), new Vector3(0, 1, 0)));
-                light1.DirectionalLightSetRadiantPower3f(light.Color.X, light.Color.Y, light.Color.Z);
-                light1.DirectionalLightSetShadowSoftnessAngle(DirectionalLightShadowSoftnessAngle / 180.0f * (float)Math.PI);
-                scene.AttachLight(light1);
-                lights.Add(light1);
+                var visual = renderWrap.visuals[i];
+                var mat = visual.material;
+                if (visual.UIShowType == Caprice.Display.UIShowType.Light)
+                {
+                    var lightType = (LightType)renderWrap.GetIndexableValue("LightType", mat);
+                    if (lightType == LightType.Directional)
+                    {
+                        var Color = (Vector3)renderWrap.GetIndexableValue("LightColor", mat);
+                        var Direction = Vector3.Transform(-Vector3.UnitZ, visual.transform.rotation);
+                        var Rotation = visual.transform.rotation;
+
+                        var light1 = RPRLight.DirectionalLight(context);
+                        light1.SetTransform(Matrix4x4.CreateLookAt(Direction, new Vector3(0, 0, 0), new Vector3(0, 1, 0)));
+                        light1.DirectionalLightSetRadiantPower3f(Color.X, Color.Y, Color.Z);
+                        light1.DirectionalLightSetShadowSoftnessAngle(DirectionalLightShadowSoftnessAngle / 180.0f * (float)Math.PI);
+                        scene.AttachLight(light1);
+                        lights.Add(light1);
+                    }
+                    else if (lightType == LightType.Point)
+                    {
+
+                        var Color = (Vector3)renderWrap.GetIndexableValue("LightColor", mat);
+                        var Position = visual.transform.position;
+                        var Range = (float)renderWrap.GetIndexableValue("LightRange", mat);
+
+                        var light1 = RPRLight.PointLight(context);
+                        light1.SetTransform(Matrix4x4.CreateTranslation(Position));
+                        light1.PointLightSetRadiantPower3f(Color.X, Color.Y, Color.Z);
+                        scene.AttachLight(light1);
+                        lights.Add(light1);
+                    }
+                }
             }
 
-            foreach (var light in renderWrap.pointLights)
-            {
-                var light1 = RPRLight.PointLight(context);
-                light1.SetTransform(Matrix4x4.CreateTranslation(light.Position));
-                light1.PointLightSetRadiantPower3f(light.Color.X, light.Color.Y, light.Color.Z);
-                scene.AttachLight(light1);
-                lights.Add(light1);
-            }
+            //foreach (var light in renderWrap.directionalLights)
+            //{
+            //    var light1 = RPRLight.DirectionalLight(context);
+            //    light1.SetTransform(Matrix4x4.CreateLookAt(light.Direction, new Vector3(0, 0, 0), new Vector3(0, 1, 0)));
+            //    light1.DirectionalLightSetRadiantPower3f(light.Color.X, light.Color.Y, light.Color.Z);
+            //    light1.DirectionalLightSetShadowSoftnessAngle(DirectionalLightShadowSoftnessAngle / 180.0f * (float)Math.PI);
+            //    scene.AttachLight(light1);
+            //    lights.Add(light1);
+            //}
+
+            //foreach (var light in renderWrap.pointLights)
+            //{
+            //    var light1 = RPRLight.PointLight(context);
+            //    light1.SetTransform(Matrix4x4.CreateTranslation(light.Position));
+            //    light1.PointLightSetRadiantPower3f(light.Color.X, light.Color.Y, light.Color.Z);
+            //    scene.AttachLight(light1);
+            //    lights.Add(light1);
+            //}
 
             foreach (var renderable in renderWrap.MeshRenderables(false))
             {

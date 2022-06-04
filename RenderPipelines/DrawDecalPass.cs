@@ -40,7 +40,7 @@ namespace RenderPipelines
 
         public Matrix4x4 viewProj;
 
-        public Func<RenderWrap, DecalComponent, List<(string, string)>, bool> filter;
+        public Func<RenderWrap, VisualComponent, List<(string, string)>, bool> filter;
 
         public override void Execute(RenderWrap renderWrap)
         {
@@ -63,8 +63,11 @@ namespace RenderPipelines
             BoundingFrustum frustum = new(viewProj);
 
             keywords2.Clear();
-            foreach (var renderable in renderWrap.decals)
+            foreach (var renderable in renderWrap.visuals)
             {
+                if (renderable.UIShowType != Caprice.Display.UIShowType.Decal)
+                    continue;
+
                 if (!frustum.Intersects(new BoundingSphere(renderable.transform.position, renderable.transform.scale.Length())))
                     continue;
 

@@ -24,7 +24,7 @@ namespace Coocoo3D.Core
                 context.PlayTime = 0.0f;
                 context.RequireResetPhysics = true;
                 var visualchannel = rpContext.visualChannels[recordChannel];
-                visualchannel.outputSize = new Numerics.Int2(recordSettings.Width, recordSettings.Height);
+                visualchannel.outputSize = (recordSettings.Width, recordSettings.Height);
                 visualchannel.camera.AspectRatio = (float)recordSettings.Width / (float)recordSettings.Height;
                 StartTime = recordSettings.StartTime;
                 StopTime = recordSettings.StopTime;
@@ -60,7 +60,7 @@ namespace Coocoo3D.Core
             foreach (var visualChannel in rpContext.visualChannels.Values)
             {
                 visualChannel.outputSize = visualChannel.sceneViewSize;
-                visualChannel.camera.AspectRatio = (float)visualChannel.outputSize.X / (float)visualChannel.outputSize.Y;
+                visualChannel.camera.AspectRatio = (float)visualChannel.outputSize.Item1 / (float)visualChannel.outputSize.Item2;
             }
 
             context.DeltaTime = Math.Clamp(deltaTime * context.PlaySpeed, -0.17f, 0.17f);
@@ -97,7 +97,7 @@ namespace Coocoo3D.Core
             {
                 if (visualChannel == visualChannel1) continue;
                 visualChannel.outputSize = visualChannel.sceneViewSize;
-                visualChannel.camera.AspectRatio = (float)visualChannel.outputSize.X / (float)visualChannel.outputSize.Y;
+                visualChannel.camera.AspectRatio = (float)visualChannel.outputSize.Item1 / (float)visualChannel.outputSize.Item2;
             }
             if (context.PlayTime > StopTime)
                 ToPlayMode();

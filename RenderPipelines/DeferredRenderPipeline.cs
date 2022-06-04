@@ -300,6 +300,20 @@ namespace RenderPipelines
         public Vector4 _DecalEmissivePower;
         #endregion
 
+        #region Light Parameters
+        [Indexable]
+        [UIColor(UIShowType.Light, "光照颜色")]
+        public Vector3 LightColor = new Vector3(3, 3, 3);
+        [Indexable]
+        [UIDragFloat(0.1f, 0.1f, float.MaxValue, UIShowType.Light, "光照范围")]
+        public float LightRange = 50.0f;
+
+        [Indexable]
+        [UIShow(UIShowType.Light, "光照类型")]
+        public LightType LightType;
+
+        #endregion
+
         [Indexable]
         public float cameraFar;
         [Indexable]

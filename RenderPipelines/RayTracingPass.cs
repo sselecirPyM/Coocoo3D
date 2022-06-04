@@ -32,6 +32,7 @@ namespace RenderPipelines
 
         public List<(string, string)> keywords = new();
 
+
         object[] cbv0 =
         {
             nameof(ViewProjection),
@@ -90,7 +91,7 @@ namespace RenderPipelines
             CameraPosition = camera.Position;
         }
 
-        public void Execute(RenderWrap renderWrap)
+        public void Execute(RenderWrap renderWrap, DirectionalLightData? directionalLight)
         {
             var graphicsContext = renderWrap.graphicsContext;
             var mainCaches = renderWrap.rpc.mainCaches;
@@ -99,13 +100,11 @@ namespace RenderPipelines
             var path1 = Path.GetFullPath(RayTracingShader, renderWrap.BasePath);
             var rayTracingShader = mainCaches.GetRayTracingShader(path1);
 
-            var directionalLights = renderWrap.directionalLights;
-            var pointLights = renderWrap.pointLights;
             renderWrap.PushParameters(this);
             RandomI = random.Next();
 
             List<ValueTuple<string, string>> keywords = new(this.keywords);
-            if (directionalLights.Count != 0)
+            if (directionalLight != null)
             {
                 keywords.Add(new("ENABLE_DIRECTIONAL_LIGHT", "1"));
                 //if (volumeLighting)
