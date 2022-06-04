@@ -19,10 +19,6 @@ namespace Coocoo3D.Core
     }
     public class Scene
     {
-        public Settings settings = new Settings()
-        {
-        };
-
         public List<GameObject> gameObjects = new();
         public List<GameObject> gameObjectLoadList = new();
         public List<GameObject> gameObjectRemoveList = new();
@@ -241,27 +237,6 @@ namespace Coocoo3D.Core
                 _ResetPhysics(rendererComponents);
             }
             BoneUpdate(playTime, (float)deltaTime, rendererComponents);
-        }
-    }
-
-    public class Settings
-    {
-
-        [NonSerialized]
-        public Dictionary<string, object> Parameters = new();
-
-        public Dictionary<string, bool> bValue;
-        public Dictionary<string, int> iValue;
-        public Dictionary<string, float> fValue;
-        public Dictionary<string, Vector2> f2Value;
-        public Dictionary<string, Vector3> f3Value;
-        public Dictionary<string, Vector4> f4Value;
-
-        public Settings GetClone()
-        {
-            var clone = (Settings)this.MemberwiseClone();
-            clone.Parameters = new Dictionary<string, object>(Parameters);
-            return clone;
         }
     }
 }

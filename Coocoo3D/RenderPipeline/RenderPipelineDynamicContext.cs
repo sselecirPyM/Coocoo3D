@@ -1,22 +1,17 @@
 ﻿using Coocoo3D.Components;
-using Coocoo3D.Core;
 using Coocoo3D.Present;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Numerics;
 
 namespace Coocoo3D.RenderPipeline
 {
     public class RenderPipelineDynamicContext
     {
-        public Settings settings;
         public List<MMDRendererComponent> renderers = new();
         public List<MeshRendererComponent> meshRenderers = new();
-        public List<VolumeComponent> volumes = new();
-        public List<ParticleEffectComponent> particleEffects = new();
 
         public List<DirectionalLightData> directionalLights = new();
         public List<PointLightData> pointLights = new();
@@ -39,23 +34,13 @@ namespace Coocoo3D.RenderPipeline
                     if (lighting.LightingType == LightingType.Point)
                         pointLights.Add(lighting.GetPointLightData(gameObject.Transform.position));
                 }
-                if (gameObject.TryGetComponent(out VolumeComponent volume))
-                {
-                    volume.Position = gameObject.Transform.position;
-                    volumes.Add(volume);
-                }
                 if (gameObject.TryGetComponent(out MMDRendererComponent renderer))
                 {
                     renderers.Add(renderer);
-                    //findRenderer[renderer] = renderers.Count - 1;
                 }
                 if (gameObject.TryGetComponent(out MeshRendererComponent meshRenderer))
                 {
                     meshRenderers.Add(meshRenderer);
-                }
-                if (gameObject.TryGetComponent(out ParticleEffectComponent particleEffect))
-                {
-                    particleEffects.Add(particleEffect);
                 }
                 if(gameObject.TryGetComponent(out DecalComponent decal))
                 {
@@ -69,10 +54,7 @@ namespace Coocoo3D.RenderPipeline
         {
             directionalLights.Clear();
             pointLights.Clear();
-            volumes.Clear();
             renderers.Clear();
-            //findRenderer.Clear();
-            particleEffects.Clear();
             meshRenderers.Clear();
             decals.Clear();
         }

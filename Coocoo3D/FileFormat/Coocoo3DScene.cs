@@ -77,7 +77,6 @@ namespace Coocoo3D.FileFormat
         public int formatVersion = 1;
         public List<CooSceneObject> objects;
         public Dictionary<string, string> sceneProperties;
-        public Settings settings;
 
         static bool _func1<T>(ref Dictionary<string, T> dict, KeyValuePair<string, object> pair)
         {
@@ -95,16 +94,7 @@ namespace Coocoo3D.FileFormat
             scene.sceneProperties = new Dictionary<string, string>();
             //scene.sceneProperties.Add("skyBox", main.RPContext.skyBoxTex);
             scene.objects = new List<CooSceneObject>();
-            scene.settings = main.CurrentScene.settings.GetClone();
-            foreach (var customValue in scene.settings.Parameters)
-            {
-                if (_func1(ref scene.settings.fValue, customValue)) continue;
-                if (_func1(ref scene.settings.f2Value, customValue)) continue;
-                if (_func1(ref scene.settings.f3Value, customValue)) continue;
-                if (_func1(ref scene.settings.f4Value, customValue)) continue;
-                if (_func1(ref scene.settings.bValue, customValue)) continue;
-                if (_func1(ref scene.settings.iValue, customValue)) continue;
-            }
+
             foreach (var obj in main.CurrentScene.gameObjects)
             {
                 var renderer = obj.GetComponent<MMDRendererComponent>();
@@ -171,14 +161,6 @@ namespace Coocoo3D.FileFormat
                     sceneObject.lighting = new CooSceneObjectLighting(lighting);
                     scene.objects.Add(sceneObject);
                 }
-                var particle = obj.GetComponent<ParticleEffectComponent>();
-                if (particle != null)
-                {
-                    CooSceneObject particleObject = new CooSceneObject(obj);
-                    particleObject.type = "particle";
-                    particleObject.particle = new CooSceneObjectParticle();
-                    scene.objects.Add(particleObject);
-                }
                 var decal = obj.GetComponent<DecalComponent>();
                 if (decal != null)
                 {
@@ -199,17 +181,6 @@ namespace Coocoo3D.FileFormat
         }
         public void ToScene(Coocoo3DMain main)
         {
-            if (settings != null)
-            {
-                _func2(settings.fValue, settings.Parameters);
-                _func2(settings.f2Value, settings.Parameters);
-                _func2(settings.f3Value, settings.Parameters);
-                _func2(settings.f4Value, settings.Parameters);
-                _func2(settings.iValue, settings.Parameters);
-                _func2(settings.bValue, settings.Parameters);
-
-                main.CurrentScene.settings = settings;
-            }
             if (sceneProperties.TryGetValue("skyBox", out string skyBox))
             {
                 //main.RPContext.SetSkyBox(skyBox);
@@ -264,17 +235,6 @@ namespace Coocoo3D.FileFormat
                         lightingComponent.LightingType = obj.lighting.type;
                     }
 
-                    main.CurrentScene.AddGameObject(gameObject);
-                }
-                else if (obj.type == "particle")
-                {
-                    ParticleEffectComponent particleEffectComponent = new ParticleEffectComponent();
-                    gameObject.AddComponent(particleEffectComponent);
-                    if (obj.particle != null)
-                    {
-                        particleEffectComponent.particleCount = obj.particle.count;
-                        particleEffectComponent.particleFile = obj.particle.file;
-                    }
                     main.CurrentScene.AddGameObject(gameObject);
                 }
                 else if (obj.type == "decal")

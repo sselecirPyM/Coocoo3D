@@ -653,13 +653,14 @@ namespace Coocoo3D.UI
                 ImGui.Text(@"旋转视角 - 按住鼠标右键拖动
 平移镜头 - 按住鼠标中键拖动
 拉近、拉远镜头 - 鼠标滚轮
-修改物体位置、旋转 - 双击修改，或者在数字上按住左键然后拖动");
+修改物体位置、旋转 - 双击修改，或者在数字上按住左键然后拖动
+打开文件 - 将文件拖入窗口，或者在资源窗口打开文件夹。");
                 ImGui.TreePop();
             }
             if (ImGui.TreeNode("支持格式"))
             {
                 ImGui.Text(@"当前版本支持pmx、glTF格式模型，
-vmd格式动作");
+vmd格式动作。支持几乎所有的图片格式。");
                 ImGui.TreePop();
             }
             if (ImGui.Button("显示ImGuiDemoWindow"))
@@ -747,10 +748,8 @@ vmd格式动作");
         static void GameObjectPanel(Coocoo3DMain main, GameObject gameObject)
         {
             var lighting = gameObject.GetComponent<LightingComponent>();
-            var volumeComponent = gameObject.GetComponent<VolumeComponent>();
             var renderer = gameObject.GetComponent<MMDRendererComponent>();
             var meshRenderer = gameObject.GetComponent<MeshRendererComponent>();
-            var particleEffect = gameObject.GetComponent<ParticleEffectComponent>();
             var decal = gameObject.GetComponent<DecalComponent>();
 
             ImGui.InputText("名称", ref gameObject.Name, 256);
@@ -801,16 +800,6 @@ vmd格式动作");
                 ImGui.Combo("类型", ref current, lightTypeString, 2);
                 ImGui.TreePop();
                 lighting.LightingType = (LightingType)current;
-            }
-            if (volumeComponent != null && ImGui.TreeNode("体积"))
-            {
-                ImGui.DragFloat3("尺寸", ref volumeComponent.Size);
-                ImGui.TreePop();
-            }
-            if (particleEffect != null && ImGui.TreeNode("粒子特效"))
-            {
-                ImGui.InputInt("最大粒子数量", ref particleEffect.maxParticleCount);
-                ImGui.TreePop();
             }
         }
 
@@ -1176,17 +1165,6 @@ vmd格式动作");
             main.CurrentScene.AddGameObject(gameObject);
         }
 
-        static void NewVolume(Coocoo3DMain main)
-        {
-            VolumeComponent volumeComponent = new VolumeComponent();
-            volumeComponent.Size = new Vector3(100, 50, 100);
-            GameObject gameObject = new GameObject();
-            gameObject.AddComponent(volumeComponent);
-            gameObject.Name = "Volume";
-            gameObject.Transform = new(new Vector3(0, 25, 0), Quaternion.Identity);
-            main.CurrentScene.AddGameObject(gameObject);
-        }
-
         static void NewDecal(Coocoo3DMain main)
         {
             DecalComponent decalComponent = new DecalComponent();
@@ -1194,16 +1172,6 @@ vmd格式动作");
             gameObject.AddComponent(decalComponent);
             gameObject.Name = "Decal";
             gameObject.Transform = new(new Vector3(0, 0, 0), Quaternion.CreateFromYawPitchRoll(0, -1.5707963267948966192313216916398f, 0), new Vector3(1, 1, 0.1f));
-            main.CurrentScene.AddGameObject(gameObject);
-        }
-
-        static void NewParticle(Coocoo3DMain main)
-        {
-            ParticleEffectComponent particleEffectComponent = new ParticleEffectComponent();
-            GameObject gameObject = new GameObject();
-            gameObject.AddComponent(particleEffectComponent);
-            gameObject.Name = "Particle";
-            gameObject.Transform = new(new Vector3(0, 0, 0), Quaternion.Identity);
             main.CurrentScene.AddGameObject(gameObject);
         }
 

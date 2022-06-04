@@ -146,7 +146,6 @@ namespace Coocoo3D.RenderPipeline
         public RenderPipelineDynamicContext GetDynamicContext(Scene scene)
         {
             dynamicContextWrite.FrameBegin();
-            dynamicContextWrite.settings = scene.settings.GetClone();
 
             dynamicContextWrite.frameRenderIndex = frameRenderCount;
             dynamicContextWrite.CPUSkinning = CPUSkinning;
@@ -340,7 +339,7 @@ namespace Coocoo3D.RenderPipeline
             if (visualChannels.Remove(name, out var vc))
             {
                 if (vc == currentChannel)
-                    currentChannel = visualChannels["main"];
+                    currentChannel = visualChannels.FirstOrDefault().Value;
                 vc.Dispose();
             }
         }

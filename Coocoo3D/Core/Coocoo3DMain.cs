@@ -117,14 +117,13 @@ namespace Coocoo3D.Core
             dynamicContext.RealDeltaTime = deltaTime;
             if (RenderTask1 != null && RenderTask1.Status != TaskStatus.RanToCompletion) RenderTask1.Wait();
             RPContext.Submit(dynamicContext);
+            RPContext.PreConfig();
             if (RequireResize.SetFalse())
             {
                 RPContext.swapChain.Resize(NewSize.X, NewSize.Y);
-                graphicsDevice.WaitForGpu();
             }
             if (!RPContext.recording)
                 mainCaches.OnFrame();
-            RPContext.PreConfig();
 
             imguiInput.Update();
             UI.UIImGui.GUI(this);
@@ -145,8 +144,8 @@ namespace Coocoo3D.Core
             HybirdRenderPipeline.RenderCamera(RPContext);
             HybirdRenderPipeline.EndFrame(RPContext);
 
-            GameDriver.AfterRender(RPContext);
             widgetRenderer.Render(RPContext, graphicsContext);
+            GameDriver.AfterRender(RPContext);
             RPContext.AfterRender();
             graphicsContext.Present(RPContext.swapChain, performanceSettings.VSync);
             graphicsContext.EndCommand();
