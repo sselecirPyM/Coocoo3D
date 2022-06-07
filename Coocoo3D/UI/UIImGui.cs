@@ -40,6 +40,7 @@ namespace Coocoo3D.UI
 
             positionChange = false;
             rotationChange = false;
+            scaleChange = false;
             if (main.SelectedGameObjects.Count == 1)
             {
                 selectedObject = main.SelectedGameObjects[0];
@@ -236,28 +237,43 @@ namespace Coocoo3D.UI
                 main.frameInterval = Math.Clamp(1 / a, 1e-4f, 1f);
             }
 
+            if (renderPipelinesRequest != null)
+            {
+                main.RPContext.LoadRenderPipelines(renderPipelinesRequest);
+                renderPipelinesRequest = null;
+            }
             var rpc = main.RPContext;
             ShowParams(main, rpc.currentChannel.renderPipelineView);
             int renderPipelineIndex = 0;
-            string[] newRPs = new string[rpc.RenderPipelineTypes.Length];
-            for (int i = 0; i < newRPs.Length; i++)
+
+            var rps = rpc.RenderPipelineTypes;
+
+            string[] newRPs = new string[rps.Length];
+            for (int i = 0; i < rps.Length; i++)
             {
-                var uiShowAttribute = rpc.RenderPipelineTypes[i].GetCustomAttribute(typeof(UIShowAttribute), true) as UIShowAttribute;
+                var uiShowAttribute = rps[i].GetCustomAttribute<UIShowAttribute>(true);
                 if (uiShowAttribute != null)
                     newRPs[i] = uiShowAttribute.Name;
                 else
-                    newRPs[i] = rpc.RenderPipelineTypes[i].ToString();
-                if (rpc.RenderPipelineTypes[i] == rpc.currentChannel.renderPipeline?.GetType())
+                    newRPs[i] = rps[i].ToString();
+                if (rps[i] == rpc.currentChannel.renderPipeline?.GetType())
                 {
                     renderPipelineIndex = i;
                 }
             }
 
-            if (ImGui.Combo("渲染管线", ref renderPipelineIndex, newRPs, newRPs.Length))
+            if (ImGui.Combo("渲染管线", ref renderPipelineIndex, newRPs, rps.Length))
             {
-                rpc.currentChannel.DelaySetRenderPipeline(rpc.RenderPipelineTypes[renderPipelineIndex], rpc);
+                rpc.currentChannel.DelaySetRenderPipeline(rps[renderPipelineIndex], rpc);
             }
-
+            if (ImGui.Button("加载渲染管线"))
+            {
+                requestSelectRenderPipelines = true;
+            }
+            if (ImGui.IsItemHovered())
+            {
+                ImGui.SetTooltip("默认的渲染管线位于软件的Samples文件夹，你可以看到一个dll和一些hlsl文件，还有一些图片文件。");
+            }
 
             if (ImGui.Button("添加视口"))
             {
@@ -365,6 +381,14 @@ namespace Coocoo3D.UI
                 {
                     if (parameters.TryGetValue(name, out var parameter1))
                         obj = parameter1;
+                    if (obj is string s && Enum.TryParse(type, s, out var obj1))
+                    {
+                        obj = obj1;
+                    }
+                    if (obj.GetType() != type)
+                    {
+                        obj = Activator.CreateInstance(type);
+                    }
                     if (ComboBox(val.Name, ref obj))
                     {
                         parameters[name] = obj;
@@ -589,8 +613,8 @@ namespace Coocoo3D.UI
             ImGui.SameLine();
             if (ImGui.Button("后退"))
             {
-                if (viewStack.Count > 0)
-                    viewRequest = viewStack.Pop();
+                if (navigationStack.Count > 0)
+                    viewRequest = navigationStack.Pop();
             }
             string filter = ImFilter("查找文件", "查找文件");
 
@@ -627,7 +651,7 @@ namespace Coocoo3D.UI
                     {
                         if (folder != null)
                         {
-                            viewStack.Push(currentFolder);
+                            navigationStack.Push(currentFolder);
                             viewRequest = folder;
                             _requireClear = true;
                             ImGui.SaveIniSettingsToDisk("imgui.ini");
@@ -1199,6 +1223,17 @@ vmd格式动作。支持几乎所有的图片格式。");
             return TransformToViewport(vector, vp, out canView) * 0.5f + new Vector2(0.5f, 0.5f);
         }
 
+        static string ImFilter(string lable, string hint)
+        {
+            uint id = ImGui.GetID(lable);
+            string filter = filters.GetValueOrDefault(id, "");
+            if (ImGui.InputTextWithHint(lable, hint, ref filter, 128))
+            {
+                filters[id] = filter;
+            }
+            return filter;
+        }
+
         static string fileOpenId = null;
 
         public static bool initialized = false;
@@ -1210,6 +1245,7 @@ vmd格式动作。支持几乎所有的图片格式。");
         public static Quaternion rotationCache;
         public static bool rotationChange;
         public static bool positionChange;
+        public static bool scaleChange;
 
         public static int materialSelectIndex = 0;
         public static int gameObjectSelectIndex = -1;
@@ -1217,10 +1253,13 @@ vmd格式动作。支持几乎所有的图片格式。");
         public static bool requestRecord;
         public static bool requestSave;
 
-        public static Stack<DirectoryInfo> viewStack = new Stack<DirectoryInfo>();
+        public static bool requestSelectRenderPipelines;
+
+        public static Stack<DirectoryInfo> navigationStack = new Stack<DirectoryInfo>();
         public static List<FileSystemInfo> storageItems = new List<FileSystemInfo>();
         public static DirectoryInfo currentFolder;
         public static DirectoryInfo viewRequest;
+        public static DirectoryInfo renderPipelinesRequest;
         public static FileInfo openRequest;
         //public static List<bool> gameObjectSelected = new List<bool>();
 
@@ -1304,16 +1343,6 @@ vmd格式动作。支持几乎所有的图片格式。");
         static bool showDecalBounding = true;
         static Dictionary<string, object> paramEdit;
 
-        static string ImFilter(string lable, string hint)
-        {
-            uint id = ImGui.GetID(lable);
-            string filter = filters.GetValueOrDefault(id, "");
-            if (ImGui.InputTextWithHint(lable, hint, ref filter, 128))
-            {
-                filters[id] = filter;
-            }
-            return filter;
-        }
         static Dictionary<uint, string> filters = new Dictionary<uint, string>();
 
         static bool Contains(string input, string filter)

@@ -17,7 +17,6 @@ namespace RenderPipelines
         {
             Matrix4x4 rotateMatrix = Matrix4x4.CreateFromQuaternion(Rotation);
             Matrix4x4.Invert(rotateMatrix, out Matrix4x4 iRot);
-            var up = Vector3.Normalize(Vector3.Transform(Vector3.UnitY, rotateMatrix));
             Vector4 v1x = Vector4.Transform(new Vector4(-1, -1, start, 1), cameraInvert);
             Vector3 v2x = new Vector3(v1x.X / v1x.W, v1x.Y / v1x.W, v1x.Z / v1x.W);
             Vector3 v3x = Vector3.Transform(v2x, iRot);
@@ -35,11 +34,12 @@ namespace RenderPipelines
                         whMax = Vector3.Max(v3, whMax);
                     }
 
-            Vector3 whMax2 = whMax - whMin;
+            Vector3 size = whMax - whMin;
 
-            var pos = Vector3.Transform(-Vector3.UnitZ * 64, rotateMatrix);
-            Vector3 real = Vector3.Transform((whMax + whMin) * 0.5f, rotateMatrix);
-            return Matrix4x4.CreateLookAt(real + pos, real, up) * Matrix4x4.CreateOrthographic(whMax2.X, whMax2.Y, 0.0f, 128) * Matrix4x4.CreateScale(-1, 1, 1);
+            var offset = Vector3.Transform(-Vector3.UnitZ * 64, rotateMatrix);
+            var target = Vector3.Transform((whMax + whMin) * 0.5f, rotateMatrix);
+            var up = Vector3.Normalize(Vector3.Transform(Vector3.UnitY, rotateMatrix));
+            return Matrix4x4.CreateLookAt(target + offset, target, up) * Matrix4x4.CreateOrthographic(size.X, size.Y, 0.0f, 128);
         }
     }
 }

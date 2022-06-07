@@ -16,8 +16,6 @@ namespace Coocoo3D.UI
 {
     public static class UIHelper
     {
-        public static DirectoryInfo folder;
-
         public static void OnFrame(Coocoo3DMain main)
         {
             if (UIImGui.requireOpenFolder.SetFalse())
@@ -25,8 +23,19 @@ namespace Coocoo3D.UI
                 string path = OpenResourceFolder();
                 if (!string.IsNullOrEmpty(path))
                 {
-                    folder = new DirectoryInfo(path);
+                    DirectoryInfo folder = new DirectoryInfo(path);
                     UIImGui.viewRequest = folder;
+                    main.mainCaches.AddFolder(folder);
+                }
+                main.RequireRender();
+            }
+            if (UIImGui.requestSelectRenderPipelines.SetFalse())
+            {
+                string path = OpenResourceFolder();
+                if (!string.IsNullOrEmpty(path))
+                {
+                    DirectoryInfo folder = new DirectoryInfo(path);
+                    UIImGui.renderPipelinesRequest = folder;
                     main.mainCaches.AddFolder(folder);
                 }
                 main.RequireRender();
@@ -45,7 +54,6 @@ namespace Coocoo3D.UI
                 UIImGui.openRequest = null;
 
                 string ext = file.Extension.ToLower();
-                var caches = main.RPContext.mainCaches;
                 switch (ext)
                 {
                     case ".pmx":
@@ -78,17 +86,6 @@ namespace Coocoo3D.UI
 
                             main.GameDriverContext.RequireResetPhysics = true;
                         }
-                        break;
-                    case ".png":
-                    case ".jpg":
-                    case ".jpeg":
-                    case ".hdr":
-                    case ".exr":
-                    case ".tif":
-                    case ".tiff":
-                    case ".tga":
-                    case ".dds":
-
                         break;
                     case ".coocoo3dscene":
                         var scene = ReadJsonStream<Coocoo3DScene>(file.OpenRead());
@@ -126,7 +123,7 @@ namespace Coocoo3D.UI
                 {
                     var scene = Coocoo3DScene.FromScene(main);
 
-                    SaveJsonStream(new FileInfo(fileDialog.file).OpenWrite(), scene);
+                    SaveJsonStream(new FileInfo(fileDialog.file).Create(), scene);
                 }
             }
         }

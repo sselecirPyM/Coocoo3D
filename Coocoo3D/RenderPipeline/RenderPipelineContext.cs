@@ -122,13 +122,18 @@ namespace Coocoo3D.RenderPipeline
                 graphicsDevice = graphicsDevice,
                 graphicsContext = graphicsContext,
             };
-            var dir = new DirectoryInfo("Samples");
+
+            LoadRenderPipelines(new DirectoryInfo("Samples"));
+            currentChannel = AddVisualChannel("main");
+        }
+
+        public void LoadRenderPipelines(DirectoryInfo dir)
+        {
+            RenderPipelineTypes = new Type[0];
             foreach (var file in dir.EnumerateFiles("*.dll"))
             {
                 LoadRenderPipelineTypes(file.FullName);
-
             }
-            currentChannel = AddVisualChannel("main");
         }
 
         public void LoadRenderPipelineTypes(string path)

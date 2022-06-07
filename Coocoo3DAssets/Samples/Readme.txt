@@ -1,2 +1,2 @@
-﻿在此文件夹下放置渲染管线插件dll。
-目前软件只会在启动时查找dll。会自动找到所有继承RenderPipeline类的子类，并且添加到列表中。
+﻿软件在启动时会加载此文件夹的渲染管线文件(.dll)
+可以在github上找到源码 https://github.com/sselecirPyM/Coocoo3D/tree/master/RenderPipelines

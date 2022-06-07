@@ -19,8 +19,6 @@ namespace RenderPipelines
         public List<(string, string)> keywords = new();
         List<(string, string)> keywords2 = new();
 
-        public List<(string, string)> AutoKeyMap = new();
-
         public PSODesc psoDesc;
 
         public bool enableVS = true;
@@ -71,13 +69,10 @@ namespace RenderPipelines
                 if (!frustum.Intersects(new BoundingSphere(renderable.transform.position, renderable.transform.scale.Length())))
                     continue;
 
-                keywords2.AddRange(this.keywords);
                 if (filter != null && !filter.Invoke(renderWrap, renderable, keywords2)) continue;
-                foreach (var keyMap in AutoKeyMap)
-                {
-                    if (true.Equals(renderWrap.GetIndexableValue(keyMap.Item1, renderable.material)))
-                        keywords2.Add((keyMap.Item2, "1"));
-                }
+                keywords2.AddRange(this.keywords);
+
+                AutoMapKeyword(renderWrap, keywords2, renderable.material);
 
                 renderWrap.SetShader(shader, desc, keywords2, enableVS, enablePS, enableGS);
 

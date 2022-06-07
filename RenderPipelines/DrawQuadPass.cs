@@ -15,8 +15,6 @@ namespace RenderPipelines
         public List<(string, string)> keywords = new();
         List<(string, string)> keywords2 = new();
 
-        public List<(string, string)> AutoKeyMap = new();
-
         public PSODesc psoDesc;
 
         public string rs;
@@ -30,11 +28,8 @@ namespace RenderPipelines
         {
             keywords2.Clear();
             keywords2.AddRange(this.keywords);
-            foreach (var keyMap in AutoKeyMap)
-            {
-                if (true.Equals(renderWrap.GetIndexableValue(keyMap.Item1)))
-                    keywords2.Add((keyMap.Item2, "1"));
-            }
+
+            AutoMapKeyword(renderWrap, keywords2, null);
 
             renderWrap.SetRootSignature(rs);
             renderWrap.SetRenderTarget(renderTargets, depthStencil, clearRenderTarget, clearDepth);

@@ -81,9 +81,6 @@
     <None Include="$(MSBuildThisFileDirectory)Samples\Readme.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="$(MSBuildThisFileDirectory)Samples\sampleToon.coocoox">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
     <None Include="$(MSBuildThisFileDirectory)Samples\SH.hlsli">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
