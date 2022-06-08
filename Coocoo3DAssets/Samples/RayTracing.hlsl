@@ -45,24 +45,6 @@ float3 TangentToWorld(float3 Vec, float3 TangentZ)
 	return mul(Vec, GetTangentBasis(TangentZ));
 }
 
-float4 ImportanceSampleGGX(float2 E, float a2)
-{
-	float Phi = 2 * COO_PI * E.x;
-	float CosTheta = sqrt((1 - E.y) / (1 + (a2 - 1) * E.y));
-	float SinTheta = sqrt(1 - CosTheta * CosTheta);
-
-	float3 H;
-	H.x = SinTheta * cos(Phi);
-	H.y = SinTheta * sin(Phi);
-	H.z = CosTheta;
-
-	float d = (CosTheta * a2 - CosTheta) * CosTheta + 1;
-	float D = a2 / (COO_PI * d * d);
-	float PDF = D * CosTheta;
-
-	return float4(H, PDF);
-}
-
 float3 NormalDecode(float2 enc)
 {
 	float3 n = float3(enc, 1 - dot(1, abs(enc)));
@@ -175,7 +157,6 @@ void rayGen()
 			float3 L = 2 * dot(V, H) * H - V;
 
 			float NdotL = saturate(dot(N, L));
-			L = normalize(L);
 
 			if (NdotL > 0)
 			{

@@ -28,7 +28,7 @@ namespace Coocoo3D.UI
             }
             var io = ImGui.GetIO();
             Vector2 mouseMoveDelta = new Vector2();
-            while (main.imguiInput.mouseMoveDelta.TryDequeue(out var moveDelta))
+            while (main.platformIO.mouseMoveDelta.TryDequeue(out var moveDelta))
             {
                 mouseMoveDelta += moveDelta;
             }
@@ -141,7 +141,7 @@ namespace Coocoo3D.UI
                     main.CurrentScene.setTransform[selectedObject] = new(position, rotationCache, scale);
                 }
             }
-            main.imguiInput.dropFile = null;
+            main.platformIO.dropFile = null;
         }
 
         static void Common(Coocoo3DMain main)
@@ -556,10 +556,10 @@ namespace Coocoo3D.UI
                 texPath = result;
                 textureChange = true;
             }
-            if (main.imguiInput.dropFile != null && ImGui.IsItemHovered())
+            if (main.platformIO.dropFile != null && ImGui.IsItemHovered())
             {
-                cache.Texture(main.imguiInput.dropFile);
-                texPath = main.imguiInput.dropFile;
+                cache.Texture(main.platformIO.dropFile);
+                texPath = main.platformIO.dropFile;
                 textureChange = true;
             }
             if (hasTexture)
@@ -765,7 +765,11 @@ vmd格式动作。支持几乎所有的图片格式。");
                 foreach (var gameObject in main.SelectedGameObjects)
                     main.CurrentScene.RemoveGameObject(gameObject);
                 main.SelectedGameObjects.Clear();
-                gameObjectSelectIndex = -1;
+
+                if (gameObjects.Count > gameObjectSelectIndex + 1)
+                    main.SelectedGameObjects.Add(gameObjects[gameObjectSelectIndex + 1]);
+
+                //gameObjectSelectIndex = -1;
             }
             if (copyObject)
             {
@@ -947,9 +951,9 @@ vmd格式动作。支持几乎所有的图片格式。");
             if (ImGui.IsItemHovered())
             {
                 channel.camera.Distance += mouseWheelDelta * 0.6f;
-                if (main.imguiInput.dropFile != null)
+                if (main.platformIO.dropFile != null)
                 {
-                    openRequest = new FileInfo(main.imguiInput.dropFile);
+                    openRequest = new FileInfo(main.platformIO.dropFile);
                 }
             }
         }

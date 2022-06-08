@@ -24,23 +24,23 @@ namespace Coocoo3D.Windows
             Dictionary<SDL_Keycode, int> sdlKeycode2ImguiKey = SDLKey();
             Dictionary<ImGuiMouseCursor, IntPtr> cursors = CreateSDLCursor();
 
-            var imguiInput = coocoo3DMain.imguiInput;
+            var platformIO = coocoo3DMain.platformIO;
             while (!quitRequested)
             {
-                quitRequested = !EventProcess(coocoo3DMain, sdlKeycode2ImguiKey);
+                quitRequested = !EventProcess(platformIO, sdlKeycode2ImguiKey);
 
                 coocoo3DMain.RequireRender();
                 var modState = SDL_GetModState();
-                imguiInput.KeyAlt = (int)(modState & SDL_Keymod.KMOD_ALT) != 0;
-                imguiInput.KeyShift = (int)(modState & SDL_Keymod.KMOD_SHIFT) != 0;
-                imguiInput.KeyControl = (int)(modState & SDL_Keymod.KMOD_CTRL) != 0;
-                SDL_SetCursor(cursors[imguiInput.requestCursor]);
+                platformIO.KeyAlt = (int)(modState & SDL_Keymod.KMOD_ALT) != 0;
+                platformIO.KeyShift = (int)(modState & SDL_Keymod.KMOD_SHIFT) != 0;
+                platformIO.KeyControl = (int)(modState & SDL_Keymod.KMOD_CTRL) != 0;
+                SDL_SetCursor(cursors[platformIO.requestCursor]);
 
-                if (imguiInput.WantTextInput)
+                if (platformIO.WantTextInput)
                     SDL_StartTextInput();
                 else
                     SDL_StopTextInput();
-                SDL_CaptureMouse(imguiInput.WantCaptureMouse ? SDL_bool.SDL_TRUE : SDL_bool.SDL_FALSE);
+                SDL_CaptureMouse(platformIO.WantCaptureMouse ? SDL_bool.SDL_TRUE : SDL_bool.SDL_FALSE);
                 try
                 {
                     UIHelper.OnFrame(coocoo3DMain);
@@ -52,9 +52,8 @@ namespace Coocoo3D.Windows
             }
         }
 
-        static bool EventProcess(Core.Coocoo3DMain coocoo3DMain, Dictionary<SDL_Keycode, int> sdlKeycode2ImguiKey)
+        static bool EventProcess(PlatformIO platformIO, Dictionary<SDL_Keycode, int> sdlKeycode2ImguiKey)
         {
-            var imguiInput = coocoo3DMain.imguiInput;
             SDL_WaitEvent(out var sdlEvent);
             bool quitRequested = false;
             do
@@ -67,29 +66,27 @@ namespace Coocoo3D.Windows
                     case SDL_EventType.SDL_WINDOWEVENT:
                         if (sdlEvent.window.windowEvent == SDL_WindowEventID.SDL_WINDOWEVENT_RESIZED)
                         {
-                            int Width = sdlEvent.window.data1;
-                            int Height = sdlEvent.window.data2;
-                            coocoo3DMain.Resize(Width, Height);
+                            platformIO.windowSize = new(sdlEvent.window.data1, sdlEvent.window.data2);
                         }
                         if (sdlEvent.window.windowEvent == SDL_WindowEventID.SDL_WINDOWEVENT_FOCUS_GAINED)
                         {
-                            imguiInput.Focus = true;
+                            platformIO.Focus = true;
                         }
                         if (sdlEvent.window.windowEvent == SDL_WindowEventID.SDL_WINDOWEVENT_FOCUS_LOST)
                         {
-                            imguiInput.Focus = false;
+                            platformIO.Focus = false;
                         }
                         break;
                     case SDL_EventType.SDL_KEYDOWN:
                         {
                             if (sdlKeycode2ImguiKey.TryGetValue(sdlEvent.key.keysym.sym, out int imkey))
-                                imguiInput.keydown[imkey] = true;
+                                platformIO.keydown[imkey] = true;
                         }
                         break;
                     case SDL_EventType.SDL_KEYUP:
                         {
                             if (sdlKeycode2ImguiKey.TryGetValue(sdlEvent.key.keysym.sym, out int imkey))
-                                imguiInput.keydown[imkey] = false;
+                                platformIO.keydown[imkey] = false;
                             break;
                         }
                     case SDL_EventType.SDL_TEXTINPUT:
@@ -100,26 +97,26 @@ namespace Coocoo3D.Windows
                                 utf8Str = Marshal.PtrToStringUTF8(new IntPtr(sdlEvent.text.text));
                             }
                             foreach (var c in utf8Str)
-                                imguiInput.InputChar(c);
+                                platformIO.InputChar(c);
                             break;
                         }
                     case SDL_EventType.SDL_MOUSEBUTTONDOWN:
-                        imguiInput.mouseDown[SDLMouse2ImguiMouse(sdlEvent.button.button)] = true;
+                        platformIO.mouseDown[SDLMouse2ImguiMouse(sdlEvent.button.button)] = true;
                         break;
                     case SDL_EventType.SDL_MOUSEBUTTONUP:
-                        imguiInput.mouseDown[SDLMouse2ImguiMouse(sdlEvent.button.button)] = false;
+                        platformIO.mouseDown[SDLMouse2ImguiMouse(sdlEvent.button.button)] = false;
                         break;
                     case SDL_EventType.SDL_MOUSEMOTION:
                         {
                             int x = sdlEvent.motion.x;
                             int y = sdlEvent.motion.y;
-                            imguiInput.MousePosition(new(x, y));
-                            imguiInput.MouseMoveDelta(new(sdlEvent.motion.xrel, sdlEvent.motion.yrel));
+                            platformIO.MousePosition(new(x, y));
+                            platformIO.MouseMoveDelta(new(sdlEvent.motion.xrel, sdlEvent.motion.yrel));
                         }
                         break;
                     case SDL_EventType.SDL_MOUSEWHEEL:
-                        imguiInput.mouseWheelH += sdlEvent.wheel.x;
-                        imguiInput.mouseWheelV += sdlEvent.wheel.y;
+                        platformIO.mouseWheelH += sdlEvent.wheel.x;
+                        platformIO.mouseWheelV += sdlEvent.wheel.y;
                         break;
                     case SDL_EventType.SDL_APP_WILLENTERFOREGROUND:
                         break;
@@ -127,7 +124,7 @@ namespace Coocoo3D.Windows
                         {
                             IntPtr file = sdlEvent.drop.file;
                             string file1 = Marshal.PtrToStringUTF8(file);
-                            imguiInput.dropFile = file1;
+                            platformIO.dropFile = file1;
                         }
                         break;
                 }

@@ -122,11 +122,11 @@ namespace RenderPipelines
             tpas.instances = new();
             foreach (var renderable in renderWrap.MeshRenderables())
             {
+                var material = renderable.material;
                 cbv1[0] = renderable.transform;
-                renderWrap.Write(cbv1, writer);
+                renderWrap.Write(cbv1, writer, material);
                 var cbvData1 = writer.GetData();
 
-                var material = renderable.material;
                 var btas = new RTBottomLevelAccelerationStruct();
 
                 btas.mesh = renderable.mesh;

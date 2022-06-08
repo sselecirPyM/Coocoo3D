@@ -8,7 +8,6 @@ using System.Threading;
 using Coocoo3DGraphics;
 using Coocoo3D.Common;
 using Coocoo3D.Present;
-using Coocoo3D.Utility;
 using Coocoo3D.RenderPipeline;
 
 namespace Coocoo3D.Core
@@ -24,9 +23,6 @@ namespace Coocoo3D.Core
         public List<GameObject> SelectedGameObjects = new List<GameObject>();
 
         public GameDriver GameDriver = new GameDriver();
-
-        public bool RequireResize;
-        public Vector2 NewSize;
 
         public TimeManager timeManager = new TimeManager();
         public double framePerSecond;
@@ -64,7 +60,7 @@ namespace Coocoo3D.Core
 
                     bool rendered = RenderFrame();
                     if (performanceSettings.SaveCpuPower && !RPContext.recording && !(performanceSettings.VSync && rendered))
-                        System.Threading.Thread.Sleep(1);
+                        Thread.Sleep(1);
                 }
             });
             renderWorkThread.IsBackground = true;
@@ -75,7 +71,7 @@ namespace Coocoo3D.Core
         #region Rendering
 
         public WidgetRenderer widgetRenderer = new WidgetRenderer();
-        public UI.ImguiInput imguiInput = new UI.ImguiInput();
+        public UI.PlatformIO platformIO = new UI.PlatformIO();
 
         public void RequireRender(bool updateEntities = false)
         {
@@ -118,14 +114,15 @@ namespace Coocoo3D.Core
             if (RenderTask1 != null && RenderTask1.Status != TaskStatus.RanToCompletion) RenderTask1.Wait();
             RPContext.Submit(dynamicContext);
             RPContext.PreConfig();
-            if (RequireResize.SetFalse())
+            if ((RPContext.swapChain.width, RPContext.swapChain.height) != platformIO.windowSize)
             {
-                RPContext.swapChain.Resize(NewSize.X, NewSize.Y);
+                (int x, int y) = platformIO.windowSize;
+                RPContext.swapChain.Resize(x, y);
             }
             if (!RPContext.recording)
                 mainCaches.OnFrame();
 
-            imguiInput.Update();
+            platformIO.Update();
             UI.UIImGui.GUI(this);
             graphicsDevice.RenderBegin();
             graphicsContext.Begin();
@@ -173,15 +170,10 @@ namespace Coocoo3D.Core
             GameDriver.ToRecordMode(saveDir);
         }
 
-        public void Resize(int width, int height)
-        {
-            RequireResize = true;
-            NewSize = new Vector2(width, height);
-        }
-
         public void SetWindow(IntPtr hwnd, int width, int height)
         {
             RPContext.swapChain.Initialize(graphicsDevice, hwnd, width, height);
+            platformIO.windowSize = (width, height);
         }
     }
 

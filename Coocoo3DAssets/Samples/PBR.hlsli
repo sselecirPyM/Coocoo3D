@@ -97,3 +97,22 @@ float3 Fresnel_SchlickRoughness(float cosTheta, float3 F0, float roughness)
 {
 	return F0 + (max(1.0 - roughness, F0) - F0) * pow5(1.0 - cosTheta);
 }
+
+
+float4 ImportanceSampleGGX(float2 E, float a2)
+{
+	float Phi = 2 * COO_PI * E.x;
+	float CosTheta = sqrt((1 - E.y) / (1 + (a2 - 1) * E.y));
+	float SinTheta = sqrt(1 - CosTheta * CosTheta);
+
+	float3 H;
+	H.x = SinTheta * cos(Phi);
+	H.y = SinTheta * sin(Phi);
+	H.z = CosTheta;
+
+	float d = (CosTheta * a2 - CosTheta) * CosTheta + 1;
+	float D = a2 / (COO_PI * d * d);
+	float PDF = D * CosTheta;
+
+	return float4(H, PDF);
+}

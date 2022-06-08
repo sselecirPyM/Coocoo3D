@@ -145,6 +145,8 @@ namespace RenderPipelines
                 {
                     nameof(ViewProjection),
                     nameof(InvertViewProjection),
+                    nameof(View),
+                    nameof(Projection),
                     nameof(Far),
                     nameof(Near),
                     nameof(Fov),
@@ -183,6 +185,7 @@ namespace RenderPipelines
             {
                 ("EnableFog","ENABLE_FOG"),
                 ("EnableSSAO","ENABLE_SSAO"),
+                ("EnableSSR","ENABLE_SSR"),
                 ("UseGI","ENABLE_GI"),
             }
         };

@@ -194,6 +194,10 @@ namespace RenderPipelines
         [UIShow(name: "使用全局光照")]
         public bool UseGI;
 
+        [Indexable]
+        [UIShow(name: "启用屏幕空间反射")]
+        public bool EnableSSR;
+
         [UIShow(name: "启用TAA抗锯齿")]
         public bool EnableTAA;
 

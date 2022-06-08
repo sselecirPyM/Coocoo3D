@@ -7,6 +7,11 @@ float Pow2(float x)
 	return x * x;
 }
 
+float Pow4(float x)
+{
+	return x * x * x * x;
+}
+
 float3x3 GetTangentBasis(float3 TangentZ)
 {
 	const float Sign = TangentZ.z >= 0 ? 1 : -1;
@@ -42,6 +47,8 @@ cbuffer cb0 : register(b0)
 {
 	float4x4 g_mWorldToProj;
 	float4x4 g_mProjToWorld;
+	float4x4 g_mWorldToView;
+	float4x4 g_mViewToProj;
 	float g_cameraFarClip;
 	float g_cameraNearClip;
 	float g_cameraFOV;
@@ -192,6 +199,268 @@ float PointShadow(int index, float2 samplePos)
 	float shadowDepth = ShadowMap.SampleLevel(s3, samplePos / g_lightMapSplit + float2(x, y + 0.5), 0);
 	return shadowDepth;
 }
+float3 Shade1(float3 N, float3 wPos, float3 V, float3 c_diffuse, float3 c_specular, float3 emissive, float roughness, float AO, float2 uv, bool SSRReflect)
+{
+	float alpha = roughness * roughness;
+	float NdotV = saturate(dot(N, V));
+
+	float2 AB = BRDFLut.SampleLevel(s0, float2(NdotV, roughness), 0).rg;
+	float3 GF = c_specular * AB.x + AB.y;
+
+	float3 outputColor = float3(0, 0, 0);
+
+#if ENABLE_DIFFUSE
+	float3 skyLight = EnvCube.SampleLevel(s0, N, 5) * g_skyBoxMultiple;
+#ifndef ENABLE_GI
+	outputColor += skyLight * c_diffuse * AO;
+#else
+	float3 shDiffuse = GetSH(giBuffer, SH_RESOLUTION, g_GIVolumePosition, g_GIVolumeSize, N, wPos, skyLight);
+	outputColor += shDiffuse.rgb * c_diffuse * AO;
+#endif
+#endif
+#if ENABLE_SPECULR & !RAY_TRACING
+
+#if !ENABLE_SSR
+	SSRReflect = false;
+#endif
+	if (SSRReflect)
+	{
+
+	}
+	else
+	{
+		outputColor += EnvCube.SampleLevel(s0, reflect(-V, N), sqrt(max(roughness, 1e-5)) * 4) * g_skyBoxMultiple * GF * AO;
+	}
+#endif
+
+#ifdef ENABLE_EMISSIVE
+	outputColor += emissive;
+#endif
+
+#if ENABLE_DIRECTIONAL_LIGHT
+	for (int i = 0; i < 1; i++)
+	{
+		if (!any(Lightings[i].LightColor))continue;
+		if (Lightings[i].LightType == 0)
+		{
+			float inShadow = 1.0f;
+			float3 lightStrength = max(Lightings[i].LightColor.rgb, 0);
+			float3 L = normalize(Lightings[i].LightDir);
+			float3 H = normalize(L + V);
+
+			float3 NdotL = saturate(dot(N, L));
+			float3 LdotH = saturate(dot(L, H));
+			float3 NdotH = saturate(dot(N, H));
+
+			inShadow = pointInLight(0, wPos);
+
+#if ENABLE_DIFFUSE
+			float diffuse_factor = Diffuse_Burley(NdotL, NdotV, LdotH, roughness);
+#else
+			float diffuse_factor = 0;
+#endif
+#if ENABLE_SPECULR
+			float3 specular_factor = Specular_BRDF(alpha, c_specular, NdotV, NdotL, LdotH, NdotH);
+#else
+			float3 specular_factor = 0;
+#endif
+
+			outputColor += NdotL * lightStrength * ((c_diffuse * diffuse_factor / COO_PI) + specular_factor) * inShadow;
+		}
+	}
+#endif//ENABLE_DIRECTIONAL_LIGHT
+#if ENABLE_POINT_LIGHT
+	int shadowmapIndex = 0;
+	for (int i = 0; i < POINT_LIGHT_COUNT; i++, shadowmapIndex += 6)
+	{
+		float inShadow = 1.0f;
+
+		float3 vl = PointLights[i].LightPos - wPos;
+		float lightDistance2 = dot(vl, vl);
+		float lightRange = PointLights[i].LightRange;
+		if (pow2(lightRange) < lightDistance2)
+			continue;
+		float3 lightStrength = PointLights[i].LightColor.rgb / lightDistance2;
+
+		float3 L = normalize(vl);
+		float3 H = normalize(L + V);
+
+		float3 NdotL = saturate(dot(N, L));
+		float3 LdotH = saturate(dot(L, H));
+		float3 NdotH = saturate(dot(N, H));
+
+		float3 absL = abs(L);
+
+
+		if (absL.x > absL.y && absL.x > absL.z)
+		{
+			float2 samplePos = L.zy / L.x * 0.5 + 0.5;
+			int mapindex = shadowmapIndex;
+			if (L.x < 0)
+				samplePos.x = 1 - samplePos.x;
+			if (L.x > 0)
+				mapindex++;
+			float shadowDepth = PointShadow(mapindex, samplePos);
+			inShadow = (shadowDepth) > getDepth(abs(vl.x), lightRange * 0.001f, lightRange) ? 1 : 0;
+		}
+		else if (absL.y > absL.z)
+		{
+			float2 samplePos = L.xz / L.y * 0.5 + 0.5;
+			int mapindex = shadowmapIndex + 2;
+			if (L.y < 0)
+				samplePos.x = 1 - samplePos.x;
+			if (L.y > 0)
+				mapindex++;
+			float shadowDepth = PointShadow(mapindex, samplePos);
+			inShadow = (shadowDepth) > getDepth(abs(vl.y), lightRange * 0.001f, lightRange) ? 1 : 0;
+		}
+		else
+		{
+			float2 samplePos = L.yx / L.z * 0.5 + 0.5;
+			int mapindex = shadowmapIndex + 4;
+			if (L.z < 0)
+				samplePos.x = 1 - samplePos.x;
+			if (L.z > 0)
+				mapindex++;
+			float shadowDepth = PointShadow(mapindex, samplePos);
+			inShadow = (shadowDepth) > getDepth(abs(vl.z), lightRange * 0.001f, lightRange) ? 1 : 0;
+		}
+
+#if ENABLE_DIFFUSE
+		float diffuse_factor = Diffuse_Burley(NdotL, NdotV, LdotH, roughness);
+#else
+		float diffuse_factor = 0;
+#endif
+#if ENABLE_SPECULR
+		float3 specular_factor = Specular_BRDF(alpha, c_specular, NdotV, NdotL, LdotH, NdotH);
+#else
+		float3 specular_factor = 0;
+#endif
+		outputColor += NdotL * lightStrength * ((c_diffuse * diffuse_factor / COO_PI) + specular_factor) * inShadow;
+	}
+#endif//ENABLE_POINT_LIGHT
+
+	return outputColor;
+}
+
+float3 Shade(float3 N, float3 wPos, float3 V, float3 c_diffuse, float3 c_specular, float3 emissive, float roughness, float AO, float2 uv)
+{
+	float3 outputColor = float3(0, 0, 0);
+#if ENABLE_SPECULR & ENABLE_SSR & !RAY_TRACING
+	float NdotV = saturate(dot(N, V));
+
+	float2 AB = BRDFLut.SampleLevel(s0, float2(NdotV, roughness), 0).rg;
+	float3 GF = c_specular * AB.x + AB.y;
+
+	bool traced = false;
+	//uint randomState = RNG::RandomSeed((int)(_widthHeight.x * uv.x) + (int)(_widthHeight.y * uv.y * 2048) + g_RandomI);
+	//float2 E = Hammersley(0, 1, uint2(RNG::Random(randomState), RNG::Random(randomState)));
+	//float3 H = TangentToWorld(ImportanceSampleGGX(E, Pow4(roughness)).xyz, N);
+	//float3 L = 2 * dot(V, H) * H - V;
+
+	float3 reflectDir = -reflect(V, N);
+	float4 rayEnd = float4(wPos + reflectDir, 1);
+	float4 d1 = mul(rayEnd, g_mWorldToProj);
+	float4 _a1 = float4(d1.xyz / d1.w, d1.w);
+	float4 v1 = mul(float4(wPos + reflectDir, 1), g_mWorldToView);
+	v1 /= d1.w;
+
+	float4 d2 = mul(float4(wPos, 1), g_mWorldToProj);
+	float4 _a2 = float4(d2.xyz / d2.w, d2.w);
+	float4 v2 = mul(float4(wPos, 1), g_mWorldToView);
+	v2 /= d2.w;
+
+
+	float4 sDir = _a1 - _a2;
+	sDir.y = -sDir.y;
+	sDir.z = v1.z - v2.z;
+	sDir.w = 1 / d1.w - 1 / d2.w;
+	//return sDir;
+	float4 ppx = float4(1, sDir.y / sDir.x, sDir.zw / sDir.x);//x+1 y+n
+	float4 ppy = float4(sDir.x / sDir.y, 1, sDir.zw / sDir.y);//y+1 x+n
+	ppx *= ((sDir.x > 0) ? 1 : -1);
+	ppy *= ((sDir.y > 0) ? 1 : -1);
+
+	float4 currentPosition = float4(0, 0, 0, 0);
+	int2 currentGrid = int2(0, 0);
+
+	float4 fnextX = ppx;
+	float4 fnextY = ppy;
+	fnextX.z += v2.z;
+	fnextY.z += v2.z;
+	fnextX.w += 1 / d2.w;
+	fnextY.w += 1 / d2.w;
+	int2 nextX = int2(round(fnextX.xy));
+	int2 nextY = int2(round(fnextY.xy));
+
+	float2 uvpp = float2(1, 1) / _widthHeight;
+
+	for (int i = 0; i < 550; i++)
+	{
+		int2 nextPosition = nextX;
+		int2 deltaPositin = nextPosition - currentGrid;
+		if (deltaPositin.y == 0)
+		{
+			currentGrid = nextX;
+			currentPosition = fnextX;
+			fnextX += ppx;
+			nextX = int2(round(fnextX.xy));
+		}
+		else
+		{
+			currentGrid = nextY;
+			currentPosition = fnextY;
+			fnextY += ppy;
+			nextY = int2(round(fnextY.xy));
+		}
+		if (i < 10)
+			continue;
+		float2 _uv1 = uv + currentGrid * uvpp;
+		if (any(_uv1 < 0) || any(_uv1 > 1))
+			break;
+
+		float cDepth = gbufferDepth.SampleLevel(s3, _uv1, 0).r;
+		float cDepth1 = getLinearDepth(cDepth);
+
+		float4 xv1 = float4(_uv1.x * 2 - 1, 1 - _uv1.y * 2, cDepth, 1);
+
+		float4 wPos1 = mul(xv1, g_mProjToWorld);
+		wPos1 /= wPos1.w;
+
+		float ms1 = (wPos1.y - wPos.y) / reflectDir.y;
+
+		float3 currentRayPos = ms1 * reflectDir + wPos.xyz;
+
+		if (currentRayPos.z > wPos1.z && currentRayPos.z < wPos1.z + 0.1)
+		{
+			float4 buffer0Color = gbuffer0.SampleLevel(s3, _uv1, 0);
+			float4 buffer1Color = gbuffer1.SampleLevel(s3, _uv1, 0);
+			float4 buffer2Color = gbuffer2.SampleLevel(s3, _uv1, 0);
+			float4 buffer3Color = gbuffer3.SampleLevel(s3, _uv1, 0);
+
+			float3 N1 = normalize(NormalDecode(buffer1Color.rg));
+			if (dot(N1, reflectDir) > 0)
+				break;
+
+			float roughness1 = buffer1Color.b;
+			float alpha1 = roughness * roughness;
+			float3 c_diffuse1 = buffer0Color.rgb;
+			float3 c_specular1 = float3(buffer0Color.a, buffer1Color.a, buffer2Color.a);
+
+			float3 emissive1 = buffer2Color.rgb;
+
+			outputColor += Shade1(N1, wPos1, -reflectDir, c_diffuse1, c_specular1, emissive1, roughness1, 1, _uv1, false) * GF * AO;
+			traced = true;
+			break;
+		}
+	}
+
+	if (!traced)
+		outputColor += EnvCube.SampleLevel(s0, reflect(-V, N), sqrt(max(roughness, 1e-5)) * 4) * g_skyBoxMultiple * GF * AO;
+#endif
+	return Shade1(N, wPos, V, c_diffuse, c_specular, emissive, roughness, AO, uv, true) + outputColor;
+}
+
 float4 psmain(PSIn input) : SV_TARGET
 {
 	float2 uv = input.texcoord;
@@ -217,10 +486,10 @@ float4 psmain(PSIn input) : SV_TARGET
 	{
 		float3 N = normalize(NormalDecode(buffer1Color.rg));
 		int2 sx = uv * _widthHeight;
-		uint randomState = RNG::RandomSeed(sx.x + sx.y * 2048 + g_RandomI);
 		float AO = 1;
 		float AOFactor = buffer3Color.r;
 #if ENABLE_SSAO
+		uint randomState = RNG::RandomSeed(sx.x + sx.y * 2048 + g_RandomI);
 		if (AOFactor != 0)
 			for (int i = 0; i < g_AORaySampleCount; i++)
 			{
@@ -249,196 +518,78 @@ float4 psmain(PSIn input) : SV_TARGET
 #if DEBUG_AO
 		return float4(AO, AO, AO, 1);
 #endif
-		float NdotV = saturate(dot(N, V));
 		float roughness = buffer1Color.b;
 		float alpha = roughness * roughness;
 		float3 c_diffuse = buffer0Color.rgb;
 		float3 c_specular = float3(buffer0Color.a, buffer1Color.a, buffer2Color.a);
-		float2 AB = BRDFLut.SampleLevel(s0, float2(NdotV, roughness), 0).rg;
-		float3 GF = c_specular * AB.x + AB.y;
+
 		float3 emissive = buffer2Color.rgb;
+		outputColor += Shade(N,wPos.xyz,V, c_diffuse, c_specular, emissive, roughness, AO, uv);
 
-#if ENABLE_DIFFUSE
-		float3 skyLight = EnvCube.SampleLevel(s0, N, 5) * g_skyBoxMultiple;
-#ifndef ENABLE_GI
-		outputColor += skyLight * c_diffuse * AO;
-#else
-		float3 shDiffuse = GetSH(giBuffer, SH_RESOLUTION, g_GIVolumePosition, g_GIVolumeSize, N, wPos, skyLight);
-		outputColor += shDiffuse.rgb * c_diffuse * AO;
-#endif
-#endif
-#if ENABLE_SPECULR & !RAY_TRACING
-		outputColor += EnvCube.SampleLevel(s0, reflect(-V, N), sqrt(max(roughness, 1e-5)) * 4) * g_skyBoxMultiple * GF * AO;
-#endif
-#ifdef ENABLE_EMISSIVE
-		outputColor += emissive;
-#endif
+		#if ENABLE_FOG
+				outputColor = lerp(pow(max(_fogColor, 1e-6), 2.2f), outputColor, 1 / exp(max((camDist - _startDistance) / 10, 0.00001) * _fogDensity));
+		#endif
 
-#if DEBUG_DEPTH
-		float _depth1 = pow(depth1, 2.2f);
-		if (_depth1 < 1)
-			return float4(_depth1, _depth1, _depth1, 1);
-		else
-			return float4(1, 0, 0, 1);
-#endif
-#if DEBUG_DIFFUSE
-		return float4(c_diffuse, 1);
-#endif
-#if DEBUG_EMISSIVE
-		return float4(emissive, 1);
-#endif
-#if DEBUG_NORMAL
-		return float4(pow(N * 0.5 + 0.5, 2.2f), 1);
-#endif
-#if DEBUG_POSITION
-		return wPos;
-#endif
-#if DEBUG_ROUGHNESS
-		float _roughness1 = pow(max(roughness, 0.0001f), 2.2f);
-		return float4(_roughness1, _roughness1, _roughness1, 1);
-#endif
-#if DEBUG_SPECULAR
-		return float4(c_specular, 1);
-#endif
-#if ENABLE_DIRECTIONAL_LIGHT
-		for (int i = 0; i < 1; i++)
-		{
-			if (!any(Lightings[i].LightColor))continue;
-			if (Lightings[i].LightType == 0)
-			{
-				float inShadow = 1.0f;
-				float3 lightStrength = max(Lightings[i].LightColor.rgb, 0);
-				float3 L = normalize(Lightings[i].LightDir);
-				float3 H = normalize(L + V);
-
-				float3 NdotL = saturate(dot(N, L));
-				float3 LdotH = saturate(dot(L, H));
-				float3 NdotH = saturate(dot(N, H));
-
-				inShadow = pointInLight(0, wPos.xyz);
-
-#if ENABLE_DIFFUSE
-				float diffuse_factor = Diffuse_Burley(NdotL, NdotV, LdotH, roughness);
-#else
-				float diffuse_factor = 0;
-#endif
-#if ENABLE_SPECULR
-				float3 specular_factor = Specular_BRDF(alpha, c_specular, NdotV, NdotL, LdotH, NdotH);
-#else
-				float3 specular_factor = 0;
-#endif
-
-				outputColor += NdotL * lightStrength * ((c_diffuse * diffuse_factor / COO_PI) + specular_factor) * inShadow;
-			}
-		}
-#endif//ENABLE_DIRECTIONAL_LIGHT
-#if ENABLE_POINT_LIGHT
-		int shadowmapIndex = 0;
-		for (int i = 0; i < POINT_LIGHT_COUNT; i++,shadowmapIndex += 6)
-		{
-			float inShadow = 1.0f;
-
-			float3 vl = PointLights[i].LightPos - wPos;
-			float lightDistance2 = dot(vl, vl);
-			float lightRange = PointLights[i].LightRange;
-			if (pow2(lightRange) < lightDistance2)
-				continue;
-			float3 lightStrength = PointLights[i].LightColor.rgb / lightDistance2;
-
-			float3 L = normalize(vl);
-			float3 H = normalize(L + V);
-
-			float3 NdotL = saturate(dot(N, L));
-			float3 LdotH = saturate(dot(L, H));
-			float3 NdotH = saturate(dot(N, H));
-
-			float3 absL = abs(L);
-
-
-			if (absL.x > absL.y && absL.x > absL.z)
-			{
-				float2 samplePos = L.zy / L.x * 0.5 + 0.5;
-				int mapindex = shadowmapIndex;
-				if (L.x < 0)
-					samplePos.x = 1 - samplePos.x;
-				if (L.x > 0)
-					mapindex++;
-				float shadowDepth = PointShadow(mapindex, samplePos);
-				inShadow = (shadowDepth) > getDepth(abs(vl.x), lightRange * 0.001f, lightRange) ? 1 : 0;
-			}
-			else if (absL.y > absL.z)
-			{
-				float2 samplePos = L.xz / L.y * 0.5 + 0.5;
-				int mapindex = shadowmapIndex + 2;
-				if (L.y < 0)
-					samplePos.x = 1 - samplePos.x;
-				if (L.y > 0)
-					mapindex++;
-				float shadowDepth = PointShadow(mapindex, samplePos);
-				inShadow = (shadowDepth) > getDepth(abs(vl.y), lightRange * 0.001f, lightRange) ? 1 : 0;
+		#if DEBUG_DEPTH
+				float _depth1 = pow(depth1, 2.2f);
+				if (_depth1 < 1)
+					return float4(_depth1, _depth1, _depth1, 1);
+				else
+					return float4(1, 0, 0, 1);
+		#endif
+		#if DEBUG_DIFFUSE
+				return float4(c_diffuse, 1);
+		#endif
+		#if DEBUG_EMISSIVE
+				return float4(emissive, 1);
+		#endif
+		#if DEBUG_NORMAL
+				return float4(pow(N * 0.5 + 0.5, 2.2f), 1);
+		#endif
+		#if DEBUG_POSITION
+				return wPos;
+		#endif
+		#if DEBUG_ROUGHNESS
+				float _roughness1 = pow(max(roughness, 0.0001f), 2.2f);
+				return float4(_roughness1, _roughness1, _roughness1, 1);
+		#endif
+		#if DEBUG_SPECULAR
+				return float4(c_specular, 1);
+		#endif
 			}
 			else
 			{
-				float2 samplePos = L.yx / L.z * 0.5 + 0.5;
-				int mapindex = shadowmapIndex + 4;
-				if (L.z < 0)
-					samplePos.x = 1 - samplePos.x;
-				if (L.z > 0)
-					mapindex++;
-				float shadowDepth = PointShadow(mapindex, samplePos);
-				inShadow = (shadowDepth) > getDepth(abs(vl.z), lightRange * 0.001f, lightRange) ? 1 : 0;
+				outputColor = SkyBox.Sample(s0, -V).rgb * g_skyBoxMultiple;
 			}
+		#if ENABLE_DIRECTIONAL_LIGHT
+		#if ENABLE_VOLUME_LIGHTING
+				int volumeLightIterCount = _volumeLightIterCount;
+				float volumeLightMaxDistance = _volumeLightMaxDistance;
+				float volumeLightIntensity = _volumeLightIntensity;
 
-#if ENABLE_DIFFUSE
-			float diffuse_factor = Diffuse_Burley(NdotL, NdotV, LdotH, roughness);
-#else
-			float diffuse_factor = 0;
-#endif
-#if ENABLE_SPECULR
-			float3 specular_factor = Specular_BRDF(alpha, c_specular, NdotV, NdotL, LdotH, NdotH);
-#else
-			float3 specular_factor = 0;
-#endif
-			outputColor += NdotL * lightStrength * ((c_diffuse * diffuse_factor / COO_PI) + specular_factor) * inShadow;
-		}
-#endif//ENABLE_POINT_LIGHT
-#if ENABLE_FOG
-		outputColor = lerp(pow(max(_fogColor, 1e-6), 2.2f), outputColor, 1 / exp(max((camDist - _startDistance) / 10, 0.00001) * _fogDensity));
-#endif
-	}
-	else
-	{
-		outputColor = SkyBox.Sample(s0, -V).rgb * g_skyBoxMultiple;
-	}
-#if ENABLE_DIRECTIONAL_LIGHT
-#if ENABLE_VOLUME_LIGHTING
-		int volumeLightIterCount = _volumeLightIterCount;
-		float volumeLightMaxDistance = _volumeLightMaxDistance;
-		float volumeLightIntensity = _volumeLightIntensity;
-
-		for (int i = 0; i < 1; i++)
-		{
-			int2 sx = uv * _widthHeight;
-			uint randomState = RNG::RandomSeed(sx.x + sx.y * 2048 + g_RandomI);
-
-			if (!any(Lightings[i].LightColor))continue;
-			float3 lightStrength = max(Lightings[i].LightColor.rgb, 0);
-			float volumeLightIterStep = volumeLightMaxDistance / volumeLightIterCount;
-			volumeLightIterStep /= sqrt(clamp(1 - pow2(dot(Lightings[i].LightDir, -V)), 0.04, 1));
-			float offset = RNG::Random01(randomState) * volumeLightIterStep;
-			for (int j = 0; j < volumeLightIterCount; j++)
-			{
-				if (j * volumeLightIterStep + offset > camDist)
+				for (int i = 0; i < 1; i++)
 				{
-					break;
-				}
-				float4 samplePos = float4(g_camPos - V * (volumeLightIterStep * j + offset), 1);
-				float inShadow = pointInLight(0, samplePos.xyz);
+					int2 sx = uv * _widthHeight;
+					uint randomState = RNG::RandomSeed(sx.x + sx.y * 2048 + g_RandomI);
 
-				outputColor += inShadow * lightStrength * volumeLightIterStep * volumeLightIntensity;
-			}
-		}
-#endif
-#endif
-	return float4(outputColor * _Brightness, 1);
+					if (!any(Lightings[i].LightColor))continue;
+					float3 lightStrength = max(Lightings[i].LightColor.rgb, 0);
+					float volumeLightIterStep = volumeLightMaxDistance / volumeLightIterCount;
+					volumeLightIterStep /= sqrt(clamp(1 - pow2(dot(Lightings[i].LightDir, -V)), 0.04, 1));
+					float offset = RNG::Random01(randomState) * volumeLightIterStep;
+					for (int j = 0; j < volumeLightIterCount; j++)
+					{
+						if (j * volumeLightIterStep + offset > camDist)
+						{
+							break;
+						}
+						float4 samplePos = float4(g_camPos - V * (volumeLightIterStep * j + offset), 1);
+						float inShadow = pointInLight(0, samplePos.xyz);
+
+						outputColor += inShadow * lightStrength * volumeLightIterStep * volumeLightIntensity;
+					}
+				}
+		#endif
+		#endif
+			return float4(outputColor * _Brightness, 1);
 }

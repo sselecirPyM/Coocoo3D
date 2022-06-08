@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace Coocoo3D.UI
 {
-    public class ImguiInput
+    public class PlatformIO
     {
         #region mouse inputs
         public bool[] mouseDown = new bool[5];
@@ -42,6 +42,7 @@ namespace Coocoo3D.UI
         #region SystemInput
         public string dropFile;
 
+        public (int, int) windowSize;
         #endregion
 
         public void Update()
