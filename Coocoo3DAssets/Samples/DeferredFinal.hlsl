@@ -199,7 +199,7 @@ float PointShadow(int index, float2 samplePos)
 	float shadowDepth = ShadowMap.SampleLevel(s3, samplePos / g_lightMapSplit + float2(x, y + 0.5), 0);
 	return shadowDepth;
 }
-float3 Shade1(float3 N, float3 wPos, float3 V, float3 c_diffuse, float3 c_specular, float3 emissive, float roughness, float AO, float2 uv, bool SSRReflect)
+float3 Shade1(float3 N, float3 wPos, float3 V, float3 c_diffuse, float3 c_specular, float3 emissive, float roughness, float AO, bool SSRReflect)
 {
 	float alpha = roughness * roughness;
 	float NdotV = saturate(dot(N, V));
@@ -353,6 +353,7 @@ float3 Shade(float3 N, float3 wPos, float3 V, float3 c_diffuse, float3 c_specula
 	float3 GF = c_specular * AB.x + AB.y;
 
 	bool traced = false;
+	bool hasClosestHit = false;
 	//uint randomState = RNG::RandomSeed((int)(_widthHeight.x * uv.x) + (int)(_widthHeight.y * uv.y * 2048) + g_RandomI);
 	//float2 E = Hammersley(0, 1, uint2(RNG::Random(randomState), RNG::Random(randomState)));
 	//float3 H = TangentToWorld(ImportanceSampleGGX(E, Pow4(roughness)).xyz, N);
@@ -361,104 +362,102 @@ float3 Shade(float3 N, float3 wPos, float3 V, float3 c_diffuse, float3 c_specula
 	float3 reflectDir = -reflect(V, N);
 	float4 rayEnd = float4(wPos + reflectDir, 1);
 	float4 d1 = mul(rayEnd, g_mWorldToProj);
-	float4 _a1 = float4(d1.xyz / d1.w, d1.w);
-	float4 v1 = mul(float4(wPos + reflectDir, 1), g_mWorldToView);
-	v1 /= d1.w;
+	float4 a1 = float4(d1.xyz / d1.w, 1 / d1.w);
 
 	float4 d2 = mul(float4(wPos, 1), g_mWorldToProj);
-	float4 _a2 = float4(d2.xyz / d2.w, d2.w);
-	float4 v2 = mul(float4(wPos, 1), g_mWorldToView);
-	v2 /= d2.w;
+	float4 a2 = float4(d2.xyz / d2.w, 1 / d2.w);
 
 
-	float4 sDir = _a1 - _a2;
+	float4 sDir = a1 - a2;
 	sDir.y = -sDir.y;
-	sDir.z = v1.z - v2.z;
-	sDir.w = 1 / d1.w - 1 / d2.w;
-	//return sDir;
-	float4 ppx = float4(1, sDir.y / sDir.x, sDir.zw / sDir.x);//x+1 y+n
-	float4 ppy = float4(sDir.x / sDir.y, 1, sDir.zw / sDir.y);//y+1 x+n
-	ppx *= ((sDir.x > 0) ? 1 : -1);
-	ppy *= ((sDir.y > 0) ? 1 : -1);
+	sDir.xy *= _widthHeight / 2;
+	float4 ppx;
+	if (abs(sDir.x) > abs(sDir.y))
+		ppx = sDir / abs(sDir.x);
+	else
+		ppx = sDir / abs(sDir.y);
 
-	float4 currentPosition = float4(0, 0, 0, 0);
-	int2 currentGrid = int2(0, 0);
-
-	float4 fnextX = ppx;
-	float4 fnextY = ppy;
-	fnextX.z += v2.z;
-	fnextY.z += v2.z;
-	fnextX.w += 1 / d2.w;
-	fnextY.w += 1 / d2.w;
-	int2 nextX = int2(round(fnextX.xy));
-	int2 nextY = int2(round(fnextY.xy));
+	float4 fnext = float4(0, 0, 0, 0);
+	fnext.zw = a2.zw;
+	int2 next = int2(round(fnext.xy));
 
 	float2 uvpp = float2(1, 1) / _widthHeight;
+	float prevDepth = fnext.z;
 
-	for (int i = 0; i < 550; i++)
+	float3 closestHit = float3(0, 0, 0);
+	int2 closestHitTex = int2(0, 0);
+	float inaccuracy = 0.001;
+
+	for (int i = 0; i < 1000; i++)
 	{
-		int2 nextPosition = nextX;
-		int2 deltaPositin = nextPosition - currentGrid;
-		if (deltaPositin.y == 0)
-		{
-			currentGrid = nextX;
-			currentPosition = fnextX;
-			fnextX += ppx;
-			nextX = int2(round(fnextX.xy));
-		}
-		else
-		{
-			currentGrid = nextY;
-			currentPosition = fnextY;
-			fnextY += ppy;
-			nextY = int2(round(fnextY.xy));
-		}
-		if (i < 10)
+		fnext += ppx;
+		next = int2(round(fnext.xy));
+
+
+		if (i < 5)
 			continue;
-		float2 _uv1 = uv + currentGrid * uvpp;
-		if (any(_uv1 < 0) || any(_uv1 > 1))
+		float2 _uv1 = uv + next * uvpp;
+
+		float rayDepth = fnext.z;
+		if (any(_uv1 < 0) || any(_uv1 > 1) || rayDepth > 1 || rayDepth < 0)
 			break;
 
 		float cDepth = gbufferDepth.SampleLevel(s3, _uv1, 0).r;
 		float cDepth1 = getLinearDepth(cDepth);
 
-		float4 xv1 = float4(_uv1.x * 2 - 1, 1 - _uv1.y * 2, cDepth, 1);
-
-		float4 wPos1 = mul(xv1, g_mProjToWorld);
+		float4 wPos1 = mul(float4(_uv1.x * 2 - 1, 1 - _uv1.y * 2, cDepth, 1), g_mProjToWorld);
 		wPos1 /= wPos1.w;
 
-		float ms1 = (wPos1.y - wPos.y) / reflectDir.y;
-
-		float3 currentRayPos = ms1 * reflectDir + wPos.xyz;
-
-		if (currentRayPos.z > wPos1.z && currentRayPos.z < wPos1.z + 0.1)
+		if ((rayDepth >= cDepth - 0.0002 && prevDepth <= cDepth + 0.00010) || (prevDepth >= cDepth - 0.0002 && rayDepth <= cDepth + 0.00010))
 		{
-			float4 buffer0Color = gbuffer0.SampleLevel(s3, _uv1, 0);
 			float4 buffer1Color = gbuffer1.SampleLevel(s3, _uv1, 0);
-			float4 buffer2Color = gbuffer2.SampleLevel(s3, _uv1, 0);
-			float4 buffer3Color = gbuffer3.SampleLevel(s3, _uv1, 0);
-
 			float3 N1 = normalize(NormalDecode(buffer1Color.rg));
 			if (dot(N1, reflectDir) > 0)
+			{
+				prevDepth = rayDepth;
+				continue;
+			}
+			float inaccuracy1 = min(abs(rayDepth - cDepth), abs(prevDepth - cDepth));
+			if (inaccuracy1 < inaccuracy)
+			{
+				closestHitTex = uv * _widthHeight + next;
+				closestHit = wPos1;
+				inaccuracy = inaccuracy1;
+			}
+
+			hasClosestHit = true;
+			if ((rayDepth >= cDepth && prevDepth <= cDepth + 0.00005) || (prevDepth >= cDepth && rayDepth <= cDepth + 0.00005))
 				break;
-
-			float roughness1 = buffer1Color.b;
-			float alpha1 = roughness * roughness;
-			float3 c_diffuse1 = buffer0Color.rgb;
-			float3 c_specular1 = float3(buffer0Color.a, buffer1Color.a, buffer2Color.a);
-
-			float3 emissive1 = buffer2Color.rgb;
-
-			outputColor += Shade1(N1, wPos1, -reflectDir, c_diffuse1, c_specular1, emissive1, roughness1, 1, _uv1, false) * GF * AO;
-			traced = true;
-			break;
 		}
+		prevDepth = rayDepth;
 	}
 
-	if (!traced)
-		outputColor += EnvCube.SampleLevel(s0, reflect(-V, N), sqrt(max(roughness, 1e-5)) * 4) * g_skyBoxMultiple * GF * AO;
+	float3 envReflectColor = EnvCube.SampleLevel(s0, reflect(-V, N), sqrt(max(roughness, 1e-5)) * 4) * g_skyBoxMultiple * GF * AO;
+	if (hasClosestHit)
+	{
+		float4 buffer0Color = gbuffer0[closestHitTex];
+		float4 buffer1Color = gbuffer1[closestHitTex];
+		float4 buffer2Color = gbuffer2[closestHitTex];
+		float4 buffer3Color = gbuffer3[closestHitTex];
+
+		float3 N1 = normalize(NormalDecode(buffer1Color.rg));
+
+		float roughness1 = buffer1Color.b;
+		float alpha1 = roughness * roughness;
+		float3 c_diffuse1 = buffer0Color.rgb;
+		float3 c_specular1 = float3(buffer0Color.a, buffer1Color.a, buffer2Color.a);
+
+		float3 emissive1 = buffer2Color.rgb;
+		float3 reflectColor = Shade1(N1, closestHit, -reflectDir, c_diffuse1, c_specular1, emissive1, roughness1, 1, false) * GF * AO;
+
+		float t = smoothstep(0.00005, 0.001, inaccuracy);
+
+		outputColor += lerp(reflectColor, envReflectColor, t);
+	}
+	else
+		outputColor += envReflectColor;
 #endif
-	return Shade1(N, wPos, V, c_diffuse, c_specular, emissive, roughness, AO, uv, true) + outputColor;
+	return Shade1(N, wPos, V, c_diffuse, c_specular, emissive, roughness, AO, true) + outputColor;
 }
 
 float4 psmain(PSIn input) : SV_TARGET

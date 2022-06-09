@@ -562,14 +562,15 @@ namespace Coocoo3D.UI
                 texPath = main.platformIO.dropFile;
                 textureChange = true;
             }
-            if (hasTexture)
+            if (ImGui.IsItemHovered())
             {
-                if (ImGui.IsItemHovered())
+                ImGui.BeginTooltip();
+                if (hasTexture)
                 {
-                    ImGui.BeginTooltip();
                     ImGui.Text(texPath);
-                    ImGui.EndTooltip();
                 }
+                ImGui.Image(imageId, new Vector2(256, 256));
+                ImGui.EndTooltip();
             }
             return textureChange;
         }

@@ -146,6 +146,11 @@ namespace Coocoo3D.RenderPipeline
             graphicsContext.SetUAVTSlot(buffer, slot);
         }
 
+        public void SetSRV(Texture2D texture, int slot)
+        {
+            graphicsContext.SetSRVTSlot(texture, slot);
+        }
+
         public void SetSRV(GPUBuffer buffer, int slot)
         {
             graphicsContext.SetSRVTSlot(buffer, slot);

@@ -135,6 +135,8 @@ namespace Coocoo3D.Core
                 var desc = r.rigidBodyDescs[i];
                 if (desc.Type != 0) continue;
                 int index = desc.AssociatedBoneIndex;
+                if (index == -1)
+                    continue;
 
                 Matrix4x4 mat2 = MatrixExt.Transform(desc.Position, desc.Rotation) * r.bones[index].GeneratedTransform * r.LocalToWorld;
                 physics3DScene.MoveRigidBody(rigidbodies[i], mat2);

@@ -70,6 +70,11 @@ namespace RenderPipelines
         [AutoClear]
         public Texture2D _ShadowMap;
 
+        [Size(2048, 1024)]
+        [Format(ResourceFormat.R32G32_Float)]
+        [AutoClear]
+        public Texture2D _HiZBuffer;
+
         [Size(128, 128)]
         [Format(ResourceFormat.R16G16B16A16_Float)]
         [BRDFBaker]

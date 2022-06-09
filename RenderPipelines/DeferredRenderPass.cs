@@ -190,8 +190,6 @@ namespace RenderPipelines
             }
         };
 
-        public Random random = new Random(0);
-
         public DrawObjectPass drawObjectTransparent = new DrawObjectPass()
         {
             shader = "PBRMaterial.hlsl",
@@ -262,7 +260,7 @@ namespace RenderPipelines
             filter = FilterTransparent,
         };
 
-        RayTracingPass rayTracingPass = new RayTracingPass()
+        public RayTracingPass rayTracingPass = new RayTracingPass()
         {
             srvs = new string[]
             {
@@ -279,8 +277,15 @@ namespace RenderPipelines
             RayTracingShader = "RayTracing.json",
         };
 
+        public HiZPass HiZPass = new HiZPass()
+        {
+            output="_HiZBuffer"
+        };
+
         public bool rayTracing;
         public bool updateGI;
+
+        public Random random = new Random(0);
 
         [Indexable]
         public Matrix4x4 ViewProjection;
@@ -368,6 +373,7 @@ namespace RenderPipelines
         public void Execute(RenderWrap renderWrap)
         {
             drawGBuffer.depthStencil = depthStencil;
+            HiZPass.input = depthStencil;
             drawObjectTransparent.depthStencil = depthStencil;
             drawObjectTransparent.renderTargets[0] = renderTarget;
             decalPass.srvs[0] = depthStencil;
@@ -485,6 +491,7 @@ namespace RenderPipelines
             }
             drawGBuffer.Execute(renderWrap);
             decalPass.Execute(renderWrap);
+            //HiZPass.Execute(renderWrap);
             if (rayTracing || updateGI)
             {
                 rayTracingPass.RayTracing = rayTracing;
