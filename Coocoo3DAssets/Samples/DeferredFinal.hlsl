@@ -90,7 +90,8 @@ Texture2D gbufferDepth : register (t5);
 Texture2D ShadowMap : register(t6);
 TextureCube SkyBox : register (t7);
 Texture2D BRDFLut : register(t8);
-StructuredBuffer<SH9C> giBuffer : register(t9);
+Texture2D HiZ : register(t9);
+StructuredBuffer<SH9C> giBuffer : register(t10);
 SamplerState s0 : register(s0);
 SamplerComparisonState sampleShadowMap : register(s2);
 SamplerState s3 : register(s3);
@@ -343,6 +344,35 @@ float3 Shade1(float3 N, float3 wPos, float3 V, float3 c_diffuse, float3 c_specul
 	return outputColor;
 }
 
+const static int c_hizSize = 4096;
+
+int GetBoardLevel(int2 position)
+{
+	for (int i = 5; i >= 1; i--)
+	{
+		if (!all(position % (1 << i)))
+		{
+			return i;
+		}
+	}
+	return 0;
+}
+
+int2 GetHiZStartPosition(int level)
+{
+	return int2(c_hizSize - (c_hizSize >> (level - 1)), 0);
+}
+
+bool DepthHit(float a, float b, float depth)
+{
+	return ((a >= depth && b <= depth + 0.0005) || (b >= depth && a <= depth + 0.0005)) && depth < 0.9999;
+}
+
+bool DepthHit1(float a, float b, float depthMin, float depthMax)
+{
+	return ((a >= depthMin && b <= depthMax) || (b >= depthMin && a <= depthMax)) && depthMin < 0.9999;
+}
+
 float3 Shade(float3 N, float3 wPos, float3 V, float3 c_diffuse, float3 c_specular, float3 emissive, float roughness, float AO, float2 uv)
 {
 	float3 outputColor = float3(0, 0, 0);
@@ -371,65 +401,127 @@ float3 Shade(float3 N, float3 wPos, float3 V, float3 c_diffuse, float3 c_specula
 	float4 sDir = a1 - a2;
 	sDir.y = -sDir.y;
 	sDir.xy *= _widthHeight / 2;
-	float4 ppx;
+	float4 ppx = sDir / abs(sDir.x);
+	float4 ppy = sDir / abs(sDir.y);
+
+	float4 ppm;
 	if (abs(sDir.x) > abs(sDir.y))
-		ppx = sDir / abs(sDir.x);
+		ppm = ppx;
 	else
-		ppx = sDir / abs(sDir.y);
+		ppm = ppy;
+	int tzi = int2(ppm.x > 0 ? 0 : 1, ppm.y > 0 ? 0 : 1);
 
 	float4 fnext = float4(0, 0, 0, 0);
 	fnext.zw = a2.zw;
 	int2 next = int2(round(fnext.xy));
 
 	float2 uvpp = float2(1, 1) / _widthHeight;
-	float prevDepth = fnext.z;
 
-	float3 closestHit = float3(0, 0, 0);
+	float closestHitDepth = 0;
 	int2 closestHitTex = int2(0, 0);
-	float inaccuracy = 0.001;
+	float inaccuracy = 0.002;
 
-	for (int i = 0; i < 1000; i++)
+	int2 startPosition = uv * _widthHeight;
+
+	bool enterOnce = false;
+	bool previousHit = false;
+
+	for (int i = 0; i < 120; i++)
 	{
-		fnext += ppx;
-		next = int2(round(fnext.xy));
 
+		int2 currentPosition = startPosition + next;
+		int boardLevel = GetBoardLevel(currentPosition + tzi);
+		bool skipPixels = false;
+		for (int j = boardLevel; j > 1; j--)
+		{
+			if (boardLevel > 0)
+			{
+				int2 hizPosition = GetHiZStartPosition(boardLevel) + (currentPosition >> boardLevel);
+				int2 nextZPosition = hizPosition + int2(sign(ppm.xy));
+				int2 nextBPosition = (nextZPosition.xy << boardLevel) + tzi * ((1 << boardLevel) - 1);
 
-		if (i < 5)
+				float2 tx = (nextBPosition - currentPosition);
+				float2 tx1 = tx / ppm.xy;
+				float2 colHiZ = HiZ[hizPosition];
+
+				float4 xNext = fnext;
+				if (abs(tx.x) > abs(tx.y))
+				{
+					xNext += abs(tx.y) * ppy;
+				}
+				else
+				{
+					xNext += abs(tx.x) * ppx;
+				}
+				int2 hizPosition1 = GetHiZStartPosition(boardLevel) + (startPosition + int2(round(xNext.xy)) >> boardLevel);
+				if (hizPosition.x == hizPosition1.x && hizPosition.y == hizPosition1.y)
+					continue;
+
+				if (!DepthHit1(fnext.z - ppm.z, xNext.z, colHiZ.x, colHiZ.y))
+				{
+					fnext = xNext;
+					next = int2(round(fnext.xy));
+					skipPixels = true;
+					break;
+				}
+			}
+		}
+
+		if (skipPixels)
 			continue;
-		float2 _uv1 = uv + next * uvpp;
 
 		float rayDepth = fnext.z;
-		if (any(_uv1 < 0) || any(_uv1 > 1) || rayDepth > 1 || rayDepth < 0)
+		if (any((next + startPosition) < 0) || any((next + startPosition) > _widthHeight) || rayDepth > 1 || rayDepth < 0)
 			break;
 
-		float cDepth = gbufferDepth.SampleLevel(s3, _uv1, 0).r;
+		float prevDepth = fnext.z;
+		fnext += ppm;
+		next = int2(round(fnext.xy));
+		if (i < 2)
+			continue;
+
+		float cDepth = gbufferDepth[currentPosition].r;
 		float cDepth1 = getLinearDepth(cDepth);
 
-		float4 wPos1 = mul(float4(_uv1.x * 2 - 1, 1 - _uv1.y * 2, cDepth, 1), g_mProjToWorld);
-		wPos1 /= wPos1.w;
-
-		if ((rayDepth >= cDepth - 0.0002 && prevDepth <= cDepth + 0.00010) || (prevDepth >= cDepth - 0.0002 && rayDepth <= cDepth + 0.00010))
+		if (rayDepth > cDepth && previousHit)
+			enterOnce = true;
+		if (DepthHit(rayDepth, prevDepth, cDepth))
 		{
-			float4 buffer1Color = gbuffer1.SampleLevel(s3, _uv1, 0);
+			float4 buffer1Color = gbuffer1[currentPosition];
 			float3 N1 = normalize(NormalDecode(buffer1Color.rg));
-			if (dot(N1, reflectDir) > 0)
+			if (dot(N1, reflectDir) > -0.1)
 			{
 				prevDepth = rayDepth;
+				previousHit = false;
 				continue;
 			}
+			previousHit = true;
 			float inaccuracy1 = min(abs(rayDepth - cDepth), abs(prevDepth - cDepth));
+			if (enterOnce)
+				inaccuracy1 *= 0.25;
 			if (inaccuracy1 < inaccuracy)
 			{
-				closestHitTex = uv * _widthHeight + next;
-				closestHit = wPos1;
+				closestHitTex = currentPosition;
+				closestHitDepth = cDepth;
 				inaccuracy = inaccuracy1;
 			}
 
+			float c1 = (1 - dot(N1, V)) * 0.01;
+
 			hasClosestHit = true;
-			if ((rayDepth >= cDepth && prevDepth <= cDepth + 0.00005) || (prevDepth >= cDepth && rayDepth <= cDepth + 0.00005))
+			if ((rayDepth >= cDepth && prevDepth <= cDepth + c1) || (prevDepth >= cDepth && rayDepth <= cDepth + c1))
+			{
+				closestHitTex = currentPosition;
+				closestHitDepth = cDepth;
+				inaccuracy *= 0.1;
+				enterOnce = true;
 				break;
+			}
 		}
-		prevDepth = rayDepth;
+		else
+		{
+			previousHit = false;
+		}
 	}
 
 	float3 envReflectColor = EnvCube.SampleLevel(s0, reflect(-V, N), sqrt(max(roughness, 1e-5)) * 4) * g_skyBoxMultiple * GF * AO;
@@ -440,6 +532,9 @@ float3 Shade(float3 N, float3 wPos, float3 V, float3 c_diffuse, float3 c_specula
 		float4 buffer2Color = gbuffer2[closestHitTex];
 		float4 buffer3Color = gbuffer3[closestHitTex];
 
+		float4 wPos1 = mul(float4(closestHitTex.x / _widthHeight.x * 2 - 1, 1 - closestHitTex.y / _widthHeight.y * 2, closestHitDepth, 1), g_mProjToWorld);
+		wPos1 /= wPos1.w;
+
 		float3 N1 = normalize(NormalDecode(buffer1Color.rg));
 
 		float roughness1 = buffer1Color.b;
@@ -448,9 +543,11 @@ float3 Shade(float3 N, float3 wPos, float3 V, float3 c_diffuse, float3 c_specula
 		float3 c_specular1 = float3(buffer0Color.a, buffer1Color.a, buffer2Color.a);
 
 		float3 emissive1 = buffer2Color.rgb;
-		float3 reflectColor = Shade1(N1, closestHit, -reflectDir, c_diffuse1, c_specular1, emissive1, roughness1, 1, false) * GF * AO;
+		float3 reflectColor = Shade1(N1, wPos1, -reflectDir, c_diffuse1, c_specular1, emissive1, roughness1, 1, false) * GF * AO;
+		if (!enterOnce)
+			inaccuracy *= 16 * sqrt(closestHitDepth);
 
-		float t = smoothstep(0.00005, 0.001, inaccuracy);
+		float t = smoothstep(0.001, 0.002, inaccuracy);
 
 		outputColor += lerp(reflectColor, envReflectColor, t);
 	}

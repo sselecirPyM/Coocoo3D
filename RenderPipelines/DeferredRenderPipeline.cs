@@ -70,7 +70,7 @@ namespace RenderPipelines
         [AutoClear]
         public Texture2D _ShadowMap;
 
-        [Size(2048, 1024)]
+        [Size(4096, 2048)]
         [Format(ResourceFormat.R32G32_Float)]
         [AutoClear]
         public Texture2D _HiZBuffer;
@@ -387,6 +387,8 @@ namespace RenderPipelines
             renderWrap.SetSize("GIBufferSize", 589824, 1);
             renderWrap.texLoading = renderWrap.GetTex2DLoaded("loading.png");
             renderWrap.texError = renderWrap.GetTex2DLoaded("error.png");
+
+            renderWrap.CPUSkinning = EnableRayTracing || UpdateGI;
         }
 
         public override void Render()

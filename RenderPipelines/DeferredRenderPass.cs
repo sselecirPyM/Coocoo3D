@@ -137,6 +137,7 @@ namespace RenderPipelines
                 "_ShadowMap",
                 "_SkyBox",
                 "_BRDFLUT",
+                "_HiZBuffer",
                 "GIBuffer",
             },
             cbvs = new object[][]
@@ -279,7 +280,7 @@ namespace RenderPipelines
 
         public HiZPass HiZPass = new HiZPass()
         {
-            output="_HiZBuffer"
+            output = "_HiZBuffer"
         };
 
         public bool rayTracing;
@@ -491,11 +492,14 @@ namespace RenderPipelines
             }
             drawGBuffer.Execute(renderWrap);
             decalPass.Execute(renderWrap);
-            //HiZPass.Execute(renderWrap);
+            if (true.Equals(renderWrap.GetIndexableValue("EnableSSR")))
+                HiZPass.Execute(renderWrap);
+
             if (rayTracing || updateGI)
             {
                 rayTracingPass.RayTracing = rayTracing;
                 rayTracingPass.RayTracingGI = updateGI;
+                rayTracingPass.UseGI = true.Equals(renderWrap.GetIndexableValue("UseGI"));
                 rayTracingPass.Execute(renderWrap, directionalLight);
             }
             finalPass.Execute(renderWrap);

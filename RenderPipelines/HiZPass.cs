@@ -33,8 +33,8 @@ namespace RenderPipelines
             int y = inputTexture.height;
             int offsetX = 0;
             int offsetY = 0;
-            int t1 = 32;
-            for (int i = 6 - 1; i >= 0; i--)
+            int t1 = 16;
+            for (int i = 8 - 1; i >= 0; i--)
             {
                 x = (x + 1) / 2;
                 y = (y + 1) / 2;
