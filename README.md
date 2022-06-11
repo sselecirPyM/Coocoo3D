@@ -17,6 +17,7 @@
 * 烘焙天空盒
 * 后处理
 * 光线追踪反射
+* 屏幕空间反射(使用Hierarchical ZBuffer)
 * 全局光照
 * SSAO
 * TAA

@@ -346,18 +346,6 @@ float3 Shade1(float3 N, float3 wPos, float3 V, float3 c_diffuse, float3 c_specul
 
 const static int c_hizSize = 4096;
 
-int GetBoardLevel(int2 position)
-{
-	for (int i = 5; i >= 1; i--)
-	{
-		if (!all(position % (1 << i)))
-		{
-			return i;
-		}
-	}
-	return 0;
-}
-
 int2 GetHiZStartPosition(int level)
 {
 	return int2(c_hizSize - (c_hizSize >> (level - 1)), 0);
@@ -370,7 +358,7 @@ bool DepthHit(float a, float b, float depth)
 
 bool DepthHit1(float a, float b, float depthMin, float depthMax)
 {
-	return ((a >= depthMin && b <= depthMax) || (b >= depthMin && a <= depthMax)) && depthMin < 0.9999;
+	return ((a >= depthMin && b <= depthMax + 0.0005) || (b >= depthMin && a <= depthMax + 0.0005)) && depthMin < 0.9999;
 }
 
 float3 Shade(float3 N, float3 wPos, float3 V, float3 c_diffuse, float3 c_specular, float3 emissive, float roughness, float AO, float2 uv)
@@ -400,22 +388,21 @@ float3 Shade(float3 N, float3 wPos, float3 V, float3 c_diffuse, float3 c_specula
 
 	float4 sDir = a1 - a2;
 	sDir.y = -sDir.y;
-	sDir.xy *= _widthHeight / 2;
+	sDir.xy *= _widthHeight / 2.0;
 	float4 ppx = sDir / abs(sDir.x);
 	float4 ppy = sDir / abs(sDir.y);
+
+	float2 invDir = 1 / sDir.xy;
 
 	float4 ppm;
 	if (abs(sDir.x) > abs(sDir.y))
 		ppm = ppx;
 	else
 		ppm = ppy;
-	int tzi = int2(ppm.x > 0 ? 0 : 1, ppm.y > 0 ? 0 : 1);
+	int2 tzi = int2(ppm.x > 0 ? 0 : 1, ppm.y > 0 ? 0 : 1);
 
 	float4 fnext = float4(0, 0, 0, 0);
 	fnext.zw = a2.zw;
-	int2 next = int2(round(fnext.xy));
-
-	float2 uvpp = float2(1, 1) / _widthHeight;
 
 	float closestHitDepth = 0;
 	int2 closestHitTex = int2(0, 0);
@@ -426,62 +413,67 @@ float3 Shade(float3 N, float3 wPos, float3 V, float3 c_diffuse, float3 c_specula
 	bool enterOnce = false;
 	bool previousHit = false;
 
-	for (int i = 0; i < 120; i++)
+	int currentBoardLevel = 1;
+
+	for (int i = 0; i < 200; i++)
 	{
-
+		int2 next = int2(floor(fnext.xy));
 		int2 currentPosition = startPosition + next;
-		int boardLevel = GetBoardLevel(currentPosition + tzi);
-		bool skipPixels = false;
-		for (int j = boardLevel; j > 1; j--)
+
+		if (currentBoardLevel > 0)
 		{
-			if (boardLevel > 0)
+			int j = currentBoardLevel;
+			int2 hizPosition = (currentPosition >> j);
+			int2 nextZPosition = hizPosition + int2(sign(ppm.xy));
+			int2 nextBPosition = (nextZPosition.xy << j) + tzi * ((1 << j) - 1);
+
+			float2 tx = (nextBPosition - currentPosition);
+			float2 tx1 = tx * invDir;
+			float2 colHiZ = HiZ[GetHiZStartPosition(j) + hizPosition];
+			float4 xNext = fnext;
+			if (abs(tx1.x) > abs(tx1.y))
 			{
-				int2 hizPosition = GetHiZStartPosition(boardLevel) + (currentPosition >> boardLevel);
-				int2 nextZPosition = hizPosition + int2(sign(ppm.xy));
-				int2 nextBPosition = (nextZPosition.xy << boardLevel) + tzi * ((1 << boardLevel) - 1);
+				xNext += abs(tx.y) * ppy;
+			}
+			else
+			{
+				xNext += abs(tx.x) * ppx;
+			}
+			int2 hizPosition1 = (startPosition + int2(floor(xNext.xy)) >> j);
+			if (hizPosition.x == hizPosition1.x && hizPosition.y == hizPosition1.y)
+			{
+				currentBoardLevel--;
+				continue;
+			}
 
-				float2 tx = (nextBPosition - currentPosition);
-				float2 tx1 = tx / ppm.xy;
-				float2 colHiZ = HiZ[hizPosition];
-
-				float4 xNext = fnext;
-				if (abs(tx.x) > abs(tx.y))
-				{
-					xNext += abs(tx.y) * ppy;
-				}
-				else
-				{
-					xNext += abs(tx.x) * ppx;
-				}
-				int2 hizPosition1 = GetHiZStartPosition(boardLevel) + (startPosition + int2(round(xNext.xy)) >> boardLevel);
-				if (hizPosition.x == hizPosition1.x && hizPosition.y == hizPosition1.y)
-					continue;
-
-				if (!DepthHit1(fnext.z - ppm.z, xNext.z, colHiZ.x, colHiZ.y))
-				{
-					fnext = xNext;
-					next = int2(round(fnext.xy));
-					skipPixels = true;
-					break;
-				}
+			if (!DepthHit1(fnext.z, xNext.z, colHiZ.x, colHiZ.y))
+			{
+				fnext = xNext;
+				currentBoardLevel++;
+			}
+			else
+			{
+				currentBoardLevel--;
 			}
 		}
+		else
+		{
+			currentBoardLevel++;
+		}
+		currentBoardLevel = clamp(currentBoardLevel, 0, 9);
 
-		if (skipPixels)
-			continue;
 
 		float rayDepth = fnext.z;
-		if (any((next + startPosition) < 0) || any((next + startPosition) > _widthHeight) || rayDepth > 1 || rayDepth < 0)
+		if (any((currentPosition) < 0) || any((currentPosition) >= _widthHeight) || rayDepth >= 1 || rayDepth <= 0)
 			break;
+
+		if (currentBoardLevel > 0)
+			continue;
 
 		float prevDepth = fnext.z;
 		fnext += ppm;
-		next = int2(round(fnext.xy));
-		if (i < 2)
-			continue;
 
 		float cDepth = gbufferDepth[currentPosition].r;
-		float cDepth1 = getLinearDepth(cDepth);
 
 		if (rayDepth > cDepth && previousHit)
 			enterOnce = true;
@@ -532,7 +524,7 @@ float3 Shade(float3 N, float3 wPos, float3 V, float3 c_diffuse, float3 c_specula
 		float4 buffer2Color = gbuffer2[closestHitTex];
 		float4 buffer3Color = gbuffer3[closestHitTex];
 
-		float4 wPos1 = mul(float4(closestHitTex.x / _widthHeight.x * 2 - 1, 1 - closestHitTex.y / _widthHeight.y * 2, closestHitDepth, 1), g_mProjToWorld);
+		float4 wPos1 = mul(float4((float)closestHitTex.x / _widthHeight.x * 2 - 1, 1 - (float)closestHitTex.y / _widthHeight.y * 2, closestHitDepth, 1), g_mProjToWorld);
 		wPos1 /= wPos1.w;
 
 		float3 N1 = normalize(NormalDecode(buffer1Color.rg));
@@ -543,7 +535,7 @@ float3 Shade(float3 N, float3 wPos, float3 V, float3 c_diffuse, float3 c_specula
 		float3 c_specular1 = float3(buffer0Color.a, buffer1Color.a, buffer2Color.a);
 
 		float3 emissive1 = buffer2Color.rgb;
-		float3 reflectColor = Shade1(N1, wPos1, -reflectDir, c_diffuse1, c_specular1, emissive1, roughness1, 1, false) * GF * AO;
+		float3 reflectColor = Shade1(N1, wPos1.xyz, -reflectDir, c_diffuse1, c_specular1, emissive1, roughness1, 1, false) * GF * AO;
 		if (!enterOnce)
 			inaccuracy *= 16 * sqrt(closestHitDepth);
 
