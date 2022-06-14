@@ -905,7 +905,72 @@ vmd格式动作。支持几乎所有的图片格式。");
         {
             if (ImGui.TreeNode("视觉"))
             {
-                ImGui.Checkbox("显示包围盒", ref showDecalBounding);
+                ImGui.Checkbox("显示包围盒", ref showBounding);
+                var drp = main.RPContext.dynamicContextRead;
+                int rendererCount = drp.renderers.Count;
+                string[] renderers = new string[rendererCount + 1];
+                int[] ids = new int[rendererCount + 1];
+                renderers[0] = "-";
+                ids[0] = -1;
+                int count = 1;
+                int currentItem = 0;
+
+                foreach (var gameObject1 in main.CurrentScene.gameObjects)
+                {
+                    var renderer = gameObject1.GetComponent<MMDRendererComponent>();
+                    if (renderer == null)
+                        continue;
+                    renderers[count] = gameObject1.Name;
+                    ids[count] = gameObject1.id;
+                    if (gameObject1.id == visualComponent.bindId)
+                        currentItem = count;
+                    count++;
+                    if (count == rendererCount + 1)
+                        break;
+                }
+                if (ImGui.Combo("绑定到物体", ref currentItem, renderers, rendererCount + 1))
+                {
+                    visualComponent.bindId = ids[currentItem];
+                }
+
+
+                string[] bones;
+                if (drp.gameObjects.TryGetValue(visualComponent.bindId, out var gameObject2))
+                {
+                    var renderer = gameObject2.GetComponent<MMDRendererComponent>();
+                    bones = new string[renderer.bones.Count + 1];
+                    bones[0] = "-";
+                    for (int i = 0; i < renderer.bones.Count; i++)
+                    {
+                        bones[i + 1] = renderer.bones[i].Name;
+                    }
+                }
+                else
+                {
+                    bones = new string[0];
+                }
+                currentItem = 0;
+                for (int i = 1; i < bones.Length; i++)
+                {
+                    string b = bones[i];
+                    if (b == visualComponent.bindBone)
+                    {
+                        currentItem = i;
+                    }
+                }
+                if (ImGui.Combo("绑定骨骼", ref currentItem, bones, bones.Length))
+                {
+                    if (currentItem > 0)
+                    {
+                        visualComponent.bindBone = bones[currentItem];
+                    }
+                    else
+                    {
+                        visualComponent.bindBone = null;
+                    }
+                }
+
+
                 ImGui.DragFloat3("大小", ref gameObject.Transform.scale, 0.01f);
                 ShowParams(main, visualComponent.UIShowType, main.RPContext.currentChannel.renderPipelineView, visualComponent.material.Parameters);
                 ImGui.TreePop();
@@ -985,7 +1050,7 @@ vmd格式动作。支持几乎所有的图片格式。");
                 }
                 if (gameObjectSelectIndex == i && canView)
                     drawList.AddNgon(basePos, 10, 0xffffff77, 4);
-                if (obj.TryGetComponent(out VisualComponent visual) && showDecalBounding)
+                if (obj.TryGetComponent(out VisualComponent visual) && showBounding)
                 {
                     DrawCube(drawList, imagePosition, imageSize, obj.Transform, vpMatrix);
                 }
@@ -1012,37 +1077,31 @@ vmd格式动作。支持几乎所有的图片格式。");
             Vector3 position = transform.position;
             Quaternion rotation = transform.rotation;
             Vector3 scale = transform.scale;
-            vpMatrix = MatrixExt.Transform(position, rotation, scale) * vpMatrix;
+            Matrix4x4 mvp = MatrixExt.Transform(position, rotation, scale) * vpMatrix;
 
             for (int i = 0; i < 4; i++)
             {
                 float signY = ((i & 2) - 1);
                 float signZ = (((i << 1) & 2) - 1);
-                Vector2 p1 = TransformToImage(new Vector3(1, signY, signZ), vpMatrix, out bool b1);
-                Vector2 p2 = TransformToImage(new Vector3(-1, signY, signZ), vpMatrix, out bool b2);
-                if (b1 || b2)
-                    drawList.AddLine(leftTop + p1 * imageSize,
-                        leftTop + p2 * imageSize, 0xffffffff);
+                (Vector2 p1, Vector2 p2) = ScreenClipLine(new Vector3(1, signY, signZ), new Vector3(-1, signY, signZ), mvp);
+                if (p1 != p2)
+                    drawList.AddLine(leftTop + p1 * imageSize, leftTop + p2 * imageSize, 0xffffffff);
             }
             for (int i = 0; i < 4; i++)
             {
                 float signX = ((i & 2) - 1);
                 float signZ = (((i << 1) & 2) - 1);
-                Vector2 p1 = TransformToImage(new Vector3(signX, 1, signZ), vpMatrix, out bool b1);
-                Vector2 p2 = TransformToImage(new Vector3(signX, -1, signZ), vpMatrix, out bool b2);
-                if (b1 || b2)
-                    drawList.AddLine(leftTop + p1 * imageSize,
-                    leftTop + p2 * imageSize, 0xffffffff);
+                (Vector2 p1, Vector2 p2) = ScreenClipLine(new Vector3(signX, 1, signZ), new Vector3(signX, -1, signZ), mvp);
+                if (p1 != p2)
+                    drawList.AddLine(leftTop + p1 * imageSize, leftTop + p2 * imageSize, 0xffffffff);
             }
             for (int i = 0; i < 4; i++)
             {
                 float signX = ((i & 2) - 1);
                 float signY = (((i << 1) & 2) - 1);
-                Vector2 p1 = TransformToImage(new Vector3(signX, signY, 1), vpMatrix, out bool b1);
-                Vector2 p2 = TransformToImage(new Vector3(signX, signY, -1), vpMatrix, out bool b2);
-                if (b1 || b2)
-                    drawList.AddLine(leftTop + p1 * imageSize,
-                    leftTop + p2 * imageSize, 0xffffffff);
+                (Vector2 p1, Vector2 p2) = ScreenClipLine(new Vector3(signX, signY, 1), new Vector3(signX, signY, -1), mvp);
+                if (p1 != p2)
+                    drawList.AddLine(leftTop + p1 * imageSize, leftTop + p2 * imageSize, 0xffffffff);
             }
         }
 
@@ -1156,15 +1215,42 @@ vmd格式动作。支持几乎所有的图片格式。");
         {
             var type = val.GetType();
             string valName = val.ToString();
-            string[] enums = Enum.GetNames(type);
-            string[] enumsTranslation = enums;
+            var fields = type.GetFields();
 
-            int sourceI = Array.FindIndex(enums, u => u == valName);
+
+            string[] enums;
+
+            if (enumNames.TryGetValue(type, out enums))
+            {
+
+            }
+            else
+            {
+                enums = Enum.GetNames(type);
+                var vals = enums.Select(u => Enum.Parse(type, u)).ToArray();
+                enumValues[type] = vals;
+                enums = enums.Select(u =>
+                {
+                    var uiShow = type.GetField(u).GetCustomAttribute<UIShowAttribute>();
+                    if (uiShow != null)
+                    {
+                        return uiShow.Name;
+                    }
+                    return u;
+                }).ToArray();
+                enumNames[type] = enums;
+            }
+            string[] enumsTranslation = enums;
+            var val1 = val;
+            int sourceI = Array.FindIndex(enumValues[type], u => u.ToString() == valName);
             int sourceI2 = sourceI;
 
             bool result = ImGui.Combo(string.Format("{1}###{0}", label, label), ref sourceI, enumsTranslation, enumsTranslation.Length);
+
             if (sourceI != sourceI2)
-                val = Enum.Parse(type, enums[sourceI]);
+            {
+                val = enumValues[type][sourceI];
+            }
 
             return result;
         }
@@ -1213,13 +1299,54 @@ vmd格式动作。支持几乎所有的图片格式。");
             main.CurrentScene.AddGameObject(newObj);
         }
 
+        static (Vector2, Vector2) ClipLine(Vector3 start, Vector3 end, Matrix4x4 mvp)
+        {
+            Vector4 vx = Vector4.Transform(new Vector4(start, 1), mvp);
+            Vector4 vy = Vector4.Transform(new Vector4(end, 1), mvp);
+            Vector4 delta = vy - vx;
+            delta /= delta.Z;
+
+            if (vx.Z < 0 && vy.Z < 0)
+            {
+                return (Vector2.Zero, Vector2.Zero);
+            }
+
+            if (vx.Z < 0)
+            {
+                vx = vy + delta * (-vy.Z);
+            }
+            if (vy.Z < 0)
+            {
+                vy = vx + delta * (-vx.Z);
+            }
+
+            vx /= vx.W;
+            vy /= vy.W;
+            return (new Vector2(vx.X, vx.Y), new Vector2(vy.X, vy.Y));
+        }
+
+        static (Vector2, Vector2) ScreenClipLine(Vector3 start, Vector3 end, Matrix4x4 mvp)
+        {
+            (Vector2 v1, Vector2 v2) = ClipLine(start, end, mvp);
+
+            v1 *= 0.5f;
+            v1.Y = -v1.Y;
+            v1 += new Vector2(0.5f, 0.5f);
+
+            v2 *= 0.5f;
+            v2.Y = -v2.Y;
+            v2 += new Vector2(0.5f, 0.5f);
+
+            return (v1, v2);
+        }
+
         static Vector2 TransformToViewport(Vector3 vector, Matrix4x4 vp, out bool canView)
         {
             Vector4 xPosition = Vector4.Transform(new Vector4(vector, 1), vp);
-            xPosition /= xPosition.W;
-            xPosition.Y = -xPosition.Y;
             if (xPosition.Z < 0) canView = false;
             else canView = true;
+            xPosition /= xPosition.W;
+            xPosition.Y = -xPosition.Y;
             return new Vector2(xPosition.X, xPosition.Y);
         }
 
@@ -1270,15 +1397,15 @@ vmd格式动作。支持几乎所有的图片格式。");
 
         static Vector3 QuaternionToEularYXZ(Quaternion quaternion)
         {
-            double ii = quaternion.X * quaternion.X;
-            double jj = quaternion.Y * quaternion.Y;
-            double kk = quaternion.Z * quaternion.Z;
-            double ei = quaternion.W * quaternion.X;
-            double ej = quaternion.W * quaternion.Y;
-            double ek = quaternion.W * quaternion.Z;
-            double ij = quaternion.X * quaternion.Y;
-            double ik = quaternion.X * quaternion.Z;
-            double jk = quaternion.Y * quaternion.Z;
+            double ii = (double)quaternion.X * quaternion.X;
+            double jj = (double)quaternion.Y * quaternion.Y;
+            double kk = (double)quaternion.Z * quaternion.Z;
+            double ei = (double)quaternion.W * quaternion.X;
+            double ej = (double)quaternion.W * quaternion.Y;
+            double ek = (double)quaternion.W * quaternion.Z;
+            double ij = (double)quaternion.X * quaternion.Y;
+            double ik = (double)quaternion.X * quaternion.Z;
+            double jk = (double)quaternion.Y * quaternion.Z;
             Vector3 result = new Vector3();
             result.X = (float)Math.Asin(2.0 * (ei - jk));
             result.Y = (float)Math.Atan2(2.0 * (ej + ik), 1 - 2.0 * (ii + jj));
@@ -1345,10 +1472,13 @@ vmd格式动作。支持几乎所有的图片格式。");
 
         static bool requestParamEdit = false;
         static bool popupParamEdit = false;
-        static bool showDecalBounding = true;
+        static bool showBounding = true;
         static Dictionary<string, object> paramEdit;
 
         static Dictionary<uint, string> filters = new Dictionary<uint, string>();
+
+        static Dictionary<Type, string[]> enumNames = new();
+        static Dictionary<Type, object[]> enumValues = new();
 
         static bool Contains(string input, string filter)
         {

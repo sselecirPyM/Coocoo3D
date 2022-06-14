@@ -216,9 +216,8 @@ namespace RenderPipelines
             byte[] pointLightData = ArrayPool<byte>.Shared.Rent(64 * 32);
             DirectionalLightData? directionalLight = null;
             var pointLightWriter = new SpanWriter<PointLightData>(MemoryMarshal.Cast<byte, PointLightData>(pointLightData));
-            for (int i = 0; i < renderWrap.visuals.Count; i++)
+            foreach (var visual in renderWrap.visuals)
             {
-                var visual = renderWrap.visuals[i];
                 var mat = visual.material;
                 if (visual.UIShowType == Caprice.Display.UIShowType.Light)
                 {

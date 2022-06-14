@@ -61,30 +61,30 @@ namespace RenderPipelines
             BoundingFrustum frustum = new(viewProj);
 
             keywords2.Clear();
-            foreach (var renderable in renderWrap.visuals)
+            foreach (var visual in renderWrap.visuals)
             {
-                if (renderable.UIShowType != Caprice.Display.UIShowType.Decal)
+                if (visual.UIShowType != Caprice.Display.UIShowType.Decal)
                     continue;
 
-                if (!frustum.Intersects(new BoundingSphere(renderable.transform.position, renderable.transform.scale.Length())))
+                if (!frustum.Intersects(new BoundingSphere(visual.transform.position, visual.transform.scale.Length())))
                     continue;
 
-                if (filter != null && !filter.Invoke(renderWrap, renderable, keywords2)) continue;
+                if (filter != null && !filter.Invoke(renderWrap, visual, keywords2)) continue;
                 keywords2.AddRange(this.keywords);
 
-                AutoMapKeyword(renderWrap, keywords2, renderable.material);
+                AutoMapKeyword(renderWrap, keywords2, visual.material);
 
                 renderWrap.SetShader(shader, desc, keywords2, enableVS, enablePS, enableGS);
 
-                Matrix4x4 m = renderable.transform.GetMatrix() * viewProj;
+                Matrix4x4 m = visual.transform.GetMatrix() * viewProj;
                 Matrix4x4.Invert(m, out var im);
                 CBVPerObject[0] = m;
                 CBVPerObject[1] = im;
 
-                renderWrap.Write(CBVPerObject, writer, renderable.material);
+                renderWrap.Write(CBVPerObject, writer, visual.material);
                 writer.SetBufferImmediately(0);
 
-                renderWrap.SetSRVs(srvs, renderable.material);
+                renderWrap.SetSRVs(srvs, visual.material);
 
                 renderWrap.DrawCube();
                 keywords2.Clear();

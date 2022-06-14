@@ -30,6 +30,8 @@ namespace Coocoo3D.Core
 
         public MainCaches mainCaches;
 
+        public int idAllocated = 1;
+
         public void AddGameObject(GameObject gameObject)
         {
             gameObjectLoadList.Add(gameObject);
@@ -45,8 +47,10 @@ namespace Coocoo3D.Core
             for (int i = 0; i < gameObjectLoadList.Count; i++)
             {
                 var gameObject = gameObjectLoadList[i];
+                gameObject.id = idAllocated;
+                idAllocated++;
                 var renderComponent = gameObject.GetComponent<MMDRendererComponent>();
-                if(renderComponent != null)
+                if (renderComponent != null)
                     renderComponent.SetTransform(gameObject.Transform);
                 gameObjects.Add(gameObject);
             }

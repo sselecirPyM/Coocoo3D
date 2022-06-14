@@ -34,11 +34,34 @@ namespace Coocoo3D.RenderPipeline
         public float DeltaTime { get => (float)rpc.dynamicContextRead.DeltaTime; }
         public float RealDeltaTime { get => (float)rpc.dynamicContextRead.RealDeltaTime; }
 
-        public IReadOnlyList<VisualComponent> visuals { get => rpc.dynamicContextRead.visuals; }
+        public IEnumerable<VisualComponent> visuals
+        {
+            get
+            {
+                var drp = rpc.dynamicContextRead;
+                foreach (var visual in drp.visuals)
+                {
+                    if (visual.bindBone != null)
+                    {
+                        if (drp.gameObjects.TryGetValue(visual.bindId, out var gameObject) && gameObject.TryGetComponent<MMDRendererComponent>(out var renderer))
+                        {
+                            var bone = renderer.bones.Find(u => u.Name == visual.bindBone);
+                            if (bone == null)
+                                continue;
+                            bone.GetPosRot2(out var pos, out var rot);
+                            Vector3 position = pos + Vector3.Transform(visual.transform.position, rot);
+                            position = Vector3.Transform(position, renderer.LocalToWorld);
+                            visual.transform = new Transform(position, visual.transform.rotation, visual.transform.scale);
+                        }
+                    }
+                    yield return visual;
+                }
+            }
+        }
 
         public CameraData Camera { get => visualChannel.cameraData; }
 
-        List<(object, Dictionary<string, MemberInfo>)> dataFinders = new();
+        List<(object, Dictionary<string, MemberInfo>)> dataStack = new();
 
         Dictionary<Type, Dictionary<string, MemberInfo>> memberInfoCache = new();
 
@@ -424,12 +447,12 @@ namespace Coocoo3D.RenderPipeline
                 memberInfoCache[type] = parameters;
             }
 
-            dataFinders.Add((parameterProvider, parameters));
+            dataStack.Add((parameterProvider, parameters));
         }
 
         public void PopParameters()
         {
-            dataFinders.RemoveAt(dataFinders.Count - 1);
+            dataStack.RemoveAt(dataStack.Count - 1);
         }
 
         void WriteRenderable1(ref MeshRenderable renderable, Submesh submesh)
@@ -552,7 +575,7 @@ namespace Coocoo3D.RenderPipeline
         public void AfterRender()
         {
             rootSignature = null;
-            dataFinders.Clear();
+            dataStack.Clear();
         }
 
         public void Write(IReadOnlyList<object> datas, GPUWriter writer, RenderMaterial material = null)
@@ -582,9 +605,9 @@ namespace Coocoo3D.RenderPipeline
             if (obj is string s)
             {
                 bool t0 = false;
-                for (int i = dataFinders.Count - 1; i >= 0; i--)
+                for (int i = dataStack.Count - 1; i >= 0; i--)
                 {
-                    var finder = dataFinders[i];
+                    var finder = dataStack[i];
                     if (finder.Item2.TryGetValue(s, out var memberInfo1))
                     {
                         writer.WriteObject(memberInfo1.GetValue<object>(finder.Item1));

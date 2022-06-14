@@ -13,6 +13,7 @@ namespace Coocoo3D.Present
         public string Name = "GameObject";
         public string Description = string.Empty;
         public int layoutMask;
+        public int id;
 
         public Transform Transform = new Transform(Vector3.Zero, Quaternion.Identity);
 

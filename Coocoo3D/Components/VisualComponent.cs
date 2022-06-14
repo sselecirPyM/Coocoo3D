@@ -14,6 +14,9 @@ namespace Coocoo3D.Components
         public RenderMaterial material = new RenderMaterial();
         public Transform transform;
 
+        public int bindId;
+        public string bindBone;
+
         public VisualComponent GetClone()
         {
             var decal = (VisualComponent)MemberwiseClone();

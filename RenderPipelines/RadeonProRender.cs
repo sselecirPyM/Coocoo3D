@@ -211,9 +211,8 @@ namespace RenderPipelines
             scene.AttachLight(envLight);
             lights.Add(envLight);
 
-            for (int i = 0; i < renderWrap.visuals.Count; i++)
+            foreach (var visual in renderWrap.visuals)
             {
-                var visual = renderWrap.visuals[i];
                 var mat = visual.material;
                 if (visual.UIShowType == Caprice.Display.UIShowType.Light)
                 {
@@ -246,25 +245,6 @@ namespace RenderPipelines
                     }
                 }
             }
-
-            //foreach (var light in renderWrap.directionalLights)
-            //{
-            //    var light1 = RPRLight.DirectionalLight(context);
-            //    light1.SetTransform(Matrix4x4.CreateLookAt(light.Direction, new Vector3(0, 0, 0), new Vector3(0, 1, 0)));
-            //    light1.DirectionalLightSetRadiantPower3f(light.Color.X, light.Color.Y, light.Color.Z);
-            //    light1.DirectionalLightSetShadowSoftnessAngle(DirectionalLightShadowSoftnessAngle / 180.0f * (float)Math.PI);
-            //    scene.AttachLight(light1);
-            //    lights.Add(light1);
-            //}
-
-            //foreach (var light in renderWrap.pointLights)
-            //{
-            //    var light1 = RPRLight.PointLight(context);
-            //    light1.SetTransform(Matrix4x4.CreateTranslation(light.Position));
-            //    light1.PointLightSetRadiantPower3f(light.Color.X, light.Color.Y, light.Color.Z);
-            //    scene.AttachLight(light1);
-            //    lights.Add(light1);
-            //}
 
             foreach (var renderable in renderWrap.MeshRenderables(false))
             {
