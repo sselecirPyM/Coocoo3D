@@ -392,7 +392,7 @@ namespace RenderPipelines
             byte[] pointLightData = ArrayPool<byte>.Shared.Rent(64 * 32);
             DirectionalLightData? directionalLight = null;
             var pointLightWriter = new SpanWriter<PointLightData>(MemoryMarshal.Cast<byte, PointLightData>(pointLightData));
-            foreach (var visual in renderWrap.visuals)
+            foreach (var visual in renderWrap.Visuals)
             {
                 var mat = visual.material;
                 if (visual.UIShowType == Caprice.Display.UIShowType.Light)
@@ -475,7 +475,7 @@ namespace RenderPipelines
                 drawShadowMap.Execute(renderWrap);
             }
 
-            Split = SplitTest(pointLightCount * 12);
+            Split = SplitTest(pointLightCount * 6);
             if (pointLightCount > 0)
             {
                 var pointLightDatas = MemoryMarshal.Cast<byte, PointLightData>(pointLightData).Slice(0, pointLightCount);
@@ -581,10 +581,11 @@ namespace RenderPipelines
 
         static int SplitTest(int v)
         {
+            v *= 2;
             int pointLightSplit = 2;
             for (int i = 4; i * i < v; i += 2)
                 pointLightSplit = i;
-            pointLightSplit *= 2;
+            pointLightSplit += 2;
             return pointLightSplit;
         }
 

@@ -61,7 +61,7 @@ namespace RenderPipelines
             BoundingFrustum frustum = new(viewProj);
 
             keywords2.Clear();
-            foreach (var visual in renderWrap.visuals)
+            foreach (var visual in renderWrap.Visuals)
             {
                 if (visual.UIShowType != Caprice.Display.UIShowType.Decal)
                     continue;

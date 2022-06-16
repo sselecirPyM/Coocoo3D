@@ -127,6 +127,7 @@ namespace Coocoo3D.UI
                 }
             }
             ImGui.End();
+            RenderBuffersPannel(main);
             Popups(main, selectedObject);
             ImGui.Render();
             if (selectedObject != null)
@@ -575,6 +576,48 @@ namespace Coocoo3D.UI
             return textureChange;
         }
 
+        static void RenderBuffersPannel(Coocoo3DMain main)
+        {
+            if (!showRenderBuffers)
+                return;
+            if (ImGui.Begin("buffers", ref showRenderBuffers))
+            {
+                var view = main.RPContext.currentChannel.renderPipelineView;
+                if (view != null)
+                {
+                    ShowRenderBuffers(main, view);
+                }
+            }
+            ImGui.End();
+        }
+
+        static void ShowRenderBuffers(Coocoo3DMain main, RenderPipeline.RenderPipelineView view)
+        {
+            string filter = ImFilter("filter", "filter");
+            foreach (var pair in view.RenderTextures)
+            {
+                var tex2D = pair.Value.texture2D;
+                if (tex2D != null)
+                {
+                    if (!Contains(pair.Key, filter))
+                        continue;
+                    IntPtr imageId = main.widgetRenderer.ShowTexture(tex2D);
+
+                    ImGui.TextUnformatted(pair.Key);
+                    ImGui.Image(imageId, new Vector2(150, 150));
+
+                    if (ImGui.IsItemHovered())
+                    {
+                        ImGui.BeginTooltip();
+                        ImGui.TextUnformatted(tex2D.GetFormat().ToString());
+                        ImGui.TextUnformatted(string.Format("width:{0} height:{1}", tex2D.width, tex2D.height));
+                        ImGui.Image(imageId, new Vector2(384, 384));
+                        ImGui.EndTooltip();
+                    }
+                }
+            }
+        }
+
         static void DockSpace(Coocoo3DMain main)
         {
             ImGuiWindowFlags window_flags = ImGuiWindowFlags.NoDocking | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoResize
@@ -693,10 +736,8 @@ namespace Coocoo3D.UI
 vmd格式动作。支持几乎所有的图片格式。");
                 ImGui.TreePop();
             }
-            if (ImGui.Button("显示ImGuiDemoWindow"))
-            {
-                demoWindowOpen = true;
-            }
+            ImGui.Checkbox("显示ImGuiDemoWindow", ref demoWindowOpen);
+            ImGui.Checkbox("显示Render Buffers", ref showRenderBuffers);
         }
 
         static void SceneHierarchy(Coocoo3DMain main)
@@ -903,9 +944,8 @@ vmd格式动作。支持几乎所有的图片格式。");
 
         static void VisualComponent(Coocoo3DMain main, GameObject gameObject, VisualComponent visualComponent)
         {
-            if (ImGui.TreeNode("视觉"))
+            if (ImGui.TreeNode("绑定"))
             {
-                ImGui.Checkbox("显示包围盒", ref showBounding);
                 var drp = main.RPContext.dynamicContextRead;
                 int rendererCount = drp.renderers.Count;
                 string[] renderers = new string[rendererCount + 1];
@@ -952,11 +992,8 @@ vmd格式动作。支持几乎所有的图片格式。");
                 currentItem = 0;
                 for (int i = 1; i < bones.Length; i++)
                 {
-                    string b = bones[i];
-                    if (b == visualComponent.bindBone)
-                    {
+                    if (bones[i] == visualComponent.bindBone)
                         currentItem = i;
-                    }
                 }
                 if (ImGui.Combo("绑定骨骼", ref currentItem, bones, bones.Length))
                 {
@@ -969,7 +1006,15 @@ vmd格式动作。支持几乎所有的图片格式。");
                         visualComponent.bindBone = null;
                     }
                 }
-
+                ImGui.Checkbox("绑定X", ref visualComponent.bindX);
+                ImGui.Checkbox("绑定Y", ref visualComponent.bindY);
+                ImGui.Checkbox("绑定Z", ref visualComponent.bindZ);
+                ImGui.Checkbox("绑定旋转", ref visualComponent.bindRot);
+                ImGui.TreePop();
+            }
+            if (ImGui.TreeNode("视觉"))
+            {
+                ImGui.Checkbox("显示包围盒", ref showBounding);
 
                 ImGui.DragFloat3("大小", ref gameObject.Transform.scale, 0.01f);
                 ShowParams(main, visualComponent.UIShowType, main.RPContext.currentChannel.renderPipelineView, visualComponent.material.Parameters);
@@ -1041,8 +1086,8 @@ vmd格式动作。支持几乎所有的图片格式。");
                 GameObject obj = scene.gameObjects[i];
                 Vector3 position = obj.Transform.position;
                 Vector2 basePos = imagePosition + (TransformToImage(position, vpMatrix, out bool canView)) * imageSize;
-                Vector2 p2 = Vector2.Abs(basePos - mousePos);
-                if (p2.X < 10 && p2.Y < 10 && canView)
+                Vector2 diff = Vector2.Abs(basePos - mousePos);
+                if (diff.X < 10 && diff.Y < 10 && canView)
                 {
                     toolTipMessage += obj.Name + "\n";
                     hoveredIndex = i;
@@ -1473,6 +1518,7 @@ vmd格式动作。支持几乎所有的图片格式。");
         static bool requestParamEdit = false;
         static bool popupParamEdit = false;
         static bool showBounding = true;
+        static bool showRenderBuffers;
         static Dictionary<string, object> paramEdit;
 
         static Dictionary<uint, string> filters = new Dictionary<uint, string>();

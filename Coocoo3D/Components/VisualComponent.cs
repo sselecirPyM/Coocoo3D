@@ -16,6 +16,10 @@ namespace Coocoo3D.Components
 
         public int bindId;
         public string bindBone;
+        public bool bindX = true;
+        public bool bindY = true;
+        public bool bindZ = true;
+        public bool bindRot;
 
         public VisualComponent GetClone()
         {

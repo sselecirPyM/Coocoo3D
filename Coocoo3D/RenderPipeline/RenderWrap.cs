@@ -34,30 +34,7 @@ namespace Coocoo3D.RenderPipeline
         public float DeltaTime { get => (float)rpc.dynamicContextRead.DeltaTime; }
         public float RealDeltaTime { get => (float)rpc.dynamicContextRead.RealDeltaTime; }
 
-        public IEnumerable<VisualComponent> visuals
-        {
-            get
-            {
-                var drp = rpc.dynamicContextRead;
-                foreach (var visual in drp.visuals)
-                {
-                    if (visual.bindBone != null)
-                    {
-                        if (drp.gameObjects.TryGetValue(visual.bindId, out var gameObject) && gameObject.TryGetComponent<MMDRendererComponent>(out var renderer))
-                        {
-                            var bone = renderer.bones.Find(u => u.Name == visual.bindBone);
-                            if (bone == null)
-                                continue;
-                            bone.GetPosRot2(out var pos, out var rot);
-                            Vector3 position = pos + Vector3.Transform(visual.transform.position, rot);
-                            position = Vector3.Transform(position, renderer.LocalToWorld);
-                            visual.transform = new Transform(position, visual.transform.rotation, visual.transform.scale);
-                        }
-                    }
-                    yield return visual;
-                }
-            }
-        }
+        public IEnumerable<VisualComponent> Visuals { get => rpc.dynamicContextRead.visuals; }
 
         public CameraData Camera { get => visualChannel.cameraData; }
 
@@ -313,7 +290,8 @@ namespace Coocoo3D.RenderPipeline
 
             var shaderPath = Path.GetFullPath(path, this.BasePath);
             var pso = cache.GetPSOWithKeywords(keywords, shaderPath, vs, ps, gs);
-            graphicsContext.SetPSO(pso, desc);
+            if (pso != null)
+                graphicsContext.SetPSO(pso, desc);
         }
 
         //public TextureCube GetTexCube(string name, RenderMaterial material = null)

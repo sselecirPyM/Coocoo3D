@@ -211,7 +211,7 @@ namespace RenderPipelines
             scene.AttachLight(envLight);
             lights.Add(envLight);
 
-            foreach (var visual in renderWrap.visuals)
+            foreach (var visual in renderWrap.Visuals)
             {
                 var mat = visual.material;
                 if (visual.UIShowType == Caprice.Display.UIShowType.Light)
