@@ -30,6 +30,12 @@ namespace RenderPipelines
         [Resource("adams_place_bridge_2k.jpg")]
         public Texture2D skyboxTexture;
 
+
+        [Size(32, 32)]
+        [Format(ResourceFormat.R16G16B16A16_Float)]
+        [AutoClear]
+        public Texture2D intermedia2;
+
         [UIDragFloat(0.01f, 0, name: "天空盒亮度")]
         public float SkyLightMultiple = 3;
 
@@ -121,7 +127,7 @@ namespace RenderPipelines
         public DrawQuadPass postProcess = new DrawQuadPass()
         {
             shader = "PostProcessing.hlsl",
-            rs = "Cs",
+            rs = "Css",
             renderTargets = new string[]
             {
                 nameof(output)
@@ -135,6 +141,7 @@ namespace RenderPipelines
             srvs = new string[]
             {
                 nameof(noPostProcess),
+                nameof(intermedia2),
             },
             cbvs = new object[][]
             {

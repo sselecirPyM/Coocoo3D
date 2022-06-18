@@ -10,6 +10,7 @@ struct PSIn
 };
 
 Texture2D noPostProcess : register (t0);
+Texture2D texAdd : register (t1);
 SamplerState s0 : register(s0);
 
 PSIn vsmain(VSIn input)
@@ -26,7 +27,7 @@ float4 psmain(PSIn input) : SV_TARGET
 	float2 uv = input.texcoord;
 	uv.y = 1 - uv.y;
 
-	float4 color1 = noPostProcess.SampleLevel(s0, uv, 0);
+	float4 color1 = noPostProcess.SampleLevel(s0, uv, 0) + texAdd.SampleLevel(s0, uv, 0);
 	color1.rgb = pow(max(color1.rgb, 0.0001),1 / 2.2f);
 	return float4(color1.rgb, 1);
 }

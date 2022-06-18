@@ -1,19 +1,17 @@
 #ifndef INPUT_SELF
 Texture2D<float> input : register(t0);
+#else
+Texture2D<float2> input : register(t0);
 #endif
 
 RWTexture2D<float2> hiz : register(u0);
 cbuffer cb0 : register(b0) {
 	int2 inputSize;
-	int2 startPosition;
-	int2 writePosition;
 }
 
 bool validate(int2 position)
 {
-	//return inputSize1.x > position.x && inputSize1.y > position.y;
 	return all(inputSize > position);
-	//return true;
 }
 
 [numthreads(8, 8, 1)]
@@ -27,31 +25,31 @@ void csmain(uint3 dtid : SV_DispatchThreadID)
 	val.x = input[(dtid.xy * 2) + int2(0, 0)];
 
 	if (validate((dtid.xy * 2) + int2(0, 1)))
-		val.y = input[(dtid.xy * 2) + int2(0, 1) + startPosition];
+		val.y = input[(dtid.xy * 2) + int2(0, 1)];
 	else
 		val.y = val.x;
 	if (validate((dtid.xy * 2) + int2(0, 1)))
-		val.z = input[(dtid.xy * 2) + int2(1, 0) + startPosition];
+		val.z = input[(dtid.xy * 2) + int2(1, 0)];
 	else
 		val.z = val.x;
 	if (validate((dtid.xy * 2) + int2(0, 1)))
-		val.w = input[(dtid.xy * 2) + int2(1, 1) + startPosition];
+		val.w = input[(dtid.xy * 2) + int2(1, 1)];
 	else
 		val.w = val.x;
 	float min1 = min(min(val.x, val.y), min(val.z, val.w));
 	float max1 = max(max(val.x, val.y), max(val.z, val.w));
-	hiz[dtid.xy + writePosition] = float2(min1, max1);
+	hiz[dtid.xy] = float2(min1, max1);
 #else
 	float4 val;
 	float4 val1;
 
 	float2 col[4];
-	col[0].xy = hiz[(dtid.xy * 2) + int2(0, 0) + startPosition].xy;
+	col[0].xy = input[(dtid.xy * 2) + int2(0, 0)].rg;
 
 	for (int i = 1; i < 4; i++)
 	{
 		if (validate((dtid.xy * 2) + int2((i >> 1) & 1, i & 1)))
-			col[i].rg = hiz[(dtid.xy * 2) + int2((i >> 1) & 1, i & 1) + startPosition].rg;
+			col[i].rg = input[(dtid.xy * 2) + int2((i >> 1) & 1, i & 1)].rg;
 		else
 		{
 			col[i].rg = col[0].rg;
@@ -68,6 +66,6 @@ void csmain(uint3 dtid : SV_DispatchThreadID)
 
 	float min1 = min(min(val.x, val.y), min(val.z, val.w));
 	float max1 = max(max(val1.x, val1.y), max(val1.z, val1.w));
-	hiz[dtid.xy + writePosition] = float2(min1, max1);
+	hiz[dtid.xy] = float2(min1, max1);
 #endif
 }

@@ -21,6 +21,8 @@ namespace RenderPipelines
                     null,
                     "BloomThreshold",
                     "BloomIntensity",
+                    null,
+                    null,
                 }
             }
         };
@@ -28,7 +30,7 @@ namespace RenderPipelines
         public DrawQuadPass postProcess = new DrawQuadPass()
         {
             shader = "PostProcessing.hlsl",
-            rs = "Cs",
+            rs = "Css",
             renderTargets = new string[]
             {
                 null
@@ -42,6 +44,7 @@ namespace RenderPipelines
             srvs = new string[]
             {
                 null,
+                "intermedia2",
             },
             cbvs = new object[][]
             {
@@ -51,6 +54,8 @@ namespace RenderPipelines
                 }
             }
         };
+
+        public GenerateMipPass generateMipPass = new GenerateMipPass();
 
         public string inputColor;
 
@@ -62,16 +67,36 @@ namespace RenderPipelines
 
         public void Execute(RenderWrap renderWrap)
         {
+            var outputTexture = renderWrap.GetRenderTexture2D("intermedia2");
+            renderWrap.ClearTexture(outputTexture);
             if (EnableBloom)
             {
-                bloomPass.input = inputColor;
+                generateMipPass.input = inputColor;
+                generateMipPass.output = "intermedia3";
+                generateMipPass.Execute(renderWrap);
+                var inputTexture = renderWrap.GetRenderTexture2D(inputColor);
+
+                int r = 0;
+                uint n = (uint)(inputTexture.height / 1024);
+                while (n > 0)
+                {
+                    r++;
+                    n >>= 1;
+                }
+                bloomPass.mipLevel = r;
+                bloomPass.inputSize = (inputTexture.width / 2, inputTexture.height / 2);
+
+                //bloomPass.input = inputColor;
+                bloomPass.input = "intermedia3";
                 bloomPass.output = "intermedia2";
                 bloomPass.Execute(renderWrap);
-                postProcess.srvs[0] = "intermedia2";
+                postProcess.srvs[0] = inputColor;
+                postProcess.srvs[1] = "intermedia2";
             }
             else
             {
                 postProcess.srvs[0] = inputColor;
+                postProcess.srvs[1] = "intermedia2";
             }
 
             postProcess.renderTargets[0] = output;

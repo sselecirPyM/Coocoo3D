@@ -251,6 +251,26 @@ namespace Coocoo3DGraphics
             return cpuHandle;
         }
 
+        internal CpuDescriptorHandle GetRenderTargetView(ID3D12Resource resource, int mipMap)
+        {
+            var cpuHandle = rtvHeap.GetTempCpuHandle();
+            RenderTargetViewDescription description = new RenderTargetViewDescription();
+            description.ViewDimension = RenderTargetViewDimension.Texture2D;
+            description.Texture2D.MipSlice = mipMap;
+            device.CreateRenderTargetView(resource, description, cpuHandle);
+            return cpuHandle;
+        }
+
+        internal CpuDescriptorHandle GetDepthStencilView(ID3D12Resource resource, int mipMap)
+        {
+            var cpuHandle = dsvHeap.GetTempCpuHandle();
+            DepthStencilViewDescription description = new DepthStencilViewDescription();
+            description.ViewDimension = DepthStencilViewDimension.Texture2D;
+            description.Texture2D.MipSlice = mipMap;
+            device.CreateDepthStencilView(resource, description, cpuHandle);
+            return cpuHandle;
+        }
+
         internal ID3D12CommandAllocator GetCommandAllocator() { return commandAllocators[executeIndex]; }
     }
 }

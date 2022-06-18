@@ -146,6 +146,16 @@ namespace Coocoo3D.RenderPipeline
             graphicsContext.SetUAVTSlot(buffer, slot);
         }
 
+        public void SetUAV(Texture2D texture2D, int mipIndex, int slot)
+        {
+            graphicsContext.SetUAVTSlot(texture2D, mipIndex, slot);
+        }
+
+        public void SetUAV(TextureCube textureCube, int mipIndex, int slot)
+        {
+            graphicsContext.SetUAVTSlot(textureCube, mipIndex, slot);
+        }
+
         public void SetSRV(Texture2D texture, int slot)
         {
             graphicsContext.SetSRVTSlot(texture, slot);
@@ -166,9 +176,9 @@ namespace Coocoo3D.RenderPipeline
             graphicsContext.SetSRVTLim(textureCube, mip, slot);
         }
 
-        public void SetUAV(TextureCube textureCube, int mipIndex, int slot)
+        public void SetSRVLim(Texture2D texture, int mip, int slot)
         {
-            graphicsContext.SetUAVTSlot(textureCube, mipIndex, slot);
+            graphicsContext.SetSRVTLim(texture, mip, slot);
         }
 
         TextureCube GetTexCube(string name)
@@ -292,6 +302,8 @@ namespace Coocoo3D.RenderPipeline
             var pso = cache.GetPSOWithKeywords(keywords, shaderPath, vs, ps, gs);
             if (pso != null)
                 graphicsContext.SetPSO(pso, desc);
+            else
+                Console.WriteLine("shader compilation error");
         }
 
         //public TextureCube GetTexCube(string name, RenderMaterial material = null)

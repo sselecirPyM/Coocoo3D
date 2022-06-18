@@ -115,6 +115,7 @@ namespace Coocoo3D.RenderPipeline
                 if (isRenderTexture2D)
                 {
                     Texture2D texture2D = new Texture2D();
+                    texture2D.Name = field.Name;
                     rt.texture2D = texture2D;
 
                     if (aovAttribute != null)
@@ -130,12 +131,14 @@ namespace Coocoo3D.RenderPipeline
                 if (isRenderTextureCube)
                 {
                     TextureCube textureCube = new TextureCube();
+                    textureCube.Name = field.Name;
                     rt.textureCube = textureCube;
                     field.SetValue(renderPipeline, textureCube);
                 }
                 if (isGPUBuffer)
                 {
                     GPUBuffer buffer = new GPUBuffer();
+                    buffer.Name = field.Name;
                     rt.gpuBuffer = buffer;
                     field.SetValue(renderPipeline, buffer);
                 }
@@ -301,7 +304,7 @@ namespace Coocoo3D.RenderPipeline
                     var type = uiUsage.Value.MemberInfo.GetGetterType();
                     if (type == typeof(Texture2D))
                     {
-                        if(value is string s)
+                        if (value is string s)
                         {
                             textureReplacement[uiUsage.Key] = s;
                         }

@@ -28,13 +28,17 @@ namespace RenderPipelines
         [Size("Output")]
         [Format(ResourceFormat.D32_Float)]
         public Texture2D depth2;
-
-        [Size("HalfOutput")]
+        
+        [Size("BloomSize")]
         [Format(ResourceFormat.R16G16B16A16_Float)]
-        public Texture2D intermedia1;
-        [Size("Output")]
+        public Texture2D intermedia1;//used by bloom
+        [Size("BloomSize")]
         [Format(ResourceFormat.R16G16B16A16_Float)]
-        public Texture2D intermedia2;
+        public Texture2D intermedia2;//used by bloom
+        [Size(2048, 2048, 9)]
+        [Format(ResourceFormat.R16G16B16A16_Float)]
+        [AutoClear]
+        public Texture2D intermedia3;//used by bloom
 
         [Size("Output")]
         [Format(ResourceFormat.R16G16B16A16_Float)]
@@ -266,6 +270,8 @@ namespace RenderPipelines
             outputHeight = (int)(outputHeight * RenderScale);
             renderWrap.SetSize("Output", outputWidth, outputHeight);
             renderWrap.SetSize("HalfOutput", (outputWidth + 1) / 2, (outputHeight + 1) / 2);
+            renderWrap.SetSize("QuarterOutput", (outputWidth + 3) / 4, (outputHeight + 3) / 4);
+            renderWrap.SetSize("BloomSize", outputWidth * 256 / outputHeight, 256);
             renderWrap.texLoading = renderWrap.GetTex2DLoaded("loading.png");
             renderWrap.texError = renderWrap.GetTex2DLoaded("error.png");
         }

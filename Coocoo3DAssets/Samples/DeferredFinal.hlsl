@@ -429,7 +429,7 @@ float3 Shade(float3 N, float3 wPos, float3 V, float3 c_diffuse, float3 c_specula
 
 			float2 tx = (nextBPosition - currentPosition);
 			float2 tx1 = tx * invDir;
-			float2 colHiZ = HiZ[GetHiZStartPosition(j) + hizPosition];
+			float2 colHiZ = HiZ.mips[j - 1][hizPosition];
 			float4 xNext = fnext;
 			if (abs(tx1.x) > abs(tx1.y))
 			{

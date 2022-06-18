@@ -3,6 +3,7 @@ using Coocoo3DGraphics;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -18,29 +19,36 @@ namespace RenderPipelines
             renderTargetCount = 1,
         };
 
-        string rs = "Cs";
+        string rs = "Csu";
 
         public object[][] cbvs;
 
         public string intermediaTexture;
 
-        public bool clearRenderTarget = false;
-
         public string input;
 
         public string output;
 
+        public int mipLevel;
+
+        public (int, int) inputSize;
+
+        (string, string)[] keywords1 = { ("BLOOM_1", "1") };
+        (string, string)[] keywords2 = { ("BLOOM_2", "1") };
+
         public void Execute(RenderWrap renderWrap)
         {
-            if (cbvs == null || cbvs.Length < 1 ||  string.IsNullOrEmpty(input)) return;
+            if (cbvs == null || cbvs.Length < 1 || string.IsNullOrEmpty(input)) return;
             renderWrap.SetRootSignature(rs);
 
-            renderWrap.CopyTexture(renderWrap.GetRenderTexture2D(output), renderWrap.GetTex2D(input));
+            var inputTexture = renderWrap.GetRenderTexture2D(input);
+            var intermedia1 = renderWrap.GetRenderTexture2D(intermediaTexture);
+            Vector2 intermediaSize = new Vector2(intermedia1.width, intermedia1.height);
+            cbvs[0][0] = new Vector2((float)inputSize.Item1 / inputTexture.width / intermediaSize.X, 0);
+            //cbvs[0][1] = 0.0f;
 
-            var intermedia1 = renderWrap.GetTex2D(intermediaTexture);
-            renderWrap.SetSRVs(new[] { input }, null);
-            cbvs[0][0] = intermedia1.width;
-            cbvs[0][1] = intermedia1.height;
+            cbvs[0][4] = new Vector2((float)inputSize.Item1 / inputTexture.width / intermediaSize.X, (float)inputSize.Item2 / inputTexture.height / intermediaSize.Y);
+
             var writer = renderWrap.Writer;
             for (int i = 0; i < cbvs.Length; i++)
             {
@@ -49,16 +57,15 @@ namespace RenderPipelines
                 renderWrap.Write(cbv1, writer);
                 writer.SetBufferImmediately(i);
             }
-            renderWrap.SetRenderTarget(new[] { intermediaTexture }, null, clearRenderTarget, false);
-            psoDesc.rtvFormat = intermedia1.format;
-            psoDesc.blendState = BlendState.None;
-            renderWrap.SetShader(shader, psoDesc, new[] { ("BLOOM_1", "1") });
-            renderWrap.DrawQuad();
 
-            var renderTarget = renderWrap.GetTex2D(output);
-            renderWrap.SetSRVs(new[] { intermediaTexture }, null);
-            cbvs[0][0] = renderTarget.width;
-            cbvs[0][1] = renderTarget.height;
+            renderWrap.SetSRVLim(inputTexture, mipLevel, 0);
+            renderWrap.SetUAV(intermedia1, 0);
+            renderWrap.Dispatch(shader, keywords1, (intermedia1.width + 63) / 64, intermedia1.height);
+
+            var renderTarget = renderWrap.GetRenderTexture2D(output);
+            cbvs[0][0] = new Vector2(0, 1.0f / intermediaSize.Y);
+            //cbvs[0][1] = ;
+            cbvs[0][4] = new Vector2(1.0f / (float)renderTarget.width, 1.0f / (float)renderTarget.height);
             for (int i = 0; i < cbvs.Length; i++)
             {
                 object[] cbv1 = cbvs[i];
@@ -66,11 +73,11 @@ namespace RenderPipelines
                 renderWrap.Write(cbv1, writer);
                 writer.SetBufferImmediately(i);
             }
-            renderWrap.SetRenderTarget(renderTarget, null, clearRenderTarget, false);
-            psoDesc.rtvFormat = renderTarget.format;
-            psoDesc.blendState = BlendState.Add;
-            renderWrap.SetShader(shader, psoDesc, new[] { ("BLOOM_2", "1") });
-            renderWrap.DrawQuad();
+
+
+            renderWrap.SetSRV(intermedia1, 0);
+            renderWrap.SetUAV(renderTarget, 0);
+            renderWrap.Dispatch(shader, keywords2, renderTarget.width, (renderTarget.height + 63) / 64);
             writer.Clear();
         }
     }

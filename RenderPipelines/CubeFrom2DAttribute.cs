@@ -23,7 +23,7 @@ namespace RenderPipelines
             for (int i = 1; i < texture.mipLevels; i++)
             {
                 int mipPow = 1 << i;
-                renderWrap.SetSRVLim(texture, i, 0);
+                renderWrap.SetSRVLim(texture, i - 1, 0);
                 renderWrap.SetUAV(texture, i, 0);
                 writer.Write(width / mipPow);
                 writer.Write(height / mipPow);

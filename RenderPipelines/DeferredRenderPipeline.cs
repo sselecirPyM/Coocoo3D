@@ -58,19 +58,23 @@ namespace RenderPipelines
         public Texture2D gbuffer3;
 
 
-        [Size("HalfOutput")]
+        [Size("BloomSize")]
         [Format(ResourceFormat.R16G16B16A16_Float)]
         public Texture2D intermedia1;//used by bloom
-        [Size("Output")]
+        [Size("BloomSize")]
         [Format(ResourceFormat.R16G16B16A16_Float)]
         public Texture2D intermedia2;//used by bloom
+        [Size(2048, 2048, 9)]
+        [Format(ResourceFormat.R16G16B16A16_Float)]
+        [AutoClear]
+        public Texture2D intermedia3;//used by bloom
 
         [Size(4096, 4096)]
         [Format(ResourceFormat.D32_Float)]
         [AutoClear]
         public Texture2D _ShadowMap;
 
-        [Size(4096, 2048)]
+        [Size(2048, 2048, 9)]
         [Format(ResourceFormat.R32G32_Float)]
         [AutoClear]
         public Texture2D _HiZBuffer;
@@ -306,7 +310,7 @@ namespace RenderPipelines
         public Texture2D DecalEmissiveTexture;
         [Indexable]
         [UIColor(UIShowType.Decal, "发光强度")]
-        public Vector4 _DecalEmissivePower;
+        public Vector4 _DecalEmissivePower = new Vector4(1, 1, 1, 1);
         #endregion
 
         #region Light Parameters
@@ -384,6 +388,8 @@ namespace RenderPipelines
             outputHeight = (int)(outputHeight * RenderScale);
             renderWrap.SetSize("Output", outputWidth, outputHeight);
             renderWrap.SetSize("HalfOutput", (outputWidth + 1) / 2, (outputHeight + 1) / 2);
+            renderWrap.SetSize("QuarterOutput", (outputWidth + 3) / 4, (outputHeight + 3) / 4);
+            renderWrap.SetSize("BloomSize", outputWidth * 256 / outputHeight, 256);
             renderWrap.SetSize("GIBufferSize", 589824, 1);
             renderWrap.texLoading = renderWrap.GetTex2DLoaded("loading.png");
             renderWrap.texError = renderWrap.GetTex2DLoaded("error.png");

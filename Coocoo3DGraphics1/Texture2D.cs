@@ -11,7 +11,6 @@ namespace Coocoo3DGraphics
     {
         public ID3D12Resource resource;
         public string Name;
-        public ResourceStates resourceStates;
         public int width;
         public int height;
         public int mipLevels;
@@ -19,7 +18,81 @@ namespace Coocoo3DGraphics
         public Format rtvFormat;
         public Format dsvFormat;
         public Format uavFormat;
+        public List<ResourceStates> resourceStates = new List<ResourceStates>();
         public GraphicsObjectStatus Status;
+
+        public void InitResourceState(ResourceStates rs)
+        {
+            resourceStates.Clear();
+            for (int i = 0; i < mipLevels; i++)
+                resourceStates.Add(rs);
+        }
+
+        internal void SetAllResourceState(ID3D12GraphicsCommandList commandList, ResourceStates states)
+        {
+            ResourceStates prev;
+
+            prev = resourceStates[0];
+            bool oneTrans = true;
+
+            for (int i = 0; i < mipLevels; i++)
+                if (resourceStates[i] != prev)
+                    oneTrans = false;
+            if (oneTrans)
+            {
+                if (states != prev)
+                {
+                    commandList.ResourceBarrierTransition(resource, prev, states);
+                    for (int i = 0; i < mipLevels; i++)
+                    {
+                        resourceStates[i] = states;
+                    }
+                }
+                else if (states == ResourceStates.UnorderedAccess)
+                {
+                    commandList.ResourceBarrierUnorderedAccessView(resource);
+                }
+            }
+            else
+            {
+                for (int i = 0; i < mipLevels; i++)
+                {
+                    if (states != resourceStates[i])
+                    {
+                        commandList.ResourceBarrierTransition(resource, resourceStates[i], states, i);
+                    }
+                    //else if (states == ResourceStates.UnorderedAccess)
+                    //{
+                    //    commandList.ResourceBarrierUnorderedAccessView(resource);
+                    //}
+                    resourceStates[i] = states;
+                }
+                if (states == ResourceStates.UnorderedAccess && prev == states)
+                {
+                    commandList.ResourceBarrierUnorderedAccessView(resource);
+                }
+            }
+        }
+
+        internal void SetPartResourceState(ID3D12GraphicsCommandList commandList, ResourceStates states, int mipLevelBegin, int mipLevels)
+        {
+            bool uavBarrier = false;
+            for (int i = mipLevelBegin; i < mipLevelBegin + mipLevels; i++)
+            {
+                int index1 = i;
+                if (states != resourceStates[index1])
+                {
+                    commandList.ResourceBarrierTransition(resource, resourceStates[index1], states, index1);
+                    resourceStates[index1] = states;
+                }
+                else if (states == ResourceStates.UnorderedAccess)
+                {
+                    uavBarrier = true;
+                }
+            }
+            if (uavBarrier)
+                commandList.ResourceBarrierUnorderedAccessView(resource);
+        }
 
         public void ReloadAsDSV(int width, int height, int mips, Format format)
         {
@@ -51,19 +124,6 @@ namespace Coocoo3DGraphics
             if (dsvFormat != Format.Unknown)
                 return dsvFormat;
             return format;
-        }
-
-        internal void StateChange(ID3D12GraphicsCommandList commandList, ResourceStates states)
-        {
-            if (states != resourceStates)
-            {
-                commandList.ResourceBarrierTransition(resource, resourceStates, states);
-                resourceStates = states;
-            }
-            else if (states == ResourceStates.UnorderedAccess)
-            {
-                commandList.ResourceBarrierUnorderedAccessView(resource);
-            }
         }
 
         internal ResourceDescription GetResourceDescription()

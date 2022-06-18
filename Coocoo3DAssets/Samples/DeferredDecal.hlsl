@@ -67,9 +67,11 @@ MRTOutput psmain(PSIn input) : SV_TARGET
 	{
 #ifdef ENABLE_DECAL_COLOR
 		output.color0 = Albedo.Sample(s1, objectUV);
+		output.color0.a *= smoothstep(0, 0.1, 1 - abs(objectPos.z));
 #endif
 #ifdef ENABLE_DECAL_EMISSIVE
-			output.color1 = Emissive.Sample(s1, objectUV) * _DecalEmissivePower;
+		output.color1 = Emissive.Sample(s1, objectUV) * _DecalEmissivePower;
+		output.color1.a *= smoothstep(0, 0.2, 1 - abs(objectPos.z));
 #endif
 		return output;
 	}

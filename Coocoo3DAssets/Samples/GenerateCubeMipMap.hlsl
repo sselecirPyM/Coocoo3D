@@ -124,5 +124,5 @@ void csmain(uint3 dtid : SV_DispatchThreadID)
 		dir1 = mul(float4(screenPos, 0, 1), _nzproj);
 	}
 	N = normalize(dir1.xyz / dir1.w);
-	IrradianceMap[dtid] = Image.SampleLevel(s0, N, mips);
+	IrradianceMap[dtid] = Image.SampleLevel(s0, N, 0);
 }
