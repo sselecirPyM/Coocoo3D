@@ -20,6 +20,7 @@ namespace Coocoo3D.Components
         public bool LockMotion;
 
         public bool skinning;
+        public bool enableIK = true;
 
         public List<RenderMaterial> Materials = new();
 
@@ -120,11 +121,11 @@ namespace Coocoo3D.Components
                     bones[morphBoneStruct.BoneIndex].dynamicPosition += morphBoneStruct.Translation * computedWeight;
                 }
             }
-
-            for (int i = 0; i < bones.Count; i++)
-            {
-                IK(i, bones);
-            }
+            if (enableIK)
+                for (int i = 0; i < bones.Count; i++)
+                {
+                    IK(i, bones);
+                }
             UpdateAppendBones();
         }
 

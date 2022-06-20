@@ -224,7 +224,7 @@ namespace Coocoo3D.UI
             {
                 PlayControl.FastForward(main);
             }
-            ImGui.Text(String.Format("Fps:{0:f1}", main.framePerSecond));
+            ImGui.Text(string.Format("Fps:{0:f1}", main.framePerSecond));
         }
 
         static void SettingsPanel(Coocoo3DMain main)
@@ -500,6 +500,33 @@ namespace Coocoo3D.UI
                     if (dragIntAttribute != null)
                     {
                         if (ImGui.DragInt(displayName, ref val, dragIntAttribute.Step, dragIntAttribute.Min, dragIntAttribute.Max))
+                        {
+                            setter.Invoke(val);
+                        }
+                    }
+                    break;
+                case ValueTuple<int, int> val:
+                    if (dragIntAttribute != null)
+                    {
+                        if (ImGui.DragInt2(displayName, ref val.Item1, dragIntAttribute.Step, dragIntAttribute.Min, dragIntAttribute.Max))
+                        {
+                            setter.Invoke(val);
+                        }
+                    }
+                    break;
+                case ValueTuple<int, int, int> val:
+                    if (dragIntAttribute != null)
+                    {
+                        if (ImGui.DragInt3(displayName, ref val.Item1, dragIntAttribute.Step, dragIntAttribute.Min, dragIntAttribute.Max))
+                        {
+                            setter.Invoke(val);
+                        }
+                    }
+                    break;
+                case ValueTuple<int, int, int, int> val:
+                    if (dragIntAttribute != null)
+                    {
+                        if (ImGui.DragInt4(displayName, ref val.Item1, dragIntAttribute.Step, dragIntAttribute.Min, dragIntAttribute.Max))
                         {
                             setter.Invoke(val);
                         }
@@ -810,8 +837,6 @@ vmd格式动作。支持几乎所有的图片格式。");
 
                 if (gameObjects.Count > gameObjectSelectIndex + 1)
                     main.SelectedGameObjects.Add(gameObjects[gameObjectSelectIndex + 1]);
-
-                //gameObjectSelectIndex = -1;
             }
             if (copyObject)
             {
@@ -880,6 +905,9 @@ vmd格式动作。支持几乎所有的图片格式。");
                 ImGui.Checkbox("蒙皮", ref renderer.skinning);
                 if (ImGui.IsItemHovered())
                     ImGui.SetTooltip("关闭蒙皮可以提高性能");
+                ImGui.Checkbox("使用IK", ref renderer.enableIK);
+                if (ImGui.IsItemHovered())
+                    ImGui.SetTooltip("如果动作不使用IK，请取消勾选");
                 ImGui.Checkbox("锁定动作", ref renderer.LockMotion);
                 var morphStates = renderer.morphStateComponent;
                 if (renderer.LockMotion)
@@ -1107,6 +1135,11 @@ vmd格式动作。支持几乎所有的图片格式。");
                 if (io.MouseReleased[0] && ImGui.IsItemFocused())
                 {
                     gameObjectSelectIndex = hoveredIndex;
+                    if (hoveredIndex != -1)
+                    {
+                        main.SelectedGameObjects.Clear();
+                        main.SelectedGameObjects.Add(scene.gameObjects[hoveredIndex]);
+                    }
                 }
             }
             if (!string.IsNullOrEmpty(toolTipMessage))
@@ -1517,7 +1550,7 @@ vmd格式动作。支持几乎所有的图片格式。");
 
         static bool requestParamEdit = false;
         static bool popupParamEdit = false;
-        static bool showBounding = true;
+        static bool showBounding = false;
         static bool showRenderBuffers;
         static Dictionary<string, object> paramEdit;
 

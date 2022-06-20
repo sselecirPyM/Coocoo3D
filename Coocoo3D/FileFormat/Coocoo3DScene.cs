@@ -28,6 +28,7 @@ namespace Coocoo3D.FileFormat
         public string path;
         public string name;
         public bool? skinning;
+        public bool? enableIK;
         public Vector3 position;
         public Quaternion rotation = Quaternion.Identity;
         public Vector3 scale = Vector3.One;
@@ -38,11 +39,24 @@ namespace Coocoo3D.FileFormat
     public class CooSceneObjectVisual
     {
         public _cooMaterial material;
+
+        public CooSceneObjectVisual()
+        {
+
+        }
+
+        public CooSceneObjectVisual(_cooMaterial material)
+        {
+            this.material = material;
+        }
     }
     public class _cooMaterial
     {
         public Dictionary<string, bool> bValue;
         public Dictionary<string, int> iValue;
+        public Dictionary<string, (int, int)> i2Value;
+        public Dictionary<string, (int, int, int)> i3Value;
+        public Dictionary<string, (int, int, int, int)> i4Value;
         public Dictionary<string, float> fValue;
         public Dictionary<string, Vector2> f2Value;
         public Dictionary<string, Vector3> f3Value;
@@ -53,7 +67,6 @@ namespace Coocoo3D.FileFormat
     {
         public int formatVersion = 1;
         public List<CooSceneObject> objects;
-        public Dictionary<string, string> sceneProperties;
 
         static bool _func1<T>(ref Dictionary<string, T> dict, KeyValuePair<string, object> pair)
         {
@@ -68,8 +81,6 @@ namespace Coocoo3D.FileFormat
         public static Coocoo3DScene FromScene(Coocoo3DMain main)
         {
             Coocoo3DScene scene = new Coocoo3DScene();
-            scene.sceneProperties = new Dictionary<string, string>();
-            //scene.sceneProperties.Add("skyBox", main.RPContext.skyBoxTex);
             scene.objects = new List<CooSceneObject>();
 
             foreach (var obj in main.CurrentScene.gameObjects)
@@ -84,22 +95,10 @@ namespace Coocoo3D.FileFormat
                     sceneObject.properties.Add("motion", renderer.motionPath);
                     sceneObject.materials = new Dictionary<string, _cooMaterial>();
                     sceneObject.skinning = renderer.skinning;
+                    sceneObject.enableIK = renderer.enableIK;
                     foreach (var material in renderer.Materials)
                     {
-                        _cooMaterial material1 = new _cooMaterial();
-
-                        sceneObject.materials[material.Name] = material1;
-
-                        foreach (var customValue in material.Parameters)
-                        {
-                            if (_func1(ref material1.fValue, customValue)) continue;
-                            if (_func1(ref material1.f2Value, customValue)) continue;
-                            if (_func1(ref material1.f3Value, customValue)) continue;
-                            if (_func1(ref material1.f4Value, customValue)) continue;
-                            if (_func1(ref material1.bValue, customValue)) continue;
-                            if (_func1(ref material1.iValue, customValue)) continue;
-                            if (_func1(ref material1.strValue, customValue)) continue;
-                        }
+                        sceneObject.materials[material.Name] = Mat2Mat(material);
                     }
                     scene.objects.Add(sceneObject);
                 }
@@ -112,20 +111,7 @@ namespace Coocoo3D.FileFormat
                     sceneObject.materials = new Dictionary<string, _cooMaterial>();
                     foreach (var material in meshRenderer.Materials)
                     {
-                        _cooMaterial material1 = new _cooMaterial();
-
-                        sceneObject.materials[material.Name] = material1;
-
-                        foreach (var customValue in material.Parameters)
-                        {
-                            if (_func1(ref material1.fValue, customValue)) continue;
-                            if (_func1(ref material1.f2Value, customValue)) continue;
-                            if (_func1(ref material1.f3Value, customValue)) continue;
-                            if (_func1(ref material1.f4Value, customValue)) continue;
-                            if (_func1(ref material1.bValue, customValue)) continue;
-                            if (_func1(ref material1.iValue, customValue)) continue;
-                            if (_func1(ref material1.strValue, customValue)) continue;
-                        }
+                        sceneObject.materials[material.Name] = Mat2Mat(material);
                     }
                     scene.objects.Add(sceneObject);
                 }
@@ -137,7 +123,7 @@ namespace Coocoo3D.FileFormat
                         decalObject.type = "decal";
                     if (visual.UIShowType == Caprice.Display.UIShowType.Light)
                         decalObject.type = "lighting";
-                    decalObject.visual = new CooSceneObjectVisual() { material = Mat2Mat(visual.material) };
+                    decalObject.visual = new CooSceneObjectVisual(Mat2Mat(visual.material));
                     scene.objects.Add(decalObject);
                 }
             }
@@ -152,10 +138,6 @@ namespace Coocoo3D.FileFormat
         }
         public void ToScene(Coocoo3DMain main)
         {
-            if (sceneProperties.TryGetValue("skyBox", out string skyBox))
-            {
-                //main.RPContext.SetSkyBox(skyBox);
-            }
             foreach (var obj in objects)
             {
                 GameObject gameObject = GetGameObject(obj);
@@ -168,6 +150,8 @@ namespace Coocoo3D.FileFormat
                     var renderer = gameObject.GetComponent<MMDRendererComponent>();
                     if (obj.skinning != null)
                         renderer.skinning = (bool)obj.skinning;
+                    if (obj.enableIK != null)
+                        renderer.enableIK = (bool)obj.enableIK;
                     if (obj.properties != null)
                     {
                         if (obj.properties.TryGetValue("motion", out string motion))
@@ -231,6 +215,9 @@ namespace Coocoo3D.FileFormat
                 _func2(mat1.f3Value, mat.Parameters);
                 _func2(mat1.f4Value, mat.Parameters);
                 _func2(mat1.iValue, mat.Parameters);
+                _func2(mat1.i2Value, mat.Parameters);
+                _func2(mat1.i3Value, mat.Parameters);
+                _func2(mat1.i4Value, mat.Parameters);
                 _func2(mat1.bValue, mat.Parameters);
                 _func2(mat1.strValue, mat.Parameters);
             }
@@ -244,6 +231,9 @@ namespace Coocoo3D.FileFormat
             _func2(material.f3Value, mat.Parameters);
             _func2(material.f4Value, mat.Parameters);
             _func2(material.iValue, mat.Parameters);
+            _func2(material.i2Value, mat.Parameters);
+            _func2(material.i3Value, mat.Parameters);
+            _func2(material.i4Value, mat.Parameters);
             _func2(material.bValue, mat.Parameters);
             _func2(material.strValue, mat.Parameters);
             return mat;
@@ -258,8 +248,11 @@ namespace Coocoo3D.FileFormat
                 if (_func1(ref material1.f2Value, customValue)) continue;
                 if (_func1(ref material1.f3Value, customValue)) continue;
                 if (_func1(ref material1.f4Value, customValue)) continue;
-                if (_func1(ref material1.bValue, customValue)) continue;
                 if (_func1(ref material1.iValue, customValue)) continue;
+                if (_func1(ref material1.i2Value, customValue)) continue;
+                if (_func1(ref material1.i3Value, customValue)) continue;
+                if (_func1(ref material1.i4Value, customValue)) continue;
+                if (_func1(ref material1.bValue, customValue)) continue;
                 if (_func1(ref material1.strValue, customValue)) continue;
                 if (customValue.Value != null && customValue.Value.GetType().IsEnum)
                 {
