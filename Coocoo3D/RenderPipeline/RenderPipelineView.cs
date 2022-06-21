@@ -31,6 +31,7 @@ namespace Coocoo3D.RenderPipeline
 
         internal Dictionary<string, string> textureReplacement = new Dictionary<string, string>();
         internal Dictionary<string, MemberInfo> indexables = new Dictionary<string, MemberInfo>();
+        internal Dictionary<string, MemberInfo> sceneCaptures = new Dictionary<string, MemberInfo>();
 
         internal Dictionary<string, UIUsage> UIUsages = new Dictionary<string, UIUsage>();
 
@@ -44,103 +45,17 @@ namespace Coocoo3D.RenderPipeline
             var fields = type.GetFields();
             foreach (var field in fields)
             {
-                bool isRenderTexture2D = false;
-                bool isRenderTextureCube = false;
-                bool isGPUBuffer = false;
-                if (field.FieldType == typeof(Texture2D))
+                if (field.FieldType == typeof(Texture2D) || field.FieldType == typeof(TextureCube) || field.FieldType == typeof(GPUBuffer))
                 {
-                    isRenderTexture2D = true;
-                }
-                else if (field.FieldType == typeof(TextureCube))
-                {
-                    isRenderTextureCube = true;
-                }
-                else if (field.FieldType == typeof(GPUBuffer))
-                {
-                    isGPUBuffer = true;
+                    RenderResource(field);
                 }
                 else
                 {
-                    continue;
-                }
-                var aovAttribute = field.GetCustomAttribute<AOVAttribute>();
-                var clearColorAttribute = field.GetCustomAttribute<AutoClearAttribute>();
-                var formatAttribute = field.GetCustomAttribute<FormatAttribute>();
-                var resourceAttribute = field.GetCustomAttribute<ResourceAttribute>();
-                var runtimeBakeAttribute = field.GetCustomAttribute<RuntimeBakeAttribute>();
-                var sizeAttribute = field.GetCustomAttribute<SizeAttribute>();
-                var srgbAttribute = field.GetCustomAttribute<SrgbAttribute>();
-                var bakeDependencyAttribute = field.GetCustomAttribute<BakeDependencyAttribute>();
-
-                var rt = new RenderTextureUsage
-                {
-                    sizeAttribute = sizeAttribute,
-                    autoClearAttribute = clearColorAttribute,
-                    formatAttribute = formatAttribute,
-                    runtimeBakeAttribute = runtimeBakeAttribute,
-                    bakeDependencyAttribute = bakeDependencyAttribute,
-                    srgbAttribute = srgbAttribute,
-                    name = field.Name,
-                    fieldInfo = field,
-                };
-                RenderTextures[field.Name] = rt;
-
-                if (bakeDependencyAttribute != null)
-                {
-                    foreach (var dep in bakeDependencyAttribute.dependencies)
+                    var sceneCapture = field.GetCustomAttribute<SceneCaptureAttribute>();
+                    if (sceneCapture != null)
                     {
-                        if (!dependents.TryGetValue(dep, out var list))
-                        {
-                            list = new List<string>();
-                            dependents[dep] = list;
-                        }
-                        list.Add(field.Name);
+                        sceneCaptures[field.Name] = field;
                     }
-                }
-                if (resourceAttribute != null)
-                {
-                    textureReplacement[field.Name] = Path.GetFullPath(resourceAttribute.Resource, path);
-                }
-                if (sizeAttribute != null)
-                {
-                    rt.width = sizeAttribute.X;
-                    rt.height = sizeAttribute.Y;
-                    rt.mips = sizeAttribute.Mips;
-                }
-                if (formatAttribute != null)
-                {
-                    rt.resourceFormat = formatAttribute.format;
-                }
-
-                if (isRenderTexture2D)
-                {
-                    Texture2D texture2D = new Texture2D();
-                    texture2D.Name = field.Name;
-                    rt.texture2D = texture2D;
-
-                    if (aovAttribute != null)
-                    {
-                        if (AOVs.ContainsKey(aovAttribute.AOVType))
-                            Console.WriteLine(field.Name + ". Duplicate AOV bindings.");
-
-                        AOVs[aovAttribute.AOVType] = texture2D;
-                    }
-                    invertFinding[texture2D] = field.Name;
-                    field.SetValue(renderPipeline, texture2D);
-                }
-                if (isRenderTextureCube)
-                {
-                    TextureCube textureCube = new TextureCube();
-                    textureCube.Name = field.Name;
-                    rt.textureCube = textureCube;
-                    field.SetValue(renderPipeline, textureCube);
-                }
-                if (isGPUBuffer)
-                {
-                    GPUBuffer buffer = new GPUBuffer();
-                    buffer.Name = field.Name;
-                    rt.gpuBuffer = buffer;
-                    field.SetValue(renderPipeline, buffer);
                 }
             }
 
@@ -173,6 +88,89 @@ namespace Coocoo3D.RenderPipeline
                 }
             }
 
+        }
+
+        void RenderResource(FieldInfo field)
+        {
+            var aovAttribute = field.GetCustomAttribute<AOVAttribute>();
+            var clearColorAttribute = field.GetCustomAttribute<AutoClearAttribute>();
+            var formatAttribute = field.GetCustomAttribute<FormatAttribute>();
+            var resourceAttribute = field.GetCustomAttribute<ResourceAttribute>();
+            var runtimeBakeAttribute = field.GetCustomAttribute<RuntimeBakeAttribute>();
+            var sizeAttribute = field.GetCustomAttribute<SizeAttribute>();
+            var srgbAttribute = field.GetCustomAttribute<SrgbAttribute>();
+            var bakeDependencyAttribute = field.GetCustomAttribute<BakeDependencyAttribute>();
+
+            var rt = new RenderTextureUsage
+            {
+                sizeAttribute = sizeAttribute,
+                autoClearAttribute = clearColorAttribute,
+                formatAttribute = formatAttribute,
+                runtimeBakeAttribute = runtimeBakeAttribute,
+                bakeDependencyAttribute = bakeDependencyAttribute,
+                srgbAttribute = srgbAttribute,
+                name = field.Name,
+                fieldInfo = field,
+            };
+            RenderTextures[field.Name] = rt;
+
+            if (bakeDependencyAttribute != null)
+            {
+                foreach (var dep in bakeDependencyAttribute.dependencies)
+                {
+                    if (!dependents.TryGetValue(dep, out var list))
+                    {
+                        list = new List<string>();
+                        dependents[dep] = list;
+                    }
+                    list.Add(field.Name);
+                }
+            }
+            if (resourceAttribute != null)
+            {
+                textureReplacement[field.Name] = Path.GetFullPath(resourceAttribute.Resource, path);
+            }
+            if (sizeAttribute != null)
+            {
+                rt.width = sizeAttribute.X;
+                rt.height = sizeAttribute.Y;
+                rt.mips = sizeAttribute.Mips;
+            }
+            if (formatAttribute != null)
+            {
+                rt.resourceFormat = formatAttribute.format;
+            }
+
+            if (field.FieldType == typeof(Texture2D))
+            {
+                Texture2D texture2D = new Texture2D();
+                texture2D.Name = field.Name;
+                rt.texture2D = texture2D;
+
+                if (aovAttribute != null)
+                {
+                    if (AOVs.ContainsKey(aovAttribute.AOVType))
+                        Console.WriteLine(field.Name + ". Duplicate AOV bindings.");
+
+                    AOVs[aovAttribute.AOVType] = texture2D;
+                }
+                invertFinding[texture2D] = field.Name;
+                field.SetValue(renderPipeline, texture2D);
+            }
+            if (field.FieldType == typeof(TextureCube))
+            {
+                TextureCube textureCube = new TextureCube();
+                textureCube.Name = field.Name;
+                rt.textureCube = textureCube;
+                field.SetValue(renderPipeline, textureCube);
+            }
+            if (field.FieldType == typeof(GPUBuffer))
+            {
+                GPUBuffer buffer = new GPUBuffer();
+                buffer.Name = field.Name;
+                rt.gpuBuffer = buffer;
+                field.SetValue(renderPipeline, buffer);
+            }
         }
 
         void _Member(MemberInfo member)

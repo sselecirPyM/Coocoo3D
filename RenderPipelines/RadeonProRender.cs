@@ -109,6 +109,9 @@ namespace RenderPipelines
         public LightType LightType;
         #endregion
 
+        [SceneCapture]
+        public CameraData camera;
+
         RPRContext context;
         RPRScene scene;
         RPRCamera rprCamera;
@@ -199,7 +202,7 @@ namespace RenderPipelines
                 frameBufferResolved = new RPRFrameBuffer(context, format, desc);
             }
 
-            var camera = renderWrap.Camera;
+            var camera = this.camera;
             scene = new RPRScene(context);
             context.SetScene(scene);
             Vector3 angle = camera.Angle;

@@ -30,13 +30,7 @@ namespace Coocoo3D.RenderPipeline
 
         public bool CPUSkinning { get => rpc.CPUSkinning; set => rpc.CPUSkinning = value; }
 
-        public float Time { get => (float)rpc.dynamicContextRead.Time; }
-        public float DeltaTime { get => (float)rpc.dynamicContextRead.DeltaTime; }
-        public float RealDeltaTime { get => (float)rpc.dynamicContextRead.RealDeltaTime; }
-
         public IEnumerable<VisualComponent> Visuals { get => rpc.dynamicContextRead.visuals; }
-
-        public CameraData Camera { get => visualChannel.cameraData; }
 
         List<(object, Dictionary<string, MemberInfo>)> dataStack = new();
 

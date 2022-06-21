@@ -207,6 +207,10 @@ namespace RenderPipelines
         [UIShow(UIShowType.Light, "光照类型")]
         public LightType LightType;
         #endregion
+
+        [SceneCapture]
+        public CameraData camera;
+
         [Indexable]
         public float cameraFar;
         [Indexable]
@@ -278,7 +282,7 @@ namespace RenderPipelines
 
         public override void Render()
         {
-            var camera = renderWrap.Camera;
+            var camera = this.camera;
             ViewProjection = camera.vpMatrix;
             InvertViewProjection = camera.pvMatrix;
             cameraFar = camera.far;
@@ -305,7 +309,7 @@ namespace RenderPipelines
 
             renderWrap.Swap(nameof(noPostProcess), nameof(noPostProcess2));
             renderWrap.Swap(nameof(depth), nameof(depth2));
-            camera = renderWrap.Camera;
+            camera = this.camera;
             _ViewProjection = camera.vpMatrix;
             _InvertViewProjection = camera.pvMatrix;
         }

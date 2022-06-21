@@ -327,6 +327,9 @@ namespace RenderPipelines
 
         #endregion
 
+        [SceneCapture]
+        public CameraData camera;
+
         [Indexable]
         public float cameraFar;
         [Indexable]
@@ -384,8 +387,8 @@ namespace RenderPipelines
         {
             renderWrap.GetOutputSize(out outputWidth, out outputHeight);
             renderWrap.SetSize("UnscaledOutput", outputWidth, outputHeight);
-            outputWidth = (int)(outputWidth * RenderScale);
-            outputHeight = (int)(outputHeight * RenderScale);
+            outputWidth = Math.Max((int)(outputWidth * RenderScale), 1);
+            outputHeight = Math.Max((int)(outputHeight * RenderScale), 1);
             renderWrap.SetSize("Output", outputWidth, outputHeight);
             renderWrap.SetSize("HalfOutput", (outputWidth + 1) / 2, (outputHeight + 1) / 2);
             renderWrap.SetSize("QuarterOutput", (outputWidth + 3) / 4, (outputHeight + 3) / 4);
@@ -399,7 +402,8 @@ namespace RenderPipelines
 
         public override void Render()
         {
-            var camera = renderWrap.Camera;
+            //var camera = renderWrap.Camera;
+            var camera = this.camera;
             ViewProjection = camera.vpMatrix;
             InvertViewProjection = camera.pvMatrix;
             cameraFar = camera.far;
@@ -428,7 +432,7 @@ namespace RenderPipelines
 
             renderWrap.Swap(nameof(noPostProcess), nameof(noPostProcess2));
             renderWrap.Swap(nameof(depth), nameof(depth2));
-            camera = renderWrap.Camera;
+            camera = this.camera;
             _ViewProjection = camera.vpMatrix;
             _InvertViewProjection = camera.pvMatrix;
         }
