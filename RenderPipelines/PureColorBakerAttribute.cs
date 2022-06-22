@@ -21,11 +21,11 @@ namespace RenderPipelines
                 blendState = BlendState.None,
                 cullMode = CullMode.None,
                 rtvFormat = texture.GetFormat(),
-                inputLayout = InputLayout.mmd,
+                inputLayout = InputLayout.noInput,
                 renderTargetCount = 1,
             };
             renderWrap.Writer.Write(Color);
-            renderWrap.Writer.SetBufferImmediately(0);
+            renderWrap.Writer.SetCBV(0);
             renderWrap.SetShader("PureColor.hlsl", psoDesc);
             renderWrap.DrawQuad();
             return true;

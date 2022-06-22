@@ -13,12 +13,6 @@ namespace RenderPipelines
     {
         string shader = "Bloom.hlsl";
 
-        PSODesc psoDesc = new PSODesc()
-        {
-            cullMode = CullMode.None,
-            renderTargetCount = 1,
-        };
-
         string rs = "Csu";
 
         public object[][] cbvs;
@@ -45,8 +39,6 @@ namespace RenderPipelines
             var intermedia1 = renderWrap.GetRenderTexture2D(intermediaTexture);
             Vector2 intermediaSize = new Vector2(intermedia1.width, intermedia1.height);
             cbvs[0][0] = new Vector2((float)inputSize.Item1 / inputTexture.width / intermediaSize.X, 0);
-            //cbvs[0][1] = 0.0f;
-
             cbvs[0][4] = new Vector2((float)inputSize.Item1 / inputTexture.width / intermediaSize.X, (float)inputSize.Item2 / inputTexture.height / intermediaSize.Y);
 
             var writer = renderWrap.Writer;
@@ -55,7 +47,7 @@ namespace RenderPipelines
                 object[] cbv1 = cbvs[i];
                 if (cbv1 == null) continue;
                 renderWrap.Write(cbv1, writer);
-                writer.SetBufferImmediately(i);
+                writer.SetCBV(i);
             }
 
             renderWrap.SetSRVLim(inputTexture, mipLevel, 0);
@@ -64,14 +56,13 @@ namespace RenderPipelines
 
             var renderTarget = renderWrap.GetRenderTexture2D(output);
             cbvs[0][0] = new Vector2(0, 1.0f / intermediaSize.Y);
-            //cbvs[0][1] = ;
             cbvs[0][4] = new Vector2(1.0f / (float)renderTarget.width, 1.0f / (float)renderTarget.height);
             for (int i = 0; i < cbvs.Length; i++)
             {
                 object[] cbv1 = cbvs[i];
                 if (cbv1 == null) continue;
                 renderWrap.Write(cbv1, writer);
-                writer.SetBufferImmediately(i);
+                writer.SetCBV(i);
             }
 
 

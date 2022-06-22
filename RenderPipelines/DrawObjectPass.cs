@@ -51,7 +51,7 @@ namespace RenderPipelines
             if (CBVPerPass != null)
             {
                 renderWrap.Write(CBVPerPass, writer);
-                writer.SetBufferImmediately(2);
+                writer.SetCBV(2);
             }
 
             keywords2.Clear();
@@ -76,7 +76,7 @@ namespace RenderPipelines
                 CBVPerObject[0] = renderable.transform;
 
                 renderWrap.Write(CBVPerObject, writer, renderable.material);
-                writer.SetBufferImmediately(1);
+                writer.SetCBV(1);
 
                 renderWrap.SetSRVs(srvs, renderable.material);
 

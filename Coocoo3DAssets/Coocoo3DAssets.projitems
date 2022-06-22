@@ -63,7 +63,7 @@
     <None Include="$(MSBuildThisFileDirectory)Samples\PBR.hlsli">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="$(MSBuildThisFileDirectory)Samples\PBRMaterial.hlsl">
+    <None Include="$(MSBuildThisFileDirectory)Samples\ForwardRender.hlsl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="$(MSBuildThisFileDirectory)Samples\PostProcessing.hlsl">

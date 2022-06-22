@@ -13,7 +13,7 @@ namespace RenderPipelines
         public string shader;
 
         public List<(string, string)> keywords = new();
-        List<(string, string)> keywords2 = new();
+        List<(string, string)> _keywords = new();
 
         public PSODesc psoDesc;
 
@@ -26,15 +26,15 @@ namespace RenderPipelines
 
         public override void Execute(RenderWrap renderWrap)
         {
-            keywords2.Clear();
-            keywords2.AddRange(this.keywords);
+            _keywords.Clear();
+            _keywords.AddRange(this.keywords);
 
-            AutoMapKeyword(renderWrap, keywords2, null);
+            AutoMapKeyword(renderWrap, _keywords, null);
 
             renderWrap.SetRootSignature(rs);
             renderWrap.SetRenderTarget(renderTargets, depthStencil, clearRenderTarget, clearDepth);
             var desc = GetPSODesc(renderWrap, psoDesc);
-            renderWrap.SetShader(shader, desc, keywords2);
+            renderWrap.SetShader(shader, desc, _keywords);
             renderWrap.SetSRVs(srvs, null);
 
             var writer = renderWrap.Writer;
@@ -44,11 +44,11 @@ namespace RenderPipelines
                     object[] cbv1 = cbvs[i];
                     if (cbv1 == null) continue;
                     renderWrap.Write(cbv1, writer);
-                    writer.SetBufferImmediately(i);
+                    writer.SetCBV(i);
                 }
             renderWrap.DrawQuad();
             writer.Clear();
-            keywords2.Clear();
+            _keywords.Clear();
         }
     }
 }

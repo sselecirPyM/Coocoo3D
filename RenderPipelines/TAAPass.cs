@@ -31,10 +31,10 @@ namespace RenderPipelines
             var tex = renderWrap.GetTex2D(target);
             var writer = renderWrap.Writer;
             renderWrap.Write(cbv, writer);
-            writer.SetBufferImmediately(0);
+            writer.SetCBV(0);
 
             renderWrap.SetSRVs(new string[] { depth, history, historyDepth });
-            renderWrap.SetUAVs(new string[] { target });
+            renderWrap.SetUAV(renderWrap.GetRenderTexture2D(target), 0);
             renderWrap.Dispatch("TAA.hlsl", keywords, (tex.width + 7) / 8, (tex.height + 7) / 8);
         }
     }

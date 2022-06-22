@@ -24,7 +24,7 @@ namespace RenderPipelines
             renderWrap.SetUAV(outputTexture, 0);
             renderWrap.Writer.Write(width);
             renderWrap.Writer.Write(height);
-            renderWrap.Writer.SetBufferComputeImmediately(0);
+            renderWrap.Writer.SetCBV(0);
             renderWrap.Dispatch("HiZ.hlsl", null, (width + 15) / 16, (height + 15) / 16);
 
             int x = inputTexture.width;
@@ -36,7 +36,7 @@ namespace RenderPipelines
 
                 renderWrap.Writer.Write(x);
                 renderWrap.Writer.Write(y);
-                renderWrap.Writer.SetBufferComputeImmediately(0);
+                renderWrap.Writer.SetCBV(0);
                 renderWrap.SetSRVLim(outputTexture, i - 1, 0);
                 renderWrap.SetUAV(outputTexture, i, 0);
                 renderWrap.Dispatch("HiZ.hlsl", keyword1, (x + 15) / 16, (y + 15) / 16);

@@ -1,5 +1,4 @@
 ﻿using Caprice.Attributes;
-using Coocoo3D.Present;
 using Coocoo3D.RenderPipeline;
 using Coocoo3D.Utility;
 using Coocoo3DGraphics;
@@ -193,7 +192,7 @@ namespace RenderPipelines
 
         public DrawObjectPass drawObjectTransparent = new DrawObjectPass()
         {
-            shader = "PBRMaterial.hlsl",
+            shader = "ForwardRender.hlsl",
             renderTargets = new string[1],
             depthStencil = null,
             rs = "CCCssssssssss",

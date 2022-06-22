@@ -16,7 +16,7 @@ namespace RenderPipelines
             var writer = renderWrap.Writer;
             writer.Write(width);
             writer.Write(height);
-            writer.SetBufferImmediately(0);
+            writer.SetCBV(0);
             renderWrap.SetSRVs(new string[] { Source });
             renderWrap.SetUAV(texture, 0, 0);
             renderWrap.Dispatch("ConvertToCube.hlsl", null, width / 8, height / 8, 6);
@@ -28,7 +28,7 @@ namespace RenderPipelines
                 writer.Write(width / mipPow);
                 writer.Write(height / mipPow);
                 writer.Write(i - 1);
-                writer.SetBufferImmediately(0);
+                writer.SetCBV(0);
                 renderWrap.Dispatch("GenerateCubeMipMap.hlsl", null, width / mipPow / 8, height / mipPow / 8, 6);
             }
             return true;

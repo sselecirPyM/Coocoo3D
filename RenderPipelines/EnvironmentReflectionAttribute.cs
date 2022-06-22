@@ -31,11 +31,9 @@ namespace RenderPipelines
 
             {
                 int t1 = roughnessLevel + 1;
-                //int face = currentQuality % (t1 * 6) / t1;//0-5
                 int face = 0;
 
                 int mipLevel = currentQuality % t1;
-                //int quality = currentQuality / (t1 * 6);
                 int quality = currentQuality / t1;
                 int pow2a = 1 << mipLevel;
                 writer.Write(width / pow2a);
@@ -44,7 +42,7 @@ namespace RenderPipelines
                 writer.Write(quality);
                 writer.Write(Math.Max(mipLevel * mipLevel / (4.0f * 4.0f), 1e-3f));
                 writer.Write(face);
-                writer.SetBufferComputeImmediately(0);
+                writer.SetCBV(0);
 
                 renderWrap.SetSRV(tex, 0);
                 renderWrap.SetUAV(texture, mipLevel, 0);

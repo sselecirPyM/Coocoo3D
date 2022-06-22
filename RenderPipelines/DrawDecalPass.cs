@@ -56,7 +56,7 @@ namespace RenderPipelines
             if (CBVPerPass != null)
             {
                 renderWrap.Write(CBVPerPass, writer);
-                writer.SetBufferImmediately(1);
+                writer.SetCBV(1);
             }
             BoundingFrustum frustum = new(viewProj);
 
@@ -82,7 +82,7 @@ namespace RenderPipelines
                 CBVPerObject[1] = im;
 
                 renderWrap.Write(CBVPerObject, writer, visual.material);
-                writer.SetBufferImmediately(0);
+                writer.SetCBV(0);
 
                 renderWrap.SetSRVs(srvs, visual.material);
 

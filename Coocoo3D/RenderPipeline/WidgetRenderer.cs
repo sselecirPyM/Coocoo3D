@@ -77,7 +77,7 @@ namespace Coocoo3D.RenderPipeline
                 0.0f, 0.0f, 0.0f, 1.0f);
             GPUWriter.graphicsContext = graphicsContext;
             GPUWriter.Write(matrix);
-            GPUWriter.SetBufferImmediately(0);
+            GPUWriter.SetCBV(0);
             unsafe
             {
                 int vertexSize = data.TotalVtxCount * sizeof(ImDrawVert);

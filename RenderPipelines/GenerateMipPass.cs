@@ -32,7 +32,7 @@ namespace RenderPipelines
             var writer = renderWrap.Writer;
             writer.Write(width);
             writer.Write(height);
-            writer.SetBufferImmediately(0);
+            writer.SetCBV(0);
             renderWrap.Dispatch(shader, null, (width + 15) / 16, (height + 15) / 16);
 
             int x = width;
@@ -44,7 +44,7 @@ namespace RenderPipelines
 
                 writer.Write(x);
                 writer.Write(y);
-                writer.SetBufferImmediately(0);
+                writer.SetCBV(0);
                 renderWrap.SetSRVLim(texOutput, i - 1, 0);
                 renderWrap.SetUAV(texOutput, i, 0);
                 renderWrap.Dispatch(shader, null, (x + 15) / 16, (y + 15) / 16);
