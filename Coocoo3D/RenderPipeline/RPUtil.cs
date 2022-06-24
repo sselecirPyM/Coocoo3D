@@ -35,21 +35,6 @@ namespace Coocoo3D.RenderPipeline
             }
         }
 
-        public static void DynamicBuffer(Dictionary<string, GPUBuffer> dynamicBuffers, string rtName, int width, GraphicsContext graphicsContext)
-        {
-            if (!dynamicBuffers.TryGetValue(rtName, out var buffer))
-            {
-                buffer = new GPUBuffer();
-                buffer.Name = rtName;
-                dynamicBuffers[rtName] = buffer;
-            }
-            if (width != buffer.size)
-            {
-                buffer.size = width;
-                graphicsContext.UpdateDynamicBuffer(buffer);
-            }
-        }
-
         public static void DynamicBuffer(GPUBuffer dynamicBuffer, int width, GraphicsContext graphicsContext)
         {
             if (width != dynamicBuffer.size)

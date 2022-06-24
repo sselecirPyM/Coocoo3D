@@ -1,5 +1,4 @@
 ﻿using Coocoo3D.Present;
-using Coocoo3D.Numerics;
 using Coocoo3D.Utility;
 using System;
 using System.Collections.Generic;
@@ -166,7 +165,7 @@ namespace Coocoo3D.Components
             var entity = bones[boneIndex];
             var entitySource = bones[ikTargetIndex];
 
-            entity.GetPosRot2(out var posTarget, out var rot0);
+            var posTarget=entity.GetPos2();
 
 
             int h1 = entity.CCDIterateLimit / 2;
@@ -181,7 +180,7 @@ namespace Coocoo3D.Components
                     ref var IKLINK = ref entity.boneIKLinks[j];
                     BoneEntity itEntity = bones[IKLINK.LinkedIndex];
 
-                    itEntity.GetPosRot2(out var itPosition, out var itRot);
+                    var itPosition=itEntity.GetPos2();
 
                     Vector3 targetDirection = Vector3.Normalize(itPosition - posTarget);
                     Vector3 ikDirection = Vector3.Normalize(itPosition - posSource);

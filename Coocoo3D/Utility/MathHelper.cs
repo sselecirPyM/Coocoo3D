@@ -5,7 +5,7 @@ using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Coocoo3D.Numerics
+namespace Coocoo3D.Utility
 {
     public static class MathHelper
     {

@@ -1,69 +1,25 @@
-﻿using Coocoo3D.Common;
-using Coocoo3D.Components;
+﻿using Coocoo3D.Components;
 using Coocoo3D.Core;
-using Coocoo3D.Numerics;
 using Coocoo3D.ResourceWrap;
 using Coocoo3D.Utility;
 using Coocoo3DGraphics;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
-using Vortice.DXGI;
 using System.Runtime.InteropServices;
 
 namespace Coocoo3D.RenderPipeline
 {
-    public class RecordSettings
-    {
-        public float FPS;
-        public float StartTime;
-        public float StopTime;
-        public int Width;
-        public int Height;
-    }
-    public class GameDriverContext
-    {
-        public int NeedRender;
-        public bool Playing;
-        public double PlayTime;
-        public double DeltaTime;
-        public float FrameInterval;
-        public float PlaySpeed;
-        public bool RequireResetPhysics;
-        public TimeManager timeManager;
-
-        public void RequireRender(bool updateEntities)
-        {
-            if (updateEntities)
-                RequireResetPhysics = true;
-            NeedRender = 10;
-        }
-    }
 
     public class RenderPipelineContext : IDisposable
     {
-        public RecordSettings recordSettings = new RecordSettings()
-        {
-            FPS = 60,
-            Width = 1920,
-            Height = 1080,
-            StartTime = 0,
-            StopTime = 9999,
-        };
-
         public MainCaches mainCaches = new();
-
-        public Dictionary<string, VisualChannel> visualChannels = new();
-
-        public VisualChannel currentChannel;
 
         public Mesh quadMesh = new Mesh();
         public Mesh cubeMesh = new Mesh();
-        public int frameRenderCount;
 
         public GraphicsDevice graphicsDevice;
         public GraphicsContext graphicsContext = new GraphicsContext();
@@ -75,19 +31,7 @@ namespace Coocoo3D.RenderPipeline
 
         public List<CBuffer> CBs_Bone = new();
 
-        public Format outputFormat = Format.R8G8B8A8_UNorm;
-        public Format swapChainFormat { get => swapChain.format; }
-
-        public Recorder recorder;
-
         internal Wrap.GPUWriter gpuWriter = new Wrap.GPUWriter();
-
-        public GameDriverContext gameDriverContext = new GameDriverContext()
-        {
-            FrameInterval = 1 / 240.0f,
-        };
-
-        public Type[] RenderPipelineTypes = new Type[0];
 
         public bool recording = false;
 
@@ -117,50 +61,16 @@ namespace Coocoo3D.RenderPipeline
                 4,6,7,
             });
             mainCaches.MeshReadyToUpload.Enqueue(cubeMesh);
-            recorder = new Recorder()
-            {
-                graphicsDevice = graphicsDevice,
-                graphicsContext = graphicsContext,
-            };
-
-            LoadRenderPipelines(new DirectoryInfo("Samples"));
-            currentChannel = AddVisualChannel("main");
-        }
-
-        public void LoadRenderPipelines(DirectoryInfo dir)
-        {
-            RenderPipelineTypes = new Type[0];
-            foreach (var file in dir.EnumerateFiles("*.dll"))
-            {
-                LoadRenderPipelineTypes(file.FullName);
-            }
-        }
-
-        public void LoadRenderPipelineTypes(string path)
-        {
-            try
-            {
-                RenderPipelineTypes = RenderPipelineTypes.Concat(mainCaches.GetTypes(Path.GetFullPath(path), typeof(RenderPipeline))).ToArray();
-            }
-            catch
-            {
-
-            }
         }
 
         public RenderPipelineDynamicContext GetDynamicContext(Scene scene)
         {
             dynamicContextWrite.FrameBegin();
 
-            dynamicContextWrite.frameRenderIndex = frameRenderCount;
             dynamicContextWrite.CPUSkinning = CPUSkinning;
-
-            dynamicContextWrite.Time = gameDriverContext.PlayTime;
-            dynamicContextWrite.DeltaTime = gameDriverContext.Playing ? gameDriverContext.DeltaTime : 0;
 
             dynamicContextWrite.Preprocess(scene.gameObjects);
 
-            frameRenderCount++;
             return dynamicContextWrite;
         }
 
@@ -224,6 +134,7 @@ namespace Coocoo3D.RenderPipeline
                     }
                 }
             }
+            if (!CPUSkinning)
             {
                 for (int i = 0; i < renderers.Count; i++)
                 {
@@ -316,53 +227,7 @@ namespace Coocoo3D.RenderPipeline
             graphicsContext.UploadMesh(mesh);//for compatibility
         }
 
-        Queue<string> delayAddVisualChannel = new();
-        Queue<string> delayRemoveVisualChannel = new();
-        public void DelayAddVisualChannel(string name)
-        {
-            delayAddVisualChannel.Enqueue(name);
-        }
-        public void DelayRemoveVisualChannel(string name)
-        {
-            delayRemoveVisualChannel.Enqueue(name);
-        }
-
-        public VisualChannel AddVisualChannel(string name)
-        {
-            var visualChannel = new VisualChannel();
-            visualChannels[name] = visualChannel;
-            visualChannel.Name = name;
-            visualChannel.graphicsContext = graphicsContext;
-
-            visualChannel.DelaySetRenderPipeline(RenderPipelineTypes[0], this);
-
-            return visualChannel;
-        }
-
-        public void RemoveVisualChannel(string name)
-        {
-            if (visualChannels.Remove(name, out var vc))
-            {
-                if (vc == currentChannel)
-                    currentChannel = visualChannels.FirstOrDefault().Value;
-                vc.Dispose();
-            }
-        }
-
-        public void PreConfig()
-        {
-            while (delayAddVisualChannel.TryDequeue(out var vcName))
-                AddVisualChannel(vcName);
-            while (delayRemoveVisualChannel.TryDequeue(out var vcName))
-                RemoveVisualChannel(vcName);
-        }
-
-        public ModelPack GetModelPack(string path) => mainCaches.GetModel(path);
-
-        public void AfterRender()
-        {
-            recorder.OnFrame();
-        }
+        ModelPack GetModelPack(string path) => mainCaches.GetModel(path);
 
         public void Dispose()
         {

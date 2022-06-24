@@ -1,4 +1,5 @@
-﻿using Coocoo3D.RenderPipeline;
+﻿using Coocoo3D.Common;
+using Coocoo3D.RenderPipeline;
 using Coocoo3D.Utility;
 using System;
 using System.Collections.Generic;
@@ -9,44 +10,68 @@ using System.Threading.Tasks;
 
 namespace Coocoo3D.Core
 {
+    public class GameDriverContext
+    {
+        public int NeedRender;
+        public bool Playing;
+        public double PlayTime;
+        public double DeltaTime;
+        public float FrameInterval;
+        public float PlaySpeed;
+        public bool RequireResetPhysics;
+        public TimeManager timeManager;
+
+        public void RequireRender(bool updateEntities)
+        {
+            if (updateEntities)
+                RequireResetPhysics = true;
+            NeedRender = 10;
+        }
+    }
+
     public class GameDriver
     {
-        public bool Next(RenderPipelineContext rpContext)
+        public GameDriverContext gameDriverContext = new GameDriverContext()
         {
-            ref var context = ref rpContext.gameDriverContext;
-            ref RecordSettings recordSettings = ref rpContext.recordSettings;
+            FrameInterval = 1 / 240.0f,
+        };
+
+        public bool Next(WindowSystem windowSystem, RecordSystem recordSystem)
+        {
+            RenderPipelineContext rpContext = windowSystem.RenderPipelineContext;
+
+            ref RecordSettings recordSettings = ref recordSystem.recordSettings;
 
             if (toRecordMode.SetFalse())
             {
                 rpContext.recording = true;
-                context.Playing = true;
-                context.PlaySpeed = 1.0f;
-                context.PlayTime = 0.0f;
-                context.RequireResetPhysics = true;
-                var visualchannel = rpContext.visualChannels[recordChannel];
-                visualchannel.outputSize = (recordSettings.Width, recordSettings.Height);
-                visualchannel.camera.AspectRatio = (float)recordSettings.Width / (float)recordSettings.Height;
+                gameDriverContext.Playing = true;
+                gameDriverContext.PlaySpeed = 1.0f;
+                gameDriverContext.PlayTime = 0.0f;
+                gameDriverContext.RequireResetPhysics = true;
+
                 StartTime = recordSettings.StartTime;
                 StopTime = recordSettings.StopTime;
                 RenderCount = 0;
-                RecordCount = 0;
                 FrameIntervalF = 1 / MathF.Max(recordSettings.FPS, 1e-3f);
+
+                recordSystem.saveDirectory = saveDirectory;
+                recordSystem.StartRecord();
             }
             if (toPlayMode.SetFalse())
             {
                 rpContext.recording = false;
+                recordSystem.StopRecord();
             }
 
             if (rpContext.recording)
-                return Recording(rpContext);
+                return Recording(gameDriverContext);
             else
-                return Playing(rpContext);
+                return Playing(gameDriverContext);
         }
 
-        bool Playing(RenderPipelineContext rpContext)
+        bool Playing(GameDriverContext context)
         {
-            ref var context = ref rpContext.gameDriverContext;
-
             var timeManager = context.timeManager;
             if (!timeManager.RealTimerCorrect("frame", context.FrameInterval, out double deltaTime))
             {
@@ -57,11 +82,6 @@ namespace Coocoo3D.Core
                 return false;
             }
             context.NeedRender -= 1;
-            foreach (var visualChannel in rpContext.visualChannels.Values)
-            {
-                visualChannel.outputSize = visualChannel.sceneViewSize;
-                visualChannel.camera.AspectRatio = (float)visualChannel.outputSize.Item1 / (float)visualChannel.outputSize.Item2;
-            }
 
             context.DeltaTime = Math.Clamp(deltaTime * context.PlaySpeed, -0.17f, 0.17f);
             if (context.Playing)
@@ -69,10 +89,8 @@ namespace Coocoo3D.Core
             return true;
         }
 
-        bool Recording(RenderPipelineContext rpContext)
+        bool Recording(GameDriverContext context)
         {
-            ref GameDriverContext context = ref rpContext.gameDriverContext;
-
             context.NeedRender = 1;
 
             context.DeltaTime = FrameIntervalF;
@@ -81,24 +99,18 @@ namespace Coocoo3D.Core
             return true;
         }
 
-        public void AfterRender(RenderPipelineContext rpContext)
+        public void AfterRender(WindowSystem windowSystem)
         {
+            RenderPipelineContext rpContext = windowSystem.RenderPipelineContext;
             if (!rpContext.recording) return;
-            ref GameDriverContext context = ref rpContext.gameDriverContext;
-            var visualChannel1 = rpContext.visualChannels[recordChannel];
+            ref GameDriverContext context = ref gameDriverContext;
+            if (!windowSystem.visualChannels.TryGetValue(recordChannel, out var visualChannel1))
+            {
+                ToPlayMode();
+                return;
+            }
 
-            if (context.PlayTime >= StartTime && context.PlayTime <= StopTime)
-            {
-                rpContext.recording = true;
-                rpContext.recorder.Record(visualChannel1.GetAOV(Caprice.Attributes.AOVType.Color), Path.GetFullPath(string.Format("{0}.png", RecordCount), saveDirectory));
-                RecordCount++;
-            }
-            foreach (var visualChannel in rpContext.visualChannels.Values)
-            {
-                if (visualChannel == visualChannel1) continue;
-                visualChannel.outputSize = visualChannel.sceneViewSize;
-                visualChannel.camera.AspectRatio = (float)visualChannel.outputSize.Item1 / (float)visualChannel.outputSize.Item2;
-            }
+
             if (context.PlayTime > StopTime)
                 ToPlayMode();
             RenderCount++;
@@ -109,7 +121,6 @@ namespace Coocoo3D.Core
         public float StopTime;
 
         public float FrameIntervalF = 1 / 60.0f;
-        public int RecordCount = 0;
         public int RenderCount = 0;
         bool toRecordMode;
         bool toPlayMode;

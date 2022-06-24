@@ -1,5 +1,4 @@
-﻿using Coocoo3D.Numerics;
-using Coocoo3D.Present;
+﻿using Coocoo3D.Present;
 using Coocoo3DGraphics;
 using System;
 using System.Collections.Generic;
@@ -7,7 +6,6 @@ using System.Linq;
 using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
-using Vortice.DXGI;
 using Caprice.Attributes;
 using System.IO;
 
@@ -20,7 +18,6 @@ namespace Coocoo3D.RenderPipeline
         public CameraData cameraData;
         public (int, int) outputSize = (100, 100);
         public (int, int) sceneViewSize = (100, 100);
-        public GraphicsContext graphicsContext;
 
         public RenderPipeline renderPipeline;
         public RenderPipelineView renderPipelineView;
@@ -48,7 +45,7 @@ namespace Coocoo3D.RenderPipeline
                 renderPipelineView?.Dispose();
 
                 SetRenderPipeline((RenderPipeline)Activator.CreateInstance(newRenderPipelineType),
-                    rpc, newRenderPipelinePath);
+                    newRenderPipelinePath);
                 newRenderPipelineType = null;
             }
 
@@ -56,14 +53,13 @@ namespace Coocoo3D.RenderPipeline
             cameraData = camera.GetCameraData();
         }
 
-        public void DelaySetRenderPipeline(Type type, RenderPipelineContext rpc)
+        public void DelaySetRenderPipeline(Type type)
         {
             newRenderPipelinePath = Path.GetDirectoryName(type.Assembly.Location);
-            this.rpc = rpc;
             this.newRenderPipelineType = type;
         }
 
-        void SetRenderPipeline(RenderPipeline renderPipeline, RenderPipelineContext rpc, string basePath)
+        void SetRenderPipeline(RenderPipeline renderPipeline, string basePath)
         {
             this.renderPipeline = renderPipeline;
             var renderPipelineView = new RenderPipelineView(renderPipeline, basePath);

@@ -163,7 +163,7 @@ namespace Coocoo3D.FileFormat
                     {
                         Mat2Mat(obj.materials, renderer.Materials);
                     }
-                    main.CurrentScene.AddGameObject(gameObject);
+                    main.AddGameObject(gameObject);
                 }
                 else if (obj.type == "model")
                 {
@@ -177,7 +177,7 @@ namespace Coocoo3D.FileFormat
                     {
                         Mat2Mat(obj.materials, renderer.Materials);
                     }
-                    main.CurrentScene.AddGameObject(gameObject);
+                    main.AddGameObject(gameObject);
                 }
                 else if (obj.type == "lighting")
                 {
@@ -188,7 +188,7 @@ namespace Coocoo3D.FileFormat
                     {
                         lightingComponent.material = Mat2Mat(obj.visual.material);
                     }
-                    main.CurrentScene.AddGameObject(gameObject);
+                    main.AddGameObject(gameObject);
                 }
                 else if (obj.type == "decal")
                 {
@@ -199,7 +199,7 @@ namespace Coocoo3D.FileFormat
                     {
                         decalComponent.material = Mat2Mat(obj.visual.material);
                     }
-                    main.CurrentScene.AddGameObject(gameObject);
+                    main.AddGameObject(gameObject);
                 }
             }
             main.GameDriverContext.RequireResetPhysics = true;

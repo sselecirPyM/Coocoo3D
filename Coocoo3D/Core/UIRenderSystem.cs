@@ -10,10 +10,11 @@ using ImGuiNET;
 using Vortice.DXGI;
 using System.Buffers;
 using Coocoo3D.Utility;
+using Coocoo3D.RenderPipeline;
 
-namespace Coocoo3D.RenderPipeline
+namespace Coocoo3D.Core
 {
-    public class WidgetRenderer
+    public class UIRenderSystem
     {
         GPUBuffer imguiMesh = new GPUBuffer();
         GPUWriter GPUWriter = new GPUWriter();
@@ -22,7 +23,12 @@ namespace Coocoo3D.RenderPipeline
 
         int ptrCount = 100000000;
         Dictionary<IntPtr, Texture2D> viewTextures = new Dictionary<IntPtr, Texture2D>();
-        public WidgetRenderer()
+
+        public GraphicsContext graphicsContext;
+        public SwapChain swapChain;
+        public MainCaches caches;
+
+        public UIRenderSystem()
         {
             imguiShaderPath = System.IO.Path.GetFullPath("Shaders/ImGui.hlsl", workDir);
         }
@@ -35,10 +41,8 @@ namespace Coocoo3D.RenderPipeline
             return ptr;
         }
 
-        public void Render(RenderPipelineContext context, GraphicsContext graphicsContext)
+        public void Update()
         {
-            var caches = context.mainCaches;
-
             Texture2D texLoading = caches.GetTextureLoaded("Assets/Textures/loading.png", graphicsContext);
             Texture2D texError = caches.GetTextureLoaded("Assets/Textures/error.png", graphicsContext);
 
@@ -46,7 +50,7 @@ namespace Coocoo3D.RenderPipeline
 
             graphicsContext.SetRootSignature(rs);
 
-            graphicsContext.SetRenderTargetSwapChain(context.swapChain, new Vector4(0, 0.3f, 0.3f, 0), true);
+            graphicsContext.SetRenderTargetSwapChain(swapChain, new Vector4(0, 0.3f, 0.3f, 0), true);
 
             var data = ImGui.GetDrawData();
             if (data.CmdListsCount == 0) return;
@@ -64,7 +68,7 @@ namespace Coocoo3D.RenderPipeline
             desc.depthBias = 0;
             desc.slopeScaledDepthBias = 0;
             desc.dsvFormat = Format.Unknown;
-            desc.rtvFormat = context.swapChainFormat;
+            desc.rtvFormat = swapChain.format;
             desc.renderTargetCount = 1;
             desc.wireFrame = false;
             desc.inputLayout = InputLayout.imgui;

@@ -91,7 +91,7 @@ namespace Coocoo3D.UI
             }
             ImGui.End();
             int d = 0;
-            foreach (var visualChannel in main.RPContext.visualChannels.Values)
+            foreach (var visualChannel in main.windowSystem.visualChannels.Values)
             {
                 ImGui.SetNextWindowSize(new Vector2(400, 400), ImGuiCond.FirstUseEver);
                 ImGui.SetNextWindowPos(new Vector2(300 + d, 0), ImGuiCond.FirstUseEver);
@@ -104,7 +104,7 @@ namespace Coocoo3D.UI
                     }
                     if (!open)
                     {
-                        context.DelayRemoveVisualChannel(visualChannel.Name);
+                        main.windowSystem.DelayRemoveVisualChannel(visualChannel.Name);
                     }
                 }
                 else
@@ -139,7 +139,7 @@ namespace Coocoo3D.UI
                 }
                 if (transformChange)
                 {
-                    main.CurrentScene.setTransform[selectedObject] = new(position, rotationCache, scale);
+                    main.SetTransform(selectedObject, new(position, rotationCache, scale));
                 }
             }
             main.platformIO.dropFile = null;
@@ -147,8 +147,8 @@ namespace Coocoo3D.UI
 
         static void Common(Coocoo3DMain main)
         {
-            var camera = main.RPContext.currentChannel.camera;
-            if (ImGui.TreeNode("transform"))
+            var camera = main.windowSystem.currentChannel.camera;
+            if (ImGui.TreeNode("变换"))
             {
                 if (ImGui.DragFloat3("位置", ref position, 0.01f))
                 {
@@ -180,7 +180,7 @@ namespace Coocoo3D.UI
             }
             if (ImGui.TreeNode("录制"))
             {
-                var recordSettings = main.RPContext.recordSettings;
+                var recordSettings = main.recordSystem.recordSettings;
                 ImGui.DragFloat("开始时间", ref recordSettings.StartTime);
                 ImGui.DragFloat("结束时间", ref recordSettings.StopTime);
                 ImGui.DragInt("宽度", ref recordSettings.Width, 32, 32, 16384);
@@ -224,6 +224,13 @@ namespace Coocoo3D.UI
             {
                 PlayControl.FastForward(main);
             }
+            ImGui.SameLine();
+            if (ImGui.Button("向前5秒"))
+            {
+                main.ToPlayMode();
+                main.GameDriverContext.PlayTime -= 5;
+                main.RequireRender(true);
+            }
             ImGui.Text(string.Format("Fps:{0:f1}", main.framePerSecond));
         }
 
@@ -240,10 +247,10 @@ namespace Coocoo3D.UI
 
             if (renderPipelinesRequest != null)
             {
-                main.RPContext.LoadRenderPipelines(renderPipelinesRequest);
+                main.windowSystem.LoadRenderPipelines(renderPipelinesRequest);
                 renderPipelinesRequest = null;
             }
-            var rpc = main.RPContext;
+            var rpc = main.windowSystem;
             ShowParams(main, rpc.currentChannel.renderPipelineView);
             int renderPipelineIndex = 0;
 
@@ -265,7 +272,7 @@ namespace Coocoo3D.UI
 
             if (ImGui.Combo("渲染管线", ref renderPipelineIndex, newRPs, rps.Length))
             {
-                rpc.currentChannel.DelaySetRenderPipeline(rps[renderPipelineIndex], rpc);
+                rpc.currentChannel.DelaySetRenderPipeline(rps[renderPipelineIndex]);
             }
             if (ImGui.Button("加载渲染管线"))
             {
@@ -281,9 +288,9 @@ namespace Coocoo3D.UI
                 int c = 1;
                 while (true)
                 {
-                    if (!main.RPContext.visualChannels.ContainsKey(c.ToString()))
+                    if (!main.windowSystem.visualChannels.ContainsKey(c.ToString()))
                     {
-                        main.RPContext.DelayAddVisualChannel(c.ToString());
+                        main.windowSystem.DelayAddVisualChannel(c.ToString());
                         break;
                     }
                     c++;
@@ -325,7 +332,7 @@ namespace Coocoo3D.UI
                 var type = obj.GetType();
                 if (type.IsEnum)
                 {
-                    if (ComboBox(val.Name, ref obj))
+                    if (ImGuiExt.ComboBox(val.Name, ref obj))
                     {
                         member.SetValue(renderPipeline, obj);
                     }
@@ -390,7 +397,7 @@ namespace Coocoo3D.UI
                     {
                         obj = Activator.CreateInstance(type);
                     }
-                    if (ComboBox(val.Name, ref obj))
+                    if (ImGuiExt.ComboBox(val.Name, ref obj))
                     {
                         parameters[name] = obj;
                     }
@@ -571,7 +578,7 @@ namespace Coocoo3D.UI
             var cache = main.mainCaches;
             bool hasTexture = texPath != null && cache.TryGetTexture(texPath, out texture);
 
-            IntPtr imageId = main.widgetRenderer.ShowTexture(texture);
+            IntPtr imageId = main.uiRenderSystem.ShowTexture(texture);
             ImGui.Text(displayName);
             Vector2 imageSize = new Vector2(120, 120);
             if (ImGui.ImageButton(imageId, imageSize))
@@ -609,7 +616,7 @@ namespace Coocoo3D.UI
                 return;
             if (ImGui.Begin("buffers", ref showRenderBuffers))
             {
-                var view = main.RPContext.currentChannel.renderPipelineView;
+                var view = main.windowSystem.currentChannel.renderPipelineView;
                 if (view != null)
                 {
                     ShowRenderBuffers(main, view);
@@ -628,7 +635,7 @@ namespace Coocoo3D.UI
                 {
                     if (!Contains(pair.Key, filter))
                         continue;
-                    IntPtr imageId = main.widgetRenderer.ShowTexture(tex2D);
+                    IntPtr imageId = main.uiRenderSystem.ShowTexture(tex2D);
 
                     ImGui.TextUnformatted(pair.Key);
                     ImGui.Image(imageId, new Vector2(150, 150));
@@ -659,8 +666,8 @@ namespace Coocoo3D.UI
 
             if (ImGui.Begin("Dockspace", window_flags))
             {
-                var tex = main.RPContext.visualChannels.FirstOrDefault().Value.GetAOV(Caprice.Attributes.AOVType.Color);
-                IntPtr imageId = main.widgetRenderer.ShowTexture(tex);
+                var tex = main.windowSystem.visualChannels.FirstOrDefault().Value.GetAOV(Caprice.Attributes.AOVType.Color);
+                IntPtr imageId = main.uiRenderSystem.ShowTexture(tex);
                 ImGuiDockNodeFlags dockNodeFlag = ImGuiDockNodeFlags.PassthruCentralNode;
                 ImGui.GetWindowDrawList().AddImage(imageId, viewPort.WorkPos, viewPort.WorkPos + viewPort.WorkSize);
                 ImGui.DockSpace(ImGui.GetID("MyDockSpace"), Vector2.Zero, dockNodeFlag);
@@ -669,7 +676,6 @@ namespace Coocoo3D.UI
             ImGui.PopStyleVar(3);
         }
 
-        static bool c0;
         static FileInfo Resources()
         {
             if (ImGui.Button("打开文件夹"))
@@ -690,59 +696,58 @@ namespace Coocoo3D.UI
             string filter = ImFilter("查找文件", "查找文件");
 
             ImGuiTableFlags tableFlags = ImGuiTableFlags.RowBg | ImGuiTableFlags.BordersOuter | ImGuiTableFlags.BordersV |
-                ImGuiTableFlags.Resizable | ImGuiTableFlags.Reorderable | ImGuiTableFlags.Hideable;
-            if (c0)//avoid bug
-                tableFlags |= ImGuiTableFlags.ScrollY;
-            c0 = true;
+                ImGuiTableFlags.Resizable | ImGuiTableFlags.Reorderable | ImGuiTableFlags.Hideable | ImGuiTableFlags.ScrollY;
 
             var windowSize = ImGui.GetWindowSize();
             var itemSize = windowSize - ImGui.GetCursorPos();
             itemSize.X = 0;
             itemSize.Y -= 8;
 
-            ImGui.BeginTable("resources", 2, tableFlags, Vector2.Max(itemSize, new Vector2(0, 28)), 0);
-            ImGui.TableSetupScrollFreeze(0, 1);
-            ImGui.TableSetupColumn("文件名");
-            ImGui.TableSetupColumn("大小");
-            ImGui.TableHeadersRow();
             FileInfo open1 = null;
-
-            lock (storageItems)
+            if (ImGui.BeginTable("resources", 2, tableFlags, Vector2.Max(itemSize, new Vector2(0, 28)), 0))
             {
-                bool _requireClear = false;
-                foreach (var item in storageItems)
+                ImGui.TableSetupScrollFreeze(0, 1);
+                ImGui.TableSetupColumn("文件名");
+                ImGui.TableSetupColumn("大小");
+                ImGui.TableHeadersRow();
+
+                lock (storageItems)
                 {
-                    if (!Contains(item.Name, filter))
-                        continue;
-                    ImGui.TableNextRow();
-                    ImGui.TableSetColumnIndex(0);
-                    DirectoryInfo folder = item as DirectoryInfo;
-                    FileInfo file = item as FileInfo;
-                    if (ImGui.Selectable(item.Name, false, ImGuiSelectableFlags.SpanAllColumns | ImGuiSelectableFlags.AllowDoubleClick) && ImGui.IsMouseClicked(ImGuiMouseButton.Left))
+                    bool _requireClear = false;
+                    foreach (var item in storageItems)
                     {
-                        if (folder != null)
+                        if (!Contains(item.Name, filter))
+                            continue;
+                        ImGui.TableNextRow();
+                        ImGui.TableSetColumnIndex(0);
+                        DirectoryInfo folder = item as DirectoryInfo;
+                        FileInfo file = item as FileInfo;
+                        if (ImGui.Selectable(item.Name, false, ImGuiSelectableFlags.SpanAllColumns | ImGuiSelectableFlags.AllowDoubleClick) && ImGui.IsMouseClicked(ImGuiMouseButton.Left))
                         {
-                            navigationStack.Push(currentFolder);
-                            viewRequest = folder;
-                            _requireClear = true;
+                            if (folder != null)
+                            {
+                                navigationStack.Push(currentFolder);
+                                viewRequest = folder;
+                                _requireClear = true;
+                            }
+                            else if (file != null)
+                            {
+                                open1 = file;
+                            }
                             ImGui.SaveIniSettingsToDisk("imgui.ini");
                         }
-                        else if (file != null)
+                        ImGui.TableSetColumnIndex(1);
+                        if (file != null)
                         {
-                            open1 = file;
+                            ImGui.TextUnformatted(string.Format("{0} KB", (file.Length + 1023) / 1024));
                         }
                     }
-                    ImGui.TableSetColumnIndex(1);
-                    if (file != null)
-                    {
-                        ImGui.TextUnformatted(String.Format("{0} KB", (file.Length + 1023) / 1024));
-                    }
+                    if (_requireClear)
+                        storageItems.Clear();
                 }
-                if (_requireClear)
-                    storageItems.Clear();
+                ImGui.EndTable();
             }
 
-            ImGui.EndTable();
             return open1;
         }
 
@@ -832,7 +837,7 @@ vmd格式动作。支持几乎所有的图片格式。");
             if (removeObject)
             {
                 foreach (var gameObject in main.SelectedGameObjects)
-                    main.CurrentScene.RemoveGameObject(gameObject);
+                    main.RemoveGameObject(gameObject);
                 main.SelectedGameObjects.Clear();
 
                 if (gameObjects.Count > gameObjectSelectIndex + 1)
@@ -865,7 +870,7 @@ vmd格式动作。支持几乎所有的图片格式。");
 
                 ImGui.TreePop();
             }
-            if (ImGui.TreeNode("transform"))
+            if (ImGui.TreeNode("变换"))
             {
                 if (ImGui.DragFloat3("位置", ref position, 0.01f))
                 {
@@ -964,7 +969,7 @@ vmd格式动作。支持几乎所有的图片格式。");
                         StartEditParam();
                     }
 
-                    ShowParams(main, UIShowType.Material, main.RPContext.currentChannel.renderPipelineView, material.Parameters);
+                    ShowParams(main, UIShowType.Material, main.windowSystem.currentChannel.renderPipelineView, material.Parameters);
                 }
             }
             ImGui.EndChild();
@@ -1045,7 +1050,7 @@ vmd格式动作。支持几乎所有的图片格式。");
                 ImGui.Checkbox("显示包围盒", ref showBounding);
 
                 ImGui.DragFloat3("大小", ref gameObject.Transform.scale, 0.01f);
-                ShowParams(main, visualComponent.UIShowType, main.RPContext.currentChannel.renderPipelineView, visualComponent.material.Parameters);
+                ShowParams(main, visualComponent.UIShowType, main.windowSystem.currentChannel.renderPipelineView, visualComponent.material.Parameters);
                 ImGui.TreePop();
             }
         }
@@ -1059,12 +1064,12 @@ vmd格式动作。支持几乎所有的图片格式。");
             if (tex != null)
             {
                 texSize = new Vector2(tex.width, tex.height);
-                imageId = main.widgetRenderer.ShowTexture(tex);
+                imageId = main.uiRenderSystem.ShowTexture(tex);
             }
             else
             {
                 texSize = new Vector2(0, 0);
-                imageId = main.widgetRenderer.ShowTexture(null);
+                imageId = main.uiRenderSystem.ShowTexture(null);
             }
 
             Vector2 pos = ImGui.GetCursorScreenPos();
@@ -1085,7 +1090,7 @@ vmd格式动作。支持几乎所有的图片格式。");
                     channel.camera.RotateDelta(new Vector3(-mouseMoveDelta.Y, mouseMoveDelta.X, 0) / 200);
                 if (io.MouseDown[2])
                     channel.camera.MoveDelta(new Vector3(mouseMoveDelta.X, mouseMoveDelta.Y, 0) / 400);
-                main.RPContext.currentChannel = channel;
+                main.windowSystem.currentChannel = channel;
             }
             if (ImGui.IsItemHovered())
             {
@@ -1113,7 +1118,7 @@ vmd格式动作。支持几乎所有的图片格式。");
             {
                 GameObject obj = scene.gameObjects[i];
                 Vector3 position = obj.Transform.position;
-                Vector2 basePos = imagePosition + (TransformToImage(position, vpMatrix, out bool canView)) * imageSize;
+                Vector2 basePos = imagePosition + (ImGuiExt.TransformToImage(position, vpMatrix, out bool canView)) * imageSize;
                 Vector2 diff = Vector2.Abs(basePos - mousePos);
                 if (diff.X < 10 && diff.Y < 10 && canView)
                 {
@@ -1125,7 +1130,8 @@ vmd格式动作。支持几乎所有的图片格式。");
                     drawList.AddNgon(basePos, 10, 0xffffff77, 4);
                 if (obj.TryGetComponent(out VisualComponent visual) && showBounding)
                 {
-                    DrawCube(drawList, imagePosition, imageSize, obj.Transform, vpMatrix);
+                    Matrix4x4 mvp = MatrixExt.Transform(obj.Transform.position, obj.Transform.rotation, obj.Transform.scale) * vpMatrix;
+                    ImGuiExt.DrawCube(drawList, imagePosition, imageSize, mvp);
                 }
             }
             ImGui.PopClipRect();
@@ -1147,39 +1153,6 @@ vmd格式动作。支持几乎所有的图片格式。");
                 ImGui.BeginTooltip();
                 ImGui.Text(toolTipMessage);
                 ImGui.EndTooltip();
-            }
-        }
-
-        static void DrawCube(ImDrawListPtr drawList, Vector2 leftTop, Vector2 imageSize, Transform transform, Matrix4x4 vpMatrix)
-        {
-            Vector3 position = transform.position;
-            Quaternion rotation = transform.rotation;
-            Vector3 scale = transform.scale;
-            Matrix4x4 mvp = MatrixExt.Transform(position, rotation, scale) * vpMatrix;
-
-            for (int i = 0; i < 4; i++)
-            {
-                float signY = ((i & 2) - 1);
-                float signZ = (((i << 1) & 2) - 1);
-                (Vector2 p1, Vector2 p2) = ScreenClipLine(new Vector3(1, signY, signZ), new Vector3(-1, signY, signZ), mvp);
-                if (p1 != p2)
-                    drawList.AddLine(leftTop + p1 * imageSize, leftTop + p2 * imageSize, 0xffffffff);
-            }
-            for (int i = 0; i < 4; i++)
-            {
-                float signX = ((i & 2) - 1);
-                float signZ = (((i << 1) & 2) - 1);
-                (Vector2 p1, Vector2 p2) = ScreenClipLine(new Vector3(signX, 1, signZ), new Vector3(signX, -1, signZ), mvp);
-                if (p1 != p2)
-                    drawList.AddLine(leftTop + p1 * imageSize, leftTop + p2 * imageSize, 0xffffffff);
-            }
-            for (int i = 0; i < 4; i++)
-            {
-                float signX = ((i & 2) - 1);
-                float signY = (((i << 1) & 2) - 1);
-                (Vector2 p1, Vector2 p2) = ScreenClipLine(new Vector3(signX, signY, 1), new Vector3(signX, signY, -1), mvp);
-                if (p1 != p2)
-                    drawList.AddLine(leftTop + p1 * imageSize, leftTop + p2 * imageSize, 0xffffffff);
             }
         }
 
@@ -1240,7 +1213,7 @@ vmd格式动作。支持几乎所有的图片格式。");
             }
             if (ImGui.BeginPopupModal("编辑参数", ref popupParamEdit))
             {
-                ShowParams(main, UIShowType.Material, main.RPContext.currentChannel.renderPipelineView, paramEdit);
+                ShowParams(main, UIShowType.Material, main.windowSystem.currentChannel.renderPipelineView, paramEdit);
 
                 if (ImGui.Button("确定"))
                 {
@@ -1273,67 +1246,6 @@ vmd格式动作。支持几乎所有的图片格式。");
             }
         }
 
-        public static bool ComboBox<T>(string label, ref T val) where T : struct, Enum
-        {
-            string valName = val.ToString();
-            string[] enums = Enum.GetNames<T>();
-            string[] enumsTranslation = enums;
-
-            int sourceI = Array.FindIndex(enums, u => u == valName);
-            int sourceI2 = sourceI;
-
-            bool result = ImGui.Combo(string.Format("{1}###{0}", label, label), ref sourceI, enumsTranslation, enumsTranslation.Length);
-            if (sourceI != sourceI2)
-                val = Enum.Parse<T>(enums[sourceI]);
-
-            return result;
-        }
-
-        public static bool ComboBox(string label, ref object val)
-        {
-            var type = val.GetType();
-            string valName = val.ToString();
-            var fields = type.GetFields();
-
-
-            string[] enums;
-
-            if (enumNames.TryGetValue(type, out enums))
-            {
-
-            }
-            else
-            {
-                enums = Enum.GetNames(type);
-                var vals = enums.Select(u => Enum.Parse(type, u)).ToArray();
-                enumValues[type] = vals;
-                enums = enums.Select(u =>
-                {
-                    var uiShow = type.GetField(u).GetCustomAttribute<UIShowAttribute>();
-                    if (uiShow != null)
-                    {
-                        return uiShow.Name;
-                    }
-                    return u;
-                }).ToArray();
-                enumNames[type] = enums;
-            }
-            string[] enumsTranslation = enums;
-            var val1 = val;
-            int sourceI = Array.FindIndex(enumValues[type], u => u.ToString() == valName);
-            int sourceI2 = sourceI;
-
-            bool result = ImGui.Combo(string.Format("{1}###{0}", label, label), ref sourceI, enumsTranslation, enumsTranslation.Length);
-
-            if (sourceI != sourceI2)
-            {
-                val = enumValues[type][sourceI];
-            }
-
-            return result;
-        }
-
-
         static void NewLighting(Coocoo3DMain main)
         {
             VisualComponent decalComponent = new VisualComponent();
@@ -1342,7 +1254,7 @@ vmd格式动作。支持几乎所有的图片格式。");
             gameObject.AddComponent(decalComponent);
             gameObject.Name = "Lighting";
             gameObject.Transform = new(new Vector3(0, 1, 0), Quaternion.CreateFromYawPitchRoll(0, 1.3962634015954636615389526147909f, 0));
-            main.CurrentScene.AddGameObject(gameObject);
+            main.AddGameObject(gameObject);
         }
 
         static void NewDecal(Coocoo3DMain main)
@@ -1353,7 +1265,7 @@ vmd格式动作。支持几乎所有的图片格式。");
             gameObject.AddComponent(decalComponent);
             gameObject.Name = "Decal";
             gameObject.Transform = new(new Vector3(0, 0, 0), Quaternion.CreateFromYawPitchRoll(0, -1.5707963267948966192313216916398f, 0), new Vector3(1, 1, 0.1f));
-            main.CurrentScene.AddGameObject(gameObject);
+            main.AddGameObject(gameObject);
         }
 
         static void DuplicateObject(Coocoo3DMain main, GameObject obj)
@@ -1369,68 +1281,12 @@ vmd格式动作。支持几乎所有的图片格式。");
                 var newRenderer = newObj.GetComponent<MMDRendererComponent>();
                 newRenderer.Materials = mmdRenderer.Materials.Select(u => u.GetClone()).ToList();
                 newRenderer.motionPath = mmdRenderer.motionPath;
-                main.CurrentScene.setTransform[newObj] = obj.Transform;
+                main.SetTransform(newObj, obj.Transform);
             }
             newObj.Name = obj.Name;
             newObj.Transform = obj.Transform;
             newObj.Description = obj.Description;
-            main.CurrentScene.AddGameObject(newObj);
-        }
-
-        static (Vector2, Vector2) ClipLine(Vector3 start, Vector3 end, Matrix4x4 mvp)
-        {
-            Vector4 vx = Vector4.Transform(new Vector4(start, 1), mvp);
-            Vector4 vy = Vector4.Transform(new Vector4(end, 1), mvp);
-            Vector4 delta = vy - vx;
-            delta /= delta.Z;
-
-            if (vx.Z < 0 && vy.Z < 0)
-            {
-                return (Vector2.Zero, Vector2.Zero);
-            }
-
-            if (vx.Z < 0)
-            {
-                vx = vy + delta * (-vy.Z);
-            }
-            if (vy.Z < 0)
-            {
-                vy = vx + delta * (-vx.Z);
-            }
-
-            vx /= vx.W;
-            vy /= vy.W;
-            return (new Vector2(vx.X, vx.Y), new Vector2(vy.X, vy.Y));
-        }
-
-        static (Vector2, Vector2) ScreenClipLine(Vector3 start, Vector3 end, Matrix4x4 mvp)
-        {
-            (Vector2 v1, Vector2 v2) = ClipLine(start, end, mvp);
-
-            v1 *= 0.5f;
-            v1.Y = -v1.Y;
-            v1 += new Vector2(0.5f, 0.5f);
-
-            v2 *= 0.5f;
-            v2.Y = -v2.Y;
-            v2 += new Vector2(0.5f, 0.5f);
-
-            return (v1, v2);
-        }
-
-        static Vector2 TransformToViewport(Vector3 vector, Matrix4x4 vp, out bool canView)
-        {
-            Vector4 xPosition = Vector4.Transform(new Vector4(vector, 1), vp);
-            if (xPosition.Z < 0) canView = false;
-            else canView = true;
-            xPosition /= xPosition.W;
-            xPosition.Y = -xPosition.Y;
-            return new Vector2(xPosition.X, xPosition.Y);
-        }
-
-        static Vector2 TransformToImage(Vector3 vector, Matrix4x4 vp, out bool canView)
-        {
-            return TransformToViewport(vector, vp, out canView) * 0.5f + new Vector2(0.5f, 0.5f);
+            main.AddGameObject(newObj);
         }
 
         static string ImFilter(string lable, string hint)
@@ -1555,9 +1411,6 @@ vmd格式动作。支持几乎所有的图片格式。");
         static Dictionary<string, object> paramEdit;
 
         static Dictionary<uint, string> filters = new Dictionary<uint, string>();
-
-        static Dictionary<Type, string[]> enumNames = new();
-        static Dictionary<Type, object[]> enumValues = new();
 
         static bool Contains(string input, string filter)
         {

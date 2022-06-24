@@ -378,11 +378,16 @@ float3 Shade(float3 N, float3 wPos, float3 V, float3 c_diffuse, float3 c_specula
 	//float3 L = 2 * dot(V, H) * H - V;
 
 	float3 reflectDir = -reflect(V, N);
+	float4 rayStart = float4(wPos, 1);
 	float4 rayEnd = float4(wPos + reflectDir, 1);
 	float4 d1 = mul(rayEnd, g_mWorldToProj);
-	float4 a1 = float4(d1.xyz / d1.w, 1 / d1.w);
+	float4 d2 = mul(rayStart, g_mWorldToProj);
+	if (d1.z < 0)
+	{
+		d1 = d2 - (d2 - d1) / (d2.z - d1.z) * d2.z;
+	}
 
-	float4 d2 = mul(float4(wPos, 1), g_mWorldToProj);
+	float4 a1 = float4(d1.xyz / d1.w, 1 / d1.w);
 	float4 a2 = float4(d2.xyz / d2.w, 1 / d2.w);
 
 

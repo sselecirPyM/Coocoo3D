@@ -1,26 +1,30 @@
-﻿using Coocoo3D.Utility;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
+using Coocoo3D.RenderPipeline;
+using Coocoo3D.Utility;
+using Coocoo3DGraphics;
 
-namespace Coocoo3D.RenderPipeline
+namespace Coocoo3D.Core
 {
-    public static class HybirdRenderPipeline
+    public class RenderSystem
     {
-        internal static void BeginFrame(RenderPipelineContext context)
+        public WindowSystem windowSystem;
+        public GraphicsContext graphicsContext;
+        public void Update()
         {
+            var context = windowSystem.RenderPipelineContext;
             var mainCaches = context.mainCaches;
-            var graphicsContext = context.graphicsContext;
-            context.gpuWriter.graphicsContext = graphicsContext;
             while (mainCaches.TextureReadyToUpload.TryDequeue(out var uploadPack))
                 graphicsContext.UploadTexture(uploadPack.Item1, uploadPack.Item2);
             while (mainCaches.MeshReadyToUpload.TryDequeue(out var mesh))
                 graphicsContext.UploadMesh(mesh);
             var drp = context.dynamicContextRead;
-            foreach (var visualChannel in context.visualChannels.Values)
+            var channels = windowSystem.visualChannels.Values;
+            foreach (var visualChannel in channels)
             {
                 visualChannel.Onframe(context);
 
@@ -42,23 +46,10 @@ namespace Coocoo3D.RenderPipeline
                     }
                 }
             }
+            context.gpuWriter.graphicsContext = graphicsContext;
             context.gpuWriter.Clear();
-        }
 
-        internal static void EndFrame(RenderPipelineContext context)
-        {
-            foreach (var visualChannel in context.visualChannels.Values)
-            {
-                var renderPipelineView = visualChannel.renderPipelineView;
-                if (renderPipelineView == null) continue;
-                renderPipelineView.renderPipeline.AfterRender();
-                renderPipelineView.renderWrap.AfterRender();
-            }
-        }
-
-        internal static void RenderCamera(RenderPipelineContext context)
-        {
-            foreach (var visualChannel in context.visualChannels.Values)
+            foreach (var visualChannel in channels)
             {
                 var renderPipelineView = visualChannel.renderPipelineView;
                 if (renderPipelineView == null) continue;
@@ -66,15 +57,22 @@ namespace Coocoo3D.RenderPipeline
                 renderPipelineView.renderPipeline.BeforeRender();
                 renderPipelineView.PrepareRenderResources();
             }
-            foreach (var visualChannel in context.visualChannels.Values)
-                RenderCamera2(context, visualChannel);
-        }
+            foreach (var visualChannel in channels)
+            {
+                var renderPipelineView = visualChannel.renderPipelineView;
+                if (renderPipelineView == null) continue;
 
-        internal static void RenderCamera2(RenderPipelineContext context, VisualChannel visualChannel)
-        {
-            var renderPipelineView = visualChannel.renderPipelineView;
-            if (renderPipelineView == null) return;
-            renderPipelineView.renderPipeline.Render();
+                renderPipelineView.renderPipeline.Render();
+            }
+
+            foreach (var visualChannel in channels)
+            {
+                var renderPipelineView = visualChannel.renderPipelineView;
+                if (renderPipelineView == null) continue;
+
+                renderPipelineView.renderPipeline.AfterRender();
+                renderPipelineView.renderWrap.AfterRender();
+            }
         }
     }
 }

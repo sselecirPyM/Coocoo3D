@@ -18,13 +18,12 @@ namespace Coocoo3D.RenderPipeline
 
         public Dictionary<int, GameObject> gameObjects = new();
 
-        public int frameRenderIndex;
         public double Time;
         public double DeltaTime;
         public double RealDeltaTime;
         public bool CPUSkinning;
 
-        public void Preprocess(IList<GameObject> gameObjects)
+        public void Preprocess(IReadOnlyList<GameObject> gameObjects)
         {
             foreach (GameObject gameObject in gameObjects)
             {

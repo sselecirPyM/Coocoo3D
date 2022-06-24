@@ -58,14 +58,14 @@ namespace Coocoo3D.UI
                 {
                     case ".pmx":
                     case ".gltf":
-                        LoadEntityIntoScene(main, main.CurrentScene, file);
+                        LoadEntityIntoScene(main, file);
                         break;
                     case ".vmd":
                         BinaryReader reader = new BinaryReader(file.OpenRead());
                         VMDFormat motionSet = VMDFormat.Load(reader);
                         if (motionSet.CameraKeyFrames.Count != 0)
                         {
-                            var camera = main.RPContext.currentChannel.camera;
+                            var camera = main.windowSystem.currentChannel.camera;
                             camera.cameraMotion.cameraKeyFrames = motionSet.CameraKeyFrames;
                             for (int i = 0; i < camera.cameraMotion.cameraKeyFrames.Count; i++)
                             {
@@ -188,7 +188,7 @@ namespace Coocoo3D.UI
             }
         }
 
-        public static void LoadEntityIntoScene(Coocoo3DMain main, Scene scene, FileInfo pmxFile)
+        public static void LoadEntityIntoScene(Coocoo3DMain main, FileInfo pmxFile)
         {
             string path = pmxFile.FullName;
             ModelPack modelPack = main.mainCaches.GetModel(path);
@@ -197,14 +197,14 @@ namespace Coocoo3D.UI
             {
                 GameObject gameObject = new GameObject();
                 gameObject.LoadPmx(modelPack);
-                scene.AddGameObject(gameObject);
+                main.AddGameObject(gameObject);
             }
             else
             {
                 GameObject gameObject = new GameObject();
                 gameObject.Name = Path.GetFileNameWithoutExtension(path);
                 modelPack.LoadMeshComponent(gameObject);
-                scene.AddGameObject(gameObject);
+                main.AddGameObject(gameObject);
             }
 
             main.RequireRender();
