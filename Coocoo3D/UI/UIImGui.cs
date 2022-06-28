@@ -1111,8 +1111,15 @@ vmd格式动作。支持几乎所有的图片格式。");
             var scene = main.CurrentScene;
             var vpMatrix = channel.cameraData.vpMatrix;
 
-            ImGui.PushClipRect(imagePosition, imagePosition + imageSize, true);
+            UIViewport viewport = new UIViewport
+            {
+                leftTop = imagePosition,
+                rightBottom = imagePosition + imageSize,
+            };
+
+            ImGui.PushClipRect(viewport.leftTop, viewport.rightBottom, true);
             var drawList = ImGui.GetWindowDrawList();
+            bool hasDrag = false;
 
             for (int i = 0; i < scene.gameObjects.Count; i++)
             {
@@ -1127,18 +1134,26 @@ vmd格式动作。支持几乎所有的图片格式。");
                     drawList.AddNgon(basePos, 10, 0xffffffff, 4);
                 }
                 if (gameObjectSelectIndex == i && canView)
-                    drawList.AddNgon(basePos, 10, 0xffffff77, 4);
+                {
+                    viewport.mvp = vpMatrix;
+                    bool drag = ImGuiExt.PositionController(drawList, ref UIImGui.position, io.MouseDown[0], viewport);
+                    if (drag)
+                    {
+                        positionChange = true;
+                        hasDrag = true;
+                    }
+                }
                 if (obj.TryGetComponent(out VisualComponent visual) && showBounding)
                 {
-                    Matrix4x4 mvp = MatrixExt.Transform(obj.Transform.position, obj.Transform.rotation, obj.Transform.scale) * vpMatrix;
-                    ImGuiExt.DrawCube(drawList, imagePosition, imageSize, mvp);
+                    viewport.mvp = obj.Transform.GetMatrix() * vpMatrix;
+                    ImGuiExt.DrawCube(drawList, viewport);
                 }
             }
             ImGui.PopClipRect();
 
             if (ImGui.IsItemHovered())
             {
-                if (io.MouseReleased[0] && ImGui.IsItemFocused())
+                if (io.MouseReleased[0] && ImGui.IsItemFocused() && !hasDrag)
                 {
                     gameObjectSelectIndex = hoveredIndex;
                     if (hoveredIndex != -1)
