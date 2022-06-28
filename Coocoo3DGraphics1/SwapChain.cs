@@ -9,7 +9,7 @@ using static Coocoo3DGraphics.DXHelper;
 
 namespace Coocoo3DGraphics
 {
-    public class SwapChain
+    public class SwapChain :IDisposable
     {
         internal IDXGISwapChain3 m_swapChain;
         internal ID3D12Resource[] m_renderTargets = new ID3D12Resource[c_frameCount];
@@ -135,6 +135,17 @@ namespace Coocoo3DGraphics
                 renderTargetResourceStates[index] = stateAfter;
             }
             return m_renderTargets[index];
+        }
+
+        public void Dispose()
+        {
+            m_swapChain?.Dispose();
+            m_swapChain = null;
+            foreach(var tex in m_renderTargets)
+            {
+                tex.Dispose();
+            }
+            m_renderTargets = null;
         }
     }
 }

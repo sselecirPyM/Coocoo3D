@@ -207,7 +207,14 @@ namespace Coocoo3D.Core
         public void Dispose()
         {
             cancelRenderThread.Cancel();
+            renderWorkThread.Join();
+            if (RenderTask1 != null && RenderTask1.Status == TaskStatus.Running)
+                RenderTask1.Wait();
             graphicsDevice.WaitForGpu();
+            mainCaches.Dispose();
+            windowSystem.Dispose();
+            recordSystem.Dispose();
+            uiRenderSystem.Dispose();
             RPContext.Dispose();
         }
         #endregion

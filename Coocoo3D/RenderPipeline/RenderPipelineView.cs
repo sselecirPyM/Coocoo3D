@@ -325,7 +325,9 @@ namespace Coocoo3D.RenderPipeline
             {
                 rt.Value.texture2D?.Dispose();
                 rt.Value.textureCube?.Dispose();
+                rt.Value.gpuBuffer?.Dispose();
             }
+            RenderTextures = null;
         }
     }
 }

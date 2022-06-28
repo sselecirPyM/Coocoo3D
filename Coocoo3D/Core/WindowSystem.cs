@@ -82,6 +82,15 @@ namespace Coocoo3D.Core
             }
         }
 
+        public void Dispose()
+        {
+            foreach(var vc in visualChannels)
+            {
+                vc.Value.Dispose();
+            }
+            visualChannels.Clear();
+        }
+
         VisualChannel AddVisualChannel(string name)
         {
             var visualChannel = new VisualChannel();

@@ -686,11 +686,36 @@ namespace Coocoo3D.RenderPipeline
 
         public void Dispose()
         {
+            foreach (var m in ModelPackCaches)
+            {
+                m.Value.Dispose();
+            }
+            ModelPackCaches.Clear();
             foreach (var t in TextureCaches)
             {
                 t.Value.texture2D.Dispose();
             }
             TextureCaches.Clear();
+            foreach (var t in ComputeShaders)
+            {
+                t.Value.Dispose();
+            }
+            ComputeShaders.Clear();
+            foreach (var t in PipelineStateObjects)
+            {
+                t.Value.Dispose();
+            }
+            PipelineStateObjects.Clear();
+            foreach (var rs in RootSignatures)
+            {
+                rs.Value.Dispose();
+            }
+            RootSignatures.Clear();
+            foreach (var rtc in RTPSOs)
+            {
+                rtc.Value.Dispose();
+            }
+            RTPSOs.Clear();
         }
     }
 }

@@ -50,6 +50,7 @@ namespace Coocoo3D.Windows
                     SDL_ShowSimpleMessageBox(SDL_MessageBoxFlags.SDL_MESSAGEBOX_ERROR, "error", e.Message + "\n" + e.StackTrace, window);
                 }
             }
+            coocoo3DMain.Dispose();
         }
 
         static bool EventProcess(PlatformIO platformIO, Dictionary<SDL_Keycode, int> sdlKeycode2ImguiKey)

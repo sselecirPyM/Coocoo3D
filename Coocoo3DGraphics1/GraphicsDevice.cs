@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Text;
 using Vortice.Direct3D12;
-using System.Numerics;
 using SharpGen.Runtime;
 using Vortice.DXGI;
 using System.Threading;
@@ -11,9 +10,8 @@ using static Coocoo3DGraphics.DXHelper;
 
 namespace Coocoo3DGraphics
 {
-    public class GraphicsDevice
+    public class GraphicsDevice : IDisposable
     {
-
         public const int CBVSRVUAVDescriptorCount = 65536;
         internal ID3D12Device5 device;
         internal IDXGIAdapter adapter;
@@ -272,5 +270,24 @@ namespace Coocoo3DGraphics
         }
 
         internal ID3D12CommandAllocator GetCommandAllocator() { return commandAllocators[executeIndex]; }
+
+        public void Dispose()
+        {
+            Recycle();
+            foreach (var commandList in m_commandLists)
+                commandList?.Release();
+            if (commandAllocators != null)
+                foreach (var allocator in commandAllocators)
+                    allocator.Release();
+            fence?.Release();
+            commandQueue?.Release();
+            superRingBuffer?.Dispose();
+            cbvsrvuavHeap?.Dispose();
+            rtvHeap?.Dispose();
+            dsvHeap?.Dispose();
+            adapter?.Release();
+            device?.Release();
+            scratchResource?.Release();
+        }
     }
 }

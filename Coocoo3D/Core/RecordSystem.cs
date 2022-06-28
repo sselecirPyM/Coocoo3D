@@ -97,5 +97,10 @@ namespace Coocoo3D.Core
         {
             recording = false;
         }
+
+        public void Dispose()
+        {
+            recorder.Dispose();
+        }
     }
 }

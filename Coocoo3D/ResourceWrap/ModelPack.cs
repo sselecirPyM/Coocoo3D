@@ -16,7 +16,7 @@ using Coocoo3D.Present;
 
 namespace Coocoo3D.ResourceWrap
 {
-    public class ModelPack
+    public class ModelPack : IDisposable
     {
         public PMXFormat pmx;
 
@@ -578,6 +578,12 @@ namespace Coocoo3D.ResourceWrap
             meshRenderer.transform = gameObject.Transform;
             foreach (var material in Materials)
                 meshRenderer.Materials.Add(material.GetClone());
+        }
+
+        public void Dispose()
+        {
+            meshInstance?.Dispose();
+            meshInstance = null;
         }
     }
 }

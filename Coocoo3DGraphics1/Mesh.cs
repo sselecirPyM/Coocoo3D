@@ -8,12 +8,18 @@ using Vortice.DXGI;
 
 namespace Coocoo3DGraphics
 {
-    public class _vertexBuffer
+    public class _vertexBuffer : IDisposable
     {
         public ID3D12Resource vertex;
         public VertexBufferView vertexBufferView;
         public int actualLength;
         public byte[] data;
+
+        public void Dispose()
+        {
+            vertex?.Dispose();
+            vertex = null;
+        }
     }
     public class Mesh : IDisposable
     {
@@ -70,7 +76,7 @@ namespace Coocoo3DGraphics
             return m_vertexCount;
         }
 
-        public bool TryGetBuffer(int index,out byte[] data)
+        public bool TryGetBuffer(int index, out byte[] data)
         {
             data = null;
             if (vtBuffers.TryGetValue(index, out var mesh))
@@ -89,6 +95,11 @@ namespace Coocoo3DGraphics
 
         public void Dispose()
         {
+            foreach (var vtbuf in vtBuffers)
+            {
+                vtbuf.Value.Dispose();
+            }
+            vtBuffers.Clear();
             indexBuffer?.Release();
             indexBuffer = null;
         }

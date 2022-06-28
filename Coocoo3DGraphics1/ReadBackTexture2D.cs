@@ -8,7 +8,7 @@ using Range = Vortice.Direct3D12.Range;
 
 namespace Coocoo3DGraphics
 {
-    public class ReadBackTexture2D
+    public class ReadBackTexture2D : IDisposable
     {
         public void Reload(int width, int height, int bytesPerPixel)
         {
@@ -45,6 +45,17 @@ namespace Coocoo3DGraphics
         {
             return m_height;
         }
+
+        public void Dispose()
+        {
+            if (m_textureReadBack != null)
+                foreach (var tex in m_textureReadBack)
+                {
+                    tex.Release();
+                }
+            m_textureReadBack = null;
+        }
+
         public ID3D12Resource[] m_textureReadBack;
         public int m_width;
         public int m_height;

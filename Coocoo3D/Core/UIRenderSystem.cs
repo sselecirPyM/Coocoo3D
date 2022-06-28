@@ -147,5 +147,9 @@ namespace Coocoo3D.Core
             else
                 return error;
         }
+        public void Dispose()
+        {
+            imguiMesh?.Dispose();
+        }
     }
 }

@@ -231,7 +231,14 @@ namespace Coocoo3D.RenderPipeline
 
         public void Dispose()
         {
-
+            foreach (var obj in meshPool.list1)
+            {
+                obj.Dispose();
+            }
+            cubeMesh.Dispose();
+            quadMesh.Dispose();
+            swapChain?.Dispose();
+            graphicsDevice?.Dispose();
         }
     }
 }
