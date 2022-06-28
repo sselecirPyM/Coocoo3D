@@ -81,7 +81,7 @@ namespace Coocoo3D.RenderPipeline
                 var packs = TextureCaches.ToList();
                 foreach (var pair in packs)
                 {
-                    if (!TextureOnDemand.ContainsKey(pair.Key) && pair.Value.canReload)
+                    if (!TextureOnDemand.ContainsKey(pair.Key))
                         TextureOnDemand.Add(pair.Key, new Texture2DPack() { fullPath = pair.Value.fullPath });
                 }
                 foreach (var pair in KnownFiles)
@@ -549,29 +549,6 @@ namespace Coocoo3D.RenderPipeline
             return resultData;
         }
 
-        public Dictionary<IntPtr, string> ptr2string = new();
-        public Dictionary<string, IntPtr> string2Ptr = new();
-        long ptrCount = 0;
-        public IntPtr GetPtr(string s)
-        {
-            if (string2Ptr.TryGetValue(s, out IntPtr ptr))
-            {
-                return ptr;
-            }
-            long i = System.Threading.Interlocked.Increment(ref ptrCount);
-            ptr = new IntPtr(i);
-            ptr2string[ptr] = s;
-            string2Ptr[s] = ptr;
-            return ptr;
-        }
-        public Texture2D GetTexture(IntPtr ptr)
-        {
-            if (ptr2string.TryGetValue(ptr, out string s) && TextureCaches.TryGetValue(s, out var tex))
-            {
-                return tex.texture2D;
-            }
-            return null;
-        }
         public Texture2D GetTexture(string s)
         {
             if (TextureCaches.TryGetValue(s, out var tex))
@@ -633,16 +610,6 @@ namespace Coocoo3D.RenderPipeline
             return result;
         }
 
-        public void SetTexture(Texture2D tex, IntPtr ptr)
-        {
-            string name = ptr2string[ptr];
-            TextureCaches[name] = new Texture2DPack() { canReload = false, fullPath = name, texture2D = tex };
-        }
-        public void SetTexture(string name, Texture2D tex)
-        {
-            TextureCaches[name] = new Texture2DPack() { canReload = false, fullPath = name, texture2D = tex };
-        }
-
         bool InitFolder(string path)
         {
             if (path == null) return false;
@@ -652,7 +619,7 @@ namespace Coocoo3D.RenderPipeline
             var path1 = path.Substring(0, path.LastIndexOf('\\'));
             if (InitFolder(path1))
             {
-                if (AddChildFolder(KnownFolders[path1], path) != null)
+                if (AddChildFolder(path) != null)
                     return true;
                 return false;
             }
@@ -660,7 +627,7 @@ namespace Coocoo3D.RenderPipeline
                 return false;
         }
 
-        public DirectoryInfo AddChildFolder(DirectoryInfo folder, string path)
+        public DirectoryInfo AddChildFolder(string path)
         {
             try
             {

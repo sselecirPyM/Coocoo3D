@@ -32,7 +32,7 @@ namespace Coocoo3D.RenderPipeline
         {
         }
 
-        public void Onframe(RenderPipelineContext RPContext)
+        public void Onframe()
         {
             if (newRenderPipelineType != null)
             {
@@ -49,7 +49,7 @@ namespace Coocoo3D.RenderPipeline
                 newRenderPipelineType = null;
             }
 
-            if (camera.CameraMotionOn) camera.SetCameraMotion((float)RPContext.dynamicContextRead.Time);
+            if (camera.CameraMotionOn) camera.SetCameraMotion((float)rpc.dynamicContext.Time);
             cameraData = camera.GetCameraData();
         }
 

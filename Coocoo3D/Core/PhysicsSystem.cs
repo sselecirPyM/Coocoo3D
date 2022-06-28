@@ -28,10 +28,10 @@ namespace Coocoo3D.Core
 
         public Dictionary<MMDRendererComponent, _physicsObjects> physicsObjects = new();
 
-        public List<GameObject> gameObjectLoadList = new();
-        public List<GameObject> gameObjectRemoveList = new();
+        //public List<GameObject> gameObjectLoadList = new();
+        //public List<GameObject> gameObjectRemoveList = new();
 
-        public Dictionary<GameObject, Transform> setTransform = new();
+        //public Dictionary<GameObject, Transform> setTransform = new();
 
         List<MMDRendererComponent> rendererComponents = new();
 
@@ -51,7 +51,7 @@ namespace Coocoo3D.Core
                     rendererComponents.Add(render);
                 }
 
-                if (setTransform.TryGetValue(gameObject, out var transform))
+                if (scene.setTransform.TryGetValue(gameObject, out var transform))
                 {
                     gameObject.Transform = transform;
                     if (render != null)
@@ -73,14 +73,14 @@ namespace Coocoo3D.Core
 
             BoneUpdate((float)deltaTime, rendererComponents);
             rendererComponents.Clear();
-            setTransform.Clear();
+            //setTransform.Clear();
         }
 
         public void DealProcessList()
         {
-            for (int i = 0; i < gameObjectLoadList.Count; i++)
+            for (int i = 0; i < scene.gameObjectLoadList.Count; i++)
             {
-                var gameObject = gameObjectLoadList[i];
+                var gameObject = scene.gameObjectLoadList[i];
                 var r = gameObject.GetComponent<MMDRendererComponent>();
                 if (r != null)
                 {
@@ -88,9 +88,9 @@ namespace Coocoo3D.Core
                     physicsObjects[r] = AddPhysics(r);
                 }
             }
-            for (int i = 0; i < gameObjectRemoveList.Count; i++)
+            for (int i = 0; i < scene.gameObjectRemoveList.Count; i++)
             {
-                var gameObject = gameObjectRemoveList[i];
+                var gameObject = scene.gameObjectRemoveList[i];
                 var renderComponent = gameObject.GetComponent<MMDRendererComponent>();
                 if (renderComponent != null)
                 {
@@ -99,8 +99,8 @@ namespace Coocoo3D.Core
                     physicsObjects.Remove(renderComponent);
                 }
             }
-            gameObjectLoadList.Clear();
-            gameObjectRemoveList.Clear();
+            //gameObjectLoadList.Clear();
+            //gameObjectRemoveList.Clear();
         }
 
         void _ResetPhysics(IReadOnlyList<MMDRendererComponent> renderers)

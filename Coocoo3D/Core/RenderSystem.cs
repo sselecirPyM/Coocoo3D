@@ -14,19 +14,20 @@ namespace Coocoo3D.Core
     {
         public WindowSystem windowSystem;
         public GraphicsContext graphicsContext;
+        public RenderPipelineContext renderPipelineContext;
+        public MainCaches mainCaches;
         public void Update()
         {
-            var context = windowSystem.RenderPipelineContext;
-            var mainCaches = context.mainCaches;
+            var context = renderPipelineContext;
             while (mainCaches.TextureReadyToUpload.TryDequeue(out var uploadPack))
                 graphicsContext.UploadTexture(uploadPack.Item1, uploadPack.Item2);
             while (mainCaches.MeshReadyToUpload.TryDequeue(out var mesh))
                 graphicsContext.UploadMesh(mesh);
-            var drp = context.dynamicContextRead;
+            var drp = context.dynamicContext;
             var channels = windowSystem.visualChannels.Values;
             foreach (var visualChannel in channels)
             {
-                visualChannel.Onframe(context);
+                visualChannel.Onframe();
 
                 foreach (var cap in visualChannel.renderPipelineView.sceneCaptures)
                 {

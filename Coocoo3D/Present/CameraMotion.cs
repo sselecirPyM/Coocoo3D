@@ -16,7 +16,7 @@ namespace Coocoo3D.Present
         {
             if (cameraKeyFrames == null || cameraKeyFrames.Count == 0)
             {
-                return new CameraKeyFrame() { FOV = 30, distance = 45 };
+                return new CameraKeyFrame() { FOV = 30, distance = -4.5f, position = new Vector3(0, 1, 0) };
             }
             float frame = Math.Max(time * c_framePerSecond, 0);
 

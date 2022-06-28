@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 namespace Coocoo3D.Core
 {
 
-    public class WindowSystem
+    public class WindowSystem : IDisposable
     {
         public Type[] RenderPipelineTypes = new Type[0];
 

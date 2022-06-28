@@ -18,7 +18,7 @@ namespace Coocoo3D.Core
         public int Height;
     }
 
-    public class RecordSystem
+    public class RecordSystem : IDisposable
     {
         public WindowSystem windowSystem;
 

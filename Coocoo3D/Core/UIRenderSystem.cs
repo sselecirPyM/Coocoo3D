@@ -14,7 +14,7 @@ using Coocoo3D.RenderPipeline;
 
 namespace Coocoo3D.Core
 {
-    public class UIRenderSystem
+    public class UIRenderSystem : IDisposable
     {
         GPUBuffer imguiMesh = new GPUBuffer();
         GPUWriter GPUWriter = new GPUWriter();
@@ -27,6 +27,9 @@ namespace Coocoo3D.Core
         public GraphicsContext graphicsContext;
         public SwapChain swapChain;
         public MainCaches caches;
+
+        public const int uiTextureIndex = 200000000;
+        public Texture2D uiTexture;
 
         public UIRenderSystem()
         {
@@ -43,6 +46,7 @@ namespace Coocoo3D.Core
 
         public void Update()
         {
+            viewTextures[new IntPtr(uiTextureIndex)] = uiTexture;
             Texture2D texLoading = caches.GetTextureLoaded("Assets/Textures/loading.png", graphicsContext);
             Texture2D texError = caches.GetTextureLoaded("Assets/Textures/error.png", graphicsContext);
 
@@ -118,7 +122,7 @@ namespace Coocoo3D.Core
 
                     if (!viewTextures.TryGetValue(cmd.TextureId, out var tex))
                     {
-                        tex = caches.GetTexture(cmd.TextureId);
+
                     }
 
                     tex = TextureStatusSelect(tex, texLoading, texError, texError);
@@ -149,6 +153,7 @@ namespace Coocoo3D.Core
         }
         public void Dispose()
         {
+            uiTexture?.Dispose();
             imguiMesh?.Dispose();
         }
     }

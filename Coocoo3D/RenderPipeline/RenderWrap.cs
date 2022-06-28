@@ -30,7 +30,7 @@ namespace Coocoo3D.RenderPipeline
 
         public bool CPUSkinning { get => rpc.CPUSkinning; set => rpc.CPUSkinning = value; }
 
-        public IEnumerable<VisualComponent> Visuals { get => rpc.dynamicContextRead.visuals; }
+        public IEnumerable<VisualComponent> Visuals { get => rpc.dynamicContext.visuals; }
 
         List<(object, Dictionary<string, MemberInfo>)> dataStack = new();
 
@@ -358,7 +358,7 @@ namespace Coocoo3D.RenderPipeline
 
         public IEnumerable<MeshRenderable> MeshRenderables(bool setMesh = true)
         {
-            var drp = rpc.dynamicContextRead;
+            var drp = rpc.dynamicContext;
             foreach (var renderer in drp.renderers)
             {
                 var model = GetModel(renderer.meshPath);

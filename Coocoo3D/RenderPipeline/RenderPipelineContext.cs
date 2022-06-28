@@ -13,20 +13,17 @@ using System.Runtime.InteropServices;
 
 namespace Coocoo3D.RenderPipeline
 {
-
     public class RenderPipelineContext : IDisposable
     {
-        public MainCaches mainCaches = new();
+        public MainCaches mainCaches;
 
         public Mesh quadMesh = new Mesh();
         public Mesh cubeMesh = new Mesh();
 
         public GraphicsDevice graphicsDevice;
         public GraphicsContext graphicsContext = new GraphicsContext();
-        public SwapChain swapChain = new SwapChain();
 
-        public RenderPipelineDynamicContext dynamicContextRead = new();
-        private RenderPipelineDynamicContext dynamicContextWrite = new();
+        public RenderPipelineDynamicContext dynamicContext = new();
         public Dictionary<MMDRendererComponent, int> findRenderer = new();
 
         public List<CBuffer> CBs_Bone = new();
@@ -37,9 +34,8 @@ namespace Coocoo3D.RenderPipeline
 
         public bool CPUSkinning = false;
 
-        public void Load()
+        public void Initialize()
         {
-            graphicsDevice = new GraphicsDevice();
             graphicsContext.Reload(graphicsDevice);
 
             quadMesh.ReloadIndex<int>(4, new int[] { 0, 1, 2, 2, 1, 3 });
@@ -63,21 +59,13 @@ namespace Coocoo3D.RenderPipeline
             mainCaches.MeshReadyToUpload.Enqueue(cubeMesh);
         }
 
-        public RenderPipelineDynamicContext GetDynamicContext(Scene scene)
+        public void Submit(Scene scene)
         {
-            dynamicContextWrite.FrameBegin();
+            dynamicContext.FrameBegin();
 
-            dynamicContextWrite.CPUSkinning = CPUSkinning;
+            dynamicContext.CPUSkinning = CPUSkinning;
 
-            dynamicContextWrite.Preprocess(scene.gameObjects);
-
-            return dynamicContextWrite;
-        }
-
-        public void Submit(RenderPipelineDynamicContext dynamicContext)
-        {
-            dynamicContextWrite = dynamicContextRead;
-            dynamicContextRead = dynamicContext;
+            dynamicContext.Preprocess(scene.gameObjects);
         }
 
         public CBuffer GetBoneBuffer(MMDRendererComponent rendererComponent)
@@ -93,7 +81,7 @@ namespace Coocoo3D.RenderPipeline
             meshPool.Reset();
             meshOverride.Clear();
             #region Update bone data
-            var renderers = dynamicContextRead.renderers;
+            var renderers = dynamicContext.renderers;
 
             if (CPUSkinning)
             {
@@ -134,30 +122,27 @@ namespace Coocoo3D.RenderPipeline
                     }
                 }
             }
-            if (!CPUSkinning)
+            for (int i = 0; i < renderers.Count; i++)
             {
-                for (int i = 0; i < renderers.Count; i++)
-                {
-                    renderers[i].WriteMatriticesData();
-                }
-                findRenderer.Clear();
-                while (CBs_Bone.Count < renderers.Count)
-                {
-                    CBuffer constantBuffer = new CBuffer();
-                    constantBuffer.Mutable = true;
-                    CBs_Bone.Add(constantBuffer);
-                }
-                Span<Matrix4x4> mats = stackalloc Matrix4x4[1024];
-                for (int i = 0; i < renderers.Count; i++)
-                {
-                    var renderer = renderers[i];
-                    var matrices = renderer.boneMatricesData;
-                    int l = Math.Min(matrices.Length, 1024);
-                    for (int k = 0; k < l; k++)
-                        mats[k] = Matrix4x4.Transpose(matrices[k]);
-                    graphicsContext.UpdateResource(CBs_Bone[i], mats.Slice(0, l));
-                    findRenderer[renderer] = i;
-                }
+                renderers[i].WriteMatriticesData();
+            }
+            findRenderer.Clear();
+            while (CBs_Bone.Count < renderers.Count)
+            {
+                CBuffer constantBuffer = new CBuffer();
+                constantBuffer.Mutable = true;
+                CBs_Bone.Add(constantBuffer);
+            }
+            Span<Matrix4x4> mats = stackalloc Matrix4x4[1024];
+            for (int i = 0; i < renderers.Count; i++)
+            {
+                var renderer = renderers[i];
+                var matrices = renderer.boneMatricesData;
+                int l = Math.Min(matrices.Length, 1024);
+                for (int k = 0; k < l; k++)
+                    mats[k] = Matrix4x4.Transpose(matrices[k]);
+                graphicsContext.UpdateResource(CBs_Bone[i], mats.Slice(0, l));
+                findRenderer[renderer] = i;
             }
             #endregion
         }
@@ -237,8 +222,6 @@ namespace Coocoo3D.RenderPipeline
             }
             cubeMesh.Dispose();
             quadMesh.Dispose();
-            swapChain?.Dispose();
-            graphicsDevice?.Dispose();
         }
     }
 }

@@ -13,7 +13,6 @@ namespace Coocoo3D.ResourceWrap
     public class Texture2DPack
     {
         public Texture2D texture2D = new Texture2D();
-        public bool canReload = true;
         public string fullPath;
 
         public bool initialized = false;

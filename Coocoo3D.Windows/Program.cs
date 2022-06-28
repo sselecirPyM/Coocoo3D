@@ -43,7 +43,7 @@ namespace Coocoo3D.Windows
                 SDL_CaptureMouse(platformIO.WantCaptureMouse ? SDL_bool.SDL_TRUE : SDL_bool.SDL_FALSE);
                 try
                 {
-                    UIHelper.OnFrame(coocoo3DMain);
+                    coocoo3DMain.UIHelper.OnFrame(coocoo3DMain);
                 }
                 catch (Exception e)
                 {

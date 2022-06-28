@@ -7,19 +7,25 @@ using System.Threading.Tasks;
 using System.Threading;
 using Coocoo3DGraphics;
 using Coocoo3D.Common;
-using Coocoo3D.Present;
 using Coocoo3D.RenderPipeline;
 
 namespace Coocoo3D.Core
 {
     public class Coocoo3DMain : IDisposable
     {
-        GraphicsDevice graphicsDevice { get => RPContext.graphicsDevice; }
         GraphicsContext graphicsContext { get => RPContext.graphicsContext; }
-        public string deviceDescription { get => graphicsDevice.GetDeviceDescription(); }
-        public MainCaches mainCaches { get => RPContext.mainCaches; }
+        public SwapChain swapChain = new SwapChain();
 
-        public RenderPipelineContext RPContext = new RenderPipelineContext();
+        public string deviceDescription { get => graphicsDevice.GetDeviceDescription(); }
+
+        public GameDriverContext GameDriverContext = new GameDriverContext()
+        {
+            FrameInterval = 1 / 240.0f,
+        };
+
+        GraphicsDevice graphicsDevice;
+        public MainCaches mainCaches;
+        public RenderPipelineContext RPContext;
 
         public Scene CurrentScene;
         public AnimationSystem animationSystem;
@@ -29,27 +35,53 @@ namespace Coocoo3D.Core
         public RecordSystem recordSystem;
         public UIRenderSystem uiRenderSystem;
 
-        public void AddGameObject(GameObject gameObject)
+        public GameDriver GameDriver;
+
+        public UI.UIHelper UIHelper;
+        public UI.PlatformIO platformIO;
+        public UI.UIImGui UIImGui;
+
+        public List<object> systems = new();
+        public Dictionary<Type, object> systems1 = new();
+
+        T AddSystem<T>() where T : class, new()
         {
-            CurrentScene.gameObjectLoadList.Add(gameObject);
-            physicsSystem.gameObjectLoadList.Add(gameObject);
+            var system = new T();
+            systems.Add(system);
+            systems1[typeof(T)] = system;
+            return system;
         }
 
-        public void RemoveGameObject(GameObject gameObject)
+        void InitializeSystems()
         {
-            CurrentScene.gameObjectRemoveList.Add(gameObject);
-            physicsSystem.gameObjectRemoveList.Add(gameObject);
+            foreach (var system in systems)
+            {
+                var type = system.GetType();
+                var fields = type.GetFields();
+                foreach (var field in fields)
+                {
+                    if (field.FieldType == typeof(GraphicsContext))
+                        field.SetValue(system, graphicsContext);
+                    else if (field.FieldType == typeof(GameDriverContext))
+                        field.SetValue(system, GameDriverContext);
+                    else if (field.FieldType == typeof(SwapChain))
+                        field.SetValue(system, swapChain);
+                    if (systems1.TryGetValue(field.FieldType, out var system1))
+                    {
+                        field.SetValue(system, system1);
+                    }
+                }
+                var menthods = type.GetMethods();
+                foreach (var method in menthods)
+                {
+                    if (method.Name == "Initialize")
+                    {
+                        method.Invoke(system, null);
+                        break;
+                    }
+                }
+            }
         }
-
-        public void SetTransform(GameObject gameObject, Transform transform)
-        {
-            CurrentScene.setTransform[gameObject] = transform;
-            physicsSystem.setTransform[gameObject] = transform;
-        }
-
-        public List<GameObject> SelectedGameObjects = new List<GameObject>();
-
-        public GameDriver GameDriver = new GameDriver();
 
         public TimeManager timeManager = new TimeManager();
         public double framePerSecond;
@@ -64,36 +96,38 @@ namespace Coocoo3D.Core
 
         Thread renderWorkThread;
         CancellationTokenSource cancelRenderThread;
-        public GameDriverContext GameDriverContext { get => GameDriver.gameDriverContext; }
+
         public Coocoo3DMain()
         {
-            RPContext.Load();
+            graphicsDevice = AddSystem<GraphicsDevice>();
+
+            mainCaches = AddSystem<MainCaches>();
+
+            RPContext = AddSystem<RenderPipelineContext>();
+
+            CurrentScene = AddSystem<Scene>();
+
+            animationSystem = AddSystem<AnimationSystem>();
+
+            physicsSystem = AddSystem<PhysicsSystem>();
+
+            windowSystem = AddSystem<WindowSystem>();
+
+            renderSystem = AddSystem<RenderSystem>();
+
+            recordSystem = AddSystem<RecordSystem>();
+
+            uiRenderSystem = AddSystem<UIRenderSystem>();
+
+            GameDriver = AddSystem<GameDriver>();
+
+            platformIO = AddSystem<UI.PlatformIO>();
+            UIHelper = AddSystem<UI.UIHelper>();
+            UIImGui = AddSystem<UI.UIImGui>();
+
+            InitializeSystems();
+
             mainCaches._RequireRender = () => RequireRender(false);
-
-            CurrentScene = new Scene();
-            animationSystem = new AnimationSystem();
-            animationSystem.scene = CurrentScene;
-            animationSystem.caches = mainCaches;
-            physicsSystem = new PhysicsSystem();
-            physicsSystem.scene = CurrentScene;
-            physicsSystem.Initialize();
-            windowSystem = new WindowSystem();
-            windowSystem.RenderPipelineContext = RPContext;
-            windowSystem.Initialize();
-            renderSystem = new RenderSystem();
-            renderSystem.windowSystem = windowSystem;
-            renderSystem.graphicsContext = graphicsContext;
-            recordSystem = new RecordSystem();
-            recordSystem.windowSystem = windowSystem;
-            recordSystem.gameDriverContext = GameDriverContext;
-            recordSystem.graphicsDevice = graphicsDevice;
-            recordSystem.graphicsContext = graphicsContext;
-            recordSystem.Initialize();
-            uiRenderSystem = new UIRenderSystem();
-            uiRenderSystem.swapChain = RPContext.swapChain;
-            uiRenderSystem.graphicsContext = graphicsContext;
-            uiRenderSystem.caches = mainCaches;
-
             GameDriverContext.timeManager = timeManager;
 
             cancelRenderThread = new CancellationTokenSource();
@@ -116,8 +150,6 @@ namespace Coocoo3D.Core
             RequireRender();
         }
         #region Rendering
-
-        public UI.PlatformIO platformIO = new UI.PlatformIO();
 
         public void RequireRender(bool updateEntities = false)
         {
@@ -146,6 +178,7 @@ namespace Coocoo3D.Core
                 physicsSystem.Update();
                 gdc.RequireResetPhysics = false;
             }
+            CurrentScene.Clear();
         }
 
         private bool RenderFrame()
@@ -153,30 +186,29 @@ namespace Coocoo3D.Core
             double deltaTime = timeManager.GetDeltaTime();
             var gdc = GameDriverContext;
             gdc.FrameInterval = frameInterval;
-            if (!GameDriver.Next(windowSystem, recordSystem))
+            if (!GameDriver.Next())
             {
                 return false;
             }
             timeManager.RealCounter("fps", 1, out framePerSecond);
             Simulation();
 
-            var dynamicContext = RPContext.GetDynamicContext(CurrentScene);
-            dynamicContext.RealDeltaTime = deltaTime;
             if (RenderTask1 != null && RenderTask1.Status != TaskStatus.RanToCompletion) RenderTask1.Wait();
-            dynamicContext.Time = gdc.PlayTime;
-            dynamicContext.DeltaTime = gdc.Playing ? gdc.DeltaTime : 0;
-            RPContext.Submit(dynamicContext);
-            if ((RPContext.swapChain.width, RPContext.swapChain.height) != platformIO.windowSize)
+            RPContext.dynamicContext.RealDeltaTime = deltaTime;
+            RPContext.dynamicContext.Time = gdc.PlayTime;
+            RPContext.dynamicContext.DeltaTime = gdc.Playing ? gdc.DeltaTime : 0;
+            RPContext.Submit(CurrentScene);
+            if ((swapChain.width, swapChain.height) != platformIO.windowSize)
             {
                 (int x, int y) = platformIO.windowSize;
-                RPContext.swapChain.Resize(x, y);
+                swapChain.Resize(x, y);
             }
             if (!RPContext.recording)
                 mainCaches.OnFrame();
 
             windowSystem.Update2();
             platformIO.Update();
-            UI.UIImGui.GUI(this);
+            UIImGui.GUI(this);
             graphicsDevice.RenderBegin();
             graphicsContext.Begin();
             RPContext.UpdateGPUResource();
@@ -193,16 +225,19 @@ namespace Coocoo3D.Core
             windowSystem.Update();
             renderSystem.Update();
 
-            GameDriver.AfterRender(windowSystem);
+            GameDriver.AfterRender();
             recordSystem.Record();
 
             uiRenderSystem.Update();
-            graphicsContext.Present(RPContext.swapChain, performanceSettings.VSync);
+            graphicsContext.Present(swapChain, performanceSettings.VSync);
             graphicsContext.EndCommand();
             graphicsContext.Execute();
             drawTriangleCount = graphicsContext.TriangleCount;
             graphicsDevice.RenderComplete();
         }
+
+        #endregion
+        public int drawTriangleCount = 0;
 
         public void Dispose()
         {
@@ -211,15 +246,17 @@ namespace Coocoo3D.Core
             if (RenderTask1 != null && RenderTask1.Status == TaskStatus.Running)
                 RenderTask1.Wait();
             graphicsDevice.WaitForGpu();
-            mainCaches.Dispose();
-            windowSystem.Dispose();
-            recordSystem.Dispose();
-            uiRenderSystem.Dispose();
-            RPContext.Dispose();
-        }
-        #endregion
-        public int drawTriangleCount = 0;
 
+            for (int i = systems.Count - 1; i >= 0; i--)
+            {
+                object system = systems[i];
+                if (system is IDisposable disposable)
+                {
+                    disposable.Dispose();
+                }
+            }
+            swapChain?.Dispose();
+        }
         public void ToPlayMode()
         {
             GameDriver.ToPlayMode();
@@ -232,7 +269,7 @@ namespace Coocoo3D.Core
 
         public void SetWindow(IntPtr hwnd, int width, int height)
         {
-            RPContext.swapChain.Initialize(graphicsDevice, hwnd, width, height);
+            swapChain.Initialize(graphicsDevice, hwnd, width, height);
             platformIO.windowSize = (width, height);
         }
     }

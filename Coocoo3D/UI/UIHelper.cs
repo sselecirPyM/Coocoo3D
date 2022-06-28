@@ -8,15 +8,22 @@ using System.Threading.Tasks;
 using Coocoo3D.Core;
 using Coocoo3D.FileFormat;
 using Coocoo3D.Present;
+using Coocoo3D.RenderPipeline;
 using Coocoo3D.ResourceWrap;
 using Coocoo3D.Utility;
 using Newtonsoft.Json;
 
 namespace Coocoo3D.UI
 {
-    public static class UIHelper
+    public class UIHelper
     {
-        public static void OnFrame(Coocoo3DMain main)
+        public MainCaches mainCaches;
+
+        public GameDriverContext gameDriverContext;
+
+        public Scene scene;
+
+        public void OnFrame(Coocoo3DMain main)
         {
             if (UIImGui.requireOpenFolder.SetFalse())
             {
@@ -25,9 +32,9 @@ namespace Coocoo3D.UI
                 {
                     DirectoryInfo folder = new DirectoryInfo(path);
                     UIImGui.viewRequest = folder;
-                    main.mainCaches.AddFolder(folder);
+                    mainCaches.AddFolder(folder);
                 }
-                main.RequireRender();
+                gameDriverContext.RequireRender(false);
             }
             if (UIImGui.requestSelectRenderPipelines.SetFalse())
             {
@@ -36,9 +43,9 @@ namespace Coocoo3D.UI
                 {
                     DirectoryInfo folder = new DirectoryInfo(path);
                     UIImGui.renderPipelinesRequest = folder;
-                    main.mainCaches.AddFolder(folder);
+                    mainCaches.AddFolder(folder);
                 }
-                main.RequireRender();
+                gameDriverContext.RequireRender(false);
             }
             if (UIImGui.viewRequest != null)
             {
@@ -46,7 +53,7 @@ namespace Coocoo3D.UI
                 UIImGui.viewRequest = null;
                 UIImGui.currentFolder = view;
                 SetViewFolder(view.GetFileSystemInfos());
-                main.RequireRender();
+                gameDriverContext.RequireRender(false);
             }
             if (UIImGui.openRequest != null)
             {
@@ -58,7 +65,7 @@ namespace Coocoo3D.UI
                 {
                     case ".pmx":
                     case ".gltf":
-                        LoadEntityIntoScene(main, file);
+                        LoadEntityIntoScene(file);
                         break;
                     case ".vmd":
                         BinaryReader reader = new BinaryReader(file.OpenRead());
@@ -78,13 +85,13 @@ namespace Coocoo3D.UI
                         }
                         else
                         {
-                            foreach (var gameObject in main.SelectedGameObjects)
+                            foreach (var gameObject in main.CurrentScene.SelectedGameObjects)
                             {
                                 var renderer = gameObject.GetComponent<Components.MMDRendererComponent>();
                                 if (renderer != null) { renderer.motionPath = file.FullName; }
                             }
 
-                            main.GameDriverContext.RequireResetPhysics = true;
+                            gameDriverContext.RequireResetPhysics = true;
                         }
                         break;
                     case ".coocoo3dscene":
@@ -92,11 +99,12 @@ namespace Coocoo3D.UI
                         scene.ToScene(main);
                         break;
                 }
-                main.RequireRender(true);
+
+                gameDriverContext.RequireRender(true);
             }
             if (UIImGui.requestRecord.SetFalse())
             {
-                main.GameDriverContext.NeedRender = 0;
+                gameDriverContext.NeedRender = 0;
                 string path = OpenResourceFolder();
                 if (!string.IsNullOrEmpty(path))
                 {
@@ -188,32 +196,31 @@ namespace Coocoo3D.UI
             }
         }
 
-        public static void LoadEntityIntoScene(Coocoo3DMain main, FileInfo pmxFile)
+        void LoadEntityIntoScene(FileInfo pmxFile)
         {
             string path = pmxFile.FullName;
-            ModelPack modelPack = main.mainCaches.GetModel(path);
-            PreloadTextures(main, modelPack);
+            ModelPack modelPack = mainCaches.GetModel(path);
+            PreloadTextures(modelPack);
             if (modelPack.pmx != null)
             {
                 GameObject gameObject = new GameObject();
                 gameObject.LoadPmx(modelPack);
-                main.AddGameObject(gameObject);
+                scene.AddGameObject(gameObject);
             }
             else
             {
                 GameObject gameObject = new GameObject();
                 gameObject.Name = Path.GetFileNameWithoutExtension(path);
                 modelPack.LoadMeshComponent(gameObject);
-                main.AddGameObject(gameObject);
+                scene.AddGameObject(gameObject);
             }
-
-            main.RequireRender();
+            gameDriverContext.RequireRender(false);
         }
 
-        public static void PreloadTextures(Coocoo3DMain main, ModelPack model)
+        void PreloadTextures(ModelPack model)
         {
             foreach (var tex in model.textures)
-                main.mainCaches.Texture(tex);
+                mainCaches.Texture(tex);
         }
 
         [DllImport("Comdlg32.dll", SetLastError = true, ThrowOnUnmappableChar = true, CharSet = CharSet.Auto)]

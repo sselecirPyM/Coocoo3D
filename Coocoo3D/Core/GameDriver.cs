@@ -31,20 +31,21 @@ namespace Coocoo3D.Core
 
     public class GameDriver
     {
-        public GameDriverContext gameDriverContext = new GameDriverContext()
-        {
-            FrameInterval = 1 / 240.0f,
-        };
+        public GameDriverContext gameDriverContext;
 
-        public bool Next(WindowSystem windowSystem, RecordSystem recordSystem)
-        {
-            RenderPipelineContext rpContext = windowSystem.RenderPipelineContext;
+        public WindowSystem windowSystem;
 
-            ref RecordSettings recordSettings = ref recordSystem.recordSettings;
+        public RecordSystem recordSystem;
+
+        public RenderPipelineContext renderPipelineContext;
+
+        public bool Next()
+        {
+            var recordSettings = recordSystem.recordSettings;
 
             if (toRecordMode.SetFalse())
             {
-                rpContext.recording = true;
+                renderPipelineContext.recording = true;
                 gameDriverContext.Playing = true;
                 gameDriverContext.PlaySpeed = 1.0f;
                 gameDriverContext.PlayTime = 0.0f;
@@ -60,18 +61,19 @@ namespace Coocoo3D.Core
             }
             if (toPlayMode.SetFalse())
             {
-                rpContext.recording = false;
+                renderPipelineContext.recording = false;
                 recordSystem.StopRecord();
             }
 
-            if (rpContext.recording)
-                return Recording(gameDriverContext);
+            if (renderPipelineContext.recording)
+                return Recording();
             else
-                return Playing(gameDriverContext);
+                return Playing();
         }
 
-        bool Playing(GameDriverContext context)
+        bool Playing()
         {
+            GameDriverContext context = gameDriverContext;
             var timeManager = context.timeManager;
             if (!timeManager.RealTimerCorrect("frame", context.FrameInterval, out double deltaTime))
             {
@@ -89,20 +91,19 @@ namespace Coocoo3D.Core
             return true;
         }
 
-        bool Recording(GameDriverContext context)
+        bool Recording()
         {
-            context.NeedRender = 1;
+            gameDriverContext.NeedRender = 1;
 
-            context.DeltaTime = FrameIntervalF;
-            context.PlayTime = FrameIntervalF * RenderCount;
+            gameDriverContext.DeltaTime = FrameIntervalF;
+            gameDriverContext.PlayTime = FrameIntervalF * RenderCount;
 
             return true;
         }
 
-        public void AfterRender(WindowSystem windowSystem)
+        public void AfterRender()
         {
-            RenderPipelineContext rpContext = windowSystem.RenderPipelineContext;
-            if (!rpContext.recording) return;
+            if (!renderPipelineContext.recording) return;
             ref GameDriverContext context = ref gameDriverContext;
             if (!windowSystem.visualChannels.TryGetValue(recordChannel, out var visualChannel1))
             {
@@ -115,7 +116,6 @@ namespace Coocoo3D.Core
                 ToPlayMode();
             RenderCount++;
         }
-
 
         public float StartTime;
         public float StopTime;

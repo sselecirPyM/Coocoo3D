@@ -10,6 +10,8 @@ namespace Coocoo3D.Core
 {
     public class Scene
     {
+        public List<GameObject> SelectedGameObjects = new List<GameObject>();
+
         public List<GameObject> gameObjects = new();
         public List<GameObject> gameObjectLoadList = new();
         public List<GameObject> gameObjectRemoveList = new();
@@ -17,6 +19,21 @@ namespace Coocoo3D.Core
         public Dictionary<GameObject, Transform> setTransform = new();
 
         public int idAllocated = 1;
+
+        public void AddGameObject(GameObject gameObject)
+        {
+            gameObjectLoadList.Add(gameObject);
+        }
+
+        public void RemoveGameObject(GameObject gameObject)
+        {
+            gameObjectRemoveList.Add(gameObject); ;
+        }
+
+        public void SetTransform(GameObject gameObject, Transform transform)
+        {
+            setTransform[gameObject] = transform;
+        }
 
         public void DealProcessList()
         {
@@ -35,8 +52,8 @@ namespace Coocoo3D.Core
                 var gameObject = gameObjectRemoveList[i];
                 gameObjects.Remove(gameObject);
             }
-            gameObjectLoadList.Clear();
-            gameObjectRemoveList.Clear();
+            //gameObjectLoadList.Clear();
+            //gameObjectRemoveList.Clear();
         }
 
         public void Simulation()
@@ -60,7 +77,14 @@ namespace Coocoo3D.Core
                     }
                 }
             }
+            //setTransform.Clear();
+        }
+
+        public void Clear()
+        {
             setTransform.Clear();
+            gameObjectLoadList.Clear();
+            gameObjectRemoveList.Clear();
         }
     }
 }
