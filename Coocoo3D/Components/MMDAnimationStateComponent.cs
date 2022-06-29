@@ -7,13 +7,15 @@ using System.Threading.Tasks;
 
 namespace Coocoo3D.Components
 {
-    public class MMDMorphStateComponent
+    public class MMDAnimationStateComponent
     {
-        public List<MorphDesc> morphs = new();
-        public WeightGroup Weights = new ();
+        public string motionPath = "";
+        public bool LockMotion;
+        public WeightGroup Weights = new();
 
         public const float c_frameInterval = 1 / 30.0f;
         public Dictionary<string, int> stringToMorphIndex = new();
+        public List<(Vector3, Quaternion)> cachedBoneKeyFrames = new();
         public void SetPose(MMDMotion motionComponent, float time)
         {
             foreach (var pair in stringToMorphIndex)
@@ -29,12 +31,12 @@ namespace Coocoo3D.Components
             }
         }
 
-        public void ComputeWeight()
+        public void ComputeWeight(List<MorphDesc> morphs)
         {
-            ComputeWeight1();
+            ComputeWeight1(morphs);
         }
 
-        void ComputeWeight1()
+        void ComputeWeight1(List<MorphDesc> morphs)
         {
             for (int i = 0; i < morphs.Count; i++)
             {
@@ -65,6 +67,64 @@ namespace Coocoo3D.Components
         public bool IsWeightChanged(int index)
         {
             return Weights.Computed[index] != Weights.ComputedPrev[index];
+        }
+
+        
+        void SetPoseWithMotion(List<BoneEntity> bones,float time, MMDMotion motion)
+        {
+            foreach (var bone in bones)
+            {
+                var keyframe = motion.GetBoneMotion(bone.Name, time);
+                bone.rotation = keyframe.Item2;
+                bone.dynamicPosition = keyframe.Item1;
+                cachedBoneKeyFrames[bone.index] = keyframe;
+            }
+        }
+        void SetPoseDefault(List<BoneEntity> bones)
+        {
+            foreach (var bone in bones)
+            {
+                var keyframe = new ValueTuple<Vector3, Quaternion>(Vector3.Zero, Quaternion.Identity);
+                bone.rotation = keyframe.Item2;
+                bone.dynamicPosition = keyframe.Item1;
+                cachedBoneKeyFrames[bone.index] = keyframe;
+            }
+        }
+        void SetPoseNoMotion(List<BoneEntity> bones)
+        {
+            for (int i = 0; i < bones.Count; i++)
+            {
+                var keyframe = cachedBoneKeyFrames[i];
+                bones[i].rotation = keyframe.Item2;
+                bones[i].dynamicPosition = keyframe.Item1;
+            }
+        }
+
+        public void ComputeMotion(float time, MMDMotion motion, List<MorphDesc> morphs, List<BoneEntity> bones)
+        {
+            if (!LockMotion)
+            {
+                if (motion != null)
+                    SetPose(motion, time);
+                else
+                    SetPoseDefault();
+            }
+
+
+            ComputeWeight(morphs);
+
+            if (!LockMotion)
+            {
+                if (motion != null)
+                    SetPoseWithMotion(bones,time, motion);
+                else
+                    SetPoseDefault(bones);
+            }
+            else
+            {
+                SetPoseNoMotion(bones);
+            }
+
         }
     }
 

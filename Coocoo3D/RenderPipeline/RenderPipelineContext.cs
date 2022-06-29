@@ -34,6 +34,11 @@ namespace Coocoo3D.RenderPipeline
 
         public bool CPUSkinning = false;
 
+
+        public double Time;
+        public double DeltaTime;
+        public double RealDeltaTime;
+
         public void Initialize()
         {
             graphicsContext.Reload(graphicsDevice);
@@ -61,8 +66,6 @@ namespace Coocoo3D.RenderPipeline
 
         public void Submit(Scene scene)
         {
-            dynamicContext.FrameBegin();
-
             dynamicContext.CPUSkinning = CPUSkinning;
 
             dynamicContext.Preprocess(scene.gameObjects);

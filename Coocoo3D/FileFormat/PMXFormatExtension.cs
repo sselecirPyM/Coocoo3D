@@ -20,7 +20,9 @@ namespace Coocoo3D.FileFormat
             var renderer = new MMDRendererComponent();
             gameObject.AddComponent(renderer);
             renderer.skinning = true;
-            renderer.morphStateComponent.LoadMorphStates(modelPack);
+            renderer.morphs.Clear();
+            renderer.morphs.AddRange(modelPack.morphs);
+            renderer.animationState.LoadMorphStates(modelPack);
 
             renderer.Initialize(modelPack);
             renderer.LoadMesh(modelPack);
@@ -35,9 +37,6 @@ namespace Coocoo3D.FileFormat
             foreach (var bone in modelPack.bones)
                 renderer.bones.Add(bone.GetClone());
 
-            renderer.cachedBoneKeyFrames.Clear();
-            for (int i = 0; i < modelPack.bones.Count; i++)
-                renderer.cachedBoneKeyFrames.Add((Vector3.Zero, Quaternion.Identity));
 
             renderer.Bake();
             renderer.rigidBodyDescs.Clear();
@@ -61,6 +60,7 @@ namespace Coocoo3D.FileFormat
                 var mat = modelPack.Materials[i].GetClone();
                 renderer.Materials.Add(mat);
             }
+            renderer.weights = new float[modelPack.morphs.Count];
 
             var mesh = modelPack.GetMesh();
             renderer.meshPath = modelPack.fullPath;
@@ -209,16 +209,17 @@ namespace Coocoo3D.FileFormat
             }
             return boneEntity;
         }
-        static void LoadMorphStates(this MMDMorphStateComponent component, ModelPack modelPack)
+        static void LoadMorphStates(this MMDAnimationStateComponent component, ModelPack modelPack)
         {
+            component.cachedBoneKeyFrames.Clear();
+            for (int i = 0; i < modelPack.bones.Count; i++)
+                component.cachedBoneKeyFrames.Add((Vector3.Zero, Quaternion.Identity));
             int morphCount = modelPack.morphs.Count;
 
             component.Weights.Load(morphCount);
             component.stringToMorphIndex.Clear();
             for (int i = 0; i < morphCount; i++)
                 component.stringToMorphIndex[modelPack.morphs[i].Name] = i;
-            component.morphs.Clear();
-            component.morphs.AddRange(modelPack.morphs);
         }
 
         static BoneEntity.IKLink IKLink(in PMX_BoneIKLink ikLink1)

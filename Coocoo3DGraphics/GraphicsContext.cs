@@ -181,7 +181,7 @@ namespace Coocoo3DGraphics
                 m_commandList.ResourceBarrierUnorderedAccessView(btas.resource);
                 InReference(btas.resource);
                 RaytracingInstanceDescription raytracingInstanceDescription = new RaytracingInstanceDescription();
-                raytracingInstanceDescription.AccelerationStructure = (long)btas.resource.GPUVirtualAddress;
+                raytracingInstanceDescription.AccelerationStructure = btas.resource.GPUVirtualAddress;
                 raytracingInstanceDescription.InstanceContributionToHitGroupIndex = (Vortice.UInt24)(uint)i;
                 raytracingInstanceDescription.InstanceID = (Vortice.UInt24)(uint)i;
                 raytracingInstanceDescription.InstanceMask = instance.instanceMask;
@@ -194,7 +194,7 @@ namespace Coocoo3DGraphics
             tpInputs.Layout = ElementsLayout.Array;
             tpInputs.Type = RaytracingAccelerationStructureType.TopLevel;
             tpInputs.DescriptorsCount = accelerationStruct.instances.Count;
-            tpInputs.InstanceDescriptions = (long)gpuAddr;
+            tpInputs.InstanceDescriptions = gpuAddr;
 
             RaytracingAccelerationStructurePrebuildInfo info1 = graphicsDevice.device.GetRaytracingAccelerationStructurePrebuildInfo(tpInputs);
             CreateUAVBuffer((int)info1.ResultDataMaxSizeInBytes, ref accelerationStruct.resource, ResourceStates.RaytracingAccelerationStructure);
@@ -339,9 +339,9 @@ namespace Coocoo3DGraphics
                             if (inst.SRVs != null && inst.SRVs.TryGetValue(srvOffset, out object srv0))
                             {
                                 if (srv0 is Texture2D tex2d)
-                                    writer.Write(GetSRVHandle(tex2d).ptr);
+                                    writer.Write(GetSRVHandle(tex2d).Ptr);
                                 else if (srv0 is GPUBuffer buffer)
-                                    writer.Write(GetSRVHandle(buffer).ptr);
+                                    writer.Write(GetSRVHandle(buffer).Ptr);
                                 else if (srv0 is ID3D12Resource resource)
                                     writer.Write(InReferenceAddr(resource));
                                 else
@@ -405,17 +405,17 @@ namespace Coocoo3DGraphics
             currentInputLayout = inputLayout;
         }
 
-        public void SetSRVTSlotLinear(Texture2D texture, int slot) => currentSRVs[slot] = GetSRVHandle(texture, true).ptr;
+        public void SetSRVTSlotLinear(Texture2D texture, int slot) => currentSRVs[slot] = GetSRVHandle(texture, true).Ptr;
 
-        public void SetSRVTSlot(Texture2D texture, int slot) => currentSRVs[slot] = GetSRVHandle(texture).ptr;
+        public void SetSRVTSlot(Texture2D texture, int slot) => currentSRVs[slot] = GetSRVHandle(texture).Ptr;
 
-        public void SetSRVTSlot(TextureCube texture, int slot) => currentSRVs[slot] = GetSRVHandle(texture).ptr;
+        public void SetSRVTSlot(TextureCube texture, int slot) => currentSRVs[slot] = GetSRVHandle(texture).Ptr;
 
-        public void SetSRVTSlot(GPUBuffer buffer, int slot) => currentSRVs[slot] = GetSRVHandle(buffer).ptr;
+        public void SetSRVTSlot(GPUBuffer buffer, int slot) => currentSRVs[slot] = GetSRVHandle(buffer).Ptr;
 
-        public void SetSRVTLim(Texture2D texture, int mips, int slot) => currentSRVs[slot] = GetSRVHandleWithMip(texture, mips).ptr;
+        public void SetSRVTLim(Texture2D texture, int mips, int slot) => currentSRVs[slot] = GetSRVHandleWithMip(texture, mips).Ptr;
 
-        public void SetSRVTLim(TextureCube texture, int mips, int slot) => currentSRVs[slot] = GetSRVHandleWithMip(texture, mips).ptr;
+        public void SetSRVTLim(TextureCube texture, int mips, int slot) => currentSRVs[slot] = GetSRVHandleWithMip(texture, mips).Ptr;
 
         void SetSRVRSlot(ulong gpuAddr, int slot) => currentSRVs[slot] = gpuAddr;
 
@@ -427,10 +427,10 @@ namespace Coocoo3DGraphics
             currentCBVs[slot] = addr;
         }
 
-        public void SetRTSlot(Texture2D texture2D, int slot) => currentUAVs[slot] = GetUAVHandle(texture2D, ResourceStates.NonPixelShaderResource).ptr;
-        public void SetUAVTSlot(Texture2D texture2D, int slot) => currentUAVs[slot] = GetUAVHandle(texture2D).ptr;
-        public void SetUAVTSlot(TextureCube textureCube, int slot) => currentUAVs[slot] = GetUAVHandle(textureCube).ptr;
-        public void SetUAVTSlot(GPUBuffer buffer, int slot) => currentUAVs[slot] = GetUAVHandle(buffer).ptr;
+        public void SetRTSlot(Texture2D texture2D, int slot) => currentUAVs[slot] = GetUAVHandle(texture2D, ResourceStates.NonPixelShaderResource).Ptr;
+        public void SetUAVTSlot(Texture2D texture2D, int slot) => currentUAVs[slot] = GetUAVHandle(texture2D).Ptr;
+        public void SetUAVTSlot(TextureCube textureCube, int slot) => currentUAVs[slot] = GetUAVHandle(textureCube).Ptr;
+        public void SetUAVTSlot(GPUBuffer buffer, int slot) => currentUAVs[slot] = GetUAVHandle(buffer).Ptr;
 
         public void SetUAVTSlot(TextureCube texture, int mipIndex, int slot)
         {
@@ -446,7 +446,7 @@ namespace Coocoo3DGraphics
                 Format = texture.uavFormat,
             };
 
-            currentUAVs[slot] = CreateUAV(texture.resource, uavDesc).ptr;
+            currentUAVs[slot] = CreateUAV(texture.resource, uavDesc).Ptr;
         }
 
         public void SetUAVTSlot(Texture2D texture, int mipIndex, int slot)
@@ -463,7 +463,7 @@ namespace Coocoo3DGraphics
                 Format = texture.uavFormat,
             };
 
-            currentUAVs[slot] = CreateUAV(texture.resource, uavDesc).ptr;
+            currentUAVs[slot] = CreateUAV(texture.resource, uavDesc).Ptr;
         }
 
         public unsafe void UpdateCBStaticResource<T>(CBuffer buffer, ID3D12GraphicsCommandList commandList, Span<T> data) where T : unmanaged
@@ -1037,7 +1037,7 @@ namespace Coocoo3DGraphics
                 else if (d == ResourceAccessType.CBVTable)
                 {
                     if (currentCBVs.TryGetValue(cbvOffset, out ulong addr))
-                        m_commandList.SetComputeRootDescriptorTable(i, new GpuDescriptorHandle() { ptr = addr });
+                        m_commandList.SetComputeRootDescriptorTable(i, new GpuDescriptorHandle() { Ptr = addr });
                     cbvOffset++;
                 }
                 else if (d == ResourceAccessType.SRV)
@@ -1049,7 +1049,7 @@ namespace Coocoo3DGraphics
                 else if (d == ResourceAccessType.SRVTable)
                 {
                     if (currentSRVs.TryGetValue(srvOffset, out ulong addr))
-                        m_commandList.SetComputeRootDescriptorTable(i, new GpuDescriptorHandle() { ptr = addr });
+                        m_commandList.SetComputeRootDescriptorTable(i, new GpuDescriptorHandle() { Ptr = addr });
                     srvOffset++;
                 }
                 else if (d == ResourceAccessType.UAV)
@@ -1061,7 +1061,7 @@ namespace Coocoo3DGraphics
                 else if (d == ResourceAccessType.UAVTable)
                 {
                     if (currentUAVs.TryGetValue(uavOffset, out ulong addr))
-                        m_commandList.SetComputeRootDescriptorTable(i, new GpuDescriptorHandle() { ptr = addr });
+                        m_commandList.SetComputeRootDescriptorTable(i, new GpuDescriptorHandle() { Ptr = addr });
                     uavOffset++;
                 }
             }
@@ -1090,7 +1090,7 @@ namespace Coocoo3DGraphics
                 else if (d == ResourceAccessType.CBVTable)
                 {
                     if (currentCBVs.TryGetValue(cbvOffset, out ulong addr))
-                        m_commandList.SetGraphicsRootDescriptorTable(i, new GpuDescriptorHandle() { ptr = addr });
+                        m_commandList.SetGraphicsRootDescriptorTable(i, new GpuDescriptorHandle() { Ptr = addr });
                     cbvOffset++;
                 }
                 else if (d == ResourceAccessType.SRV)
@@ -1102,7 +1102,7 @@ namespace Coocoo3DGraphics
                 else if (d == ResourceAccessType.SRVTable)
                 {
                     if (currentSRVs.TryGetValue(srvOffset, out ulong addr))
-                        m_commandList.SetGraphicsRootDescriptorTable(i, new GpuDescriptorHandle() { ptr = addr });
+                        m_commandList.SetGraphicsRootDescriptorTable(i, new GpuDescriptorHandle() { Ptr = addr });
                     srvOffset++;
                 }
                 else if (d == ResourceAccessType.UAV)
@@ -1114,7 +1114,7 @@ namespace Coocoo3DGraphics
                 else if (d == ResourceAccessType.UAVTable)
                 {
                     if (currentUAVs.TryGetValue(uavOffset, out ulong addr))
-                        m_commandList.SetGraphicsRootDescriptorTable(i, new GpuDescriptorHandle() { ptr = addr });
+                        m_commandList.SetGraphicsRootDescriptorTable(i, new GpuDescriptorHandle() { Ptr = addr });
                     uavOffset++;
                 }
             }

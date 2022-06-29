@@ -45,7 +45,7 @@ namespace Coocoo3D.UI
 
             var context = main.RPContext;
             io.DisplaySize = new Vector2(main.swapChain.width, main.swapChain.height);
-            io.DeltaTime = (float)context.dynamicContext.RealDeltaTime;
+            io.DeltaTime = (float)context.RealDeltaTime;
             GameObject selectedObject = null;
 
             positionChange = false;
@@ -875,7 +875,7 @@ vmd格式动作。支持几乎所有的图片格式。");
                     var mesh = mainCaches.GetModel(renderer.meshPath).GetMesh();
                     ImGui.Text(string.Format("顶点数：{0} 索引数：{1} 材质数：{2}\n模型文件：{3}\n动作文件：{4}",
                         mesh.GetVertexCount(), mesh.GetIndexCount(), renderer.Materials.Count,
-                        renderer.meshPath, renderer.motionPath));
+                        renderer.meshPath, renderer.animationState.motionPath));
                 }
 
                 ImGui.TreePop();
@@ -917,22 +917,22 @@ vmd格式动作。支持几乎所有的图片格式。");
             }
             if (ImGui.TreeNode("变形"))
             {
+                var animationStates = renderer.animationState;
                 ImGui.Checkbox("蒙皮", ref renderer.skinning);
                 if (ImGui.IsItemHovered())
                     ImGui.SetTooltip("关闭蒙皮可以提高性能");
                 ImGui.Checkbox("使用IK", ref renderer.enableIK);
                 if (ImGui.IsItemHovered())
                     ImGui.SetTooltip("如果动作不使用IK，请取消勾选");
-                ImGui.Checkbox("锁定动作", ref renderer.LockMotion);
-                var morphStates = renderer.morphStateComponent;
-                if (renderer.LockMotion)
+                ImGui.Checkbox("锁定动作", ref animationStates.LockMotion);
+                if (animationStates.LockMotion)
                 {
                     string filter = ImFilter("搜索变形", "搜索变形");
-                    for (int i = 0; i < morphStates.morphs.Count; i++)
+                    for (int i = 0; i < renderer.morphs.Count; i++)
                     {
-                        MorphDesc morpth = morphStates.morphs[i];
+                        MorphDesc morpth = renderer.morphs[i];
                         if (!Contains(morpth.Name, filter)) continue;
-                        if (ImGui.SliderFloat(morpth.Name, ref morphStates.Weights.Origin[i], 0, 1))
+                        if (ImGui.SliderFloat(morpth.Name, ref animationStates.Weights.Origin[i], 0, 1))
                         {
                             gameDriverContext.RequireResetPhysics = true;
                         }
@@ -1305,7 +1305,7 @@ vmd格式动作。支持几乎所有的图片格式。");
                 newObj.LoadPmx(mainCaches.GetModel(mmdRenderer.meshPath));
                 var newRenderer = newObj.GetComponent<MMDRendererComponent>();
                 newRenderer.Materials = mmdRenderer.Materials.Select(u => u.GetClone()).ToList();
-                newRenderer.motionPath = mmdRenderer.motionPath;
+                newRenderer.animationState.motionPath = mmdRenderer.animationState.motionPath;
                 CurrentScene.SetTransform(newObj, obj.Transform);
             }
             newObj.Name = obj.Name;

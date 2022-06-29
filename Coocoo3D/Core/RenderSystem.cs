@@ -23,7 +23,7 @@ namespace Coocoo3D.Core
                 graphicsContext.UploadTexture(uploadPack.Item1, uploadPack.Item2);
             while (mainCaches.MeshReadyToUpload.TryDequeue(out var mesh))
                 graphicsContext.UploadMesh(mesh);
-            var drp = context.dynamicContext;
+
             var channels = windowSystem.visualChannels.Values;
             foreach (var visualChannel in channels)
             {
@@ -39,11 +39,11 @@ namespace Coocoo3D.Core
                     else if (member.GetGetterType() == typeof(double))
                     {
                         if (member.Name == "Time")
-                            member.SetValue(visualChannel.renderPipeline, drp.Time);
+                            member.SetValue(visualChannel.renderPipeline, context.Time);
                         if (member.Name == "DeltaTime")
-                            member.SetValue(visualChannel.renderPipeline, drp.DeltaTime);
+                            member.SetValue(visualChannel.renderPipeline, context.DeltaTime);
                         if (member.Name == "RealDeltaTime")
-                            member.SetValue(visualChannel.renderPipeline, drp.RealDeltaTime);
+                            member.SetValue(visualChannel.renderPipeline, context.RealDeltaTime);
                     }
                 }
             }

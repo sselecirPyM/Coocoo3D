@@ -49,7 +49,7 @@ namespace Coocoo3D.RenderPipeline
                 newRenderPipelineType = null;
             }
 
-            if (camera.CameraMotionOn) camera.SetCameraMotion((float)rpc.dynamicContext.Time);
+            if (camera.CameraMotionOn) camera.SetCameraMotion((float)rpc.Time);
             cameraData = camera.GetCameraData();
         }
 

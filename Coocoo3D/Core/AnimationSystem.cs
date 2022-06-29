@@ -37,7 +37,10 @@ namespace Coocoo3D.Core
             Parallel.For(0, rendererComponents.Count, i =>
             {
                 var renderer = rendererComponents[i];
-                renderer?.ComputeMotion(playTime, caches.GetMotion(renderer.motionPath));
+                renderer?.animationState.ComputeMotion(playTime, caches.GetMotion(renderer.animationState.motionPath), renderer.morphs, renderer.bones);
+                for (int j = 0; j < renderer.weights.Length; j++)
+                    renderer.weights[j] = renderer.animationState.Weights.Computed[j];
+                renderer?.ComputeMotion();
             });
         }
     }

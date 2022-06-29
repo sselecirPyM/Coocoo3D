@@ -92,7 +92,7 @@ namespace Coocoo3D.FileFormat
                     sceneObject.type = "mmdModel";
                     sceneObject.path = renderer.meshPath;
                     sceneObject.properties = new Dictionary<string, string>();
-                    sceneObject.properties.Add("motion", renderer.motionPath);
+                    sceneObject.properties.Add("motion", renderer.animationState.motionPath);
                     sceneObject.materials = new Dictionary<string, _cooMaterial>();
                     sceneObject.skinning = renderer.skinning;
                     sceneObject.enableIK = renderer.enableIK;
@@ -156,7 +156,7 @@ namespace Coocoo3D.FileFormat
                     {
                         if (obj.properties.TryGetValue("motion", out string motion))
                         {
-                            renderer.motionPath = motion;
+                            renderer.animationState.motionPath = motion;
                         }
                     }
                     if (obj.materials != null)

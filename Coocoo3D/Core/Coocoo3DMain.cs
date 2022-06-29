@@ -194,9 +194,9 @@ namespace Coocoo3D.Core
             Simulation();
 
             if (RenderTask1 != null && RenderTask1.Status != TaskStatus.RanToCompletion) RenderTask1.Wait();
-            RPContext.dynamicContext.RealDeltaTime = deltaTime;
-            RPContext.dynamicContext.Time = gdc.PlayTime;
-            RPContext.dynamicContext.DeltaTime = gdc.Playing ? gdc.DeltaTime : 0;
+            RPContext.RealDeltaTime = deltaTime;
+            RPContext.Time = gdc.PlayTime;
+            RPContext.DeltaTime = gdc.Playing ? gdc.DeltaTime : 0;
             RPContext.Submit(CurrentScene);
             if ((swapChain.width, swapChain.height) != platformIO.windowSize)
             {

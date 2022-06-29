@@ -88,7 +88,7 @@ namespace Coocoo3D.UI
                             foreach (var gameObject in main.CurrentScene.SelectedGameObjects)
                             {
                                 var renderer = gameObject.GetComponent<Components.MMDRendererComponent>();
-                                if (renderer != null) { renderer.motionPath = file.FullName; }
+                                if (renderer != null) { renderer.animationState.motionPath = file.FullName; }
                             }
 
                             gameDriverContext.RequireResetPhysics = true;

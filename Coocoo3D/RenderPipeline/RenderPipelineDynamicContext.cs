@@ -13,18 +13,15 @@ namespace Coocoo3D.RenderPipeline
     {
         public List<MMDRendererComponent> renderers = new();
         public List<MeshRendererComponent> meshRenderers = new();
-
         public List<VisualComponent> visuals = new();
 
         public Dictionary<int, GameObject> gameObjects = new();
 
-        public double Time;
-        public double DeltaTime;
-        public double RealDeltaTime;
         public bool CPUSkinning;
 
         public void Preprocess(IReadOnlyList<GameObject> gameObjects)
         {
+            FrameBegin();
             foreach (GameObject gameObject in gameObjects)
             {
                 if (gameObject.TryGetComponent(out MMDRendererComponent renderer))
@@ -68,7 +65,7 @@ namespace Coocoo3D.RenderPipeline
             }
         }
 
-        public void FrameBegin()
+        void FrameBegin()
         {
             renderers.Clear();
             meshRenderers.Clear();

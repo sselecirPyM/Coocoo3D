@@ -13,10 +13,8 @@ namespace Coocoo3D.Components
     public class MMDRendererComponent : Component
     {
         public string meshPath;
-        public string motionPath = "";
 
-        public MMDMorphStateComponent morphStateComponent = new();
-        public bool LockMotion;
+        public MMDAnimationStateComponent animationState = new();
 
         public bool skinning;
         public bool enableIK = true;
@@ -24,14 +22,16 @@ namespace Coocoo3D.Components
         public List<RenderMaterial> Materials = new();
 
         public Vector3[] meshPositionCache;
+
+        public float[] weights;
         public bool meshNeedUpdate;
+        public List<MorphDesc> morphs = new();
 
         public void ComputeVertexMorph(ModelPack model)
         {
-            var morphs = morphStateComponent.morphs;
             for (int i = 0; i < morphs.Count; i++)
             {
-                if (morphs[i].Type == MorphType.Vertex && morphStateComponent.IsWeightChanged(i))
+                if (morphs[i].Type == MorphType.Vertex && animationState.IsWeightChanged(i))
                 {
                     meshNeedUpdate = true;
                 }
@@ -44,7 +44,7 @@ namespace Coocoo3D.Components
                 if (morphs[i].Type != MorphType.Vertex) continue;
                 MorphVertexDesc[] morphVertices = morphs[i].MorphVertexs;
 
-                float computedWeight = morphStateComponent.Weights.Computed[i];
+                float computedWeight = weights[i];
                 if (computedWeight != 0)
                     for (int j = 0; j < morphVertices.Length; j++)
                     {
@@ -59,7 +59,7 @@ namespace Coocoo3D.Components
         public Matrix4x4[] boneMatricesData;
 
         public List<BoneEntity> bones = new();
-        public List<(Vector3, Quaternion)> cachedBoneKeyFrames = new();
+        //public List<(Vector3, Quaternion)> cachedBoneKeyFrames = new();
 
         public List<RigidBodyDesc> rigidBodyDescs = new();
         public List<JointDesc> jointDescs = new();
@@ -82,37 +82,13 @@ namespace Coocoo3D.Components
             for (int i = 0; i < bones.Count; i++)
                 boneMatricesData[i] = bones[i].GeneratedTransform;
         }
-        public void SetPoseWithMotion(float time, MMDMotion motion)
-        {
-            morphStateComponent.SetPose(motion, time);
-            morphStateComponent.ComputeWeight();
-            foreach (var bone in bones)
-            {
-                var keyframe = motion.GetBoneMotion(bone.Name, time);
-                bone.rotation = keyframe.Item2;
-                bone.dynamicPosition = keyframe.Item1;
-                cachedBoneKeyFrames[bone.index] = keyframe;
-            }
-        }
-        public void SetPoseDefault()
-        {
-            morphStateComponent.SetPoseDefault();
-            morphStateComponent.ComputeWeight();
-            foreach (var bone in bones)
-            {
-                var keyframe = new ValueTuple<Vector3, Quaternion>(Vector3.Zero, Quaternion.Identity);
-                bone.rotation = keyframe.Item2;
-                bone.dynamicPosition = keyframe.Item1;
-                cachedBoneKeyFrames[bone.index] = keyframe;
-            }
-        }
         public void BoneMorphIKAppend()
         {
-            for (int i = 0; i < morphStateComponent.morphs.Count; i++)
+            for (int i = 0; i < morphs.Count; i++)
             {
-                if (morphStateComponent.morphs[i].Type != MorphType.Bone) continue;
-                MorphBoneDesc[] morphBoneStructs = morphStateComponent.morphs[i].MorphBones;
-                float computedWeight = morphStateComponent.Weights.Computed[i];
+                if (morphs[i].Type != MorphType.Bone) continue;
+                MorphBoneDesc[] morphBoneStructs = morphs[i].MorphBones;
+                float computedWeight = weights[i];
                 for (int j = 0; j < morphBoneStructs.Length; j++)
                 {
                     var morphBoneStruct = morphBoneStructs[j];
@@ -126,17 +102,6 @@ namespace Coocoo3D.Components
                     IK(i, bones);
                 }
             UpdateAppendBones();
-        }
-
-        public void SetPoseNoMotion()
-        {
-            morphStateComponent.ComputeWeight();
-            for (int i = 0; i < bones.Count; i++)
-            {
-                var keyframe = cachedBoneKeyFrames[i];
-                bones[i].rotation = keyframe.Item2;
-                bones[i].dynamicPosition = keyframe.Item1;
-            }
         }
 
         public void UpdateAppendBones()
@@ -165,7 +130,7 @@ namespace Coocoo3D.Components
             var entity = bones[boneIndex];
             var entitySource = bones[ikTargetIndex];
 
-            var posTarget=entity.GetPos2();
+            var posTarget = entity.GetPos2();
 
 
             int h1 = entity.CCDIterateLimit / 2;
@@ -180,7 +145,7 @@ namespace Coocoo3D.Components
                     ref var IKLINK = ref entity.boneIKLinks[j];
                     BoneEntity itEntity = bones[IKLINK.LinkedIndex];
 
-                    var itPosition=itEntity.GetPos2();
+                    var itPosition = itEntity.GetPos2();
 
                     Vector3 targetDirection = Vector3.Normalize(itPosition - posTarget);
                     Vector3 ikDirection = Vector3.Normalize(itPosition - posSource);
@@ -375,19 +340,9 @@ namespace Coocoo3D.Components
         #endregion
 
         #endregion
-        public void ComputeMotion(float time, MMDMotion motion)
+
+        public void ComputeMotion()
         {
-            if (!LockMotion)
-            {
-                if (motion != null)
-                    SetPoseWithMotion(time, motion);
-                else
-                    SetPoseDefault();
-            }
-            else
-            {
-                SetPoseNoMotion();
-            }
             UpdateAllMatrix();
             BoneMorphIKAppend();
         }
