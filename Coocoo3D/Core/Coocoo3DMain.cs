@@ -83,6 +83,7 @@ namespace Coocoo3D.Core
             }
         }
 
+        public TimeManager timeManagerUpdate = new TimeManager();
         public TimeManager timeManager = new TimeManager();
         public double framePerSecond;
         public float frameInterval = 1 / 240.0f;
@@ -136,8 +137,10 @@ namespace Coocoo3D.Core
                 var token = cancelRenderThread.Token;
                 while (!token.IsCancellationRequested)
                 {
-                    timeManager.AbsoluteTimeInput(stopwatch1.ElapsedTicks);
-                    if (timeManager.RealTimerCorrect("render", frameInterval, out _)) continue;
+                    long time = stopwatch1.ElapsedTicks;
+                    timeManagerUpdate.AbsoluteTimeInput(time);
+                    if (timeManagerUpdate.RealTimerCorrect("render", frameInterval, out _)) continue;
+                    timeManager.AbsoluteTimeInput(time);
 
                     bool rendered = RenderFrame();
                     if (performanceSettings.SaveCpuPower && !RPContext.recording && !(performanceSettings.VSync && rendered))

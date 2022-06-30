@@ -9,13 +9,6 @@ using Vortice.DXGI;
 
 namespace Coocoo3DGraphics
 {
-    unsafe struct D3D12_MEMCPY_DEST
-    {
-        public void* pData;
-        public ulong RowPitch;
-        public ulong SlicePitch;
-    }
-
     public static class DXHelper
     {
         public const int c_frameCount = 3;
@@ -63,7 +56,9 @@ namespace Coocoo3DGraphics
         }
 
         unsafe static void MemcpySubresource(
-            D3D12_MEMCPY_DEST* pDest,
+            ulong RowPitch,
+            ulong SlicePitch,
+            Span<byte> dest,
             SubresourceData pSrc,
             int RowSizeInBytes,
             int NumRows,
@@ -71,16 +66,16 @@ namespace Coocoo3DGraphics
         {
             for (uint z = 0; z < NumSlices; ++z)
             {
-                byte* pDestSlice = (byte*)(pDest->pData) + pDest->SlicePitch * z;
-                byte* pSrcSlice = (byte*)(pSrc.Data) + (long)pSrc.SlicePitch * z;
+                byte* pSrcSlice = (byte*)(pSrc.Data) + (long)SlicePitch * z;
+                Span<byte> pDestSlice = dest.Slice((int)(SlicePitch * z));
                 for (int y = 0; y < NumRows; ++y)
                 {
-                    new Span<byte>(pSrcSlice + ((long)pSrc.RowPitch * y), RowSizeInBytes).CopyTo(new Span<byte>(pDestSlice + (long)pDest->RowPitch * y, RowSizeInBytes));
+                    new Span<byte>(pSrcSlice + ((long)pSrc.RowPitch * y), RowSizeInBytes).CopyTo(pDestSlice.Slice((int)RowPitch * y, RowSizeInBytes));
                 }
             }
         }
 
-        public unsafe static ulong UpdateSubresources(
+        public static ulong UpdateSubresources(
             ID3D12GraphicsCommandList pCmdList,
             ID3D12Resource pDestinationResource,
             ID3D12Resource pIntermediate,
@@ -102,13 +97,18 @@ namespace Coocoo3DGraphics
                 return 0;
             }
 
-            byte* pData;
-            pIntermediate.Map(0, null,&pData);
+            int sum = 0;
+            for (int i = 0; i < pRowSizesInBytes.Length; i++)
+            {
+                sum += (int)pRowSizesInBytes[i] * pNumRows[i] * pLayouts[i].Footprint.Depth;
+            }
+
+            Span<byte> pData = pIntermediate.Map<byte>(0, sum);
 
             for (int i = 0; i < NumSubresources; ++i)
             {
-                D3D12_MEMCPY_DEST DestData = new D3D12_MEMCPY_DEST { pData = pData + pLayouts[i].Offset, RowPitch = (ulong)pLayouts[i].Footprint.RowPitch, SlicePitch = (uint)(pLayouts[i].Footprint.RowPitch) * (uint)(pNumRows[i]) };
-                MemcpySubresource(&DestData, pSrcData[i], (int)(pRowSizesInBytes[i]), pNumRows[i], pLayouts[i].Footprint.Depth);
+                MemcpySubresource((ulong)pLayouts[i].Footprint.RowPitch, (uint)pLayouts[i].Footprint.RowPitch * (uint)pNumRows[i],
+                    pData.Slice((int)pLayouts[i].Offset), pSrcData[i], (int)pRowSizesInBytes[i], pNumRows[i], pLayouts[i].Footprint.Depth);
             }
             pIntermediate.Unmap(0, null);
 

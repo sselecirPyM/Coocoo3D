@@ -93,7 +93,7 @@ namespace Coocoo3D.Components
                 {
                     var morphBoneStruct = morphBoneStructs[j];
                     bones[morphBoneStruct.BoneIndex].rotation *= Quaternion.Slerp(Quaternion.Identity, morphBoneStruct.Rotation, computedWeight);
-                    bones[morphBoneStruct.BoneIndex].dynamicPosition += morphBoneStruct.Translation * computedWeight;
+                    bones[morphBoneStruct.BoneIndex].translation += morphBoneStruct.Translation * computedWeight;
                 }
             }
             if (enableIK)
@@ -130,22 +130,22 @@ namespace Coocoo3D.Components
             var entity = bones[boneIndex];
             var entitySource = bones[ikTargetIndex];
 
-            var posTarget = entity.GetPos2();
+            var posTarget = entity.GetPos();
 
 
             int h1 = entity.CCDIterateLimit / 2;
-            Vector3 posSource = entitySource.GetPos2();
+            Vector3 posSource = entitySource.GetPos();
             if ((posTarget - posSource).LengthSquared() < 1e-6f) return;
             for (int i = 0; i < entity.CCDIterateLimit; i++)
             {
                 bool axis_lim = i < h1;
                 for (int j = 0; j < entity.boneIKLinks.Length; j++)
                 {
-                    posSource = entitySource.GetPos2();
+                    posSource = entitySource.GetPos();
                     ref var IKLINK = ref entity.boneIKLinks[j];
                     BoneEntity itEntity = bones[IKLINK.LinkedIndex];
 
-                    var itPosition = itEntity.GetPos2();
+                    var itPosition = itEntity.GetPos();
 
                     Vector3 targetDirection = Vector3.Normalize(itPosition - posTarget);
                     Vector3 ikDirection = Vector3.Normalize(itPosition - posSource);
@@ -217,7 +217,7 @@ namespace Coocoo3D.Components
                     }
                     UpdateMatrices(entity.IKChildrenIndex[j]);
                 }
-                posSource = entitySource.GetPos2();
+                posSource = entitySource.GetPos();
                 if ((posTarget - posSource).LengthSquared() < 1e-6f) break;
             }
         }
@@ -242,6 +242,8 @@ namespace Coocoo3D.Components
                     {
                         if (bones[k].ParentIndex == -1) continue;
                         bonesTest[k] |= bonesTest[bones[k].ParentIndex];
+                        if (bone.IsPhysicsFreeBone)
+                            bonesTest[k] = false;
                         if (bonesTest[k])
                             bx.Add(k);
                     }
@@ -257,6 +259,8 @@ namespace Coocoo3D.Components
                 if (bone.ParentIndex != -1)
                     bonesTest[i] |= bonesTest[bone.ParentIndex];
                 bonesTest[i] |= bone.IsAppendTranslation || bone.IsAppendRotation;
+                if (bone.IsPhysicsFreeBone)
+                    bonesTest[i] = false;
                 if (bonesTest[i])
                 {
                     AppendNeedUpdateMatIndexs.Add(i);
@@ -268,6 +272,8 @@ namespace Coocoo3D.Components
             {
                 var bone = bones[i];
                 if (bone.ParentIndex == -1)
+                    continue;
+                if (bone.IsPhysicsFreeBone)
                     continue;
                 var parent = bones[bone.ParentIndex];
                 bonesTest[i] |= bonesTest[bone.ParentIndex];
@@ -352,13 +358,14 @@ namespace Coocoo3D.Components
     {
         public int index;
         public Vector3 staticPosition;
-        public Vector3 dynamicPosition;
+        public Vector3 translation;
         public Quaternion rotation = Quaternion.Identity;
         public Vector3 appendTranslation;
         public Quaternion appendRotation = Quaternion.Identity;
 
         public Matrix4x4 _generatedTransform = Matrix4x4.Identity;
         public Matrix4x4 GeneratedTransform { get => _generatedTransform; }
+        public Matrix4x4 inverseBindMatrix;
 
         public int ParentIndex = -1;
         public string Name;
@@ -381,21 +388,21 @@ namespace Coocoo3D.Components
         {
             if (ParentIndex != -1)
             {
-                _generatedTransform = Matrix4x4.CreateTranslation(-staticPosition) *
-                    MatrixExt.Transform(staticPosition + appendTranslation + dynamicPosition, rotation * appendRotation) * list[ParentIndex]._generatedTransform;
+                _generatedTransform = inverseBindMatrix *
+                    MatrixExt.Transform(staticPosition + appendTranslation + translation, rotation * appendRotation) * list[ParentIndex]._generatedTransform;
             }
             else
             {
-                _generatedTransform = Matrix4x4.CreateTranslation(-staticPosition) *
-                    MatrixExt.Transform(staticPosition + appendTranslation + dynamicPosition, rotation * appendRotation);
+                _generatedTransform = inverseBindMatrix *
+                    MatrixExt.Transform(staticPosition + appendTranslation + translation, rotation * appendRotation);
             }
         }
-        public Vector3 GetPos2()
+        public Vector3 GetPos()
         {
             return Vector3.Transform(staticPosition, _generatedTransform);
         }
 
-        public void GetPosRot2(out Vector3 pos, out Quaternion rot)
+        public void GetPosRot(out Vector3 pos, out Quaternion rot)
         {
             pos = Vector3.Transform(staticPosition, _generatedTransform);
             Matrix4x4.Decompose(_generatedTransform, out _, out rot, out _);

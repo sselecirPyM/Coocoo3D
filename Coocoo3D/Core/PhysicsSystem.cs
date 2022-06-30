@@ -194,6 +194,11 @@ namespace Coocoo3D.Core
                 if (index == -1) continue;
                 r.bones[index]._generatedTransform = MatrixExt.InverseTransform(desc.Position, desc.Rotation) *
                     rigidbodies[i].GetTransform() * r.WorldToLocal;
+                Matrix4x4.Invert(r.bones[r.bones[index].ParentIndex]._generatedTransform, out var invParentMatrix);
+                var localMatrix = invParentMatrix * r.bones[index]._generatedTransform;
+                Matrix4x4.Decompose(localMatrix, out var scale, out var rotation, out var translation);
+                r.bones[index].translation = translation;
+                r.bones[index].rotation = rotation;
             }
             r.UpdateMatrices(r.PhysicsNeedUpdateMatrixIndexs);
 

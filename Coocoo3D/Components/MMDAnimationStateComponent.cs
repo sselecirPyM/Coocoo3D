@@ -76,7 +76,7 @@ namespace Coocoo3D.Components
             {
                 var keyframe = motion.GetBoneMotion(bone.Name, time);
                 bone.rotation = keyframe.Item2;
-                bone.dynamicPosition = keyframe.Item1;
+                bone.translation = keyframe.Item1;
                 cachedBoneKeyFrames[bone.index] = keyframe;
             }
         }
@@ -86,7 +86,7 @@ namespace Coocoo3D.Components
             {
                 var keyframe = new ValueTuple<Vector3, Quaternion>(Vector3.Zero, Quaternion.Identity);
                 bone.rotation = keyframe.Item2;
-                bone.dynamicPosition = keyframe.Item1;
+                bone.translation = keyframe.Item1;
                 cachedBoneKeyFrames[bone.index] = keyframe;
             }
         }
@@ -96,7 +96,7 @@ namespace Coocoo3D.Components
             {
                 var keyframe = cachedBoneKeyFrames[i];
                 bones[i].rotation = keyframe.Item2;
-                bones[i].dynamicPosition = keyframe.Item1;
+                bones[i].translation = keyframe.Item1;
             }
         }
 

@@ -693,6 +693,74 @@ namespace Coocoo3D.FileFormat
 
                 Joints.Add(joint);
             }
+            Optimise();
+        }
+
+        private void Optimise()
+        {
+            Dictionary<int, int> reorder = new Dictionary<int, int>();
+            reorder[-1] = -1;
+            List<PMX_Bone> bones1 = new List<PMX_Bone>(Bones.Count);
+
+            int _Reorder(int a)
+            {
+                return reorder[a];
+            }
+
+            for (int i = 0; i < Bones.Count; i++)
+            {
+                PMX_Bone bone = Bones[i];
+                if (bone.ParentIndex > i && !reorder.ContainsKey(bone.ParentIndex))
+                {
+                    reorder[bone.ParentIndex] = bones1.Count;
+                    bones1.Add(Bones[bone.ParentIndex]);
+                }
+                if (!reorder.ContainsKey(i))
+                {
+                    reorder[i] = bones1.Count;
+                    bones1.Add(bone);
+                }
+            }
+
+            for (int i = 0; i < Bones.Count; i++)
+            {
+                PMX_Bone bone = Bones[i];
+                bone.ParentIndex = _Reorder(bone.ParentIndex);
+                bone.AppendBoneIndex = _Reorder(bone.AppendBoneIndex);
+                if (bone.boneIK != null)
+                {
+                    bone.boneIK.IKTargetIndex = _Reorder(bone.boneIK.IKTargetIndex);
+                    foreach (var boneIk in bone.boneIK.IKLinks)
+                    {
+                        boneIk.LinkedIndex = _Reorder(boneIk.LinkedIndex);
+                    }
+                }
+            }
+            foreach (var morph in Morphs)
+            {
+                if (morph.MorphBones == null) continue;
+                for (int j = 0; j < morph.MorphBones.Length; j++)
+                {
+                    morph.MorphBones[j].BoneIndex = _Reorder(morph.MorphBones[j].BoneIndex);
+                }
+            }
+            foreach (var rigidBody in RigidBodies)
+            {
+                rigidBody.AssociatedBoneIndex = _Reorder(rigidBody.AssociatedBoneIndex);
+            }
+            foreach (var joint in Joints)
+            {
+                joint.AssociatedRigidBodyIndex1 = _Reorder(joint.AssociatedRigidBodyIndex1);
+                joint.AssociatedRigidBodyIndex2 = _Reorder(joint.AssociatedRigidBodyIndex2);
+            }
+            for (int i = 0; i < Vertices.Length; i++)
+            {
+                Vertices[i].boneId0 = _Reorder(Vertices[i].boneId0);
+                Vertices[i].boneId1 = _Reorder(Vertices[i].boneId1);
+                Vertices[i].boneId2 = _Reorder(Vertices[i].boneId2);
+                Vertices[i].boneId3 = _Reorder(Vertices[i].boneId3);
+            }
+            Bones = bones1;
         }
 
         private int _morphVertexCmp(PMX_MorphVertexDesc x, PMX_MorphVertexDesc y)

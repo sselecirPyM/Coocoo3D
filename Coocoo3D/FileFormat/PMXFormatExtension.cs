@@ -38,7 +38,6 @@ namespace Coocoo3D.FileFormat
                 renderer.bones.Add(bone.GetClone());
 
 
-            renderer.Bake();
             renderer.rigidBodyDescs.Clear();
             renderer.rigidBodyDescs.AddRange(modelPack.rigidBodyDescs);
             for (int i = 0; i < modelPack.rigidBodyDescs.Count; i++)
@@ -50,6 +49,7 @@ namespace Coocoo3D.FileFormat
             }
             renderer.jointDescs.Clear();
             renderer.jointDescs.AddRange(modelPack.jointDescs);
+            renderer.Bake();
         }
 
         static void LoadMesh(this MMDRendererComponent renderer, ModelPack modelPack)
@@ -177,6 +177,7 @@ namespace Coocoo3D.FileFormat
             boneEntity.staticPosition = _bone.Position * 0.1f;
             boneEntity.rotation = Quaternion.Identity;
             boneEntity.index = index;
+            boneEntity.inverseBindMatrix = Matrix4x4.CreateTranslation(-boneEntity.staticPosition);
 
             boneEntity.Name = _bone.Name;
             boneEntity.NameEN = _bone.NameEN;
