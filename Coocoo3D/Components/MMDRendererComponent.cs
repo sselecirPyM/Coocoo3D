@@ -14,8 +14,6 @@ namespace Coocoo3D.Components
     {
         public string meshPath;
 
-        public MMDAnimationStateComponent animationState = new();
-
         public bool skinning;
         public bool enableIK = true;
 
@@ -29,13 +27,6 @@ namespace Coocoo3D.Components
 
         public void ComputeVertexMorph(ModelPack model)
         {
-            for (int i = 0; i < morphs.Count; i++)
-            {
-                if (morphs[i].Type == MorphType.Vertex && animationState.IsWeightChanged(i))
-                {
-                    meshNeedUpdate = true;
-                }
-            }
             if (!meshNeedUpdate) return;
             new Span<Vector3>(model.position).CopyTo(meshPositionCache);
 
@@ -59,7 +50,6 @@ namespace Coocoo3D.Components
         public Matrix4x4[] boneMatricesData;
 
         public List<BoneEntity> bones = new();
-        //public List<(Vector3, Quaternion)> cachedBoneKeyFrames = new();
 
         public List<RigidBodyDesc> rigidBodyDescs = new();
         public List<JointDesc> jointDescs = new();

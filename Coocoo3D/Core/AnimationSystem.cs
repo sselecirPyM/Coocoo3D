@@ -16,31 +16,45 @@ namespace Coocoo3D.Core
 
         public MainCaches caches;
 
-        List<MMDRendererComponent> rendererComponents = new();
+        List<(MMDRendererComponent, AnimationStateComponent)> animationRenderers = new();
         public void Update()
         {
             foreach (var gameObject in scene.gameObjects)
             {
                 var render = gameObject.GetComponent<MMDRendererComponent>();
+                var animation = gameObject.GetComponent<AnimationStateComponent>();
                 if (render != null)
                 {
-                    rendererComponents.Add(render);
+                    animationRenderers.Add((render, animation));
                 }
             }
 
-            UpdateGameObjects((float)playTime, rendererComponents);
-            rendererComponents.Clear();
+            UpdateGameObjects((float)playTime, animationRenderers);
+            animationRenderers.Clear();
         }
 
-        void UpdateGameObjects(float playTime, IReadOnlyList<MMDRendererComponent> rendererComponents)
+        void UpdateGameObjects(float playTime, IReadOnlyList<(MMDRendererComponent, AnimationStateComponent)> animationRenderers)
         {
-            Parallel.For(0, rendererComponents.Count, i =>
+            Parallel.For(0, animationRenderers.Count, i =>
             {
-                var renderer = rendererComponents[i];
-                renderer?.animationState.ComputeMotion(playTime, caches.GetMotion(renderer.animationState.motionPath), renderer.morphs, renderer.bones);
-                for (int j = 0; j < renderer.weights.Length; j++)
-                    renderer.weights[j] = renderer.animationState.Weights.Computed[j];
-                renderer?.ComputeMotion();
+                var renderer = animationRenderers[i].Item1;
+                var animationState = animationRenderers[i].Item2;
+                animationState.ComputeMotion(playTime, caches.GetMotion(animationState.motionPath), renderer.morphs, renderer.bones);
+                for (int j = 0; j < renderer.morphs.Count; j++)
+                {
+                    if (renderer.morphs[j].Type == MorphType.Vertex && animationState.Weights.Computed[j] != renderer.weights[j])
+                    {
+                        renderer.meshNeedUpdate = true;
+                        break;
+                    }
+                }
+                animationState.Weights.Computed.CopyTo(renderer.weights, 0);
+                renderer.ComputeMotion();
+            });
+            Parallel.For(0, animationRenderers.Count, i =>
+            {
+                var renderer = animationRenderers[i].Item1;
+                renderer.ComputeVertexMorph(caches.GetModel(renderer.meshPath));
             });
         }
     }

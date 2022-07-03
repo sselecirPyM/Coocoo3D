@@ -8,6 +8,7 @@ using Caprice.Display;
 using Coocoo3D.RenderPipeline;
 using Coocoo3DGraphics;
 using System.Numerics;
+using Coocoo3D.Present;
 
 namespace RenderPipelines
 {
@@ -211,6 +212,9 @@ namespace RenderPipelines
         [SceneCapture]
         public CameraData camera;
 
+        [SceneCapture("Visual")]
+        public IEnumerable<GameObject> Visuals;
+
         [Indexable]
         public float cameraFar;
         [Indexable]
@@ -293,6 +297,7 @@ namespace RenderPipelines
                 camera = camera.GetJitter(jitterVector);
             }
 
+            forwordRenderPass.Visuals = Visuals;
             forwordRenderPass.Brightness = Brightness;
             forwordRenderPass.DebugRenderType = DebugRenderType;
             postProcess.EnableBloom = EnableBloom;

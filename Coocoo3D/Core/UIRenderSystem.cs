@@ -75,7 +75,7 @@ namespace Coocoo3D.Core
             desc.rtvFormat = swapChain.format;
             desc.renderTargetCount = 1;
             desc.wireFrame = false;
-            desc.inputLayout = InputLayout.imgui;
+            desc.inputLayout = InputLayout.Imgui;
             var pso = caches.GetPSOWithKeywords(null, imguiShaderPath);
             graphicsContext.SetPSO(pso, desc);
             Matrix4x4 matrix = new(

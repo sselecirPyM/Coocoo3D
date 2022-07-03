@@ -30,11 +30,19 @@ namespace Coocoo3D.UI
 
         public GameDriverContext gameDriverContext;
 
+        public GameDriver gameDriver;
+
         public Scene CurrentScene;
 
         public RenderPipeline.RenderPipelineContext renderPipelineContext;
 
-        public void GUI(Coocoo3DMain main)
+        public Coocoo3DGraphics.SwapChain swapChain;
+
+        public Config config;
+
+        public Statistics statistics;
+
+        public void GUI()
         {
             var io = ImGui.GetIO();
             Vector2 mouseMoveDelta = new Vector2();
@@ -43,8 +51,8 @@ namespace Coocoo3D.UI
                 mouseMoveDelta += moveDelta;
             }
 
-            var context = main.RPContext;
-            io.DisplaySize = new Vector2(main.swapChain.width, main.swapChain.height);
+            var context = renderPipelineContext;
+            io.DisplaySize = new Vector2(swapChain.width, swapChain.height);
             io.DeltaTime = (float)context.RealDeltaTime;
             GameObject selectedObject = null;
 
@@ -74,7 +82,7 @@ namespace Coocoo3D.UI
             ImGui.SetNextWindowSize(new Vector2(300, 400), ImGuiCond.FirstUseEver);
             if (ImGui.Begin("常用"))
             {
-                Common(main);
+                Common();
             }
             ImGui.End();
             ImGui.SetNextWindowSize(new Vector2(500, 300), ImGuiCond.FirstUseEver);
@@ -90,7 +98,7 @@ namespace Coocoo3D.UI
             ImGui.SetNextWindowSize(new Vector2(300, 400), ImGuiCond.FirstUseEver);
             if (ImGui.Begin("设置"))
             {
-                SettingsPanel(main);
+                SettingsPanel();
             }
             ImGui.End();
             ImGui.SetNextWindowSize(new Vector2(350, 300), ImGuiCond.FirstUseEver);
@@ -155,7 +163,7 @@ namespace Coocoo3D.UI
             platformIO.dropFile = null;
         }
 
-        void Common(Coocoo3DMain main)
+        void Common()
         {
             var camera = windowSystem.currentChannel.camera;
             if (ImGui.TreeNode("变换"))
@@ -209,21 +217,21 @@ namespace Coocoo3D.UI
             }
             if (ImGui.Button("播放"))
             {
-                PlayControl.Play(main);
+                Play();
             }
             ImGui.SameLine();
             if (ImGui.Button("暂停"))
             {
-                PlayControl.Pause(main);
+                Pause();
             }
             ImGui.SameLine();
             if (ImGui.Button("停止"))
             {
-                PlayControl.Stop(main);
+                Stop();
             }
             if (ImGui.Button("跳到最前"))
             {
-                PlayControl.Front(main);
+                Front();
             }
             ImGui.SameLine();
             if (ImGui.Button("重置物理"))
@@ -232,27 +240,27 @@ namespace Coocoo3D.UI
             }
             if (ImGui.Button("快进"))
             {
-                PlayControl.FastForward(main);
+                FastForward();
             }
             ImGui.SameLine();
             if (ImGui.Button("向前5秒"))
             {
-                main.ToPlayMode();
+                gameDriver.ToPlayMode();
                 gameDriverContext.PlayTime -= 5;
                 gameDriverContext.RequireRender(true);
             }
-            ImGui.Text(string.Format("Fps:{0:f1}", main.framePerSecond));
+            ImGui.Text(string.Format("Fps:{0:f1}", statistics.FramePerSecond));
         }
 
-        void SettingsPanel(Coocoo3DMain main)
+        void SettingsPanel()
         {
-            ImGui.Checkbox("垂直同步", ref main.performanceSettings.VSync);
-            ImGui.Checkbox("节省CPU", ref main.performanceSettings.SaveCpuPower);
-            ImGui.Checkbox("多线程渲染", ref main.performanceSettings.MultiThreadRendering);
-            float a = (float)(1.0 / Math.Clamp(main.frameInterval, 1e-4, 1));
+            ImGui.Checkbox("垂直同步", ref config.VSync);
+            ImGui.Checkbox("节省CPU", ref config.SaveCpuPower);
+            ImGui.Checkbox("多线程渲染", ref config.MultiThreadRendering);
+            float a = (float)(1.0 / Math.Clamp(gameDriverContext.FrameInterval, 1e-4, 1));
             if (ImGui.DragFloat("帧率限制", ref a, 10, 1, 5000))
             {
-                main.frameInterval = Math.Clamp(1 / a, 1e-4f, 1f);
+                gameDriverContext.FrameInterval = Math.Clamp(1 / a, 1e-4f, 1f);
             }
 
             if (renderPipelinesRequest != null)
@@ -318,7 +326,7 @@ namespace Coocoo3D.UI
             {
                 mainCaches.ReloadShaders = true;
             }
-            ImGui.TextUnformatted("绘制三角形数：" + main.drawTriangleCount); ;
+            ImGui.TextUnformatted("绘制三角形数：" + statistics.DrawTriangleCount); ;
         }
 
         void ShowParams(RenderPipeline.RenderPipelineView view)
@@ -791,12 +799,12 @@ vmd格式动作。支持几乎所有的图片格式。");
             ImGui.SameLine();
             //if (ImGui.Button("新粒子"))
             //{
-            //    NewParticle(main);
+            //    NewParticle();
             //}
             //ImGui.SameLine();
             //if (ImGui.Button("新体积"))
             //{
-            //    NewVolume(main);
+            //    NewVolume();
             //}
             //ImGui.SameLine();
             if (ImGui.Button("新贴花"))
@@ -805,7 +813,7 @@ vmd格式动作。支持几乎所有的图片格式。");
             }
             ImGui.SameLine();
             bool removeObject = false;
-            if (ImGui.Button("移除物体"))
+            if (ImGui.Button("移除物体") || (ImGui.IsKeyPressed((int)ImGuiKey.Delete) && ImGui.IsWindowHovered()))
             {
                 removeObject = true;
             }
@@ -873,9 +881,9 @@ vmd格式动作。支持几乎所有的图片格式。");
                 if (renderer != null)
                 {
                     var mesh = mainCaches.GetModel(renderer.meshPath).GetMesh();
-                    ImGui.Text(string.Format("顶点数：{0} 索引数：{1} 材质数：{2}\n模型文件：{3}\n动作文件：{4}",
+                    ImGui.Text(string.Format("顶点数：{0} 索引数：{1} 材质数：{2}\n模型文件：{3}\n",
                         mesh.GetVertexCount(), mesh.GetIndexCount(), renderer.Materials.Count,
-                        renderer.meshPath, renderer.animationState.motionPath));
+                        renderer.meshPath));
                 }
 
                 ImGui.TreePop();
@@ -896,7 +904,7 @@ vmd格式动作。支持几乎所有的图片格式。");
             }
             if (renderer != null)
             {
-                RendererComponent(renderer);
+                RendererComponent(gameObject);
             }
             if (meshRenderer != null)
             {
@@ -908,31 +916,41 @@ vmd格式动作。支持几乎所有的图片格式。");
             }
         }
 
-        void RendererComponent(MMDRendererComponent renderer)
+        void RendererComponent(GameObject gameObject)
         {
+            var renderer = gameObject.GetComponent<MMDRendererComponent>();
+            var animationState = gameObject.GetComponent<AnimationStateComponent>();
             if (ImGui.TreeNode("材质"))
             {
                 ShowMaterials(mainCaches.GetModel(renderer.meshPath).Submeshes, renderer.Materials);
                 ImGui.TreePop();
             }
-            if (ImGui.TreeNode("变形"))
+            if (ImGui.TreeNode("动画"))
             {
-                var animationStates = renderer.animationState;
+                ImGui.Text(string.Format("动作文件：{0}", animationState.motionPath));
+                if (ImGui.Button("清除动画"))
+                {
+                    gameDriverContext.RequireResetPhysics = true;
+                    animationState.motionPath = "";
+                }
                 ImGui.Checkbox("蒙皮", ref renderer.skinning);
                 if (ImGui.IsItemHovered())
                     ImGui.SetTooltip("关闭蒙皮可以提高性能");
-                ImGui.Checkbox("使用IK", ref renderer.enableIK);
+                if (ImGui.Checkbox("使用IK", ref renderer.enableIK))
+                {
+                    gameDriverContext.RequireResetPhysics = true;
+                }
                 if (ImGui.IsItemHovered())
                     ImGui.SetTooltip("如果动作不使用IK，请取消勾选");
-                ImGui.Checkbox("锁定动作", ref animationStates.LockMotion);
-                if (animationStates.LockMotion)
+                ImGui.Checkbox("锁定动作", ref animationState.LockMotion);
+                if (animationState.LockMotion)
                 {
                     string filter = ImFilter("搜索变形", "搜索变形");
                     for (int i = 0; i < renderer.morphs.Count; i++)
                     {
                         MorphDesc morpth = renderer.morphs[i];
                         if (!Contains(morpth.Name, filter)) continue;
-                        if (ImGui.SliderFloat(morpth.Name, ref animationStates.Weights.Origin[i], 0, 1))
+                        if (ImGui.SliderFloat(morpth.Name, ref animationState.Weights.Origin[i], 0, 1))
                         {
                             gameDriverContext.RequireResetPhysics = true;
                         }
@@ -989,8 +1007,7 @@ vmd格式动作。支持几乎所有的图片格式。");
         {
             if (ImGui.TreeNode("绑定"))
             {
-                var drp = renderPipelineContext.dynamicContext;
-                int rendererCount = drp.renderers.Count;
+                int rendererCount = renderPipelineContext.renderers.Count;
                 string[] renderers = new string[rendererCount + 1];
                 int[] ids = new int[rendererCount + 1];
                 renderers[0] = "-";
@@ -1018,7 +1035,7 @@ vmd格式动作。支持几乎所有的图片格式。");
 
 
                 string[] bones;
-                if (drp.gameObjects.TryGetValue(visualComponent.bindId, out var gameObject2))
+                if (renderPipelineContext.gameObjects.TryGetValue(visualComponent.bindId, out var gameObject2))
                 {
                     var renderer = gameObject2.GetComponent<MMDRendererComponent>();
                     bones = new string[renderer.bones.Count + 1];
@@ -1305,8 +1322,12 @@ vmd格式动作。支持几乎所有的图片格式。");
                 newObj.LoadPmx(mainCaches.GetModel(mmdRenderer.meshPath));
                 var newRenderer = newObj.GetComponent<MMDRendererComponent>();
                 newRenderer.Materials = mmdRenderer.Materials.Select(u => u.GetClone()).ToList();
-                newRenderer.animationState.motionPath = mmdRenderer.animationState.motionPath;
+                newRenderer.enableIK = mmdRenderer.enableIK;
                 CurrentScene.SetTransform(newObj, obj.Transform);
+            }
+            if (obj.TryGetComponent<AnimationStateComponent>(out var animationState))
+            {
+                newObj.SetComponent(animationState.GetClone());
             }
             newObj.Name = obj.Name;
             newObj.Transform = obj.Transform;
@@ -1326,8 +1347,6 @@ vmd格式动作。支持几乎所有的图片格式。");
         }
 
         static string fileOpenId = null;
-
-        //public static bool initialized = false;
 
         public static bool demoWindowOpen = false;
         public static Vector3 position;
@@ -1391,7 +1410,6 @@ vmd格式动作。支持几乎所有的图片格式。");
 
             var texture2D = uiRenderSystem.uiTexture = new Coocoo3DGraphics.Texture2D();
             io.Fonts.TexID = new IntPtr(UIRenderSystem.uiTextureIndex);
-            //caches.SetTexture("imgui_font", texture2D);
             caches.TextureReadyToUpload.Enqueue(new(texture2D, uploader));
             InitKeyMap();
         }
@@ -1442,6 +1460,49 @@ vmd格式动作。支持几乎所有的图片格式。");
         static bool Contains(string input, string filter)
         {
             return input.Contains(filter, StringComparison.CurrentCultureIgnoreCase);
+        }
+
+
+        public void Play()
+        {
+            gameDriverContext.Playing = true;
+            gameDriverContext.PlaySpeed = 1.0f;
+            gameDriverContext.RequireRender(false);
+        }
+        public void Pause()
+        {
+            gameDriverContext.Playing = false;
+        }
+        public void Stop()
+        {
+            gameDriver.ToPlayMode();
+            gameDriverContext.Playing = false;
+            gameDriverContext.PlayTime = 0;
+            gameDriverContext.RequireRender(true);
+        }
+        public void Rewind()
+        {
+            gameDriver.ToPlayMode();
+            gameDriverContext.Playing = true;
+            gameDriverContext.PlaySpeed = -2.0f;
+        }
+        public void FastForward()
+        {
+            gameDriver.ToPlayMode();
+            gameDriverContext.Playing = true;
+            gameDriverContext.PlaySpeed = 2.0f;
+        }
+        public void Front()
+        {
+            gameDriver.ToPlayMode();
+            gameDriverContext.PlayTime = 0;
+            gameDriverContext.RequireRender(true);
+        }
+        public void Rear()
+        {
+            gameDriver.ToPlayMode();
+            gameDriverContext.PlayTime = 9999;
+            gameDriverContext.RequireRender(true);
         }
     }
 }

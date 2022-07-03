@@ -98,9 +98,9 @@ namespace Coocoo3DGraphics
             }
 
             int sum = 0;
-            for (int i = 0; i < pRowSizesInBytes.Length; i++)
+            for (int i = pRowSizesInBytes.Length - 1; i < pRowSizesInBytes.Length; i++)
             {
-                sum += (int)pRowSizesInBytes[i] * pNumRows[i] * pLayouts[i].Footprint.Depth;
+                sum = Math.Max((int)pLayouts[i].Offset + pLayouts[i].Footprint.RowPitch * pNumRows[i] * pLayouts[i].Footprint.Depth, sum);
             }
 
             Span<byte> pData = pIntermediate.Map<byte>(0, sum);

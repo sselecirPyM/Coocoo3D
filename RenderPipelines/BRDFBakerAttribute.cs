@@ -15,7 +15,7 @@ namespace RenderPipelines
                 blendState = BlendState.None,
                 cullMode = CullMode.None,
                 rtvFormat = texture.GetFormat(),
-                inputLayout = InputLayout.mmd,
+                inputLayout = InputLayout.Default,
                 renderTargetCount = 1,
             };
             renderWrap.SetShader("BRDFLUT.hlsl", psoDesc);

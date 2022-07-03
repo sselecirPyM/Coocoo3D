@@ -6,6 +6,8 @@ using System.Text;
 using System.Threading.Tasks;
 using Caprice.Attributes;
 using Caprice.Display;
+using Coocoo3D.Components;
+using Coocoo3D.Present;
 using Coocoo3D.RenderPipeline;
 using Coocoo3DGraphics;
 using FireRender.AMD.RenderEngine.Core;
@@ -110,7 +112,13 @@ namespace RenderPipelines
         #endregion
 
         [SceneCapture]
-        public CameraData camera;
+        public CameraData Camera;
+
+        [SceneCapture]
+        public bool Recording;
+
+        [SceneCapture("Visual")]
+        public IEnumerable<GameObject> Visuals;
 
         RPRContext context;
         RPRScene scene;
@@ -202,7 +210,7 @@ namespace RenderPipelines
                 frameBufferResolved = new RPRFrameBuffer(context, format, desc);
             }
 
-            var camera = this.camera;
+            var camera = this.Camera;
             scene = new RPRScene(context);
             context.SetScene(scene);
             Vector3 angle = camera.Angle;
@@ -221,15 +229,16 @@ namespace RenderPipelines
             scene.AttachLight(envLight);
             lights.Add(envLight);
 
-            foreach (var visual in renderWrap.Visuals)
+            foreach (var visualObject in Visuals)
             {
-                var mat = visual.material;
+                var visual = visualObject.GetComponent<VisualComponent>();
+                var material = visual.material;
                 if (visual.UIShowType == Caprice.Display.UIShowType.Light)
                 {
-                    var lightType = (LightType)renderWrap.GetIndexableValue("LightType", mat);
+                    var lightType = (LightType)renderWrap.GetIndexableValue("LightType", material);
                     if (lightType == LightType.Directional)
                     {
-                        var Color = (Vector3)renderWrap.GetIndexableValue("LightColor", mat);
+                        var Color = (Vector3)renderWrap.GetIndexableValue("LightColor", material);
                         var Direction = Vector3.Transform(-Vector3.UnitZ, visual.transform.rotation);
                         var Rotation = visual.transform.rotation;
 
@@ -243,9 +252,9 @@ namespace RenderPipelines
                     else if (lightType == LightType.Point)
                     {
 
-                        var Color = (Vector3)renderWrap.GetIndexableValue("LightColor", mat);
+                        var Color = (Vector3)renderWrap.GetIndexableValue("LightColor", material);
                         var Position = visual.transform.position;
-                        var Range = (float)renderWrap.GetIndexableValue("LightRange", mat);
+                        var Range = (float)renderWrap.GetIndexableValue("LightRange", material);
 
                         var light1 = RPRLight.PointLight(context);
                         light1.SetTransform(Matrix4x4.CreateTranslation(Position));
@@ -346,7 +355,7 @@ namespace RenderPipelines
 
 
             context.SetParameterByKey1u(Rpr.ContextInfo.TONE_MAPPING_TYPE, (uint)Rpr.ToneMappingOperator.NONE);
-            context.SetParameterByKey1u(Rpr.ContextInfo.ITERATIONS, renderWrap.Recording ? (uint)RecordSampleCount : (uint)ViewportSampleCount);
+            context.SetParameterByKey1u(Rpr.ContextInfo.ITERATIONS, Recording ? (uint)RecordSampleCount : (uint)ViewportSampleCount);
             frameBuffer.Clear();
             frameBufferResolved.Clear();
             context.SetAOV(Rpr.Aov.COLOR, frameBuffer);

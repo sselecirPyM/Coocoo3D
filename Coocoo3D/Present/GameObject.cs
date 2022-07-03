@@ -54,5 +54,10 @@ namespace Coocoo3D.Present
                 return true;
             }
         }
+
+        public void SetComponent(Component component)
+        {
+            components[component.GetType()] = component;
+        }
     }
 }

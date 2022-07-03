@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace Coocoo3D.Components
 {
-    public class MMDAnimationStateComponent
+    public class AnimationStateComponent : Component
     {
         public string motionPath = "";
         public bool LockMotion;
@@ -16,14 +16,25 @@ namespace Coocoo3D.Components
         public const float c_frameInterval = 1 / 30.0f;
         public Dictionary<string, int> stringToMorphIndex = new();
         public List<(Vector3, Quaternion)> cachedBoneKeyFrames = new();
-        public void SetPose(MMDMotion motionComponent, float time)
+
+        public AnimationStateComponent GetClone()
+        {
+            AnimationStateComponent newComponent = (AnimationStateComponent)MemberwiseClone();
+            newComponent.cachedBoneKeyFrames = new(cachedBoneKeyFrames);
+            newComponent.stringToMorphIndex = new(stringToMorphIndex);
+            newComponent.Weights = Weights.GetClone();
+
+            return newComponent;
+        }
+
+        void SetPose(MMDMotion motionComponent, float time)
         {
             foreach (var pair in stringToMorphIndex)
             {
                 Weights.Origin[pair.Value] = motionComponent.GetMorphWeight(pair.Key, time);
             }
         }
-        public void SetPoseDefault()
+        void SetPoseDefault()
         {
             foreach (var pair in stringToMorphIndex)
             {
@@ -31,7 +42,7 @@ namespace Coocoo3D.Components
             }
         }
 
-        public void ComputeWeight(List<MorphDesc> morphs)
+        void ComputeWeight(List<MorphDesc> morphs)
         {
             ComputeWeight1(morphs);
         }
@@ -40,7 +51,6 @@ namespace Coocoo3D.Components
         {
             for (int i = 0; i < morphs.Count; i++)
             {
-                Weights.ComputedPrev[i] = Weights.Computed[i];
                 Weights.Computed[i] = 0;
             }
             for (int i = 0; i < morphs.Count; i++)
@@ -64,13 +74,9 @@ namespace Coocoo3D.Components
                     computedWeights[subMorphStruct.GroupIndex] += rate * subMorphStruct.Rate;
             }
         }
-        public bool IsWeightChanged(int index)
-        {
-            return Weights.Computed[index] != Weights.ComputedPrev[index];
-        }
 
-        
-        void SetPoseWithMotion(List<BoneEntity> bones,float time, MMDMotion motion)
+
+        void SetPoseWithMotion(List<BoneEntity> bones, float time, MMDMotion motion)
         {
             foreach (var bone in bones)
             {
@@ -116,7 +122,7 @@ namespace Coocoo3D.Components
             if (!LockMotion)
             {
                 if (motion != null)
-                    SetPoseWithMotion(bones,time, motion);
+                    SetPoseWithMotion(bones, time, motion);
                 else
                     SetPoseDefault(bones);
             }
@@ -132,12 +138,20 @@ namespace Coocoo3D.Components
     {
         public float[] Origin;
         public float[] Computed;
-        public float[] ComputedPrev;
         public void Load(int count)
         {
             Origin = new float[count];
             Computed = new float[count];
-            ComputedPrev = new float[count];
+        }
+
+        public WeightGroup GetClone()
+        {
+            var clone = (WeightGroup)MemberwiseClone();
+            clone.Origin = new float[Origin.Length];
+            clone.Computed = new float[Computed.Length];
+            Array.Copy(Origin, clone.Origin, Origin.Length);
+            Array.Copy(Computed, clone.Computed, Computed.Length);
+            return clone;
         }
     }
 

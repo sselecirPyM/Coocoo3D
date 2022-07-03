@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 using Coocoo3D.RenderPipeline;
@@ -28,22 +27,32 @@ namespace Coocoo3D.Core
             foreach (var visualChannel in channels)
             {
                 visualChannel.Onframe();
-
+                var renderPipeline = visualChannel.renderPipeline;
                 foreach (var cap in visualChannel.renderPipelineView.sceneCaptures)
                 {
-                    var member = cap.Value;
+                    var member = cap.Value.Item1;
+                    var captureAttribute = cap.Value.Item2;
                     if (member.GetGetterType() == typeof(CameraData))
                     {
-                        member.SetValue(visualChannel.renderPipeline, visualChannel.cameraData);
+                        member.SetValue(renderPipeline, visualChannel.cameraData);
                     }
                     else if (member.GetGetterType() == typeof(double))
                     {
                         if (member.Name == "Time")
-                            member.SetValue(visualChannel.renderPipeline, context.Time);
+                            member.SetValue(renderPipeline, context.Time);
                         if (member.Name == "DeltaTime")
-                            member.SetValue(visualChannel.renderPipeline, context.DeltaTime);
+                            member.SetValue(renderPipeline, context.DeltaTime);
                         if (member.Name == "RealDeltaTime")
-                            member.SetValue(visualChannel.renderPipeline, context.RealDeltaTime);
+                            member.SetValue(renderPipeline, context.RealDeltaTime);
+                    }
+                    else if (member.GetGetterType() == typeof(bool))
+                    {
+                        if (member.Name == "Recording")
+                            member.SetValue(renderPipeline, context.recording);
+                    }
+                    if (captureAttribute.Capture == "Visual")
+                    {
+                        member.SetValue(renderPipeline, renderPipelineContext.visuals);
                     }
                 }
             }

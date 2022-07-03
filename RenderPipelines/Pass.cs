@@ -37,7 +37,7 @@ namespace RenderPipelines
             var dsv = renderWrap.GetRenderTexture2D(depthStencil);
             desc.dsvFormat = dsv == null ? Vortice.DXGI.Format.Unknown : dsv.GetFormat();
             desc.renderTargetCount = (renderTargets != null) ? renderTargets.Length : 0;
-            desc.inputLayout = InputLayout.mmd;
+            desc.inputLayout = InputLayout.Default;
 
             return desc;
         }

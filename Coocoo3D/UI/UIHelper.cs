@@ -17,13 +17,16 @@ namespace Coocoo3D.UI
 {
     public class UIHelper
     {
-        public MainCaches mainCaches;
+        public MainCaches caches;
 
         public GameDriverContext gameDriverContext;
+        public GameDriver gameDriver;
 
         public Scene scene;
 
-        public void OnFrame(Coocoo3DMain main)
+        public WindowSystem windowSystem;
+
+        public void OnFrame()
         {
             if (UIImGui.requireOpenFolder.SetFalse())
             {
@@ -32,7 +35,7 @@ namespace Coocoo3D.UI
                 {
                     DirectoryInfo folder = new DirectoryInfo(path);
                     UIImGui.viewRequest = folder;
-                    mainCaches.AddFolder(folder);
+                    caches.AddFolder(folder);
                 }
                 gameDriverContext.RequireRender(false);
             }
@@ -43,7 +46,7 @@ namespace Coocoo3D.UI
                 {
                     DirectoryInfo folder = new DirectoryInfo(path);
                     UIImGui.renderPipelinesRequest = folder;
-                    mainCaches.AddFolder(folder);
+                    caches.AddFolder(folder);
                 }
                 gameDriverContext.RequireRender(false);
             }
@@ -72,7 +75,7 @@ namespace Coocoo3D.UI
                         VMDFormat motionSet = VMDFormat.Load(reader);
                         if (motionSet.CameraKeyFrames.Count != 0)
                         {
-                            var camera = main.windowSystem.currentChannel.camera;
+                            var camera = windowSystem.currentChannel.camera;
                             camera.cameraMotion.cameraKeyFrames = motionSet.CameraKeyFrames;
                             for (int i = 0; i < camera.cameraMotion.cameraKeyFrames.Count; i++)
                             {
@@ -85,10 +88,13 @@ namespace Coocoo3D.UI
                         }
                         else
                         {
-                            foreach (var gameObject in main.CurrentScene.SelectedGameObjects)
+                            foreach (var gameObject in this.scene.SelectedGameObjects)
                             {
-                                var renderer = gameObject.GetComponent<Components.MMDRendererComponent>();
-                                if (renderer != null) { renderer.animationState.motionPath = file.FullName; }
+                                var animationState = gameObject.GetComponent<Components.AnimationStateComponent>();
+                                if (animationState != null)
+                                {
+                                    animationState.motionPath = file.FullName;
+                                }
                             }
 
                             gameDriverContext.RequireResetPhysics = true;
@@ -96,7 +102,8 @@ namespace Coocoo3D.UI
                         break;
                     case ".coocoo3dscene":
                         var scene = ReadJsonStream<Coocoo3DScene>(file.OpenRead());
-                        scene.ToScene(main);
+                        scene.ToScene(this.scene, caches);
+                        gameDriverContext.RequireResetPhysics = true;
                         break;
                 }
 
@@ -110,7 +117,7 @@ namespace Coocoo3D.UI
                 {
                     DirectoryInfo folder = new DirectoryInfo(path);
                     if (!folder.Exists) return;
-                    main.ToRecordMode(folder.FullName);
+                    gameDriver.ToRecordMode(folder.FullName);
                 }
             }
             if (UIImGui.requestSave.SetFalse())
@@ -129,7 +136,7 @@ namespace Coocoo3D.UI
                 fileDialog.maxFileTitle = fileDialog.fileTitle.Length;
                 if (GetSaveFileName(fileDialog))
                 {
-                    var scene = Coocoo3DScene.FromScene(main);
+                    var scene = Coocoo3DScene.FromScene(this.scene);
 
                     SaveJsonStream(new FileInfo(fileDialog.file).Create(), scene);
                 }
@@ -199,7 +206,7 @@ namespace Coocoo3D.UI
         void LoadEntityIntoScene(FileInfo pmxFile)
         {
             string path = pmxFile.FullName;
-            ModelPack modelPack = mainCaches.GetModel(path);
+            ModelPack modelPack = caches.GetModel(path);
             PreloadTextures(modelPack);
             if (modelPack.pmx != null)
             {
@@ -220,7 +227,7 @@ namespace Coocoo3D.UI
         void PreloadTextures(ModelPack model)
         {
             foreach (var tex in model.textures)
-                mainCaches.Texture(tex);
+                caches.Texture(tex);
         }
 
         [DllImport("Comdlg32.dll", SetLastError = true, ThrowOnUnmappableChar = true, CharSet = CharSet.Auto)]

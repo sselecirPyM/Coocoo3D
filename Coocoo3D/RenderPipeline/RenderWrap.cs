@@ -4,7 +4,6 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Caprice;
 using Coocoo3D.Present;
 using Coocoo3DGraphics;
 using System.Numerics;
@@ -28,15 +27,11 @@ namespace Coocoo3D.RenderPipeline
 
         public string BasePath { get => RenderPipelineView.path; }
 
-        public bool CPUSkinning { get => rpc.CPUSkinning; set => rpc.CPUSkinning = value; }
-
-        public IEnumerable<VisualComponent> Visuals { get => rpc.dynamicContext.visuals; }
+        public bool CPUSkinning { get => rpc.CPUSkinning1; set => rpc.CPUSkinning1 = value; }
 
         List<(object, Dictionary<string, MemberInfo>)> dataStack = new();
 
         Dictionary<Type, Dictionary<string, MemberInfo>> memberInfoCache = new();
-
-        public bool Recording { get => rpc.recording; }
 
         public void GetOutputSize(out int width, out int height)
         {
@@ -358,7 +353,7 @@ namespace Coocoo3D.RenderPipeline
 
         public IEnumerable<MeshRenderable> MeshRenderables(bool setMesh = true)
         {
-            var drp = rpc.dynamicContext;
+            var drp = rpc;
             foreach (var renderer in drp.renderers)
             {
                 var model = GetModel(renderer.meshPath);

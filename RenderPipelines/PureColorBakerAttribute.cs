@@ -21,7 +21,7 @@ namespace RenderPipelines
                 blendState = BlendState.None,
                 cullMode = CullMode.None,
                 rtvFormat = texture.GetFormat(),
-                inputLayout = InputLayout.noInput,
+                inputLayout = InputLayout.NoInput,
                 renderTargetCount = 1,
             };
             renderWrap.Writer.Write(Color);

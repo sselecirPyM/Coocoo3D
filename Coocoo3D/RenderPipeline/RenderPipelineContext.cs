@@ -10,11 +10,13 @@ using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 using System.Runtime.InteropServices;
+using Coocoo3D.Present;
 
 namespace Coocoo3D.RenderPipeline
 {
     public class RenderPipelineContext : IDisposable
     {
+        public Scene scene;
         public MainCaches mainCaches;
 
         public Mesh quadMesh = new Mesh();
@@ -23,7 +25,6 @@ namespace Coocoo3D.RenderPipeline
         public GraphicsDevice graphicsDevice;
         public GraphicsContext graphicsContext = new GraphicsContext();
 
-        public RenderPipelineDynamicContext dynamicContext = new();
         public Dictionary<MMDRendererComponent, int> findRenderer = new();
 
         public List<CBuffer> CBs_Bone = new();
@@ -32,13 +33,75 @@ namespace Coocoo3D.RenderPipeline
 
         public bool recording = false;
 
-        public bool CPUSkinning = false;
+        public bool CPUSkinning1 = false;
 
 
         public double Time;
         public double DeltaTime;
         public double RealDeltaTime;
+        #region X
 
+        public List<MMDRendererComponent> renderers = new();
+        public List<MeshRendererComponent> meshRenderers = new();
+        public List<GameObject> visuals = new();
+
+        public Dictionary<int, GameObject> gameObjects = new();
+
+        public bool CPUSkinning;
+        void Preprocess()
+        {
+            foreach (GameObject gameObject in scene.gameObjects)
+            {
+                if (gameObject.TryGetComponent(out MMDRendererComponent renderer))
+                {
+                    renderers.Add(renderer);
+                }
+                if (gameObject.TryGetComponent(out MeshRendererComponent meshRenderer))
+                {
+                    meshRenderers.Add(meshRenderer);
+                }
+                if (gameObject.TryGetComponent(out VisualComponent visual))
+                {
+                    visual.transform = gameObject.Transform;
+                    visuals.Add(gameObject);
+                }
+                this.gameObjects[gameObject.id] = gameObject;
+            }
+            foreach (var visualObject in visuals)
+            {
+                var visual = visualObject.GetComponent<VisualComponent>();
+                if (visual.bindBone != null && this.gameObjects.TryGetValue(visual.bindId, out var gameObject) &&
+                    gameObject.TryGetComponent<MMDRendererComponent>(out var renderer))
+                {
+                    var bone = renderer.bones.Find(u => u.Name == visual.bindBone);
+                    if (bone == null)
+                        continue;
+                    Vector3 pos1 = visual.transform.position;
+                    bone.GetPosRot(out var pos, out var rot);
+                    Vector3 pos2 = new Vector3(visual.bindX ? 0 : pos1.X, visual.bindY ? 0 : pos1.Y, visual.bindZ ? 0 : pos1.Z);
+
+                    Vector3 position = pos + Vector3.Transform(pos1, rot);
+
+                    position = Vector3.Transform(position, renderer.LocalToWorld);
+                    if (!visual.bindX)
+                        position.X = pos1.X;
+                    if (!visual.bindY)
+                        position.Y = pos1.Y;
+                    if (!visual.bindZ)
+                        position.Z = pos1.Z;
+                    visual.transform = new Transform(position, visual.transform.rotation * (visual.bindRot ? rot : Quaternion.Identity), visual.transform.scale);
+                }
+            }
+        }
+
+        void FrameBegin()
+        {
+            renderers.Clear();
+            meshRenderers.Clear();
+            visuals.Clear();
+            gameObjects.Clear();
+        }
+        #endregion
         public void Initialize()
         {
             graphicsContext.Reload(graphicsDevice);
@@ -64,11 +127,12 @@ namespace Coocoo3D.RenderPipeline
             mainCaches.MeshReadyToUpload.Enqueue(cubeMesh);
         }
 
-        public void Submit(Scene scene)
+        public void Submit()
         {
-            dynamicContext.CPUSkinning = CPUSkinning;
+            CPUSkinning = CPUSkinning1;
 
-            dynamicContext.Preprocess(scene.gameObjects);
+            FrameBegin();
+            Preprocess();
         }
 
         public CBuffer GetBoneBuffer(MMDRendererComponent rendererComponent)
@@ -84,9 +148,8 @@ namespace Coocoo3D.RenderPipeline
             meshPool.Reset();
             meshOverride.Clear();
             #region Update bone data
-            var renderers = dynamicContext.renderers;
 
-            if (CPUSkinning)
+            if (CPUSkinning1)
             {
                 int bufferSize = 0;
                 foreach (var renderer in renderers)
@@ -98,10 +161,6 @@ namespace Coocoo3D.RenderPipeline
                 if (bufferSize > bigBuffer.Length)
                     bigBuffer = new byte[bufferSize];
             }
-            Parallel.ForEach(renderers, renderer =>
-            {
-                renderer.ComputeVertexMorph(mainCaches.GetModel(renderer.meshPath));
-            });
             for (int i = 0; i < renderers.Count; i++)
             {
                 var renderer = renderers[i];
@@ -111,7 +170,7 @@ namespace Coocoo3D.RenderPipeline
                 meshOverride[renderer] = mesh;
                 if (!renderer.skinning) continue;
 
-                if (CPUSkinning)
+                if (CPUSkinning1)
                 {
                     Skinning(model, renderer, mesh);
                 }

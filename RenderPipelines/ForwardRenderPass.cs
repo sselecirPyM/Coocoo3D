@@ -1,4 +1,6 @@
 ﻿using Caprice.Attributes;
+using Coocoo3D.Components;
+using Coocoo3D.Present;
 using Coocoo3D.RenderPipeline;
 using Coocoo3D.Utility;
 using Coocoo3DGraphics;
@@ -174,6 +176,8 @@ namespace RenderPipelines
         [Indexable]
         public int Split;
 
+        public IEnumerable<GameObject> Visuals;
+
         public DebugRenderType DebugRenderType;
 
         public void SetCamera(CameraData camera)
@@ -213,19 +217,20 @@ namespace RenderPipelines
             byte[] pointLightData = ArrayPool<byte>.Shared.Rent(64 * 32);
             DirectionalLightData? directionalLight = null;
             var pointLightWriter = new SpanWriter<PointLightData>(MemoryMarshal.Cast<byte, PointLightData>(pointLightData));
-            foreach (var visual in renderWrap.Visuals)
+            foreach (var visualObject in Visuals)
             {
-                var mat = visual.material;
+                var visual = visualObject.GetComponent<VisualComponent>();
+                var material = visual.material;
                 if (visual.UIShowType == Caprice.Display.UIShowType.Light)
                 {
-                    var lightType = (LightType)renderWrap.GetIndexableValue("LightType", mat);
+                    var lightType = (LightType)renderWrap.GetIndexableValue("LightType", material);
                     if (lightType == LightType.Directional)
                     {
                         if (directionalLight != null)
                             continue;
                         directionalLight = new DirectionalLightData()
                         {
-                            Color = (Vector3)renderWrap.GetIndexableValue("LightColor", mat),
+                            Color = (Vector3)renderWrap.GetIndexableValue("LightColor", material),
                             Direction = Vector3.Transform(-Vector3.UnitZ, visual.transform.rotation),
                             Rotation = visual.transform.rotation
                         };
@@ -233,12 +238,12 @@ namespace RenderPipelines
                     else if (lightType == LightType.Point)
                     {
                         if (pointLightCount >= 64) continue;
-                        float range = (float)renderWrap.GetIndexableValue("LightRange", mat);
+                        float range = (float)renderWrap.GetIndexableValue("LightRange", material);
                         if (frustum.Intersects(new BoundingSphere(visual.transform.position, range)))
                         {
                             pointLightWriter.Write(new PointLightData()
                             {
-                                Color = (Vector3)renderWrap.GetIndexableValue("LightColor", mat),
+                                Color = (Vector3)renderWrap.GetIndexableValue("LightColor", material),
                                 Position = visual.transform.position,
                                 Range = range,
                             });

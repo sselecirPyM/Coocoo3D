@@ -22,7 +22,9 @@ namespace Coocoo3D.FileFormat
             renderer.skinning = true;
             renderer.morphs.Clear();
             renderer.morphs.AddRange(modelPack.morphs);
-            renderer.animationState.LoadMorphStates(modelPack);
+            var animationState=new AnimationStateComponent();
+            gameObject.AddComponent(animationState);
+            animationState.LoadAnimationStates(modelPack);
 
             renderer.Initialize(modelPack);
             renderer.LoadMesh(modelPack);
@@ -210,7 +212,7 @@ namespace Coocoo3D.FileFormat
             }
             return boneEntity;
         }
-        static void LoadMorphStates(this MMDAnimationStateComponent component, ModelPack modelPack)
+        static void LoadAnimationStates(this AnimationStateComponent component, ModelPack modelPack)
         {
             component.cachedBoneKeyFrames.Clear();
             for (int i = 0; i < modelPack.bones.Count; i++)

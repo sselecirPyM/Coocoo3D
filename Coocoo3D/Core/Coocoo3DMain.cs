@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 using System.Threading;
@@ -13,19 +12,14 @@ namespace Coocoo3D.Core
 {
     public class Coocoo3DMain : IDisposable
     {
-        GraphicsContext graphicsContext { get => RPContext.graphicsContext; }
-        public SwapChain swapChain = new SwapChain();
 
-        public string deviceDescription { get => graphicsDevice.GetDeviceDescription(); }
-
-        public GameDriverContext GameDriverContext = new GameDriverContext()
-        {
-            FrameInterval = 1 / 240.0f,
-        };
+        public Statistics statistics;
 
         GraphicsDevice graphicsDevice;
+        public SwapChain swapChain;
         public MainCaches mainCaches;
         public RenderPipelineContext RPContext;
+        public GameDriverContext GameDriverContext;
 
         public Scene CurrentScene;
         public AnimationSystem animationSystem;
@@ -43,6 +37,8 @@ namespace Coocoo3D.Core
 
         public List<object> systems = new();
         public Dictionary<Type, object> systems1 = new();
+
+        GraphicsContext graphicsContext { get => RPContext.graphicsContext; }
 
         T AddSystem<T>() where T : class, new()
         {
@@ -62,10 +58,6 @@ namespace Coocoo3D.Core
                 {
                     if (field.FieldType == typeof(GraphicsContext))
                         field.SetValue(system, graphicsContext);
-                    else if (field.FieldType == typeof(GameDriverContext))
-                        field.SetValue(system, GameDriverContext);
-                    else if (field.FieldType == typeof(SwapChain))
-                        field.SetValue(system, swapChain);
                     if (systems1.TryGetValue(field.FieldType, out var system1))
                     {
                         field.SetValue(system, system1);
@@ -74,7 +66,7 @@ namespace Coocoo3D.Core
                 var menthods = type.GetMethods();
                 foreach (var method in menthods)
                 {
-                    if (method.Name == "Initialize")
+                    if (method.Name == "Initialize" && method.GetParameters().Length == 0)
                     {
                         method.Invoke(system, null);
                         break;
@@ -85,26 +77,27 @@ namespace Coocoo3D.Core
 
         public TimeManager timeManagerUpdate = new TimeManager();
         public TimeManager timeManager = new TimeManager();
-        public double framePerSecond;
-        public float frameInterval = 1 / 240.0f;
 
-        public PerformanceSettings performanceSettings = new PerformanceSettings()
-        {
-            MultiThreadRendering = true,
-            SaveCpuPower = true,
-            VSync = false,
-        };
+        public Config config;
 
         Thread renderWorkThread;
         CancellationTokenSource cancelRenderThread;
 
         public Coocoo3DMain()
         {
+            statistics = AddSystem<Statistics>();
+
+            config = AddSystem<Config>();
+
             graphicsDevice = AddSystem<GraphicsDevice>();
+
+            swapChain = AddSystem<SwapChain>();
 
             mainCaches = AddSystem<MainCaches>();
 
             RPContext = AddSystem<RenderPipelineContext>();
+
+            GameDriverContext = AddSystem<GameDriverContext>();
 
             CurrentScene = AddSystem<Scene>();
 
@@ -127,9 +120,11 @@ namespace Coocoo3D.Core
             UIImGui = AddSystem<UI.UIImGui>();
 
             InitializeSystems();
+            statistics.DeviceDescription = graphicsDevice.GetDeviceDescription();
 
             mainCaches._RequireRender = () => RequireRender(false);
             GameDriverContext.timeManager = timeManager;
+            GameDriverContext.FrameInterval = 1 / 240.0f;
 
             cancelRenderThread = new CancellationTokenSource();
             renderWorkThread = new Thread(() =>
@@ -139,11 +134,11 @@ namespace Coocoo3D.Core
                 {
                     long time = stopwatch1.ElapsedTicks;
                     timeManagerUpdate.AbsoluteTimeInput(time);
-                    if (timeManagerUpdate.RealTimerCorrect("render", frameInterval, out _)) continue;
+                    if (timeManagerUpdate.RealTimerCorrect("render", GameDriverContext.FrameInterval, out _)) continue;
                     timeManager.AbsoluteTimeInput(time);
 
                     bool rendered = RenderFrame();
-                    if (performanceSettings.SaveCpuPower && !RPContext.recording && !(performanceSettings.VSync && rendered))
+                    if (config.SaveCpuPower && !RPContext.recording && !(config.VSync && rendered))
                         Thread.Sleep(1);
                 }
             });
@@ -160,7 +155,7 @@ namespace Coocoo3D.Core
         }
 
         public System.Diagnostics.Stopwatch stopwatch1 = System.Diagnostics.Stopwatch.StartNew();
-        Task RenderTask1;
+        Task RenderTask;
 
         private void Simulation()
         {
@@ -188,19 +183,18 @@ namespace Coocoo3D.Core
         {
             double deltaTime = timeManager.GetDeltaTime();
             var gdc = GameDriverContext;
-            gdc.FrameInterval = frameInterval;
             if (!GameDriver.Next())
             {
                 return false;
             }
-            timeManager.RealCounter("fps", 1, out framePerSecond);
+            timeManager.RealCounter("fps", 1, out statistics.FramePerSecond);
             Simulation();
 
-            if (RenderTask1 != null && RenderTask1.Status != TaskStatus.RanToCompletion) RenderTask1.Wait();
+            if (RenderTask != null && RenderTask.Status != TaskStatus.RanToCompletion) RenderTask.Wait();
             RPContext.RealDeltaTime = deltaTime;
             RPContext.Time = gdc.PlayTime;
             RPContext.DeltaTime = gdc.Playing ? gdc.DeltaTime : 0;
-            RPContext.Submit(CurrentScene);
+            RPContext.Submit();
             if ((swapChain.width, swapChain.height) != platformIO.windowSize)
             {
                 (int x, int y) = platformIO.windowSize;
@@ -211,13 +205,13 @@ namespace Coocoo3D.Core
 
             windowSystem.Update2();
             platformIO.Update();
-            UIImGui.GUI(this);
+            UIImGui.GUI();
             graphicsDevice.RenderBegin();
             graphicsContext.Begin();
             RPContext.UpdateGPUResource();
 
-            if (performanceSettings.MultiThreadRendering)
-                RenderTask1 = Task.Run(RenderFunction);
+            if (config.MultiThreadRendering)
+                RenderTask = Task.Run(RenderFunction);
             else
                 RenderFunction();
 
@@ -232,22 +226,21 @@ namespace Coocoo3D.Core
             recordSystem.Record();
 
             uiRenderSystem.Update();
-            graphicsContext.Present(swapChain, performanceSettings.VSync);
+            graphicsContext.Present(swapChain, config.VSync);
             graphicsContext.EndCommand();
             graphicsContext.Execute();
-            drawTriangleCount = graphicsContext.TriangleCount;
+            statistics.DrawTriangleCount = graphicsContext.TriangleCount;
             graphicsDevice.RenderComplete();
         }
 
         #endregion
-        public int drawTriangleCount = 0;
 
         public void Dispose()
         {
             cancelRenderThread.Cancel();
             renderWorkThread.Join();
-            if (RenderTask1 != null && RenderTask1.Status == TaskStatus.Running)
-                RenderTask1.Wait();
+            if (RenderTask != null && RenderTask.Status == TaskStatus.Running)
+                RenderTask.Wait();
             graphicsDevice.WaitForGpu();
 
             for (int i = systems.Count - 1; i >= 0; i--)
@@ -258,16 +251,6 @@ namespace Coocoo3D.Core
                     disposable.Dispose();
                 }
             }
-            swapChain?.Dispose();
-        }
-        public void ToPlayMode()
-        {
-            GameDriver.ToPlayMode();
-        }
-
-        public void ToRecordMode(string saveDir)
-        {
-            GameDriver.ToRecordMode(saveDir);
         }
 
         public void SetWindow(IntPtr hwnd, int width, int height)
@@ -275,12 +258,5 @@ namespace Coocoo3D.Core
             swapChain.Initialize(graphicsDevice, hwnd, width, height);
             platformIO.windowSize = (width, height);
         }
-    }
-
-    public struct PerformanceSettings
-    {
-        public bool MultiThreadRendering;
-        public bool SaveCpuPower;
-        public bool VSync;
     }
 }

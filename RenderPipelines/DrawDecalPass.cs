@@ -1,4 +1,5 @@
 ﻿using Coocoo3D.Components;
+using Coocoo3D.Present;
 using Coocoo3D.RenderPipeline;
 using Coocoo3DGraphics;
 using System;
@@ -38,6 +39,8 @@ namespace RenderPipelines
 
         public Matrix4x4 viewProj;
 
+        public IEnumerable<GameObject> Visuals;
+
         public Func<RenderWrap, VisualComponent, List<(string, string)>, bool> filter;
 
         public override void Execute(RenderWrap renderWrap)
@@ -61,8 +64,10 @@ namespace RenderPipelines
             BoundingFrustum frustum = new(viewProj);
 
             keywords2.Clear();
-            foreach (var visual in renderWrap.Visuals)
+            foreach (var visualObject in Visuals)
             {
+                var visual = visualObject.GetComponent<VisualComponent>();
+
                 if (visual.UIShowType != Caprice.Display.UIShowType.Decal)
                     continue;
 

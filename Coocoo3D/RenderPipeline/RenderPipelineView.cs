@@ -31,7 +31,7 @@ namespace Coocoo3D.RenderPipeline
 
         internal Dictionary<string, string> textureReplacement = new Dictionary<string, string>();
         internal Dictionary<string, MemberInfo> indexables = new Dictionary<string, MemberInfo>();
-        internal Dictionary<string, MemberInfo> sceneCaptures = new Dictionary<string, MemberInfo>();
+        internal Dictionary<string, (MemberInfo, SceneCaptureAttribute)> sceneCaptures = new Dictionary<string, (MemberInfo, SceneCaptureAttribute)>();
 
         internal Dictionary<string, UIUsage> UIUsages = new Dictionary<string, UIUsage>();
 
@@ -54,7 +54,7 @@ namespace Coocoo3D.RenderPipeline
                     var sceneCapture = field.GetCustomAttribute<SceneCaptureAttribute>();
                     if (sceneCapture != null)
                     {
-                        sceneCaptures[field.Name] = field;
+                        sceneCaptures[field.Name] = (field, sceneCapture);
                     }
                 }
             }

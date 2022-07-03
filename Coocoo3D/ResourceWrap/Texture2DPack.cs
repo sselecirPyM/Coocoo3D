@@ -44,6 +44,7 @@ namespace Coocoo3D.ResourceWrap
                     case ".gif":
                     case ".tga":
                     case ".bmp":
+                    case ".webp":
                         {
                             byte[] data = GetImageData(texFile.OpenRead(), out int width, out int height, out _, out int mipMap);
                             uploader.Texture2DRawLessCopy(data, Format.R8G8B8A8_UNorm_SRgb, width, height, mipMap);

@@ -8,6 +8,7 @@ using Coocoo3D.RenderPipeline;
 using Coocoo3DGraphics;
 using System.Numerics;
 using Caprice.Display;
+using Coocoo3D.Present;
 
 namespace RenderPipelines
 {
@@ -330,6 +331,9 @@ namespace RenderPipelines
         [SceneCapture]
         public CameraData camera;
 
+        [SceneCapture("Visual")]
+        public IEnumerable<GameObject> Visuals;
+
         [Indexable]
         public float cameraFar;
         [Indexable]
@@ -402,7 +406,6 @@ namespace RenderPipelines
 
         public override void Render()
         {
-            //var camera = renderWrap.Camera;
             var camera = this.camera;
             ViewProjection = camera.vpMatrix;
             InvertViewProjection = camera.pvMatrix;
@@ -414,6 +417,7 @@ namespace RenderPipelines
                 camera = camera.GetJitter(jitterVector);
             }
 
+            deferredRenderPass.Visuals = Visuals;
             deferredRenderPass.Brightness = Brightness;
             deferredRenderPass.rayTracing = EnableRayTracing;
             deferredRenderPass.updateGI = UpdateGI;

@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
-using Vortice.Direct3D;
 using Vortice.Direct3D12;
 using Vortice.DXGI;
 
@@ -47,11 +46,11 @@ namespace Coocoo3DGraphics
     };
     public enum InputLayout
     {
-        mmd = 0,
-        noInput = 1,
+        Default = 0,
+        NoInput = 1,
         //skinned = 2,
-        imgui = 3,
-        particle = 4,
+        Imgui = 3,
+        Particle = 4,
     };
 
     public enum CullMode
@@ -118,7 +117,7 @@ namespace Coocoo3DGraphics
     }
     public class PSO : IDisposable
     {
-        static readonly InputLayoutDescription inputLayoutMMD = new InputLayoutDescription(
+        static readonly InputLayoutDescription inputLayoutDefault = new InputLayoutDescription(
             new InputElementDescription("POSITION", 0, Format.R32G32B32_Float, 0, 0),
             new InputElementDescription("NORMAL", 0, Format.R32G32B32_Float, 0, 1),
             new InputElementDescription("TEXCOORD", 0, Format.R32G32_Float, 0, 2),
@@ -211,17 +210,15 @@ namespace Coocoo3DGraphics
             }
             GraphicsPipelineStateDescription state = new GraphicsPipelineStateDescription();
 
-            //state.InputLayout = inputLayout.inputElementDescriptions;
-
-            if (psoDesc.inputLayout == InputLayout.mmd)
-                state.InputLayout = inputLayoutMMD;
-            else if (psoDesc.inputLayout == InputLayout.noInput)
+            if (psoDesc.inputLayout == InputLayout.Default)
+                state.InputLayout = inputLayoutDefault;
+            else if (psoDesc.inputLayout == InputLayout.NoInput)
                 state.InputLayout = inputLayoutNoInput;
             //else if (psoDesc.inputLayout == InputLayout.skinned)
             //    state.InputLayout = inputLayoutSkinned;
-            else if (psoDesc.inputLayout == InputLayout.imgui)
+            else if (psoDesc.inputLayout == InputLayout.Imgui)
                 state.InputLayout = inputLayoutImGui;
-            else if (psoDesc.inputLayout == InputLayout.particle)
+            else if (psoDesc.inputLayout == InputLayout.Particle)
                 state.InputLayout = inputLayoutParticle;
 
             state.RootSignature = graphicsSignature.rootSignature;

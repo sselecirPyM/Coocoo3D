@@ -8,6 +8,7 @@ using Coocoo3D.Core;
 using Coocoo3D.Components;
 using Coocoo3D.Present;
 using Coocoo3D.ResourceWrap;
+using Coocoo3D.RenderPipeline;
 
 namespace Coocoo3D.FileFormat
 {
@@ -78,21 +79,22 @@ namespace Coocoo3D.FileFormat
             }
             return false;
         }
-        public static Coocoo3DScene FromScene(Coocoo3DMain main)
+        public static Coocoo3DScene FromScene(Scene saveScene)
         {
             Coocoo3DScene scene = new Coocoo3DScene();
             scene.objects = new List<CooSceneObject>();
 
-            foreach (var obj in main.CurrentScene.gameObjects)
+            foreach (var obj in saveScene.gameObjects)
             {
                 var renderer = obj.GetComponent<MMDRendererComponent>();
+                var animationState = obj.GetComponent<AnimationStateComponent>();
                 if (renderer != null)
                 {
                     CooSceneObject sceneObject = new CooSceneObject(obj);
                     sceneObject.type = "mmdModel";
                     sceneObject.path = renderer.meshPath;
                     sceneObject.properties = new Dictionary<string, string>();
-                    sceneObject.properties.Add("motion", renderer.animationState.motionPath);
+                    sceneObject.properties.Add("motion", animationState.motionPath);
                     sceneObject.materials = new Dictionary<string, _cooMaterial>();
                     sceneObject.skinning = renderer.skinning;
                     sceneObject.enableIK = renderer.enableIK;
@@ -136,7 +138,7 @@ namespace Coocoo3D.FileFormat
                 foreach (var f1 in dict)
                     target[f1.Key] = f1.Value;
         }
-        public void ToScene(Coocoo3DMain main)
+        public void ToScene(Scene currentScene, MainCaches caches)
         {
             foreach (var obj in objects)
             {
@@ -144,10 +146,11 @@ namespace Coocoo3D.FileFormat
                 if (obj.type == "mmdModel")
                 {
                     string pmxPath = obj.path;
-                    ModelPack modelPack = main.mainCaches.GetModel(pmxPath);
+                    ModelPack modelPack = caches.GetModel(pmxPath);
 
                     gameObject.LoadPmx(modelPack);
                     var renderer = gameObject.GetComponent<MMDRendererComponent>();
+                    var animationState = gameObject.GetComponent<AnimationStateComponent>();
                     if (obj.skinning != null)
                         renderer.skinning = (bool)obj.skinning;
                     if (obj.enableIK != null)
@@ -156,19 +159,19 @@ namespace Coocoo3D.FileFormat
                     {
                         if (obj.properties.TryGetValue("motion", out string motion))
                         {
-                            renderer.animationState.motionPath = motion;
+                            animationState.motionPath = motion;
                         }
                     }
                     if (obj.materials != null)
                     {
                         Mat2Mat(obj.materials, renderer.Materials);
                     }
-                    main.CurrentScene.AddGameObject(gameObject);
+                    currentScene.AddGameObject(gameObject);
                 }
                 else if (obj.type == "model")
                 {
                     string path = obj.path;
-                    ModelPack modelPack = main.mainCaches.GetModel(path);
+                    ModelPack modelPack = caches.GetModel(path);
 
                     modelPack.LoadMeshComponent(gameObject);
                     var renderer = gameObject.GetComponent<MeshRendererComponent>();
@@ -177,7 +180,7 @@ namespace Coocoo3D.FileFormat
                     {
                         Mat2Mat(obj.materials, renderer.Materials);
                     }
-                    main.CurrentScene.AddGameObject(gameObject);
+                    currentScene.AddGameObject(gameObject);
                 }
                 else if (obj.type == "lighting")
                 {
@@ -188,7 +191,7 @@ namespace Coocoo3D.FileFormat
                     {
                         lightingComponent.material = Mat2Mat(obj.visual.material);
                     }
-                    main.CurrentScene.AddGameObject(gameObject);
+                    currentScene.AddGameObject(gameObject);
                 }
                 else if (obj.type == "decal")
                 {
@@ -199,10 +202,9 @@ namespace Coocoo3D.FileFormat
                     {
                         decalComponent.material = Mat2Mat(obj.visual.material);
                     }
-                    main.CurrentScene.AddGameObject(gameObject);
+                    currentScene.AddGameObject(gameObject);
                 }
             }
-            main.GameDriverContext.RequireResetPhysics = true;
         }
         static void Mat2Mat(Dictionary<string, _cooMaterial> materials, List<RenderMaterial> renderMaterials)
         {
