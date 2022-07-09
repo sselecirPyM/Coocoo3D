@@ -23,20 +23,20 @@ namespace Coocoo3D.RenderPipeline
         public Dictionary<string, KnownFile> KnownFiles = new();
         public ConcurrentDictionary<string, DirectoryInfo> KnownFolders = new();
 
-        public DictionaryWithModifiyIndex<string, Texture2DPack> TextureCaches = new();
+        public VersionedDictionary<string, Texture2DPack> TextureCaches = new();
         public Dictionary<string, Texture2DPack> TextureOnDemand = new();
         public Dictionary<string, Texture2DPack> TextureLoading = new();
 
-        public DictionaryWithModifiyIndex<string, ModelPack> ModelPackCaches = new();
-        public DictionaryWithModifiyIndex<string, MMDMotion> Motions = new();
-        public DictionaryWithModifiyIndex<string, ComputeShader> ComputeShaders = new();
+        public VersionedDictionary<string, ModelPack> ModelPackCaches = new();
+        public VersionedDictionary<string, MMDMotion> Motions = new();
+        public VersionedDictionary<string, ComputeShader> ComputeShaders = new();
 
-        public DictionaryWithModifiyIndex<string, RayTracingShader> RayTracingShaders = new();
-        public DictionaryWithModifiyIndex<string, PSO> PipelineStateObjects = new();
-        public DictionaryWithModifiyIndex<string, RTPSO> RTPSOs = new();
-        public DictionaryWithModifiyIndex<string, TextureCube> TextureCubes = new();
-        public DictionaryWithModifiyIndex<string, Assembly> Assemblies = new();
-        public DictionaryWithModifiyIndex<string, RootSignature> RootSignatures = new();
+        public VersionedDictionary<string, RayTracingShader> RayTracingShaders = new();
+        public VersionedDictionary<string, PSO> PipelineStateObjects = new();
+        public VersionedDictionary<string, RTPSO> RTPSOs = new();
+        public VersionedDictionary<string, TextureCube> TextureCubes = new();
+        public VersionedDictionary<string, Assembly> Assemblies = new();
+        public VersionedDictionary<string, RootSignature> RootSignatures = new();
 
         public ConcurrentQueue<ValueTuple<Texture2D, Uploader>> TextureReadyToUpload = new();
         public ConcurrentQueue<Mesh> MeshReadyToUpload = new();
@@ -166,17 +166,17 @@ namespace Coocoo3D.RenderPipeline
             }
         }
 
-        public T GetT<T>(DictionaryWithModifiyIndex<string, T> caches, string path, Func<FileInfo, T> createFun) where T : class
+        public T GetT<T>(VersionedDictionary<string, T> caches, string path, Func<FileInfo, T> createFun) where T : class
         {
             return GetT(caches, path, path, createFun);
         }
-        public T GetT<T>(DictionaryWithModifiyIndex<string, T> caches, string path, string realPath, Func<FileInfo, T> createFun) where T : class
+        public T GetT<T>(VersionedDictionary<string, T> caches, string path, string realPath, Func<FileInfo, T> createFun) where T : class
         {
             var knownFile = KnownFiles.GetOrCreate(realPath, () => new KnownFile()
             {
                 fullPath = realPath,
             });
-            int modifyIndex = knownFile.modifiyIndex;
+            int modifyCount = knownFile.modifiyCount;
             if (knownFile.requireReload.SetFalse() || knownFile.file == null)
             {
                 string folderPath = Path.GetDirectoryName(realPath);
@@ -185,18 +185,18 @@ namespace Coocoo3D.RenderPipeline
                 var folder = (Path.IsPathRooted(folderPath)) ? new DirectoryInfo(folderPath) : KnownFolders[folderPath];
                 try
                 {
-                    modifyIndex = knownFile.GetModifyIndex(folder.GetFiles());
+                    modifyCount = knownFile.GetModifyCount(folder.GetFiles());
                 }
                 catch (Exception e)
                 {
                     Console.WriteLine(e.Message);
                 }
             }
-            if (!caches.TryGetValue(path, out var file) || modifyIndex > caches.GetModifyIndex(path))
+            if (!caches.TryGetValue(path, out var file) || modifyCount > caches.GetVersion(path))
             {
                 try
                 {
-                    caches.SetModifyIndex(path, modifyIndex);
+                    caches.SetVersion(path, modifyCount);
                     var file1 = createFun(knownFile.file);
                     caches[path] = file1;
                     if (file is IDisposable disposable)
@@ -665,12 +665,12 @@ namespace Coocoo3D.RenderPipeline
             TextureCaches.Clear();
             foreach (var t in ComputeShaders)
             {
-                t.Value.Dispose();
+                t.Value?.Dispose();
             }
             ComputeShaders.Clear();
             foreach (var t in PipelineStateObjects)
             {
-                t.Value.Dispose();
+                t.Value?.Dispose();
             }
             PipelineStateObjects.Clear();
             foreach (var rs in RootSignatures)
@@ -680,7 +680,7 @@ namespace Coocoo3D.RenderPipeline
             RootSignatures.Clear();
             foreach (var rtc in RTPSOs)
             {
-                rtc.Value.Dispose();
+                rtc.Value?.Dispose();
             }
             RTPSOs.Clear();
         }

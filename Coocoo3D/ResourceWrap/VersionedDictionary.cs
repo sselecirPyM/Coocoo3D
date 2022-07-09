@@ -8,20 +8,20 @@ using System.Threading.Tasks;
 
 namespace Coocoo3D.ResourceWrap
 {
-    public class DictionaryWithModifiyIndex<TKey, TValue> : IDictionary<TKey, TValue>
+    public class VersionedDictionary<TKey, TValue> : IDictionary<TKey, TValue>
     {
         Dictionary<TKey, TValue> internalDictionary = new Dictionary<TKey, TValue>();
 
-        Dictionary<TKey, int> indices = new Dictionary<TKey, int>();
+        Dictionary<TKey, int> version = new Dictionary<TKey, int>();
 
-        public void SetModifyIndex(TKey key,int index1)
+        public void SetVersion(TKey key,int index1)
         {
-            indices[key] = index1;
+            version[key] = index1;
         }
 
-        public int GetModifyIndex(TKey key)
+        public int GetVersion(TKey key)
         {
-            indices.TryGetValue(key, out int v);
+            version.TryGetValue(key, out int v);
             return v;
         }
 
@@ -48,7 +48,7 @@ namespace Coocoo3D.ResourceWrap
         public void Clear()
         {
             ((ICollection<KeyValuePair<TKey, TValue>>)internalDictionary).Clear();
-            ((ICollection<KeyValuePair<TKey, int>>)indices).Clear();
+            ((ICollection<KeyValuePair<TKey, int>>)version).Clear();
         }
 
         public bool Contains(KeyValuePair<TKey, TValue> item)

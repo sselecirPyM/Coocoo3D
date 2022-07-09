@@ -13,12 +13,12 @@ namespace Coocoo3D.ResourceWrap
         public FileInfo file;
         public string fullPath;
         public bool requireReload;
-        public int modifiyIndex;
+        public int modifiyCount;
 
-        public int GetModifyIndex(FileInfo[] fileInfos)
+        public int GetModifyCount(FileInfo[] fileInfos)
         {
             IsModified(fileInfos);
-            return modifiyIndex;
+            return modifiyCount;
         }
 
         public bool IsModified(FileInfo[] fileInfos)
@@ -34,7 +34,7 @@ namespace Coocoo3D.ResourceWrap
                     this.file = file;
                     lastModifiedTime = attr;
                 }
-                if (modified) modifiyIndex++;
+                if (modified) modifiyCount++;
                 return modified;
             }
             catch (Exception e)

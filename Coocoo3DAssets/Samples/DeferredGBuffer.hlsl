@@ -3,6 +3,7 @@
 #endif
 
 #include "Skinning.hlsli"
+#include "GBufferDefine.hlsli"
 cbuffer cbAnimMatrices : register(b0)
 {
 	float4x4 g_mConstBoneWorld[MAX_BONE_MATRICES];
@@ -57,25 +58,8 @@ Texture2D Roughness :register(t2);
 Texture2D Emissive :register(t3);
 Texture2D NormalMap :register(t4);
 Texture2D Spa :register(t5);
-float2 NormalEncode(float3 n)
-{
-	n.xy /= dot(1, abs(n));
-	if (n.z <= 0)
-	{
-		n.xy = (1 - abs(n.yx)) * (n.xy >= 0 ? float2(1, 1) : float2(-1, -1));
-	}
-	return n.xy;
-}
 
-struct MRTOutput
-{
-	float4 color0 : COLOR0;
-	float4 color1 : COLOR1;
-	float4 color2 : COLOR2;
-	float4 color3 : COLOR3;
-};
-
-MRTOutput psmain(PSSkinnedIn input) : SV_TARGET
+GBufferData psmain(PSSkinnedIn input) : SV_TARGET
 {
 #if !USE_NORMAL_MAP
 	float3 N = normalize(input.Norm);
@@ -84,8 +68,6 @@ MRTOutput psmain(PSSkinnedIn input) : SV_TARGET
 	float3 dn = NormalMap.Sample(s1, input.Tex) * 2 - 1;
 	float3 N = normalize(mul(dn, tbn));
 #endif
-	float2 encodedNormal = NormalEncode(N);
-	MRTOutput output;
 	float4 color = Albedo.Sample(s1, input.Tex);
 	//clip(color.a - 0.98f);
 	float4 metallic1 = Metallic.Sample(s1, input.Tex);
@@ -104,9 +86,12 @@ MRTOutput psmain(PSSkinnedIn input) : SV_TARGET
 	float2 spaUV = float2(dot(N, t1) * 0.5 + 0.5, dot(N, t2) * 0.5 + 0.5);
 	emissive += Spa.SampleLevel(s0, spaUV, 0).rgb;
 #endif
-	output.color0 = float4(c_diffuse, c_specular.r);
-	output.color1 = float4(encodedNormal, roughness, c_specular.g);
-	output.color2 = float4(emissive, c_specular.b);
-	output.color3 = float4(_AO, 0, 0, 1);
+	GBufferData output;
+	GBufferDefault(output);
+	GBufferDiffuseSpecular(output, c_diffuse, c_specular);
+	GBufferRoughness(output, roughness);
+	GBufferEmissive(output, emissive);
+	GBufferAO(output, _AO);
+	GBufferNormal(output, N);
 	return output;
 }

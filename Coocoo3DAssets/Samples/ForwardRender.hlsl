@@ -6,6 +6,22 @@
 #include "PBR.hlsli"
 #include "SH.hlsli"
 
+#define ENABLE_EMISSIVE 1
+#define ENABLE_DIFFUSE 1
+#define ENABLE_SPECULR 1
+
+#ifdef DEBUG_SPECULAR_RENDER
+#undef ENABLE_DIFFUSE
+#undef ENABLE_EMISSIVE
+#endif
+
+#ifdef DEBUG_DIFFUSE_RENDER
+#undef ENABLE_SPECULR
+#undef ENABLE_EMISSIVE
+#endif
+
+#define SH_RESOLUTION (16)
+
 struct LightInfo
 {
 	float3 LightDir;
@@ -55,7 +71,6 @@ cbuffer cb2 : register(b2)
 	float3 g_GIVolumePosition;
 	float3 g_GIVolumeSize;
 }
-#define SH_RESOLUTION (16)
 SamplerState s0 : register(s0);
 SamplerState s1 : register(s1);
 SamplerComparisonState sampleShadowMap : register(s2);
@@ -101,39 +116,35 @@ PSSkinnedIn vsmain(VSSkinnedIn input)
 
 	return output;
 }
-#define ENABLE_EMISSIVE 1
-#define ENABLE_DIFFUSE 1
-#define ENABLE_SPECULR 1
 
-#ifdef DEBUG_SPECULAR_RENDER
-#undef ENABLE_DIFFUSE
-#undef ENABLE_EMISSIVE
-#endif
-
-#ifdef DEBUG_DIFFUSE_RENDER
-#undef ENABLE_SPECULR
-#undef ENABLE_EMISSIVE
-#endif
-
-float getDepth(float z, float near, float far)
+struct SurfaceInfo
 {
-	return (far - (far / z) * near) / (far - near);
-}
+	float3 diffuse;
+	float3 specular;
+	float roughness;
+	float alpha;
+	float3 normal;
+};
 
-float3 shadeLight(float3 c_diffuse, float3 c_specular, float roughness, float alpha, float LdotH, float NdotH, float NdotL, float NdotV)
+float3 shadeLight(in SurfaceInfo surface, float LdotH, float NdotH, float NdotL, float NdotV)
 {
 #if ENABLE_DIFFUSE
-	float diffuse_factor = Diffuse_Burley(NdotL, NdotV, LdotH, roughness);
+	float diffuse_factor = Diffuse_Burley(NdotL, NdotV, LdotH, surface.roughness);
 #else
 	float diffuse_factor = 0;
 #endif
 #if ENABLE_SPECULR
-	float3 specular_factor = Specular_BRDF(alpha, c_specular, NdotV, NdotL, LdotH, NdotH);
+	float3 specular_factor = Specular_BRDF(surface.alpha, surface.specular, NdotV, NdotL, LdotH, NdotH);
 #else
 	float3 specular_factor = 0;
 #endif
-	
-	return ((c_diffuse * diffuse_factor / COO_PI) + specular_factor);
+
+	return ((surface.diffuse * diffuse_factor / COO_PI) + specular_factor);
+}
+
+float getDepth(float z, float near, float far)
+{
+	return (far - (far / z) * near) / (far - near);
 }
 
 float pointLightShadow(int mapindex, float2 samplePos, float pd, float lightRange)
@@ -161,11 +172,10 @@ float4 psmain(PSSkinnedIn input) : SV_TARGET
 	float3 N = normalize(mul(dn, tbn));
 #endif
 	float NdotV = saturate(dot(N, V));
-	// Burley roughness bias
+
 	float4 metallic1 = Metallic.Sample(s1, input.Tex);
 	float4 roughness1 = Roughness.Sample(s1, input.Tex);
 	float roughness = max(_Roughness * roughness1.g, 0.002);
-	float alpha = roughness * roughness;
 
 	float3 albedo = texColor.rgb;
 
@@ -177,6 +187,13 @@ float4 psmain(PSSkinnedIn input) : SV_TARGET
 	float3 GF = c_specular * AB.x + AB.y;
 
 	float3 emissive = Emissive.Sample(s1, input.Tex) * _Emissive;
+
+	SurfaceInfo surface;
+	surface.diffuse = c_diffuse;
+	surface.specular = c_specular;
+	surface.roughness = roughness;
+	surface.alpha = roughness * roughness;
+	surface.normal = N;
 
 #if USE_SPA
 	float3 t1 = g_camLeft;
@@ -199,44 +216,6 @@ float4 psmain(PSSkinnedIn input) : SV_TARGET
 #endif
 #if ENABLE_EMISSIVE
 	outputColor += emissive;
-#endif
-#if DEBUG_ALBEDO
-	return float4(albedo, 1);
-#endif
-#if DEBUG_DEPTH
-	float _depth1 = pow(input.Pos.z,2.2f);
-	if (_depth1 < 1)
-		return float4(_depth1, _depth1, _depth1,1);
-	else
-		return float4(1, 0, 0, 1);
-#endif
-#if DEBUG_DIFFUSE
-	return float4(c_diffuse,1);
-#endif
-#if DEBUG_EMISSIVE
-	return float4(emissive, 1);
-#endif
-#if DEBUG_NORMAL
-	return float4(pow(N * 0.5 + 0.5, 2.2f), 1);
-#endif
-#if DEBUG_TANGENT
-	return float4(pow(normalize(input.Tangent) * 0.5 + 0.5, 2.2f), 1);
-#endif
-#if DEBUG_BITANGENT
-	return float4(pow(normalize(input.Bitangent) * 0.5 + 0.5, 2.2f), 1);
-#endif
-#if DEBUG_POSITION
-	return wPos;
-#endif
-#if DEBUG_ROUGHNESS
-	float _roughness1 = pow(max(roughness,0.0001f), 2.2f);
-	return float4(_roughness1, _roughness1, _roughness1,1);
-#endif
-#if DEBUG_SPECULAR
-	return float4(c_specular,1);
-#endif
-#if DEBUG_UV
-	return float4(input.Tex,0,1);
 #endif
 #if ENABLE_DIRECTIONAL_LIGHT
 	for (int i = 0; i < 1; i++)
@@ -266,7 +245,7 @@ float4 psmain(PSSkinnedIn input) : SV_TARGET
 		float3 LdotH = saturate(dot(L, H));
 		float3 NdotH = saturate(dot(N, H));
 
-		outputColor += NdotL * lightStrength * inShadow * shadeLight(c_diffuse, c_specular, roughness, alpha, LdotH, NdotH, NdotL, NdotV);
+		outputColor += NdotL * lightStrength * inShadow * shadeLight(surface, LdotH, NdotH, NdotL, NdotV);
 	}
 #endif //ENABLE_DIRECTIONAL_LIGHT
 #if ENABLE_POINT_LIGHT
@@ -323,11 +302,51 @@ float4 psmain(PSSkinnedIn input) : SV_TARGET
 			inShadow = pointLightShadow(mapindex, samplePos, abs(vl.z), lightRange);
 		}
 
-		outputColor += NdotL * lightStrength * inShadow * shadeLight(c_diffuse, c_specular, roughness, alpha, LdotH, NdotH, NdotL, NdotV);
+		outputColor += NdotL * lightStrength * inShadow * shadeLight(surface, LdotH, NdotH, NdotL, NdotV);
 	}
 #endif //ENABLE_POINT_LIGHT
 #if ENABLE_FOG
 	outputColor = lerp(pow(max(_fogColor , 1e-6),2.2f), outputColor,1 / exp(max((camDist - _startDistance) / 10,0.00001) * _fogDensity));
 #endif
+
+#if DEBUG_ALBEDO
+	return float4(albedo, 1);
+#endif
+#if DEBUG_DEPTH
+	float _depth1 = pow(input.Pos.z,2.2f);
+	if (_depth1 < 1)
+		return float4(_depth1, _depth1, _depth1,1);
+	else
+		return float4(1, 0, 0, 1);
+#endif
+#if DEBUG_DIFFUSE
+	return float4(c_diffuse,1);
+#endif
+#if DEBUG_EMISSIVE
+	return float4(emissive, 1);
+#endif
+#if DEBUG_NORMAL
+	return float4(pow(N * 0.5 + 0.5, 2.2f), 1);
+#endif
+#if DEBUG_TANGENT
+	return float4(pow(normalize(input.Tangent) * 0.5 + 0.5, 2.2f), 1);
+#endif
+#if DEBUG_BITANGENT
+	return float4(pow(normalize(input.Bitangent) * 0.5 + 0.5, 2.2f), 1);
+#endif
+#if DEBUG_POSITION
+	return wPos;
+#endif
+#if DEBUG_ROUGHNESS
+	float _roughness1 = pow(max(roughness,0.0001f), 2.2f);
+	return float4(_roughness1, _roughness1, _roughness1,1);
+#endif
+#if DEBUG_SPECULAR
+	return float4(c_specular,1);
+#endif
+#if DEBUG_UV
+	return float4(input.Tex,0,1);
+#endif
+
 	return float4(outputColor * g_Brightness, texColor.a);
 }
