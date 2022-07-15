@@ -203,11 +203,12 @@ namespace Coocoo3D.UI
             }
         }
 
-        void LoadEntityIntoScene(FileInfo pmxFile)
+        void LoadEntityIntoScene(FileInfo modelFile)
         {
-            string path = pmxFile.FullName;
+            string path = modelFile.FullName;
             ModelPack modelPack = caches.GetModel(path);
-            PreloadTextures(modelPack);
+            foreach (var tex in modelPack.textures)
+                caches.PreloadTexture(tex);
             if (modelPack.pmx != null)
             {
                 GameObject gameObject = new GameObject();
@@ -222,12 +223,6 @@ namespace Coocoo3D.UI
                 scene.AddGameObject(gameObject);
             }
             gameDriverContext.RequireRender(false);
-        }
-
-        void PreloadTextures(ModelPack model)
-        {
-            foreach (var tex in model.textures)
-                caches.Texture(tex);
         }
 
         [DllImport("Comdlg32.dll", SetLastError = true, ThrowOnUnmappableChar = true, CharSet = CharSet.Auto)]

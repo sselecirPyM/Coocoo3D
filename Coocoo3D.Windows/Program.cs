@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Numerics;
 using System.Runtime.InteropServices;
-using Coocoo3D.UI;
+using Coocoo3D.Core;
 using ImGuiNET;
 using static SDL2.SDL;
 

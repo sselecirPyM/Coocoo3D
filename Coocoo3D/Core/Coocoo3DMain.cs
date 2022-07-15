@@ -24,6 +24,7 @@ namespace Coocoo3D.Core
         public Scene CurrentScene;
         public AnimationSystem animationSystem;
         public PhysicsSystem physicsSystem;
+        public ParticleSystem particleSystem;
         public WindowSystem windowSystem;
         public RenderSystem renderSystem;
         public RecordSystem recordSystem;
@@ -32,7 +33,7 @@ namespace Coocoo3D.Core
         public GameDriver GameDriver;
 
         public UI.UIHelper UIHelper;
-        public UI.PlatformIO platformIO;
+        public PlatformIO platformIO;
         public UI.UIImGui UIImGui;
 
         public List<object> systems = new();
@@ -107,6 +108,8 @@ namespace Coocoo3D.Core
 
             windowSystem = AddSystem<WindowSystem>();
 
+            particleSystem = AddSystem<ParticleSystem>();
+
             renderSystem = AddSystem<RenderSystem>();
 
             recordSystem = AddSystem<RecordSystem>();
@@ -115,7 +118,7 @@ namespace Coocoo3D.Core
 
             GameDriver = AddSystem<GameDriver>();
 
-            platformIO = AddSystem<UI.PlatformIO>();
+            platformIO = AddSystem<PlatformIO>();
             UIHelper = AddSystem<UI.UIHelper>();
             UIImGui = AddSystem<UI.UIImGui>();
 
@@ -174,6 +177,9 @@ namespace Coocoo3D.Core
                 physicsSystem.resetPhysics = gdc.RequireResetPhysics;
                 physicsSystem.deltaTime = gdc.DeltaTime;
                 physicsSystem.Update();
+
+                particleSystem.Update();
+
                 gdc.RequireResetPhysics = false;
             }
             CurrentScene.Clear();

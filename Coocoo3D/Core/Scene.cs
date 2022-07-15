@@ -18,6 +18,8 @@ namespace Coocoo3D.Core
 
         public Dictionary<GameObject, Transform> setTransform = new();
 
+        public Dictionary<int, ParticleHolder> particles = new();
+
         public int idAllocated = 1;
 
         public void AddGameObject(GameObject gameObject)
@@ -46,14 +48,17 @@ namespace Coocoo3D.Core
                 if (renderComponent != null)
                     renderComponent.SetTransform(gameObject.Transform);
                 gameObjects.Add(gameObject);
+                if (gameObject.TryGetComponent<VisualComponent>(out var visual) && visual.UIShowType == Caprice.Display.UIShowType.Particle)
+                {
+                    particles.Add(gameObject.id, new ParticleHolder());
+                }
             }
             for (int i = 0; i < gameObjectRemoveList.Count; i++)
             {
                 var gameObject = gameObjectRemoveList[i];
                 gameObjects.Remove(gameObject);
+                particles.Remove(gameObject.id);
             }
-            //gameObjectLoadList.Clear();
-            //gameObjectRemoveList.Clear();
         }
 
         public void Simulation()
@@ -77,7 +82,6 @@ namespace Coocoo3D.Core
                     }
                 }
             }
-            //setTransform.Clear();
         }
 
         public void Clear()

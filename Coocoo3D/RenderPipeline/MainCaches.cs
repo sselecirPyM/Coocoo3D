@@ -57,7 +57,7 @@ namespace Coocoo3D.RenderPipeline
             KnownFolders[folder.FullName] = folder;
         }
 
-        public void Texture(string fullPath)
+        public void PreloadTexture(string fullPath)
         {
             if (!TextureOnDemand.ContainsKey(fullPath))
             {
@@ -603,7 +603,7 @@ namespace Coocoo3D.RenderPipeline
             if (!result)
             {
                 if (Path.IsPathFullyQualified(s))
-                    Texture(s);
+                    PreloadTexture(s);
                 else
                     Console.WriteLine(s);
             }

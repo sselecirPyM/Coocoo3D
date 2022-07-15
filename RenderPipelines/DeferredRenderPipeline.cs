@@ -222,7 +222,6 @@ namespace RenderPipelines
         public DebugRenderType DebugRenderType;
 
         #endregion
-
         #region Material Parameters
         [Indexable]
         [UIShow(UIShowType.Material, "透明材质")]
@@ -313,7 +312,6 @@ namespace RenderPipelines
         [UIColor(UIShowType.Decal, "发光强度")]
         public Vector4 _DecalEmissivePower = new Vector4(1, 1, 1, 1);
         #endregion
-
         #region Light Parameters
         [Indexable]
         [UIColor(UIShowType.Light, "光照颜色")]
@@ -327,12 +325,46 @@ namespace RenderPipelines
         public LightType LightType;
 
         #endregion
+        #region Particle Parameters
+
+        [Indexable]
+        [UIDragInt(1, 0, 1000, UIShowType.Particle, "数量")]
+        public int ParticleCount;
+        [Indexable]
+        [UIDragFloat(0.01f, 0, float.MaxValue, UIShowType.Particle, "生命")]
+        public Vector2 ParticleLife;
+        [Indexable]
+        [UIDragFloat(0.01f, 0, float.MaxValue, UIShowType.Particle, "随机速度")]
+        public Vector2 ParticleRandomSpeed;
+        [Indexable]
+        [UIDragFloat(0.01f, float.MinValue, float.MaxValue, UIShowType.Particle, "初始速度")]
+        public Vector3 ParticleInitialSpeed;
+        [Indexable]
+        [UIDragFloat(0.01f, 0, float.MaxValue, UIShowType.Particle, "尺寸")]
+        public Vector2 ParticleScale;
+        [Indexable]
+        [UIDragFloat(0.01f, float.MinValue, float.MaxValue, UIShowType.Particle, "加速度")]
+        public Vector3 ParticleAcceleration;
+
+        [Srgb]
+        [UIShow(UIShowType.Particle, "贴图")]
+        public Texture2D ParticleTexture;
+        [Indexable]
+        [UIColor(UIShowType.Particle, "颜色")]
+        public Vector4 ParticleColor = new Vector4(1, 1, 1, 1);
+        [Indexable]
+        [UIShow(UIShowType.Particle,"混合模式")]
+        public BlendMode ParticleBlendMode;
+        #endregion
 
         [SceneCapture]
         public CameraData camera;
 
         [SceneCapture("Visual")]
-        public IEnumerable<GameObject> Visuals;
+        public IReadOnlyList<GameObject> Visuals;
+
+        [SceneCapture("Particle")]
+        public IReadOnlyList<(RenderMaterial, ParticleHolder)> Particles;
 
         [Indexable]
         public float cameraFar;
@@ -422,6 +454,7 @@ namespace RenderPipelines
             deferredRenderPass.rayTracing = EnableRayTracing;
             deferredRenderPass.updateGI = UpdateGI;
             deferredRenderPass.DebugRenderType = DebugRenderType;
+            deferredRenderPass.Particles = Particles;
             postProcess.EnableBloom = EnableBloom;
 
             deferredRenderPass.SetCamera(camera);

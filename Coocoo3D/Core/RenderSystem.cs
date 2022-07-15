@@ -54,6 +54,10 @@ namespace Coocoo3D.Core
                     {
                         member.SetValue(renderPipeline, renderPipelineContext.visuals);
                     }
+                    if (captureAttribute.Capture == "Particle")
+                    {
+                        member.SetValue(renderPipeline, renderPipelineContext.particles);
+                    }
                 }
             }
             context.gpuWriter.graphicsContext = graphicsContext;

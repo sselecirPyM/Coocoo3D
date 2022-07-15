@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Vortice.Direct3D12;
-using static Coocoo3DGraphics.DXHelper;
 
 namespace Coocoo3DGraphics
 {
@@ -41,7 +40,7 @@ namespace Coocoo3DGraphics
             if (flags != RootSignatureFlags.LocalRootSignature)
             {
                 samplerDescription = new StaticSamplerDescription[4];
-                samplerDescription[0] = new StaticSamplerDescription(ShaderVisibility.All, 0, 0)
+                samplerDescription[0] = new StaticSamplerDescription()
                 {
                     AddressU = TextureAddressMode.Clamp,
                     AddressV = TextureAddressMode.Clamp,
@@ -134,13 +133,13 @@ namespace Coocoo3DGraphics
         public void Reload(ResourceAccessType[] Descs)
         {
             descs = Descs.ToArray();
-            flags = RootSignatureFlags.AllowInputAssemblerInputLayout | RootSignatureFlags.AllowStreamOutput;
+            flags = RootSignatureFlags.AllowInputAssemblerInputLayout;
         }
 
         public void ReloadCompute(IReadOnlyList<ResourceAccessType> Descs)
         {
             descs = Descs.ToArray();
-            flags = RootSignatureFlags.AllowInputAssemblerInputLayout | RootSignatureFlags.AllowStreamOutput;
+            flags = RootSignatureFlags.AllowInputAssemblerInputLayout;
         }
 
         internal void ReloadLocalRootSignature(IReadOnlyList<ResourceAccessType> Descs)

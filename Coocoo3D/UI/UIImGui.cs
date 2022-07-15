@@ -13,6 +13,7 @@ using System.IO;
 using System.Reflection;
 using Caprice.Display;
 using Coocoo3D.FileFormat;
+using System.Threading;
 
 namespace Coocoo3D.UI
 {
@@ -45,10 +46,12 @@ namespace Coocoo3D.UI
         public void GUI()
         {
             var io = ImGui.GetIO();
+            Input();
+
             Vector2 mouseMoveDelta = new Vector2();
-            while (platformIO.mouseMoveDelta.TryDequeue(out var moveDelta))
+            foreach (var delta in platformIO.mouseMoveDelta)
             {
-                mouseMoveDelta += moveDelta;
+                mouseMoveDelta += delta;
             }
 
             var context = renderPipelineContext;
@@ -161,6 +164,41 @@ namespace Coocoo3D.UI
                 }
             }
             platformIO.dropFile = null;
+        }
+
+        void Input()
+        {
+            var io = ImGui.GetIO();
+            for (int i = 0; i < 256; i++)
+            {
+                io.KeysDown[i] = platformIO.keydown[i];
+            }
+            foreach (var c in platformIO.inputChars)
+                io.AddInputCharacter(c);
+
+            io.KeyCtrl = platformIO.KeyControl;
+            io.KeyShift = platformIO.KeyShift;
+            io.KeyAlt = platformIO.KeyAlt;
+            io.KeySuper = platformIO.KeySuper;
+
+
+            io.MouseWheel += Interlocked.Exchange(ref platformIO.mouseWheelV, 0);
+            io.MouseWheelH += Interlocked.Exchange(ref platformIO.mouseWheelH, 0);
+            #region mouse inputs
+            for (int i = 0; i < 5; i++)
+                io.MouseDown[i] = platformIO.mouseDown[i];
+            io.MousePos = platformIO.mousePosition;
+            #endregion
+
+            #region outputs
+            platformIO.WantCaptureKeyboard = io.WantCaptureKeyboard;
+            platformIO.WantCaptureMouse = io.WantCaptureMouse;
+            platformIO.WantSetMousePos = io.WantSetMousePos;
+            platformIO.WantTextInput = io.WantTextInput;
+
+            platformIO.setMousePos = io.MousePos;
+            platformIO.requestCursor = ImGui.GetMouseCursor();
+            #endregion
         }
 
         void Common()
@@ -357,7 +395,7 @@ namespace Coocoo3D.UI
                 }
                 else
                 {
-                    ShowParam1(val, view, () =>
+                    ShowParam1(val, view.renderPipeline, () =>
                     {
                         if (member.GetGetterType() == typeof(Coocoo3DGraphics.Texture2D))
                         {
@@ -387,11 +425,14 @@ namespace Coocoo3D.UI
         void ShowParams(UIShowType showType, RenderPipeline.RenderPipelineView view, Dictionary<string, object> parameters)
         {
             if (view == null) return;
+            ShowParams(showType, view.UIUsages, view.renderPipeline, parameters);
+        }
+        void ShowParams(UIShowType showType, Dictionary<string, UIUsage> usages, object renderPipeline, Dictionary<string, object> parameters)
+        {
             ImGui.Separator();
             string filter = ImFilter("查找参数", "搜索参数名称");
 
-            var renderPipeline = view.renderPipeline;
-            foreach (var param in view.UIUsages)
+            foreach (var param in usages)
             {
                 var val = param.Value;
                 string name = val.MemberInfo.Name;
@@ -422,7 +463,7 @@ namespace Coocoo3D.UI
                 }
                 else
                 {
-                    ShowParam1(val, view, () =>
+                    ShowParam1(val, renderPipeline, () =>
                     {
                         parameters.TryGetValue(name, out var parameter);
                         return parameter;
@@ -433,9 +474,8 @@ namespace Coocoo3D.UI
             }
         }
 
-        void ShowParam1(UIUsage param, RenderPipeline.RenderPipelineView view, Func<object> getter, Action<object> setter, bool viewOverride = false)
+        void ShowParam1(UIUsage param, object renderPipeline, Func<object> getter, Action<object> setter, bool viewOverride = false)
         {
-            var renderPipeline = view.renderPipeline;
             var member = param.MemberInfo;
             object obj = member.GetValue<object>(renderPipeline);
             var type = obj.GetType();
@@ -605,13 +645,13 @@ namespace Coocoo3D.UI
             }
             if (CheckResourceSelect(id, slot, out string result))
             {
-                cache.Texture(result);
+                cache.PreloadTexture(result);
                 texPath = result;
                 textureChange = true;
             }
             if (platformIO.dropFile != null && ImGui.IsItemHovered())
             {
-                cache.Texture(platformIO.dropFile);
+                cache.PreloadTexture(platformIO.dropFile);
                 texPath = platformIO.dropFile;
                 textureChange = true;
             }
@@ -797,11 +837,11 @@ vmd格式动作。支持几乎所有的图片格式。");
                 NewLighting();
             }
             ImGui.SameLine();
-            //if (ImGui.Button("新粒子"))
-            //{
-            //    NewParticle();
-            //}
-            //ImGui.SameLine();
+            if (ImGui.Button("新粒子"))
+            {
+                NewParticle();
+            }
+            ImGui.SameLine();
             //if (ImGui.Button("新体积"))
             //{
             //    NewVolume();
@@ -811,7 +851,7 @@ vmd格式动作。支持几乎所有的图片格式。");
             {
                 NewDecal();
             }
-            ImGui.SameLine();
+            //ImGui.SameLine();
             bool removeObject = false;
             if (ImGui.Button("移除物体") || (ImGui.IsKeyPressed((int)ImGuiKey.Delete) && ImGui.IsWindowHovered()))
             {
@@ -1078,6 +1118,10 @@ vmd格式动作。支持几乎所有的图片格式。");
 
                 ImGui.DragFloat3("大小", ref gameObject.Transform.scale, 0.01f);
                 ShowParams(visualComponent.UIShowType, windowSystem.currentChannel.renderPipelineView, visualComponent.material.Parameters);
+                if (visualComponent.UIShowType == UIShowType.Particle)
+                {
+
+                }
                 ImGui.TreePop();
             }
         }
@@ -1111,17 +1155,30 @@ vmd格式动作。支持几乎所有的图片格式。");
             drawList.AddImage(imageId, pos, pos + imageSize);
             DrawGizmo(channel, pos, imageSize);
 
+            var camera = channel.camera;
             if (ImGui.IsItemActive())
             {
                 if (io.MouseDown[1])
-                    channel.camera.RotateDelta(new Vector3(-mouseMoveDelta.Y, mouseMoveDelta.X, 0) / 200);
+                {
+                    if (io.KeyCtrl)
+                        camera.Distance += (-mouseMoveDelta.Y / 150);
+                    else
+                        camera.RotateDelta(new Vector3(-mouseMoveDelta.Y, mouseMoveDelta.X, 0) / 200);
+                }
                 if (io.MouseDown[2])
-                    channel.camera.MoveDelta(new Vector3(mouseMoveDelta.X, mouseMoveDelta.Y, 0) / 400);
+                {
+                    if (io.KeyCtrl)
+                        camera.MoveDelta(new Vector3(mouseMoveDelta.X, mouseMoveDelta.Y, 0) / 40);
+                    else if (io.KeyShift)
+                        camera.MoveDelta(new Vector3(mouseMoveDelta.X, mouseMoveDelta.Y, 0) / 4000);
+                    else
+                        camera.MoveDelta(new Vector3(mouseMoveDelta.X, mouseMoveDelta.Y, 0) / 400);
+                }
                 windowSystem.currentChannel = channel;
             }
             if (ImGui.IsItemHovered())
             {
-                channel.camera.Distance += mouseWheelDelta * 0.6f;
+                camera.Distance += mouseWheelDelta * 0.6f;
                 if (platformIO.dropFile != null)
                 {
                     openRequest = new FileInfo(platformIO.dropFile);
@@ -1307,6 +1364,23 @@ vmd格式动作。支持几乎所有的图片格式。");
             gameObject.AddComponent(decalComponent);
             gameObject.Name = "Decal";
             gameObject.Transform = new(new Vector3(0, 0, 0), Quaternion.CreateFromYawPitchRoll(0, -1.5707963267948966192313216916398f, 0), new Vector3(1, 1, 0.1f));
+            CurrentScene.AddGameObject(gameObject);
+        }
+
+        void NewParticle()
+        {
+            VisualComponent component = new VisualComponent();
+            component.UIShowType = UIShowType.Particle;
+            component.material.Parameters["ParticleCount"] = 100;
+            component.material.Parameters["ParticleLife"] = new Vector2(5.0f, 15.0f);
+            component.material.Parameters["ParticleRandomSpeed"] = new Vector2(0.003f, 0.03f);
+            component.material.Parameters["ParticleInitialSpeed"] = new Vector3(0, 0, 0);
+            component.material.Parameters["ParticleScale"] = new Vector2(0.02f, 0.02f);
+            component.material.Parameters["ParticleAcceleration"] = new Vector3(0, 0, 0);
+            GameObject gameObject = new GameObject();
+            gameObject.AddComponent(component);
+            gameObject.Name = "Particle";
+            gameObject.Transform = new(new Vector3(0, 1, 0), Quaternion.CreateFromYawPitchRoll(0, 0, 0), new Vector3(1, 1, 1));
             CurrentScene.AddGameObject(gameObject);
         }
 

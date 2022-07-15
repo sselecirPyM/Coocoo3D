@@ -125,6 +125,8 @@ namespace Coocoo3D.FileFormat
                         decalObject.type = "decal";
                     if (visual.UIShowType == Caprice.Display.UIShowType.Light)
                         decalObject.type = "lighting";
+                    if (visual.UIShowType == Caprice.Display.UIShowType.Particle)
+                        decalObject.type = "particle";
                     decalObject.visual = new CooSceneObjectVisual(Mat2Mat(visual.material));
                     scene.objects.Add(decalObject);
                 }
@@ -182,27 +184,32 @@ namespace Coocoo3D.FileFormat
                     }
                     currentScene.AddGameObject(gameObject);
                 }
-                else if (obj.type == "lighting")
+                else
                 {
-                    VisualComponent lightingComponent = new VisualComponent();
-                    lightingComponent.UIShowType = Caprice.Display.UIShowType.Light;
-                    gameObject.AddComponent(lightingComponent);
+                    Caprice.Display.UIShowType uiShowType = default;
+                    switch (obj.type)
+                    {
+                        case "lighting":
+                            uiShowType = Caprice.Display.UIShowType.Light;
+                            break;
+                        case "decal":
+                            uiShowType = Caprice.Display.UIShowType.Decal;
+                            break;
+                        case "particle":
+                            uiShowType = Caprice.Display.UIShowType.Particle;
+                            break;
+                        default:
+                            continue;
+                    }
+                    VisualComponent component = new VisualComponent();
+                    component.UIShowType = uiShowType;
+                    gameObject.AddComponent(component);
                     if (obj.visual != null)
                     {
-                        lightingComponent.material = Mat2Mat(obj.visual.material);
+                        component.material = Mat2Mat(obj.visual.material);
                     }
                     currentScene.AddGameObject(gameObject);
-                }
-                else if (obj.type == "decal")
-                {
-                    VisualComponent decalComponent = new VisualComponent();
-                    decalComponent.UIShowType = Caprice.Display.UIShowType.Decal;
-                    gameObject.AddComponent(decalComponent);
-                    if (obj.visual != null)
-                    {
-                        decalComponent.material = Mat2Mat(obj.visual.material);
-                    }
-                    currentScene.AddGameObject(gameObject);
+
                 }
             }
         }

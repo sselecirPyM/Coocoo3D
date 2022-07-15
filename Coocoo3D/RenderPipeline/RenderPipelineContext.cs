@@ -44,6 +44,7 @@ namespace Coocoo3D.RenderPipeline
         public List<MMDRendererComponent> renderers = new();
         public List<MeshRendererComponent> meshRenderers = new();
         public List<GameObject> visuals = new();
+        public List<(RenderMaterial, ParticleHolder)> particles = new();
 
         public Dictionary<int, GameObject> gameObjects = new();
 
@@ -91,6 +92,14 @@ namespace Coocoo3D.RenderPipeline
                         position.Z = pos1.Z;
                     visual.transform = new Transform(position, visual.transform.rotation * (visual.bindRot ? rot : Quaternion.Identity), visual.transform.scale);
                 }
+            }
+            particles.Clear();
+            foreach (var particle in scene.particles)
+            {
+                var gameObject = gameObjects[particle.Key];
+                var visual = gameObject.GetComponent<VisualComponent>();
+                particle.Value.transform = gameObject.Transform;
+                particles.Add((visual.material, particle.Value));
             }
         }
 

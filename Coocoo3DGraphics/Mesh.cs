@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Text;
 using Vortice.Direct3D12;
@@ -17,7 +16,7 @@ namespace Coocoo3DGraphics
 
         public void Dispose()
         {
-            vertex?.Dispose();
+            vertex?.Release();
             vertex = null;
         }
     }

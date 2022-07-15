@@ -284,6 +284,32 @@ namespace RenderPipelines
             output = "_HiZBuffer"
         };
 
+        public DrawParticlePass particlePass = new DrawParticlePass()
+        {
+            shader = "Particle.hlsl",
+            renderTargets = new string[1],
+            depthStencil = null,
+            rs = "Css",
+            psoDesc = new PSODesc()
+            {
+                blendState = BlendState.Alpha,
+                cullMode = CullMode.None,
+            },
+            srvs = new[]
+            {
+                "ParticleTexture",
+                null,
+            },
+            cbvs = new[]
+            {
+                "ParticleColor",
+                nameof(Far),
+                nameof(Near),
+                nameof(CameraLeft),
+                nameof(CameraDown),
+            },
+        };
+
         public bool rayTracing;
         public bool updateGI;
 
@@ -345,6 +371,8 @@ namespace RenderPipelines
 
         public IEnumerable<GameObject> Visuals;
 
+        public IReadOnlyList<(RenderMaterial, ParticleHolder)> Particles;
+
         public void SetCamera(CameraData camera)
         {
             Far = camera.far;
@@ -360,6 +388,7 @@ namespace RenderPipelines
 
             rayTracingPass.SetCamera(camera);
             decalPass.viewProj = ViewProjection;
+            particlePass.viewProj = ViewProjection;
 
 
             Matrix4x4 rotateMatrix = Matrix4x4.CreateFromYawPitchRoll(-camera.Angle.Y, -camera.Angle.X, -camera.Angle.Z);
@@ -384,11 +413,15 @@ namespace RenderPipelines
             decalPass.Visuals = Visuals;
             finalPass.renderTargets[0] = renderTarget;
             finalPass.srvs[5] = depthStencil;
+            particlePass.renderTargets[0] = renderTarget;
 
             rayTracingPass.RenderTarget = "gbuffer2";
             rayTracingPass.srvs[3] = depthStencil;
 
             RandomI = random.Next();
+
+            particlePass.Particles = Particles;
+            particlePass.srvs[1] = depthStencil;
 
             BoundingFrustum frustum = new BoundingFrustum(ViewProjection);
 
@@ -508,12 +541,15 @@ namespace RenderPipelines
             }
             finalPass.Execute(renderWrap);
             drawObjectTransparent.Execute(renderWrap);
+            particlePass.Execute(renderWrap);
+
             renderWrap.PopParameters();
 
             finalPass.cbvs[1][0] = null;
             drawObjectTransparent.CBVPerObject[1] = null;
 
             ArrayPool<byte>.Shared.Return(pointLightData);
+
 
             drawGBuffer.keywords.Clear();
             drawObjectTransparent.keywords.Clear();

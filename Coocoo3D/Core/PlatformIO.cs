@@ -8,16 +8,17 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Coocoo3D.UI
+namespace Coocoo3D.Core
 {
     public class PlatformIO
     {
         #region mouse inputs
         public bool[] mouseDown = new bool[5];
-        public Vector2 mousePos;
+        public Vector2 mousePosition;
         public int mouseWheelH;
         public int mouseWheelV;
-        public ConcurrentQueue<Vector2> mouseMoveDelta = new();
+        public ConcurrentQueue<Vector2> _mouseMoveDelta = new();
+        public List<Vector2> mouseMoveDelta = new();
         #endregion
 
         public bool[] keydown = new bool[256];
@@ -25,7 +26,8 @@ namespace Coocoo3D.UI
         public bool KeyShift;
         public bool KeyAlt;
         public bool KeySuper;
-        public ConcurrentQueue<uint> inputChars = new();
+        public ConcurrentQueue<uint> _inputChars = new();
+        public List<uint> inputChars = new();
         #region outputs
         public bool WantCaptureMouse;
         public bool WantCaptureKeyboard;
@@ -52,56 +54,37 @@ namespace Coocoo3D.UI
             {
                 if ((IntPtr)io.NativePtr == new IntPtr(8)) return;
             }
-            for (int i = 0; i < 256; i++)
+            inputChars.Clear();
+            while (_inputChars.TryDequeue(out uint c))
             {
-                io.KeysDown[i] = keydown[i];
+                inputChars.Add(c);
             }
-            while (inputChars.TryDequeue(out uint char1))
-                io.AddInputCharacter(char1);
+            mouseMoveDelta.Clear();
+            while (_mouseMoveDelta.TryDequeue(out var vec2))
+            {
+                mouseMoveDelta.Add(vec2);
+            }
 
-            io.MouseWheel += Interlocked.Exchange(ref mouseWheelV, 0);
-            io.MouseWheelH += Interlocked.Exchange(ref mouseWheelH, 0);
-
-            io.KeyCtrl = KeyControl;
-            io.KeyShift = KeyShift;
-            io.KeyAlt = KeyAlt;
-            io.KeySuper = KeySuper;
             if (previousFocus != Focus)
             {
-                io.AddFocusEvent(Focus);
+
             }
             previousFocus = Focus;
-
-            #region outputs
-            WantCaptureKeyboard = io.WantCaptureKeyboard;
-            WantCaptureMouse = io.WantCaptureMouse;
-            WantSetMousePos = io.WantSetMousePos;
-            WantTextInput = io.WantTextInput;
-
-            setMousePos = io.MousePos;
-            requestCursor = ImGui.GetMouseCursor();
-            #endregion
-
-            #region mouse inputs
-            for (int i = 0; i < 5; i++)
-                io.MouseDown[i] = mouseDown[i];
-            io.MousePos = mousePos;
-            #endregion
         }
 
         public void InputChar(char c)
         {
-            inputChars.Enqueue(c);
+            _inputChars.Enqueue(c);
         }
 
         public void MousePosition(Vector2 position)
         {
-            mousePos = position;
+            mousePosition = position;
         }
 
         public void MouseMoveDelta(Vector2 position)
         {
-            mouseMoveDelta.Enqueue(position);
+            _mouseMoveDelta.Enqueue(position);
         }
 
         public void KeyDown(int key)

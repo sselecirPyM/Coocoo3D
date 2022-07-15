@@ -26,5 +26,6 @@ namespace Caprice.Display
         Material = 2,
         Decal = 4,
         Light = 8,
+        Particle = 16,
     }
 }

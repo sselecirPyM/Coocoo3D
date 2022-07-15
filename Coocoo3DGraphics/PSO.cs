@@ -126,13 +126,6 @@ namespace Coocoo3DGraphics
             new InputElementDescription("WEIGHTS", 0, Format.R32G32B32A32_Float, 0, 5)
             );
 
-        //static readonly InputLayoutDescription inputLayoutSkinned = new InputLayoutDescription(
-        //    new InputElementDescription("POSITION", 0, Format.R32G32B32_Float, 0),
-        //    new InputElementDescription("NORMAL", 0, Format.R32G32B32_Float, 0),
-        //    new InputElementDescription("TEXCOORD", 0, Format.R32G32_Float, 0),
-        //    new InputElementDescription("TANGENT", 0, Format.R32G32B32A32_Float, 0),
-        //    new InputElementDescription("EDGESCALE", 0, Format.R32_Float, 0)
-        //    );
         //static readonly InputLayoutDescription inputLayoutPosOnly = new InputLayoutDescription(
         //    new InputElementDescription("POSITION", 0, Format.R32G32B32_Float, 0)
         //    );
@@ -148,7 +141,7 @@ namespace Coocoo3DGraphics
             new InputElementDescription("COLOR", 0, Format.R8G8B8A8_UNorm, 0),
             new InputElementDescription("SIZE", 0, Format.R32_Float, 0)
             );
-        static readonly BlendDescription blendStateAdd = new BlendDescription(Blend.One, Blend.One);
+        static readonly BlendDescription blendStateAdd = new BlendDescription(Blend.SourceAlpha, Blend.One);
         static readonly BlendDescription blendStateAlpha = new BlendDescription(Blend.SourceAlpha, Blend.InverseSourceAlpha, Blend.One, Blend.InverseSourceAlpha);
         static readonly BlendDescription blendStatePreserveAlpha = new BlendDescription(Blend.SourceAlpha, Blend.InverseSourceAlpha, Blend.Zero, Blend.One);
 
@@ -214,8 +207,6 @@ namespace Coocoo3DGraphics
                 state.InputLayout = inputLayoutDefault;
             else if (psoDesc.inputLayout == InputLayout.NoInput)
                 state.InputLayout = inputLayoutNoInput;
-            //else if (psoDesc.inputLayout == InputLayout.skinned)
-            //    state.InputLayout = inputLayoutSkinned;
             else if (psoDesc.inputLayout == InputLayout.Imgui)
                 state.InputLayout = inputLayoutImGui;
             else if (psoDesc.inputLayout == InputLayout.Particle)
