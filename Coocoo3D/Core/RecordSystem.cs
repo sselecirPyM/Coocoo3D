@@ -2,7 +2,9 @@
 using Coocoo3DGraphics;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
+using System.IO.Pipes;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -20,7 +22,14 @@ namespace Coocoo3D.Core
 
     public class RecordSystem : IDisposable
     {
+        public Process ffmpegProcess;
+
+        public NamedPipeServerStream pipe;
+        public string pipeName;
+
         public WindowSystem windowSystem;
+
+        public bool ffmpegInstalled;
 
         public GameDriverContext gameDriverContext;
 
@@ -55,6 +64,20 @@ namespace Coocoo3D.Core
                 graphicsDevice = graphicsDevice,
                 graphicsContext = graphicsContext,
             };
+            try
+            {
+                ProcessStartInfo processStartInfo = new ProcessStartInfo();
+                processStartInfo.UseShellExecute = false;
+                processStartInfo.FileName = "ffmpeg";
+                processStartInfo.CreateNoWindow = true;
+                var process = Process.Start(processStartInfo);
+                ffmpegInstalled = true;
+                process.CloseMainWindow();
+                process.Dispose();
+            }
+            catch
+            {
+            }
         }
 
         public void Record()
@@ -67,7 +90,13 @@ namespace Coocoo3D.Core
                 }
                 if (gameDriverContext.PlayTime >= StartTime && gameDriverContext.PlayTime <= StopTime)
                 {
-                    recorder.Record(visualChannel1.GetAOV(Caprice.Attributes.AOVType.Color), Path.GetFullPath(string.Format("{0}.png", RecordCount), saveDirectory));
+                    var aov = visualChannel1.GetAOV(Caprice.Attributes.AOVType.Color);
+                    string fileName;
+                    if (pipe == null)
+                        fileName = Path.GetFullPath(string.Format("{0}.png", RecordCount));
+                    else
+                        fileName = Path.GetFullPath(string.Format("{0}.bmp", RecordCount));
+                    recorder.Record(aov, fileName);
                     RecordCount++;
                 }
             }
@@ -91,12 +120,55 @@ namespace Coocoo3D.Core
             RecordCount = 0;
             FrameIntervalF = 1 / MathF.Max(recordSettings.FPS, 1e-3f);
             recording = true;
+
+            if (ffmpegInstalled)
+            {
+                pipeName = Path.GetRandomFileName();
+                pipe = new NamedPipeServerStream(pipeName, PipeDirection.Out, 1, PipeTransmissionMode.Byte, PipeOptions.None, 0, 1024 * 1024 * 64);
+                Task.Run(() =>
+                {
+                    string[] args =
+                    {
+                        "-y",
+                        "-r",
+                        recordSettings.FPS.ToString(),
+                        "-i",
+                        @"\\.\pipe\" + pipeName,
+                        "-c:v",
+                        "libx264",
+                        "-s",
+                        recordSettings.Width + "X" + recordSettings.Height,
+                        "-pix_fmt",
+                        "yuv420p",
+                        "-crf",
+                        "16",
+                        saveDirectory + @"\output.mp4",
+                    };
+                    var processStartInfo = new ProcessStartInfo();
+                    processStartInfo.FileName = "ffmpeg";
+                    foreach (var arg in args)
+                        processStartInfo.ArgumentList.Add(arg);
+                    ffmpegProcess = Process.Start(processStartInfo);
+                });
+                recorder.stream = pipe;
+                pipe.WaitForConnection();
+            }
+            else
+            {
+                recorder.stream = null;
+            }
         }
 
         public void StopRecord()
         {
             recording = false;
+            if (pipe != null)
+            {
+                pipe = null;
+            }
         }
+
+
 
         public void Dispose()
         {

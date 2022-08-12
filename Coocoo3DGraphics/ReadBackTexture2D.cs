@@ -20,8 +20,13 @@ namespace Coocoo3DGraphics
         {
             int size = Marshal.SizeOf(typeof(T));
             void* ptr = null;
-            m_textureReadBack[index].Map(0, new Range(0, bitmapData.Length * size), &ptr);
-            memcpy(bitmapData, ptr, bitmapData.Length * size);
+            //m_textureReadBack[index].Map(0, new Range(0, bitmapData.Length * size), &ptr);
+            int RowPitch = ((m_width * bytesPerPixel + 255) & ~255);
+            m_textureReadBack[index].Map(0, new Range(0, RowPitch * m_height), &ptr);
+            for (int i = 0; i < m_height; i++)
+            {
+                memcpy(bitmapData.Slice(m_width * i * bytesPerPixel / size, m_width * bytesPerPixel / size), (byte*)ptr + RowPitch * i, m_width * bytesPerPixel);
+            }
             m_textureReadBack[index].Unmap(0);
         }
 
@@ -29,7 +34,7 @@ namespace Coocoo3DGraphics
         {
             int size = Marshal.SizeOf(typeof(T));
             void* ptr = null;
-            m_textureReadBack[index].Map(0, new Range(0, m_width * m_height * bytesPerPixel), &ptr);
+            m_textureReadBack[index].Map(0, new Range(0, ((m_width * bytesPerPixel + 255) & ~255) * m_height), &ptr);
             return new Span<T>(ptr, m_width * m_height * bytesPerPixel / size);
         }
         public void StopRead(int index)

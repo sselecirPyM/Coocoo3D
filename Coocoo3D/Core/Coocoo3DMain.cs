@@ -12,7 +12,6 @@ namespace Coocoo3D.Core
 {
     public class Coocoo3DMain : IDisposable
     {
-
         public Statistics statistics;
 
         GraphicsDevice graphicsDevice;
@@ -158,7 +157,6 @@ namespace Coocoo3D.Core
         }
 
         public System.Diagnostics.Stopwatch stopwatch1 = System.Diagnostics.Stopwatch.StartNew();
-        Task RenderTask;
 
         private void Simulation()
         {
@@ -196,7 +194,6 @@ namespace Coocoo3D.Core
             timeManager.RealCounter("fps", 1, out statistics.FramePerSecond);
             Simulation();
 
-            if (RenderTask != null && RenderTask.Status != TaskStatus.RanToCompletion) RenderTask.Wait();
             RPContext.RealDeltaTime = deltaTime;
             RPContext.Time = gdc.PlayTime;
             RPContext.DeltaTime = gdc.Playing ? gdc.DeltaTime : 0;
@@ -212,20 +209,11 @@ namespace Coocoo3D.Core
             windowSystem.Update2();
             platformIO.Update();
             UIImGui.GUI();
+            windowSystem.Update();
             graphicsDevice.RenderBegin();
             graphicsContext.Begin();
             RPContext.UpdateGPUResource();
 
-            if (config.MultiThreadRendering)
-                RenderTask = Task.Run(RenderFunction);
-            else
-                RenderFunction();
-
-            return true;
-        }
-        void RenderFunction()
-        {
-            windowSystem.Update();
             renderSystem.Update();
 
             GameDriver.AfterRender();
@@ -237,6 +225,8 @@ namespace Coocoo3D.Core
             graphicsContext.Execute();
             statistics.DrawTriangleCount = graphicsContext.TriangleCount;
             graphicsDevice.RenderComplete();
+
+            return true;
         }
 
         #endregion
@@ -245,8 +235,7 @@ namespace Coocoo3D.Core
         {
             cancelRenderThread.Cancel();
             renderWorkThread.Join();
-            if (RenderTask != null && RenderTask.Status == TaskStatus.Running)
-                RenderTask.Wait();
+
             graphicsDevice.WaitForGpu();
 
             for (int i = systems.Count - 1; i >= 0; i--)

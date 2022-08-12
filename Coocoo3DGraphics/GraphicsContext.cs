@@ -723,7 +723,7 @@ namespace Coocoo3DGraphics
                 texture.m_textureReadBack = new ID3D12Resource[3];
             for (int i = 0; i < texture.m_textureReadBack.Length; i++)
             {
-                CreateBuffer(texture.m_width * texture.m_height * texture.bytesPerPixel, ref texture.m_textureReadBack[i], heapType: HeapType.Readback);
+                CreateBuffer(((texture.m_width * texture.bytesPerPixel + 255) & ~255) * texture.m_height, ref texture.m_textureReadBack[i], heapType: HeapType.Readback);
                 texture.m_textureReadBack[i].Name = "texture readback";
             }
         }

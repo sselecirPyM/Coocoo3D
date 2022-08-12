@@ -2,6 +2,7 @@
 using Coocoo3DGraphics;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -16,6 +17,12 @@ namespace Coocoo3D.RenderPipeline
 
         public GraphicsDevice graphicsDevice;
 
+        public Stream stream;
+
+        byte[] temp;
+
+        public bool recording;
+
         public void OnFrame()
         {
             if (recordQueue.Count == 0) return;
@@ -26,9 +33,25 @@ namespace Coocoo3D.RenderPipeline
             {
                 var triple = recordQueue.Dequeue();
 
-                var data = ReadBackTexture2D.StartRead<byte>(triple.Item2);
-                TextureHelper.SaveToFile(data, width, height, triple.Item3);
-                ReadBackTexture2D.StopRead(triple.Item2);
+                if (temp == null || temp.Length != width * height * 4)
+                {
+                    temp = new byte[width * height * 4];
+                }
+                var data = temp;
+                ReadBackTexture2D.GetRaw<byte>(triple.Item2, data);
+                if (stream == null)
+                    TextureHelper.SaveToFile(data, width, height, triple.Item3);
+                else
+                    TextureHelper.SaveToFile(data, width, height, triple.Item3, stream);
+            }
+            if(!recording&& recordQueue.Count == 0)
+            {
+                if (stream != null)
+                {
+                    stream.Flush();
+                    stream.Dispose();
+                    stream = null;
+                }
             }
         }
 

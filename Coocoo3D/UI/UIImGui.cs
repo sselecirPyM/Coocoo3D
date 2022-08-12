@@ -236,6 +236,10 @@ namespace Coocoo3D.UI
             }
             if (ImGui.TreeNode("录制"))
             {
+                if(recordSystem.ffmpegInstalled)
+                {
+                    ImGui.Text("已安装FFmpeg，将使用FFmpeg录制。输出文件名output.mp4");
+                }
                 var recordSettings = recordSystem.recordSettings;
                 ImGui.DragFloat("开始时间", ref recordSettings.StartTime);
                 ImGui.DragFloat("结束时间", ref recordSettings.StopTime);
@@ -294,7 +298,6 @@ namespace Coocoo3D.UI
         {
             ImGui.Checkbox("垂直同步", ref config.VSync);
             ImGui.Checkbox("节省CPU", ref config.SaveCpuPower);
-            ImGui.Checkbox("多线程渲染", ref config.MultiThreadRendering);
             float a = (float)(1.0 / Math.Clamp(gameDriverContext.FrameInterval, 1e-4, 1));
             if (ImGui.DragFloat("帧率限制", ref a, 10, 1, 5000))
             {
