@@ -1,20 +1,56 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Numerics;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
+using Coocoo3D.Components;
 using Coocoo3D.RenderPipeline;
+using Coocoo3D.ResourceWrap;
 using Coocoo3D.Utility;
 using Coocoo3DGraphics;
 
 namespace Coocoo3D.Core
 {
-    public class RenderSystem
+    public class RenderSystem : IDisposable
     {
         public WindowSystem windowSystem;
         public GraphicsContext graphicsContext;
         public RenderPipelineContext renderPipelineContext;
         public MainCaches mainCaches;
+
+        public Type[] RenderPipelineTypes = new Type[0];
+
+        public void Initialize()
+        {
+            LoadRenderPipelines(new DirectoryInfo("Samples"));
+
+            var rpc = renderPipelineContext;
+
+            rpc.quadMesh.ReloadIndex<int>(4, new int[] { 0, 1, 2, 2, 1, 3 });
+            mainCaches.MeshReadyToUpload.Enqueue(rpc.quadMesh);
+
+            rpc.cubeMesh.ReloadIndex<int>(4, new int[]
+            {
+                0,1,2,
+                2,1,3,
+                0,2,4,
+                2,6,4,
+                1,5,7,
+                3,1,7,
+                2,3,7,
+                2,7,6,
+                1,0,4,
+                1,4,5,
+                4,7,5,
+                4,6,7,
+            });
+            mainCaches.MeshReadyToUpload.Enqueue(rpc.cubeMesh);
+        }
+
+        List<VisualChannel> channels = new();
         public void Update()
         {
             var context = renderPipelineContext;
@@ -22,8 +58,18 @@ namespace Coocoo3D.Core
                 graphicsContext.UploadTexture(uploadPack.Item1, uploadPack.Item2);
             while (mainCaches.MeshReadyToUpload.TryDequeue(out var mesh))
                 graphicsContext.UploadMesh(mesh);
+            context.CPUSkinning = false;
 
-            var channels = windowSystem.visualChannels.Values;
+            foreach (var channel in windowSystem.visualChannels.Values)
+            {
+                if (channel.renderPipelineView != null)
+                    channels.Add(channel);
+                else
+                {
+                    channel.DelaySetRenderPipeline(RenderPipelineTypes[0]);
+                    channels.Add(channel);
+                }
+            }
             foreach (var visualChannel in channels)
             {
                 visualChannel.Onframe();
@@ -32,31 +78,29 @@ namespace Coocoo3D.Core
                 {
                     var member = cap.Value.Item1;
                     var captureAttribute = cap.Value.Item2;
-                    if (member.GetGetterType() == typeof(CameraData))
+                    switch (captureAttribute.Capture)
                     {
-                        member.SetValue(renderPipeline, visualChannel.cameraData);
-                    }
-                    else if (member.GetGetterType() == typeof(double))
-                    {
-                        if (member.Name == "Time")
+                        case "Camera":
+                            member.SetValue(renderPipeline, visualChannel.cameraData);
+                            break;
+                        case "Time":
                             member.SetValue(renderPipeline, context.Time);
-                        if (member.Name == "DeltaTime")
+                            break;
+                        case "DeltaTime":
                             member.SetValue(renderPipeline, context.DeltaTime);
-                        if (member.Name == "RealDeltaTime")
+                            break;
+                        case "RealDeltaTime":
                             member.SetValue(renderPipeline, context.RealDeltaTime);
-                    }
-                    else if (member.GetGetterType() == typeof(bool))
-                    {
-                        if (member.Name == "Recording")
+                            break;
+                        case "Recording":
                             member.SetValue(renderPipeline, context.recording);
-                    }
-                    if (captureAttribute.Capture == "Visual")
-                    {
-                        member.SetValue(renderPipeline, renderPipelineContext.visuals);
-                    }
-                    if (captureAttribute.Capture == "Particle")
-                    {
-                        member.SetValue(renderPipeline, renderPipelineContext.particles);
+                            break;
+                        case "Visual":
+                            member.SetValue(renderPipeline, context.visuals);
+                            break;
+                        case "Particle":
+                            member.SetValue(renderPipeline, context.particles);
+                            break;
                     }
                 }
             }
@@ -66,26 +110,189 @@ namespace Coocoo3D.Core
             foreach (var visualChannel in channels)
             {
                 var renderPipelineView = visualChannel.renderPipelineView;
-                if (renderPipelineView == null) continue;
-
                 renderPipelineView.renderPipeline.BeforeRender();
+            }
+            UpdateGPUResource();
+            foreach (var visualChannel in channels)
+            {
+                var renderPipelineView = visualChannel.renderPipelineView;
                 renderPipelineView.PrepareRenderResources();
             }
             foreach (var visualChannel in channels)
             {
                 var renderPipelineView = visualChannel.renderPipelineView;
-                if (renderPipelineView == null) continue;
 
                 renderPipelineView.renderPipeline.Render();
-            }
-
-            foreach (var visualChannel in channels)
-            {
-                var renderPipelineView = visualChannel.renderPipelineView;
-                if (renderPipelineView == null) continue;
-
                 renderPipelineView.renderPipeline.AfterRender();
                 renderPipelineView.renderWrap.AfterRender();
+            }
+            channels.Clear();
+        }
+
+
+        public void LoadRenderPipelines(DirectoryInfo dir)
+        {
+            RenderPipelineTypes = new Type[0];
+            foreach (var file in dir.EnumerateFiles("*.dll"))
+            {
+                LoadRenderPipelineTypes(file.FullName);
+            }
+        }
+
+        public void LoadRenderPipelineTypes(string path)
+        {
+            try
+            {
+                RenderPipelineTypes = RenderPipelineTypes.Concat(mainCaches.GetTypes(Path.GetFullPath(path), typeof(RenderPipeline.RenderPipeline))).ToArray();
+            }
+            catch
+            {
+
+            }
+        }
+
+        LinearPool<Mesh> meshPool = new();
+        public byte[] bigBuffer = new byte[0];
+        void UpdateGPUResource()
+        {
+            var rpc = renderPipelineContext;
+            var renderers = rpc.renderers;
+            meshPool.Reset();
+            rpc.meshOverride.Clear();
+            #region Update bone data
+
+            if (rpc.CPUSkinning)
+            {
+                int bufferSize = 0;
+                foreach (var renderer in renderers)
+                {
+                    if (renderer.skinning)
+                        bufferSize = Math.Max(GetModelPack(renderer.meshPath).vertexCount, bufferSize);
+                }
+                bufferSize *= 12;
+                if (bufferSize > bigBuffer.Length)
+                    bigBuffer = new byte[bufferSize];
+            }
+            for (int i = 0; i < renderers.Count; i++)
+            {
+                var renderer = renderers[i];
+                var model = GetModelPack(renderer.meshPath);
+                var mesh = meshPool.Get(() => new Mesh());
+                mesh.ReloadIndex<int>(model.vertexCount, null);
+                rpc.meshOverride[renderer] = mesh;
+                if (!renderer.skinning) continue;
+
+                if (rpc.CPUSkinning)
+                {
+                    Skinning(model, renderer, mesh);
+                }
+                else
+                {
+                    if (renderer.meshNeedUpdate)
+                    {
+                        graphicsContext.BeginUpdateMesh(mesh);
+                        graphicsContext.UpdateMesh<Vector3>(mesh, renderer.meshPositionCache, 0);
+                        graphicsContext.EndUpdateMesh(mesh);
+                    }
+                }
+            }
+            for (int i = 0; i < renderers.Count; i++)
+            {
+                renderers[i].WriteMatriticesData();
+            }
+            rpc.findRenderer.Clear();
+            while (rpc.CBs_Bone.Count < renderers.Count)
+            {
+                CBuffer constantBuffer = new CBuffer();
+                constantBuffer.Mutable = true;
+                rpc.CBs_Bone.Add(constantBuffer);
+            }
+            Span<Matrix4x4> mats = stackalloc Matrix4x4[1024];
+            for (int i = 0; i < renderers.Count; i++)
+            {
+                var renderer = renderers[i];
+                var matrices = renderer.boneMatricesData;
+                int l = Math.Min(matrices.Length, 1024);
+                for (int k = 0; k < l; k++)
+                    mats[k] = Matrix4x4.Transpose(matrices[k]);
+                graphicsContext.UpdateResource(rpc.CBs_Bone[i], mats.Slice(0, l));
+                rpc.findRenderer[renderer] = i;
+            }
+            #endregion
+        }
+        void Skinning(ModelPack model, MMDRendererComponent renderer, Mesh mesh)
+        {
+            const int parallelSize = 1024;
+            Span<Vector3> dat0 = MemoryMarshal.Cast<byte, Vector3>(new Span<byte>(bigBuffer, 0, bigBuffer.Length / 12 * 12));
+            Parallel.For(0, (model.vertexCount + parallelSize - 1) / parallelSize, u =>
+            {
+                Span<Vector3> _d3 = MemoryMarshal.Cast<byte, Vector3>(new Span<byte>(bigBuffer, 0, bigBuffer.Length / 12 * 12));
+                int from = u * parallelSize;
+                int to = Math.Min(from + parallelSize, model.vertexCount);
+                for (int j = from; j < to; j++)
+                {
+                    Vector3 pos0 = renderer.meshPositionCache[j];
+                    Vector3 pos1 = Vector3.Zero;
+                    int a = 0;
+                    for (int k = 0; k < 4; k++)
+                    {
+                        int boneId = model.boneId[j * 4 + k];
+                        if (boneId >= renderer.bones.Count) break;
+                        Matrix4x4 trans = renderer.boneMatricesData[boneId];
+                        float weight = model.boneWeights[j * 4 + k];
+                        pos1 += Vector3.Transform(pos0, trans) * weight;
+                        a++;
+                    }
+                    if (a > 0)
+                        _d3[j] = pos1;
+                    else
+                        _d3[j] = pos0;
+                }
+            });
+            //graphicsContext.BeginUpdateMesh(mesh);
+            //graphicsContext.UpdateMesh(mesh, d3.Slice(0, model.vertexCount), 0);
+            mesh.AddBuffer(dat0.Slice(0, model.vertexCount), 0);//for compatibility
+
+            Parallel.For(0, (model.vertexCount + parallelSize - 1) / parallelSize, u =>
+            {
+                Span<Vector3> _d3 = MemoryMarshal.Cast<byte, Vector3>(new Span<byte>(bigBuffer, 0, bigBuffer.Length / 12 * 12));
+                int from = u * parallelSize;
+                int to = Math.Min(from + parallelSize, model.vertexCount);
+                for (int j = from; j < to; j++)
+                {
+                    Vector3 norm0 = model.normal[j];
+                    Vector3 norm1 = Vector3.Zero;
+                    int a = 0;
+                    for (int k = 0; k < 4; k++)
+                    {
+                        int boneId = model.boneId[j * 4 + k];
+                        if (boneId >= renderer.bones.Count) break;
+                        Matrix4x4 trans = renderer.boneMatricesData[boneId];
+                        float weight = model.boneWeights[j * 4 + k];
+                        norm1 += Vector3.TransformNormal(norm0, trans) * weight;
+                        a++;
+                    }
+                    if (a > 0)
+                        _d3[j] = Vector3.Normalize(norm1);
+                    else
+                        _d3[j] = Vector3.Normalize(norm0);
+                }
+            });
+
+            //graphicsContext.UpdateMesh(mesh, d3.Slice(0, model.vertexCount), 1);
+            mesh.AddBuffer(dat0.Slice(0, model.vertexCount), 1);//for compatibility
+
+            //graphicsContext.EndUpdateMesh(mesh);
+            graphicsContext.UploadMesh(mesh);//for compatibility
+        }
+
+        ModelPack GetModelPack(string path) => mainCaches.GetModel(path);
+
+        public void Dispose()
+        {
+            foreach (var obj in meshPool.list1)
+            {
+                obj.Dispose();
             }
         }
     }

@@ -11,11 +11,17 @@ using System.IO;
 
 namespace Coocoo3D.RenderPipeline
 {
+    public enum ResolusionSizeSource
+    {
+        Default = 0,
+        Custom = 1,
+    }
     public class VisualChannel : IDisposable
     {
         public string Name;
         public Camera camera = new Camera();
         public CameraData cameraData;
+        public ResolusionSizeSource resolusionSizeSource;
         public (int, int) outputSize = (100, 100);
         public (int, int) sceneViewSize = (100, 100);
 
@@ -28,10 +34,6 @@ namespace Coocoo3D.RenderPipeline
 
         public Dictionary<string, object> pipelineSettings = new();
 
-        public VisualChannel()
-        {
-        }
-
         public void Onframe()
         {
             if (newRenderPipelineType != null)
@@ -40,8 +42,8 @@ namespace Coocoo3D.RenderPipeline
                 {
                     renderPipelineView.Export(pipelineSettings);
                 }
-                if (renderPipeline is IDisposable disposable0)
-                    disposable0.Dispose();
+                if (renderPipeline is IDisposable disposable1)
+                    disposable1.Dispose();
                 renderPipelineView?.Dispose();
 
                 SetRenderPipeline((RenderPipeline)Activator.CreateInstance(newRenderPipelineType),
@@ -49,8 +51,12 @@ namespace Coocoo3D.RenderPipeline
                 newRenderPipelineType = null;
             }
 
-            if (camera.CameraMotionOn) camera.SetCameraMotion((float)rpc.Time);
+            if (camera.CameraMotionOn)
+                camera.SetCameraMotion((float)rpc.Time);
             cameraData = camera.GetCameraData();
+
+            if (this.renderPipeline != null)
+                this.renderPipeline.renderWrap.outputSize = outputSize;
         }
 
         public void DelaySetRenderPipeline(Type type)
@@ -67,7 +73,7 @@ namespace Coocoo3D.RenderPipeline
             var renderWrap = new RenderWrap()
             {
                 RenderPipelineView = renderPipelineView,
-                visualChannel = this,
+                //visualChannel = this,
                 rpc = rpc,
             };
             renderPipeline.renderWrap = renderWrap;

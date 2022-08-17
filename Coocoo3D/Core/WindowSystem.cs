@@ -1,5 +1,4 @@
 ﻿using Coocoo3D.RenderPipeline;
-using Coocoo3DGraphics;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -9,36 +8,32 @@ using System.Threading.Tasks;
 
 namespace Coocoo3D.Core
 {
-
     public class WindowSystem : IDisposable
     {
-        public Type[] RenderPipelineTypes = new Type[0];
-
         public Dictionary<string, VisualChannel> visualChannels = new();
 
         public VisualChannel currentChannel;
 
         public RenderPipelineContext RenderPipelineContext;
 
-        public string recordChannel = "main";
-
         Queue<string> delayAddVisualChannel = new();
         Queue<string> delayRemoveVisualChannel = new();
 
         public void Initialize()
         {
-            LoadRenderPipelines(new DirectoryInfo("Samples"));
             currentChannel = AddVisualChannel("main");
         }
 
-        public void Update()
+        public void UpdateChannels()
         {
-            var visualChannel1 = visualChannels[recordChannel];
-            foreach (var visualChannel in visualChannels.Values)
+            foreach (var visualChannel1 in visualChannels)
             {
-                if (RenderPipelineContext.recording && visualChannel == visualChannel1) continue;
+                var visualChannel = visualChannel1.Value;
+                if (visualChannel.resolusionSizeSource == ResolusionSizeSource.Custom)
+                    continue;
                 visualChannel.outputSize = visualChannel.sceneViewSize;
-                visualChannel.camera.AspectRatio = (float)visualChannel.outputSize.Item1 / (float)visualChannel.outputSize.Item2;
+                (float x, float y) = visualChannel.outputSize;
+                visualChannel.camera.AspectRatio = x / y;
             }
         }
 
@@ -53,7 +48,7 @@ namespace Coocoo3D.Core
             delayRemoveVisualChannel.Enqueue(name);
         }
 
-        public void Update2()
+        public void Update()
         {
             while (delayAddVisualChannel.TryDequeue(out var vcName))
                 AddVisualChannel(vcName);
@@ -61,30 +56,9 @@ namespace Coocoo3D.Core
                 RemoveVisualChannel(vcName);
         }
 
-        public void LoadRenderPipelines(DirectoryInfo dir)
-        {
-            RenderPipelineTypes = new Type[0];
-            foreach (var file in dir.EnumerateFiles("*.dll"))
-            {
-                LoadRenderPipelineTypes(file.FullName);
-            }
-        }
-
-        public void LoadRenderPipelineTypes(string path)
-        {
-            try
-            {
-                RenderPipelineTypes = RenderPipelineTypes.Concat(mainCaches.GetTypes(Path.GetFullPath(path), typeof(RenderPipeline.RenderPipeline))).ToArray();
-            }
-            catch
-            {
-
-            }
-        }
-
         public void Dispose()
         {
-            foreach(var vc in visualChannels)
+            foreach (var vc in visualChannels)
             {
                 vc.Value.Dispose();
             }
@@ -97,7 +71,6 @@ namespace Coocoo3D.Core
             visualChannels[name] = visualChannel;
             visualChannel.Name = name;
             visualChannel.rpc = RenderPipelineContext;
-            visualChannel.DelaySetRenderPipeline(RenderPipelineTypes[0]);
 
             return visualChannel;
         }

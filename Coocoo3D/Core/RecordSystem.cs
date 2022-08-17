@@ -114,6 +114,7 @@ namespace Coocoo3D.Core
 
             visualchannel.outputSize = (recordSettings.Width, recordSettings.Height);
             visualchannel.camera.AspectRatio = (float)recordSettings.Width / (float)recordSettings.Height;
+            visualchannel.resolusionSizeSource = ResolusionSizeSource.Custom;
 
             StartTime = recordSettings.StartTime;
             StopTime = recordSettings.StopTime;
@@ -165,6 +166,10 @@ namespace Coocoo3D.Core
             if (pipe != null)
             {
                 pipe = null;
+            }
+            if (windowSystem.visualChannels.TryGetValue(recordChannel, out var visualchannel))
+            {
+                visualchannel.resolusionSizeSource = ResolusionSizeSource.Default;
             }
         }
 

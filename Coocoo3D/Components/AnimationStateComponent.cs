@@ -76,7 +76,7 @@ namespace Coocoo3D.Components
         }
 
 
-        void SetPoseWithMotion(List<BoneEntity> bones, float time, MMDMotion motion)
+        void SetBonePoseMotion(List<BoneEntity> bones, float time, MMDMotion motion)
         {
             foreach (var bone in bones)
             {
@@ -86,7 +86,7 @@ namespace Coocoo3D.Components
                 cachedBoneKeyFrames[bone.index] = keyframe;
             }
         }
-        void SetPoseDefault(List<BoneEntity> bones)
+        void SetBonePoseDefault(List<BoneEntity> bones)
         {
             foreach (var bone in bones)
             {
@@ -122,9 +122,9 @@ namespace Coocoo3D.Components
             if (!LockMotion)
             {
                 if (motion != null)
-                    SetPoseWithMotion(bones, time, motion);
+                    SetBonePoseMotion(bones, time, motion);
                 else
-                    SetPoseDefault(bones);
+                    SetBonePoseDefault(bones);
             }
             else
             {

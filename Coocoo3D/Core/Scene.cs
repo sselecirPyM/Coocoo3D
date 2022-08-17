@@ -10,15 +10,13 @@ namespace Coocoo3D.Core
 {
     public class Scene
     {
-        public List<GameObject> SelectedGameObjects = new List<GameObject>();
+        public List<GameObject> SelectedGameObjects = new();
 
         public List<GameObject> gameObjects = new();
         public List<GameObject> gameObjectLoadList = new();
         public List<GameObject> gameObjectRemoveList = new();
 
         public Dictionary<GameObject, Transform> setTransform = new();
-
-        public Dictionary<int, ParticleHolder> particles = new();
 
         public int idAllocated = 1;
 
@@ -37,7 +35,7 @@ namespace Coocoo3D.Core
             setTransform[gameObject] = transform;
         }
 
-        public void DealProcessList()
+        public void OnFrame()
         {
             for (int i = 0; i < gameObjectLoadList.Count; i++)
             {
@@ -48,16 +46,11 @@ namespace Coocoo3D.Core
                 if (renderComponent != null)
                     renderComponent.SetTransform(gameObject.Transform);
                 gameObjects.Add(gameObject);
-                if (gameObject.TryGetComponent<VisualComponent>(out var visual) && visual.UIShowType == Caprice.Display.UIShowType.Particle)
-                {
-                    particles.Add(gameObject.id, new ParticleHolder());
-                }
             }
             for (int i = 0; i < gameObjectRemoveList.Count; i++)
             {
                 var gameObject = gameObjectRemoveList[i];
                 gameObjects.Remove(gameObject);
-                particles.Remove(gameObject.id);
             }
         }
 
@@ -84,7 +77,7 @@ namespace Coocoo3D.Core
             }
         }
 
-        public void Clear()
+        public void ClearChanges()
         {
             setTransform.Clear();
             gameObjectLoadList.Clear();

@@ -19,7 +19,6 @@ namespace Coocoo3D.UI
     {
         public MainCaches caches;
 
-        public GameDriverContext gameDriverContext;
         public GameDriver gameDriver;
 
         public Scene scene;
@@ -37,7 +36,7 @@ namespace Coocoo3D.UI
                     UIImGui.viewRequest = folder;
                     caches.AddFolder(folder);
                 }
-                gameDriverContext.RequireRender(false);
+                gameDriver.RequireRender(false);
             }
             if (UIImGui.requestSelectRenderPipelines.SetFalse())
             {
@@ -48,7 +47,7 @@ namespace Coocoo3D.UI
                     UIImGui.renderPipelinesRequest = folder;
                     caches.AddFolder(folder);
                 }
-                gameDriverContext.RequireRender(false);
+                gameDriver.RequireRender(false);
             }
             if (UIImGui.viewRequest != null)
             {
@@ -56,7 +55,7 @@ namespace Coocoo3D.UI
                 UIImGui.viewRequest = null;
                 UIImGui.currentFolder = view;
                 SetViewFolder(view.GetFileSystemInfos());
-                gameDriverContext.RequireRender(false);
+                gameDriver.RequireRender(false);
             }
             if (UIImGui.openRequest != null)
             {
@@ -97,21 +96,21 @@ namespace Coocoo3D.UI
                                 }
                             }
 
-                            gameDriverContext.RequireResetPhysics = true;
+                            gameDriver.RequireRender(true);
                         }
                         break;
                     case ".coocoo3dscene":
                         var scene = ReadJsonStream<Coocoo3DScene>(file.OpenRead());
                         scene.ToScene(this.scene, caches);
-                        gameDriverContext.RequireResetPhysics = true;
+                        gameDriver.RequireRender(true);
                         break;
                 }
 
-                gameDriverContext.RequireRender(true);
+                gameDriver.RequireRender(true);
             }
             if (UIImGui.requestRecord.SetFalse())
             {
-                gameDriverContext.NeedRender = 0;
+                gameDriver.gameDriverContext.NeedRender = 0;
                 string path = OpenResourceFolder();
                 if (!string.IsNullOrEmpty(path))
                 {
@@ -222,7 +221,7 @@ namespace Coocoo3D.UI
                 modelPack.LoadMeshComponent(gameObject);
                 scene.AddGameObject(gameObject);
             }
-            gameDriverContext.RequireRender(false);
+            gameDriver.RequireRender(false);
         }
 
         [DllImport("Comdlg32.dll", SetLastError = true, ThrowOnUnmappableChar = true, CharSet = CharSet.Auto)]

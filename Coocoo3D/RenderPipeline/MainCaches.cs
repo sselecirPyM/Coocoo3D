@@ -38,7 +38,7 @@ namespace Coocoo3D.RenderPipeline
         public VersionedDictionary<string, Assembly> Assemblies = new();
         public VersionedDictionary<string, RootSignature> RootSignatures = new();
 
-        public ConcurrentQueue<ValueTuple<Texture2D, Uploader>> TextureReadyToUpload = new();
+        public ConcurrentQueue<(Texture2D, Uploader)> TextureReadyToUpload = new();
         public ConcurrentQueue<Mesh> MeshReadyToUpload = new();
 
         public MainCaches()
@@ -99,7 +99,7 @@ namespace Coocoo3D.RenderPipeline
                 if (TextureLoading.Count > 6) continue;
 
                 InitFolder(Path.GetDirectoryName(notLoad.Value.fullPath));
-                ValueTuple<Texture2DPack, KnownFile> taskParam = new();
+                (Texture2DPack, KnownFile) taskParam = new();
                 taskParam.Item1 = notLoad.Value;
                 taskParam.Item2 = KnownFiles.GetOrCreate(notLoad.Value.fullPath, (string path) => new KnownFile()
                 {
@@ -108,7 +108,7 @@ namespace Coocoo3D.RenderPipeline
 
                 notLoad.Value.loadTask = Task.Factory.StartNew((object a) =>
                 {
-                    var taskParam1 = (ValueTuple<Texture2DPack, KnownFile>)a;
+                    var taskParam1 = ((Texture2DPack, KnownFile))a;
                     var texturePack1 = taskParam1.Item1;
                     var knownFile = taskParam1.Item2;
 
@@ -343,7 +343,7 @@ namespace Coocoo3D.RenderPipeline
             });
         }
 
-        public ComputeShader GetComputeShaderWithKeywords(IReadOnlyList<ValueTuple<string, string>> keywords, string path)
+        public ComputeShader GetComputeShaderWithKeywords(IReadOnlyList<(string, string)> keywords, string path)
         {
             string xPath;
             if (keywords != null)
@@ -391,7 +391,7 @@ namespace Coocoo3D.RenderPipeline
             return rayTracingShader;
         }
 
-        public RTPSO GetRTPSO(IReadOnlyList<ValueTuple<string, string>> keywords, RayTracingShader shader, string path)
+        public RTPSO GetRTPSO(IReadOnlyList<(string, string)> keywords, RayTracingShader shader, string path)
         {
             string xPath;
             if (keywords != null)
@@ -537,7 +537,9 @@ namespace Coocoo3D.RenderPipeline
 
         static byte[] LoadShader(DxcShaderStage shaderStage, string shaderCode, string entryPoint, string fileName, DxcDefine[] dxcDefines = null)
         {
-            var result = DxcCompiler.Compile(shaderStage, shaderCode, entryPoint, new DxcCompilerOptions() { ShaderModel = shaderStage == DxcShaderStage.Library ? DxcShaderModel.Model6_3 : DxcShaderModel.Model6_0 }, fileName, dxcDefines, null);
+            var shaderModel = shaderStage == DxcShaderStage.Library ? DxcShaderModel.Model6_3 : DxcShaderModel.Model6_0;
+            var options = new DxcCompilerOptions() { ShaderModel = shaderModel };
+            var result = DxcCompiler.Compile(shaderStage, shaderCode, entryPoint, options, fileName, dxcDefines, null);
             if (result.GetStatus() != SharpGen.Runtime.Result.Ok)
             {
                 string err = result.GetErrors();

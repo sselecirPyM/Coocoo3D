@@ -357,7 +357,7 @@ namespace RenderPipelines
         public BlendMode ParticleBlendMode;
         #endregion
 
-        [SceneCapture]
+        [SceneCapture("Camera")]
         public CameraData camera;
 
         [SceneCapture("Visual")]

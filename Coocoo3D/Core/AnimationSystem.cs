@@ -8,6 +8,12 @@ using System.Threading.Tasks;
 
 namespace Coocoo3D.Core
 {
+    public class AnimationSession
+    {
+        public float progress;
+        public float duration;
+        public object target;
+    }
     public class AnimationSystem
     {
         public Scene scene;
@@ -19,6 +25,7 @@ namespace Coocoo3D.Core
         List<(MMDRendererComponent, AnimationStateComponent)> animationRenderers = new();
         public void Update()
         {
+            animationRenderers.Clear();
             foreach (var gameObject in scene.gameObjects)
             {
                 var render = gameObject.GetComponent<MMDRendererComponent>();
@@ -30,7 +37,6 @@ namespace Coocoo3D.Core
             }
 
             UpdateGameObjects((float)playTime, animationRenderers);
-            animationRenderers.Clear();
         }
 
         void UpdateGameObjects(float playTime, IReadOnlyList<(MMDRendererComponent, AnimationStateComponent)> animationRenderers)

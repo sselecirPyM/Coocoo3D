@@ -23,19 +23,19 @@ namespace Coocoo3D.RenderPipeline
 
         public GraphicsContext graphicsContext { get => rpc.graphicsContext; }
 
-        public VisualChannel visualChannel;
-
         public string BasePath { get => RenderPipelineView.path; }
 
-        public bool CPUSkinning { get => rpc.CPUSkinning1; set => rpc.CPUSkinning1 = value; }
+        public bool CPUSkinning { get => rpc.CPUSkinning; set => rpc.CPUSkinning = value; }
 
         List<(object, Dictionary<string, MemberInfo>)> dataStack = new();
 
         Dictionary<Type, Dictionary<string, MemberInfo>> memberInfoCache = new();
 
+        public (int, int) outputSize;
+
         public void GetOutputSize(out int width, out int height)
         {
-            (width, height) = visualChannel.outputSize;
+            (width, height) = outputSize;
         }
 
         public void SetSize(string key, int width, int height)

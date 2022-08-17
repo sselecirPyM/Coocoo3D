@@ -10,11 +10,6 @@ namespace Caprice.Attributes
     {
         public string Capture { get; }
 
-        public SceneCaptureAttribute()
-        {
-
-        }
-
         public SceneCaptureAttribute(string capture)
         {
             this.Capture = capture;

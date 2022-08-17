@@ -25,17 +25,16 @@ namespace Coocoo3D.RenderPipeline
             GetMetaData();
         }
 
-        internal Dictionary<AOVType, Texture2D> AOVs = new Dictionary<AOVType, Texture2D>();
-        internal Dictionary<string, RenderTextureUsage> RenderTextures = new Dictionary<string, RenderTextureUsage>();
-        internal Dictionary<Texture2D, string> invertFinding = new Dictionary<Texture2D, string>();
+        internal Dictionary<AOVType, Texture2D> AOVs = new();
+        internal Dictionary<string, RenderTextureUsage> RenderTextures = new();
 
-        internal Dictionary<string, string> textureReplacement = new Dictionary<string, string>();
-        internal Dictionary<string, MemberInfo> indexables = new Dictionary<string, MemberInfo>();
-        internal Dictionary<string, (MemberInfo, SceneCaptureAttribute)> sceneCaptures = new Dictionary<string, (MemberInfo, SceneCaptureAttribute)>();
+        internal Dictionary<string, string> textureReplacement = new();
+        internal Dictionary<string, MemberInfo> indexables = new();
+        internal Dictionary<string, (MemberInfo, SceneCaptureAttribute)> sceneCaptures = new();
 
-        internal Dictionary<string, UIUsage> UIUsages = new Dictionary<string, UIUsage>();
+        internal Dictionary<string, UIUsage> UIUsages = new();
 
-        internal Dictionary<string, List<string>> dependents = new Dictionary<string, List<string>>();
+        internal Dictionary<string, List<string>> dependents = new();
 
         internal RenderWrap renderWrap;
 
@@ -154,7 +153,6 @@ namespace Coocoo3D.RenderPipeline
 
                     AOVs[aovAttribute.AOVType] = texture2D;
                 }
-                invertFinding[texture2D] = field.Name;
                 field.SetValue(renderPipeline, texture2D);
             }
             if (field.FieldType == typeof(TextureCube))

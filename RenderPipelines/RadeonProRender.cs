@@ -111,10 +111,10 @@ namespace RenderPipelines
         public LightType LightType;
         #endregion
 
-        [SceneCapture]
+        [SceneCapture("Camera")]
         public CameraData Camera;
 
-        [SceneCapture]
+        [SceneCapture("Recording")]
         public bool Recording;
 
         [SceneCapture("Visual")]

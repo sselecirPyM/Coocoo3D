@@ -25,6 +25,8 @@ namespace Coocoo3D.UI
 
         public RecordSystem recordSystem;
 
+        public RenderSystem renderSystem;
+
         public UIRenderSystem uiRenderSystem;
 
         public RenderPipeline.MainCaches mainCaches;
@@ -36,8 +38,6 @@ namespace Coocoo3D.UI
         public Scene CurrentScene;
 
         public RenderPipeline.RenderPipelineContext renderPipelineContext;
-
-        public Coocoo3DGraphics.SwapChain swapChain;
 
         public Config config;
 
@@ -55,7 +55,7 @@ namespace Coocoo3D.UI
             }
 
             var context = renderPipelineContext;
-            io.DisplaySize = new Vector2(swapChain.width, swapChain.height);
+            io.DisplaySize = new Vector2(platformIO.windowSize.Item1, platformIO.windowSize.Item2);
             io.DeltaTime = (float)context.RealDeltaTime;
             GameObject selectedObject = null;
 
@@ -138,6 +138,7 @@ namespace Coocoo3D.UI
                 ImGui.End();
                 d += 50;
             }
+            windowSystem.UpdateChannels();
             ImGui.SetNextWindowSize(new Vector2(300, 300), ImGuiCond.FirstUseEver);
             ImGui.SetNextWindowPos(new Vector2(0, 400), ImGuiCond.FirstUseEver);
             if (ImGui.Begin("物体"))
@@ -306,14 +307,14 @@ namespace Coocoo3D.UI
 
             if (renderPipelinesRequest != null)
             {
-                windowSystem.LoadRenderPipelines(renderPipelinesRequest);
+                renderSystem.LoadRenderPipelines(renderPipelinesRequest);
                 renderPipelinesRequest = null;
             }
             var rpc = windowSystem;
             ShowParams(rpc.currentChannel.renderPipelineView);
             int renderPipelineIndex = 0;
 
-            var rps = rpc.RenderPipelineTypes;
+            var rps = renderSystem.RenderPipelineTypes;
 
             string[] newRPs = new string[rps.Length];
             for (int i = 0; i < rps.Length; i++)
@@ -339,7 +340,7 @@ namespace Coocoo3D.UI
             }
             if (ImGui.IsItemHovered())
             {
-                ImGui.SetTooltip("默认的渲染管线位于软件的Samples文件夹，你可以看到一个dll和一些hlsl文件，还有一些图片文件。");
+                ImGui.SetTooltip("默认的渲染管线位于软件的Samples文件夹，软件会在启动时加载这些插件。");
             }
 
             if (ImGui.Button("添加视口"))

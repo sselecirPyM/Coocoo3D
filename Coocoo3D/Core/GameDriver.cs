@@ -16,6 +16,7 @@ namespace Coocoo3D.Core
         public bool Playing;
         public double PlayTime;
         public double DeltaTime;
+        public double RealDeltaTime;
         public float FrameInterval;
         public float PlaySpeed;
         public bool RequireResetPhysics;
@@ -64,11 +65,17 @@ namespace Coocoo3D.Core
                 renderPipelineContext.recording = false;
                 recordSystem.StopRecord();
             }
-
+            bool returnValue;
             if (renderPipelineContext.recording)
-                return Recording();
+                returnValue = Recording();
             else
-                return Playing();
+                returnValue = Playing();
+
+            renderPipelineContext.RealDeltaTime = gameDriverContext.RealDeltaTime;
+            renderPipelineContext.Time = gameDriverContext.PlayTime;
+            renderPipelineContext.DeltaTime = gameDriverContext.Playing ? gameDriverContext.DeltaTime : 0;
+
+            return returnValue;
         }
 
         bool Playing()
@@ -85,6 +92,7 @@ namespace Coocoo3D.Core
             }
             context.NeedRender -= 1;
 
+            context.RealDeltaTime = deltaTime;
             context.DeltaTime = Math.Clamp(deltaTime * context.PlaySpeed, -0.17f, 0.17f);
             if (context.Playing)
                 context.PlayTime += context.DeltaTime;
@@ -95,6 +103,7 @@ namespace Coocoo3D.Core
         {
             gameDriverContext.NeedRender = 1;
 
+            gameDriverContext.RealDeltaTime = FrameIntervalF;
             gameDriverContext.DeltaTime = FrameIntervalF;
             gameDriverContext.PlayTime = FrameIntervalF * RenderCount;
 
@@ -115,6 +124,14 @@ namespace Coocoo3D.Core
             if (context.PlayTime > StopTime)
                 ToPlayMode();
             RenderCount++;
+        }
+
+
+        public void RequireRender(bool updateEntities)
+        {
+            if (updateEntities)
+               gameDriverContext.RequireResetPhysics = true;
+            gameDriverContext.NeedRender = 10;
         }
 
         public float StartTime;

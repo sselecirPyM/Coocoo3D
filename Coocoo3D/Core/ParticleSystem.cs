@@ -16,20 +16,33 @@ namespace Coocoo3D.Core
         public GameDriverContext gameDriverContext;
         Random Random = new Random();
 
-        List<(GameObject, ParticleHolder)> particles = new();
+        public Dictionary<int, ParticleHolder> particles = new();
+        List<(GameObject, ParticleHolder)> particles2 = new();
         public void Update()
         {
-            float deltaTime = (float)gameDriverContext.DeltaTime;
-
-            particles.Clear();
-            foreach (var gameObject in scene.gameObjects)
+            foreach (var gameObject in scene.gameObjectLoadList)
             {
-                if (scene.particles.TryGetValue(gameObject.id, out var particle))
+                if (gameObject.TryGetComponent<VisualComponent>(out var visual) && visual.UIShowType == Caprice.Display.UIShowType.Particle)
                 {
-                    particles.Add((gameObject, particle));
+                    particles.Add(gameObject.id, new ParticleHolder());
                 }
             }
-            foreach (var pair in particles)
+            foreach (var gameObject in scene.gameObjectRemoveList)
+            {
+                particles.Remove(gameObject.id);
+            }
+
+            float deltaTime = (float)gameDriverContext.DeltaTime;
+
+            particles2.Clear();
+            foreach (var gameObject in scene.gameObjects)
+            {
+                if (particles.TryGetValue(gameObject.id, out var particle))
+                {
+                    particles2.Add((gameObject, particle));
+                }
+            }
+            foreach (var pair in particles2)
             {
                 var particle = pair.Item2;
                 var material = pair.Item1.GetComponent<VisualComponent>().material;

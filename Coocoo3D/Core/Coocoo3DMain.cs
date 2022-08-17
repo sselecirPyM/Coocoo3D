@@ -136,7 +136,8 @@ namespace Coocoo3D.Core
                 {
                     long time = stopwatch1.ElapsedTicks;
                     timeManagerUpdate.AbsoluteTimeInput(time);
-                    if (timeManagerUpdate.RealTimerCorrect("render", GameDriverContext.FrameInterval, out _)) continue;
+                    if (timeManagerUpdate.RealTimerCorrect("render", GameDriverContext.FrameInterval, out _))
+                        continue;
                     timeManager.AbsoluteTimeInput(time);
 
                     bool rendered = RenderFrame();
@@ -162,8 +163,8 @@ namespace Coocoo3D.Core
         {
             var gdc = GameDriverContext;
 
-            CurrentScene.DealProcessList();
-            physicsSystem.DealProcessList();
+            CurrentScene.OnFrame();
+            physicsSystem.OnFrame();
             if (CurrentScene.setTransform.Count != 0) gdc.RequireResetPhysics = true;
             if (gdc.Playing || gdc.RequireResetPhysics)
             {
@@ -180,39 +181,31 @@ namespace Coocoo3D.Core
 
                 gdc.RequireResetPhysics = false;
             }
-            CurrentScene.Clear();
+            CurrentScene.ClearChanges();
         }
 
         private bool RenderFrame()
         {
-            double deltaTime = timeManager.GetDeltaTime();
-            var gdc = GameDriverContext;
             if (!GameDriver.Next())
             {
                 return false;
             }
             timeManager.RealCounter("fps", 1, out statistics.FramePerSecond);
             Simulation();
+            mainCaches.OnFrame();
 
-            RPContext.RealDeltaTime = deltaTime;
-            RPContext.Time = gdc.PlayTime;
-            RPContext.DeltaTime = gdc.Playing ? gdc.DeltaTime : 0;
-            RPContext.Submit();
             if ((swapChain.width, swapChain.height) != platformIO.windowSize)
             {
                 (int x, int y) = platformIO.windowSize;
                 swapChain.Resize(x, y);
             }
-            if (!RPContext.recording)
-                mainCaches.OnFrame();
 
-            windowSystem.Update2();
             platformIO.Update();
-            UIImGui.GUI();
             windowSystem.Update();
+            UIImGui.GUI();
             graphicsDevice.RenderBegin();
             graphicsContext.Begin();
-            RPContext.UpdateGPUResource();
+            RPContext.Submit();
 
             renderSystem.Update();
 
@@ -223,8 +216,8 @@ namespace Coocoo3D.Core
             graphicsContext.Present(swapChain, config.VSync);
             graphicsContext.EndCommand();
             graphicsContext.Execute();
-            statistics.DrawTriangleCount = graphicsContext.TriangleCount;
             graphicsDevice.RenderComplete();
+            statistics.DrawTriangleCount = graphicsContext.TriangleCount;
 
             return true;
         }
