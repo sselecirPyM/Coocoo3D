@@ -85,7 +85,7 @@ namespace Coocoo3D.Core
                 var r = gameObject.GetComponent<MMDRendererComponent>();
                 if (r != null)
                 {
-                    if (physicsObjects.Remove(r,out var phyObj))
+                    if (physicsObjects.Remove(r, out var phyObj))
                         RemovePhysics(phyObj);
                 }
             }
@@ -182,7 +182,12 @@ namespace Coocoo3D.Core
                 if (index == -1) continue;
                 r.bones[index]._generatedTransform = MatrixExt.InverseTransform(desc.Position, desc.Rotation) *
                     rigidbodies[i].GetTransform() * r.WorldToLocal;
-                Matrix4x4.Invert(r.bones[r.bones[index].ParentIndex]._generatedTransform, out var invParentMatrix);
+                Matrix4x4 invParentMatrix;
+                if (r.bones[index].ParentIndex >= 0)
+                    Matrix4x4.Invert(r.bones[r.bones[index].ParentIndex]._generatedTransform, out invParentMatrix);
+                else
+                    invParentMatrix = Matrix4x4.Identity;
+
                 var localMatrix = invParentMatrix * r.bones[index]._generatedTransform;
                 Matrix4x4.Decompose(localMatrix, out var scale, out var rotation, out var translation);
                 r.bones[index].translation = translation;

@@ -19,23 +19,11 @@ namespace Coocoo3D.ResourceWrap
 
         public GraphicsObjectStatus Status;
 
-        public Task loadTask;
-
-        public void Mark(GraphicsObjectStatus status)
+        public bool ReloadTexture(FileInfo fileInfo, Uploader uploader)
         {
-            Status = status;
-            texture2D.Status = status;
-        }
-
-        public bool ReloadTexture(FileInfo storageItem, Uploader uploader)
-        {
-            if (!(storageItem is FileInfo texFile))
-            {
-                return false;
-            }
             try
             {
-                switch (storageItem.Extension.ToLower())
+                switch (fileInfo.Extension.ToLower())
                 {
                     case ".jpg":
                     case ".jpeg":
@@ -46,13 +34,13 @@ namespace Coocoo3D.ResourceWrap
                     case ".bmp":
                     case ".webp":
                         {
-                            byte[] data = GetImageData(texFile.OpenRead(), out int width, out int height, out _, out int mipMap);
+                            byte[] data = GetImageData(fileInfo.OpenRead(), out int width, out int height, out _, out int mipMap);
                             uploader.Texture2DRawLessCopy(data, Format.R8G8B8A8_UNorm_SRgb, width, height, mipMap);
                         }
                         break;
                     default:
                         {
-                            byte[] data = GetImageDataMagick(texFile.OpenRead(), out int width, out int height, out int bitPerPixel, out int mipMap);
+                            byte[] data = GetImageDataMagick(fileInfo.OpenRead(), out int width, out int height, out int bitPerPixel, out int mipMap);
                             uploader.Texture2DRawLessCopy(data, bitPerPixel == 16 * 4 ? Format.R16G16B16A16_UNorm : Format.R8G8B8A8_UNorm_SRgb, width, height, mipMap);
                         }
                         break;

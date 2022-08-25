@@ -1,4 +1,5 @@
 ﻿using Coocoo3D.Components;
+using Coocoo3D.Core;
 using Coocoo3D.FileFormat;
 using Coocoo3D.ResourceWrap;
 using Coocoo3D.Utility;
@@ -21,11 +22,9 @@ namespace Coocoo3D.RenderPipeline
     public class MainCaches : IDisposable
     {
         public Dictionary<string, KnownFile> KnownFiles = new();
-        public ConcurrentDictionary<string, DirectoryInfo> KnownFolders = new();
 
         public VersionedDictionary<string, Texture2DPack> TextureCaches = new();
-        public Dictionary<string, Texture2DPack> TextureOnDemand = new();
-        public Dictionary<string, Texture2DPack> TextureLoading = new();
+        Dictionary<string, bool> TextureOnDemand = new();
 
         public VersionedDictionary<string, ModelPack> ModelPackCaches = new();
         public VersionedDictionary<string, MMDMotion> Motions = new();
@@ -38,132 +37,105 @@ namespace Coocoo3D.RenderPipeline
         public VersionedDictionary<string, Assembly> Assemblies = new();
         public VersionedDictionary<string, RootSignature> RootSignatures = new();
 
-        public ConcurrentQueue<(Texture2D, Uploader)> TextureReadyToUpload = new();
         public ConcurrentQueue<Mesh> MeshReadyToUpload = new();
+
+        public TextureDecodeHandler textureDecodeHandler = new();
+        public GPUUploadHandler uploadHandler = new();
+        public SceneApplyHandler sceneApplyHandler = new();
+        public SceneSaveHandler sceneSaveHandler = new();
+        public ModelLoadHandler modelLoadHandler = new();
+
+        public GameDriverContext gameDriverContext;
 
         public MainCaches()
         {
-            KnownFolders.TryAdd(Environment.CurrentDirectory, new DirectoryInfo(Environment.CurrentDirectory));
-            KnownFolders.TryAdd("Assets", new DirectoryInfo(Path.GetFullPath("Assets")));
+
         }
 
-        public Action _RequireRender;
 
         public bool ReloadTextures = false;
         public bool ReloadShaders = false;
 
-        public void AddFolder(DirectoryInfo folder)
-        {
-            KnownFolders[folder.FullName] = folder;
-        }
-
         public void PreloadTexture(string fullPath)
         {
             if (!TextureOnDemand.ContainsKey(fullPath))
-            {
-                AddFolder(new DirectoryInfo(Path.GetDirectoryName(fullPath)));
-                TextureOnDemand[fullPath] = new Texture2DPack() { fullPath = fullPath };
-            }
+                TextureOnDemand[fullPath] = false;
         }
 
-        ConcurrentDictionary<Texture2DPack, Uploader> uploaders = new();
+        Queue<string> textureLoadQueue = new();
         public void OnFrame()
         {
             if (ReloadShaders.SetFalse())
             {
                 foreach (var knownFile in KnownFiles)
                     knownFile.Value.requireReload = true;
-
                 Console.Clear();
             }
-            if (ReloadTextures.SetFalse() && TextureCaches.Count > 0)
+            if (ReloadTextures.SetFalse())
             {
                 var packs = TextureCaches.ToList();
                 foreach (var pair in packs)
                 {
-                    if (!TextureOnDemand.ContainsKey(pair.Key))
-                        TextureOnDemand.Add(pair.Key, new Texture2DPack() { fullPath = pair.Value.fullPath });
+                    TextureOnDemand.TryAdd(pair.Key, false);
                 }
                 foreach (var pair in KnownFiles)
                 {
                     pair.Value.requireReload = true;
                 }
+                Console.Clear();
             }
+            sceneApplyHandler.mainCaches = this;
+            sceneApplyHandler.Update();
+            if (sceneApplyHandler.Output.Count > 0)
+                gameDriverContext.RequireRender(true);
+            sceneApplyHandler.Output.Clear();
 
-            if (TextureOnDemand.Count == 0 && TextureLoading.Count == 0) return;
+            sceneSaveHandler.Update();
+            sceneSaveHandler.Output.Clear();
 
-            foreach (var notLoad in TextureOnDemand.Where(u => { return u.Value.loadTask == null; }))
+            modelLoadHandler.mainCaches = this;
+            modelLoadHandler.Update();
+            if (modelLoadHandler.Output.Count > 0)
+                gameDriverContext.RequireRender(true);
+            modelLoadHandler.Output.Clear();
+
+            foreach (var notLoad in TextureOnDemand.Where(u => { return !u.Value; }))
             {
-                var tex1 = TextureCaches.GetOrCreate(notLoad.Key);
-                tex1.Mark(GraphicsObjectStatus.loading);
-                if (TextureLoading.Count > 6) continue;
-
-                InitFolder(Path.GetDirectoryName(notLoad.Value.fullPath));
-                (Texture2DPack, KnownFile) taskParam = new();
-                taskParam.Item1 = notLoad.Value;
-                taskParam.Item2 = KnownFiles.GetOrCreate(notLoad.Value.fullPath, (string path) => new KnownFile()
-                {
-                    fullPath = path,
-                });
-
-                notLoad.Value.loadTask = Task.Factory.StartNew((object a) =>
-                {
-                    var taskParam1 = ((Texture2DPack, KnownFile))a;
-                    var texturePack1 = taskParam1.Item1;
-                    var knownFile = taskParam1.Item2;
-
-                    var folder = KnownFolders[Path.GetDirectoryName(knownFile.fullPath)];
-
-                    if (LoadTexture(folder, texturePack1, knownFile))
-                        texturePack1.Status = GraphicsObjectStatus.loaded;
-                    else
-                        texturePack1.Status = GraphicsObjectStatus.error;
-                    _RequireRender();
-                }, taskParam);
-                TextureLoading[notLoad.Key] = notLoad.Value;
+                textureLoadQueue.Enqueue(notLoad.Key);
             }
 
-            foreach (var loadCompleted in TextureLoading.Where(u => { return u.Value.loadTask != null && u.Value.loadTask.IsCompleted; }).ToArray())
+            while (textureLoadQueue.TryDequeue(out var key))
             {
-                var tex1 = TextureCaches.GetOrCreate(loadCompleted.Key);
-                var packLoading = loadCompleted.Value;
-                if (packLoading.loadTask.Status == TaskStatus.RanToCompletion &&
-                    TextureReadyToUpload.Count < 3 &&
-                   (packLoading.Status == GraphicsObjectStatus.loaded ||
-                    packLoading.Status == GraphicsObjectStatus.error))
-                {
-                    tex1.fullPath = packLoading.fullPath;
-                    tex1.texture2D.Status = packLoading.Status;
-                    tex1.Status = packLoading.Status;
-
-                    if (uploaders.TryRemove(packLoading, out Uploader uploader))
-                    {
-                        tex1.texture2D.Name = tex1.fullPath;
-                        TextureReadyToUpload.Enqueue(new(tex1.texture2D, uploader));
-                    }
-                    TextureOnDemand.Remove(loadCompleted.Key);
-                    TextureLoading.Remove(loadCompleted.Key);
-                }
+                TextureOnDemand[key] = true;
+                var tex1 = TextureCaches.GetOrCreate(key);
+                var task = new TextureLoadTask(tex1);
+                tex1.fullPath = key;
+                task.knownFile = GetFileInfo(key);
+                textureDecodeHandler.Add(task);
             }
+
+            textureDecodeHandler.LoadComplete = () => { gameDriverContext.RequireRender(false); };
+            textureDecodeHandler.Update();
+
+            textureDecodeHandler.Output.RemoveAll(task =>
+            {
+                if (uploadHandler.Count > 3)
+                    return false;
+                if (task.texture != null && task.uploader == null)
+                    task.texture.Status = task.pack.Status;
+                if (task.uploader != null)
+                    uploadHandler.Add(task);
+                TextureOnDemand.Remove(task.pack.fullPath);
+                return true;
+            });
         }
 
-        bool LoadTexture(DirectoryInfo folder, Texture2DPack texturePack, KnownFile knownFile)
+        public KnownFile GetFileInfo(string path)
         {
-            try
+            return KnownFiles.GetOrCreate(path, () => new KnownFile()
             {
-                if (!knownFile.IsModified(folder.GetFiles()) && texturePack.initialized) return true;
-                Uploader uploader = new Uploader();
-                if (texturePack.ReloadTexture(knownFile.file, uploader))
-                {
-                    uploaders[texturePack] = uploader;
-                    return true;
-                }
-                return false;
-            }
-            catch
-            {
-                return false;
-            }
+                fullPath = path,
+            });
         }
 
         public T GetT<T>(VersionedDictionary<string, T> caches, string path, Func<FileInfo, T> createFun) where T : class
@@ -172,17 +144,14 @@ namespace Coocoo3D.RenderPipeline
         }
         public T GetT<T>(VersionedDictionary<string, T> caches, string path, string realPath, Func<FileInfo, T> createFun) where T : class
         {
-            var knownFile = KnownFiles.GetOrCreate(realPath, () => new KnownFile()
-            {
-                fullPath = realPath,
-            });
+            var knownFile = GetFileInfo(realPath);
             int modifyCount = knownFile.modifiyCount;
             if (knownFile.requireReload.SetFalse() || knownFile.file == null)
             {
                 string folderPath = Path.GetDirectoryName(realPath);
-                if (!InitFolder(folderPath) && !Path.IsPathRooted(folderPath))
+                if (!Path.IsPathRooted(folderPath))
                     return null;
-                var folder = (Path.IsPathRooted(folderPath)) ? new DirectoryInfo(folderPath) : KnownFolders[folderPath];
+                var folder = new DirectoryInfo(folderPath);
                 try
                 {
                     modifyCount = knownFile.GetModifyCount(folder.GetFiles());
@@ -225,14 +194,16 @@ namespace Coocoo3D.RenderPipeline
                 Uploader uploader = new Uploader();
                 texturePack1.ReloadTexture(file, uploader);
                 graphicsContext.UploadTexture(texturePack1.texture2D, uploader);
-                texturePack1.Mark(GraphicsObjectStatus.loaded);
+                texturePack1.Status = GraphicsObjectStatus.loaded;
+                texturePack1.texture2D.Status = GraphicsObjectStatus.loaded;
                 return texturePack1;
             }).texture2D;
         }
 
         public ModelPack GetModel(string path)
         {
-            if (string.IsNullOrEmpty(path)) return null;
+            if (string.IsNullOrEmpty(path))
+                return null;
             lock (ModelPackCaches)
                 return GetT(ModelPackCaches, path, file =>
                 {
@@ -266,7 +237,7 @@ namespace Coocoo3D.RenderPipeline
             });
         }
 
-        public Type[] GetTypes(string path, Type baseType)
+        public Type[] GetDerivedTypes(string path, Type baseType)
         {
             var assembly = GetAssembly(path);
             return assembly.GetTypes().Where(u => u.IsSubclassOf(baseType)).ToArray();
@@ -610,39 +581,6 @@ namespace Coocoo3D.RenderPipeline
                     Console.WriteLine(s);
             }
             return result;
-        }
-
-        bool InitFolder(string path)
-        {
-            if (path == null) return false;
-            if (KnownFolders.ContainsKey(path)) return true;
-            if (!path.Contains('\\')) return false;
-
-            var path1 = path.Substring(0, path.LastIndexOf('\\'));
-            if (InitFolder(path1))
-            {
-                if (AddChildFolder(path) != null)
-                    return true;
-                return false;
-            }
-            else
-                return false;
-        }
-
-        public DirectoryInfo AddChildFolder(string path)
-        {
-            try
-            {
-                var path1 = path.Substring(0, path.LastIndexOf('\\'));
-                var folder1 = new DirectoryInfo(path);
-                if (folder1 != null)
-                    KnownFolders[path] = folder1;
-                return folder1;
-            }
-            catch
-            {
-                return null;
-            }
         }
 
         public static T ReadJsonStream<T>(Stream stream)

@@ -18,7 +18,8 @@ namespace Coocoo3D.Core
 
         public Dictionary<int, ParticleHolder> particles = new();
         List<(GameObject, ParticleHolder)> particles2 = new();
-        public void Update()
+
+        public void Onframe()
         {
             foreach (var gameObject in scene.gameObjectLoadList)
             {
@@ -31,6 +32,9 @@ namespace Coocoo3D.Core
             {
                 particles.Remove(gameObject.id);
             }
+        }
+        public void Update()
+        {
 
             float deltaTime = (float)gameDriverContext.DeltaTime;
 

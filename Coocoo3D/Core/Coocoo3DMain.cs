@@ -124,7 +124,6 @@ namespace Coocoo3D.Core
             InitializeSystems();
             statistics.DeviceDescription = graphicsDevice.GetDeviceDescription();
 
-            mainCaches._RequireRender = () => RequireRender(false);
             GameDriverContext.timeManager = timeManager;
             GameDriverContext.FrameInterval = 1 / 240.0f;
 
@@ -165,7 +164,9 @@ namespace Coocoo3D.Core
 
             CurrentScene.OnFrame();
             physicsSystem.OnFrame();
-            if (CurrentScene.setTransform.Count != 0) gdc.RequireResetPhysics = true;
+            particleSystem.Onframe();
+            if (CurrentScene.setTransform.Count != 0)
+                gdc.RequireResetPhysics = true;
             if (gdc.Playing || gdc.RequireResetPhysics)
             {
                 CurrentScene.Simulation();
@@ -205,7 +206,7 @@ namespace Coocoo3D.Core
             UIImGui.GUI();
             graphicsDevice.RenderBegin();
             graphicsContext.Begin();
-            RPContext.Submit();
+            RPContext.FrameBegin();
 
             renderSystem.Update();
 

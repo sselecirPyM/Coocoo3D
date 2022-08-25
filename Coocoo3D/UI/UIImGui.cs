@@ -293,6 +293,10 @@ namespace Coocoo3D.UI
                 gameDriverContext.RequireRender(true);
             }
             ImGui.Text(string.Format("Fps:{0:f1}", statistics.FramePerSecond));
+            foreach(var input in mainCaches.textureDecodeHandler.inputs)
+            {
+                ImGui.Text(input.knownFile.fullPath);
+            }
         }
 
         void SettingsPanel()
@@ -1488,7 +1492,7 @@ vmd格式动作。支持几乎所有的图片格式。");
 
             var texture2D = uiRenderSystem.uiTexture = new Coocoo3DGraphics.Texture2D();
             io.Fonts.TexID = new IntPtr(UIRenderSystem.uiTextureIndex);
-            caches.TextureReadyToUpload.Enqueue(new(texture2D, uploader));
+            caches.uploadHandler.Add(new(texture2D, uploader));
             InitKeyMap();
         }
 

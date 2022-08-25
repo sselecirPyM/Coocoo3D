@@ -45,7 +45,7 @@ namespace Coocoo3D.RenderPipeline
 
         public Dictionary<int, GameObject> gameObjects = new();
 
-        void FrameBegin()
+        public void FrameBegin()
         {
             renderers.Clear();
             meshRenderers.Clear();
@@ -107,11 +107,6 @@ namespace Coocoo3D.RenderPipeline
         public void Initialize()
         {
             graphicsContext.Reload(graphicsDevice);
-        }
-
-        public void Submit()
-        {
-            FrameBegin();
         }
 
         public CBuffer GetBoneBuffer(MMDRendererComponent rendererComponent)

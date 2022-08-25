@@ -54,10 +54,13 @@ namespace Coocoo3D.Core
         public void Update()
         {
             var context = renderPipelineContext;
-            while (mainCaches.TextureReadyToUpload.TryDequeue(out var uploadPack))
-                graphicsContext.UploadTexture(uploadPack.Item1, uploadPack.Item2);
             while (mainCaches.MeshReadyToUpload.TryDequeue(out var mesh))
                 graphicsContext.UploadMesh(mesh);
+
+            mainCaches.uploadHandler.graphicsContext = graphicsContext;
+            mainCaches.uploadHandler.Update();
+            mainCaches.uploadHandler.Output.Clear();
+
             context.CPUSkinning = false;
 
             foreach (var channel in windowSystem.visualChannels.Values)
@@ -143,7 +146,7 @@ namespace Coocoo3D.Core
         {
             try
             {
-                RenderPipelineTypes = RenderPipelineTypes.Concat(mainCaches.GetTypes(Path.GetFullPath(path), typeof(RenderPipeline.RenderPipeline))).ToArray();
+                RenderPipelineTypes = RenderPipelineTypes.Concat(mainCaches.GetDerivedTypes(Path.GetFullPath(path), typeof(RenderPipeline.RenderPipeline))).ToArray();
             }
             catch
             {

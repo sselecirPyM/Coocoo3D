@@ -21,6 +21,9 @@ namespace Coocoo3D.Core
         string workDir = System.Environment.CurrentDirectory;
         string imguiShaderPath;
 
+        string loadingTexturePath;
+        string errorTexturePath;
+
         int ptrCount = 100000000;
         Dictionary<IntPtr, Texture2D> viewTextures = new Dictionary<IntPtr, Texture2D>();
 
@@ -34,6 +37,8 @@ namespace Coocoo3D.Core
         public UIRenderSystem()
         {
             imguiShaderPath = System.IO.Path.GetFullPath("Shaders/ImGui.hlsl", workDir);
+            loadingTexturePath = System.IO.Path.GetFullPath("Assets/Textures/loading.png", workDir);
+            errorTexturePath = System.IO.Path.GetFullPath("Assets/Textures/error.png", workDir);
         }
 
         public IntPtr ShowTexture(Texture2D texture)
@@ -47,8 +52,8 @@ namespace Coocoo3D.Core
         public void Update()
         {
             viewTextures[new IntPtr(uiTextureIndex)] = uiTexture;
-            Texture2D texLoading = caches.GetTextureLoaded("Assets/Textures/loading.png", graphicsContext);
-            Texture2D texError = caches.GetTextureLoaded("Assets/Textures/error.png", graphicsContext);
+            Texture2D texLoading = caches.GetTextureLoaded(loadingTexturePath, graphicsContext);
+            Texture2D texError = caches.GetTextureLoaded(errorTexturePath, graphicsContext);
 
             var rs = caches.GetRootSignature("Cs");
 

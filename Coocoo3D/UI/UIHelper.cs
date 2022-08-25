@@ -9,9 +9,7 @@ using Coocoo3D.Core;
 using Coocoo3D.FileFormat;
 using Coocoo3D.Present;
 using Coocoo3D.RenderPipeline;
-using Coocoo3D.ResourceWrap;
 using Coocoo3D.Utility;
-using Newtonsoft.Json;
 
 namespace Coocoo3D.UI
 {
@@ -34,7 +32,6 @@ namespace Coocoo3D.UI
                 {
                     DirectoryInfo folder = new DirectoryInfo(path);
                     UIImGui.viewRequest = folder;
-                    caches.AddFolder(folder);
                 }
                 gameDriver.RequireRender(false);
             }
@@ -45,7 +42,6 @@ namespace Coocoo3D.UI
                 {
                     DirectoryInfo folder = new DirectoryInfo(path);
                     UIImGui.renderPipelinesRequest = folder;
-                    caches.AddFolder(folder);
                 }
                 gameDriver.RequireRender(false);
             }
@@ -95,14 +91,10 @@ namespace Coocoo3D.UI
                                     animationState.motionPath = file.FullName;
                                 }
                             }
-
-                            gameDriver.RequireRender(true);
                         }
                         break;
                     case ".coocoo3dscene":
-                        var scene = ReadJsonStream<Coocoo3DScene>(file.OpenRead());
-                        scene.ToScene(this.scene, caches);
-                        gameDriver.RequireRender(true);
+                        caches.sceneApplyHandler.Add(new SceneLoadTask { path = file.FullName, Scene = this.scene });
                         break;
                 }
 
@@ -135,27 +127,9 @@ namespace Coocoo3D.UI
                 fileDialog.maxFileTitle = fileDialog.fileTitle.Length;
                 if (GetSaveFileName(fileDialog))
                 {
-                    var scene = Coocoo3DScene.FromScene(this.scene);
-
-                    SaveJsonStream(new FileInfo(fileDialog.file).Create(), scene);
+                    caches.sceneSaveHandler.Add(new SceneSaveTask() { path= fileDialog.file,Scene= this.scene });
                 }
             }
-        }
-
-        static T ReadJsonStream<T>(Stream stream)
-        {
-            JsonSerializer jsonSerializer = new JsonSerializer();
-            jsonSerializer.NullValueHandling = NullValueHandling.Ignore;
-            using StreamReader reader1 = new StreamReader(stream);
-            return jsonSerializer.Deserialize<T>(new JsonTextReader(reader1));
-        }
-
-        static void SaveJsonStream<T>(Stream stream, T val)
-        {
-            JsonSerializer jsonSerializer = new JsonSerializer();
-            jsonSerializer.NullValueHandling = NullValueHandling.Ignore;
-            using StreamWriter writer = new StreamWriter(stream);
-            jsonSerializer.Serialize(writer, val);
         }
 
         public static string OpenResourceFile(string filter)
@@ -204,24 +178,7 @@ namespace Coocoo3D.UI
 
         void LoadEntityIntoScene(FileInfo modelFile)
         {
-            string path = modelFile.FullName;
-            ModelPack modelPack = caches.GetModel(path);
-            foreach (var tex in modelPack.textures)
-                caches.PreloadTexture(tex);
-            if (modelPack.pmx != null)
-            {
-                GameObject gameObject = new GameObject();
-                gameObject.LoadPmx(modelPack);
-                scene.AddGameObject(gameObject);
-            }
-            else
-            {
-                GameObject gameObject = new GameObject();
-                gameObject.Name = Path.GetFileNameWithoutExtension(path);
-                modelPack.LoadMeshComponent(gameObject);
-                scene.AddGameObject(gameObject);
-            }
-            gameDriver.RequireRender(false);
+            caches.modelLoadHandler.Add(new ModelLoadTask() { path = modelFile.FullName, scene = scene });
         }
 
         [DllImport("Comdlg32.dll", SetLastError = true, ThrowOnUnmappableChar = true, CharSet = CharSet.Auto)]

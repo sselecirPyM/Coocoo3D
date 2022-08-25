@@ -492,6 +492,8 @@ namespace Coocoo3D.FileFormat
                 if (bone.Flags.HasFlag(PMX_BoneFlag.AcquireRotate) | bone.Flags.HasFlag(PMX_BoneFlag.AcquireTranslate))
                 {
                     bone.AppendBoneIndex = ReadIndex(reader, boneIndexSize);
+                    if (bone.AppendBoneIndex >= countOfBone)
+                        bone.AppendBoneIndex = -1;
                     bone.AppendBoneRatio = reader.ReadSingle();
                 }
                 else
@@ -693,7 +695,7 @@ namespace Coocoo3D.FileFormat
 
                 Joints.Add(joint);
             }
-            Optimise();
+            //Optimise();
         }
 
         private void Optimise()
