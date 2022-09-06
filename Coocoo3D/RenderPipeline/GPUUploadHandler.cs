@@ -9,11 +9,11 @@ using Coocoo3DGraphics;
 
 namespace Coocoo3D.RenderPipeline
 {
-    public class GPUUploadHandler : IHandler<TextureLoadTask>
+    public class GPUUploadHandler : IHandler<IGpuUploadTask>
     {
         public GraphicsContext graphicsContext;
 
-        public bool Add(TextureLoadTask task)
+        public bool Add(IGpuUploadTask task)
         {
             inputs.Enqueue(task);
             return true;
@@ -23,18 +23,16 @@ namespace Coocoo3D.RenderPipeline
         {
             while (inputs.TryDequeue(out var task))
             {
-                graphicsContext.UploadTexture(task.texture, task.uploader);
-                if (task.pack != null)
-                    task.pack.Status = GraphicsObjectStatus.loaded;
+                graphicsContext.UploadTexture(task.Texture, task.Uploader);
                 Output.Add(task);
             }
         }
 
         public int Count { get => inputs.Count + Output.Count; }
 
-        ConcurrentQueue<TextureLoadTask> inputs = new();
+        ConcurrentQueue<IGpuUploadTask> inputs = new();
 
-        public List<TextureLoadTask> Output { get; } = new();
+        public List<IGpuUploadTask> Output { get; } = new();
 
     }
 }

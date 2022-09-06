@@ -15,8 +15,6 @@ namespace Coocoo3D.ResourceWrap
         public Texture2D texture2D = new Texture2D();
         public string fullPath;
 
-        public bool initialized = false;
-
         public GraphicsObjectStatus Status;
 
         public bool ReloadTexture(FileInfo fileInfo, Uploader uploader)
@@ -34,20 +32,21 @@ namespace Coocoo3D.ResourceWrap
                     case ".bmp":
                     case ".webp":
                         {
-                            byte[] data = GetImageData(fileInfo.OpenRead(), out int width, out int height, out _, out int mipMap);
+                            using var stream = fileInfo.OpenRead();
+                            byte[] data = GetImageData(stream, out int width, out int height, out _, out int mipMap);
                             uploader.Texture2DRawLessCopy(data, Format.R8G8B8A8_UNorm_SRgb, width, height, mipMap);
                         }
                         break;
                     default:
                         {
-                            byte[] data = GetImageDataMagick(fileInfo.OpenRead(), out int width, out int height, out int bitPerPixel, out int mipMap);
+                            using var stream = fileInfo.OpenRead();
+                            byte[] data = GetImageDataMagick(stream, out int width, out int height, out int bitPerPixel, out int mipMap);
                             uploader.Texture2DRawLessCopy(data, bitPerPixel == 16 * 4 ? Format.R16G16B16A16_UNorm : Format.R8G8B8A8_UNorm_SRgb, width, height, mipMap);
                         }
                         break;
                 }
 
                 Status = GraphicsObjectStatus.loaded;
-                initialized = true;
                 return true;
             }
             catch (Exception e)

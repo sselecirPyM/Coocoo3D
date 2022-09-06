@@ -14,6 +14,7 @@ using System.Reflection;
 using Caprice.Display;
 using Coocoo3D.FileFormat;
 using System.Threading;
+using Coocoo3D.RenderPipeline;
 
 namespace Coocoo3D.UI
 {
@@ -237,7 +238,7 @@ namespace Coocoo3D.UI
             }
             if (ImGui.TreeNode("录制"))
             {
-                if(recordSystem.ffmpegInstalled)
+                if (recordSystem.ffmpegInstalled)
                 {
                     ImGui.Text("已安装FFmpeg，将使用FFmpeg录制。输出文件名output.mp4");
                 }
@@ -293,9 +294,9 @@ namespace Coocoo3D.UI
                 gameDriverContext.RequireRender(true);
             }
             ImGui.Text(string.Format("Fps:{0:f1}", statistics.FramePerSecond));
-            foreach(var input in mainCaches.textureDecodeHandler.inputs)
+            foreach (var input in mainCaches.textureDecodeHandler.inputs)
             {
-                ImGui.Text(input.knownFile.fullPath);
+                ImGui.Text(((TextureLoadTask)input).knownFile.fullPath);
             }
         }
 
@@ -1492,7 +1493,7 @@ vmd格式动作。支持几乎所有的图片格式。");
 
             var texture2D = uiRenderSystem.uiTexture = new Coocoo3DGraphics.Texture2D();
             io.Fonts.TexID = new IntPtr(UIRenderSystem.uiTextureIndex);
-            caches.uploadHandler.Add(new(texture2D, uploader));
+            caches.uploadHandler.Add(new TextureLoadTask(texture2D, uploader));
             InitKeyMap();
         }
 

@@ -9,7 +9,7 @@ using Vortice.DXGI;
 
 namespace Coocoo3D.RenderPipeline
 {
-    public class TextureLoadTask
+    public class TextureLoadTask : ICacheTask, INavigableTask, ITextureDecodeTask, IGpuUploadTask
     {
         public TextureLoadTask(Texture2D texture, Uploader uploader)
         {
@@ -36,7 +36,41 @@ namespace Coocoo3D.RenderPipeline
         public Uploader uploader;
         public Texture2DPack pack;
 
-        public Task loadTask;
         public KnownFile knownFile;
+
+        public Type Next { get; set; }
+
+        public void SetCurrentHandleType(Type type)
+        {
+            Next = null;
+        }
+
+        public string CachePath => knownFile.fullPath;
+
+        public Texture2D Texture => texture;
+
+        public Uploader Uploader => uploader;
+
+        public void CacheInvalid()
+        {
+            Next = typeof(ITextureDecodeTask);
+        }
+
+        public void OnEnterPipeline()
+        {
+
+        }
+
+        public void OnLeavePipeline()
+        {
+            if (pack != null)
+                texture.Status = pack.Status;
+        }
+        public void OnError(Exception exception)
+        {
+            if (pack != null)
+                pack.Status = GraphicsObjectStatus.error;
+            Next = null;
+        }
     }
 }

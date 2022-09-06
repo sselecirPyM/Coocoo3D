@@ -34,10 +34,11 @@ namespace Coocoo3D.ResourceWrap
                     this.file = file;
                     lastModifiedTime = attr;
                 }
-                if (modified) modifiyCount++;
+                if (modified)
+                    modifiyCount++;
                 return modified;
             }
-            catch (Exception e)
+            catch
             {
                 lastModifiedTime = new DateTimeOffset();
                 throw;

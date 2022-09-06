@@ -44,12 +44,13 @@ namespace Coocoo3D.RenderPipeline
         public SceneApplyHandler sceneApplyHandler = new();
         public SceneSaveHandler sceneSaveHandler = new();
         public ModelLoadHandler modelLoadHandler = new();
+        public CacheHandler cacheHandler = new();
 
         public GameDriverContext gameDriverContext;
 
         public MainCaches()
         {
-
+            textureDecodeHandler.LoadComplete = () => gameDriverContext.RequireRender(true);
         }
 
 
@@ -84,20 +85,13 @@ namespace Coocoo3D.RenderPipeline
                 }
                 Console.Clear();
             }
+            cacheHandler.mainCaches = this;
             sceneApplyHandler.mainCaches = this;
-            sceneApplyHandler.Update();
-            if (sceneApplyHandler.Output.Count > 0)
-                gameDriverContext.RequireRender(true);
-            sceneApplyHandler.Output.Clear();
-
-            sceneSaveHandler.Update();
-            sceneSaveHandler.Output.Clear();
-
             modelLoadHandler.mainCaches = this;
-            modelLoadHandler.Update();
-            if (modelLoadHandler.Output.Count > 0)
-                gameDriverContext.RequireRender(true);
-            modelLoadHandler.Output.Clear();
+
+            HandlerUpdate(sceneApplyHandler);
+            HandlerUpdate(sceneSaveHandler);
+            HandlerUpdate(modelLoadHandler);
 
             foreach (var notLoad in TextureOnDemand.Where(u => { return !u.Value; }))
             {
@@ -111,16 +105,17 @@ namespace Coocoo3D.RenderPipeline
                 var task = new TextureLoadTask(tex1);
                 tex1.fullPath = key;
                 task.knownFile = GetFileInfo(key);
-                textureDecodeHandler.Add(task);
+                cacheHandler.Add(task);
             }
+            HandlerUpdate(cacheHandler);
 
-            textureDecodeHandler.LoadComplete = () => { gameDriverContext.RequireRender(false); };
             textureDecodeHandler.Update();
 
-            textureDecodeHandler.Output.RemoveAll(task =>
+            textureDecodeHandler.Output.RemoveAll(task1 =>
             {
                 if (uploadHandler.Count > 3)
                     return false;
+                var task = (TextureLoadTask)task1;
                 if (task.texture != null && task.uploader == null)
                     task.texture.Status = task.pack.Status;
                 if (task.uploader != null)
@@ -128,6 +123,47 @@ namespace Coocoo3D.RenderPipeline
                 TextureOnDemand.Remove(task.pack.fullPath);
                 return true;
             });
+        }
+
+        void HandlerUpdate<T>(IHandler<T> handler)
+        {
+            handler.Update();
+            if (handler.Output.Count > 0)
+                gameDriverContext.RequireRender(true);
+
+            foreach (var task in handler.Output)
+            {
+                if (task is INavigableTask navigableTask)
+                {
+                    PipelineNavigation(navigableTask);
+                }
+            }
+
+            handler.Output.Clear();
+        }
+
+        void PipelineNavigation(INavigableTask navigableTask)
+        {
+            if (navigableTask.Next == null)
+            {
+                navigableTask.OnLeavePipeline();
+                if (navigableTask is TextureLoadTask textureLoadTask)
+                {
+                    TextureOnDemand.Remove(textureLoadTask.pack.fullPath);
+                }
+            }
+            else if (navigableTask.Next == typeof(ITextureDecodeTask))
+                AddTask(textureDecodeHandler, (ITextureDecodeTask)navigableTask);
+            else if (navigableTask.Next == typeof(IGpuUploadTask))
+                AddTask(uploadHandler, (IGpuUploadTask)navigableTask);
+        }
+
+        bool AddTask<T>(IHandler<T> handler, T task) where T : INavigableTask
+        {
+            bool r = handler.Add(task);
+            if (r)
+                task.SetCurrentHandleType(typeof(T));
+            return r;
         }
 
         public KnownFile GetFileInfo(string path)

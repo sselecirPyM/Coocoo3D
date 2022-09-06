@@ -63,7 +63,7 @@ namespace Coocoo3D.UI
                 {
                     case ".pmx":
                     case ".gltf":
-                        LoadEntityIntoScene(file);
+                        caches.modelLoadHandler.Add(new ModelLoadTask() { path = file.FullName, scene = scene });
                         break;
                     case ".vmd":
                         BinaryReader reader = new BinaryReader(file.OpenRead());
@@ -71,13 +71,15 @@ namespace Coocoo3D.UI
                         if (motionSet.CameraKeyFrames.Count != 0)
                         {
                             var camera = windowSystem.currentChannel.camera;
-                            camera.cameraMotion.cameraKeyFrames = motionSet.CameraKeyFrames;
-                            for (int i = 0; i < camera.cameraMotion.cameraKeyFrames.Count; i++)
+                            camera.cameraMotion.cameraKeyFrames = new List<CameraKeyFrame>();
+                            var cameraKeyFrames = camera.cameraMotion.cameraKeyFrames;
+                            cameraKeyFrames.AddRange(motionSet.CameraKeyFrames);
+                            for (int i = 0; i < cameraKeyFrames.Count; i++)
                             {
-                                CameraKeyFrame frame = camera.cameraMotion.cameraKeyFrames[i];
+                                CameraKeyFrame frame = cameraKeyFrames[i];
                                 frame.distance *= 0.1f;
                                 frame.position *= 0.1f;
-                                camera.cameraMotion.cameraKeyFrames[i] = frame;
+                                cameraKeyFrames[i] = frame;
                             }
                             camera.CameraMotionOn = true;
                         }
@@ -127,7 +129,7 @@ namespace Coocoo3D.UI
                 fileDialog.maxFileTitle = fileDialog.fileTitle.Length;
                 if (GetSaveFileName(fileDialog))
                 {
-                    caches.sceneSaveHandler.Add(new SceneSaveTask() { path= fileDialog.file,Scene= this.scene });
+                    caches.sceneSaveHandler.Add(new SceneSaveTask() { path = fileDialog.file, Scene = this.scene });
                 }
             }
         }
@@ -174,11 +176,6 @@ namespace Coocoo3D.UI
                     UIImGui.storageItems.Add(item);
                 }
             }
-        }
-
-        void LoadEntityIntoScene(FileInfo modelFile)
-        {
-            caches.modelLoadHandler.Add(new ModelLoadTask() { path = modelFile.FullName, scene = scene });
         }
 
         [DllImport("Comdlg32.dll", SetLastError = true, ThrowOnUnmappableChar = true, CharSet = CharSet.Auto)]
