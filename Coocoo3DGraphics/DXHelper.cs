@@ -49,6 +49,11 @@ namespace Coocoo3DGraphics
             t2.CopyTo(new Span<T>(p1, size / d1));
         }
 
+        unsafe public static void memcpy(void* p1, void* p2, int size)
+        {
+            new Span<byte>(p2, size).CopyTo(new Span<byte>(p1, size));
+        }
+
         public static float ConvertDipsToPixels(float dips, float dpi)
         {
             const float dipsPerInch = 96.0f;
@@ -59,18 +64,19 @@ namespace Coocoo3DGraphics
             ulong RowPitch,
             ulong SlicePitch,
             Span<byte> dest,
-            SubresourceData pSrc,
+            IntPtr pSrcData,
+            ulong srcRowPitch,
             int RowSizeInBytes,
             int NumRows,
             int NumSlices)
         {
             for (uint z = 0; z < NumSlices; ++z)
             {
-                byte* pSrcSlice = (byte*)(pSrc.Data) + (long)SlicePitch * z;
+                byte* pSrcSlice = (byte*)pSrcData + (long)SlicePitch * z;
                 Span<byte> pDestSlice = dest.Slice((int)(SlicePitch * z));
                 for (int y = 0; y < NumRows; ++y)
                 {
-                    new Span<byte>(pSrcSlice + ((long)pSrc.RowPitch * y), RowSizeInBytes).CopyTo(pDestSlice.Slice((int)RowPitch * y, RowSizeInBytes));
+                    new Span<byte>(pSrcSlice + ((long)srcRowPitch * y), RowSizeInBytes).CopyTo(pDestSlice.Slice((int)RowPitch * y, RowSizeInBytes));
                 }
             }
         }
@@ -82,10 +88,10 @@ namespace Coocoo3DGraphics
             int FirstSubresource,
             int NumSubresources,
             ulong RequiredSize,
-            Span<PlacedSubresourceFootPrint> pLayouts,
-            Span<int> pNumRows,
-            Span<ulong> pRowSizesInBytes,
-            Span<SubresourceData> pSrcData)
+            ReadOnlySpan<PlacedSubresourceFootPrint> pLayouts,
+            ReadOnlySpan<int> pNumRows,
+            ReadOnlySpan<ulong> pRowSizesInBytes,
+            ReadOnlySpan<SubresourceData> pSrcData)
         {
             var IntermediateDesc = pIntermediate.Description;
             var DestinationDesc = pDestinationResource.Description;
@@ -108,7 +114,7 @@ namespace Coocoo3DGraphics
             for (int i = 0; i < NumSubresources; ++i)
             {
                 MemcpySubresource((ulong)pLayouts[i].Footprint.RowPitch, (uint)pLayouts[i].Footprint.RowPitch * (uint)pNumRows[i],
-                    pData.Slice((int)pLayouts[i].Offset), pSrcData[i], (int)pRowSizesInBytes[i], pNumRows[i], pLayouts[i].Footprint.Depth);
+                    pData.Slice((int)pLayouts[i].Offset), pSrcData[i].Data, (ulong)pSrcData[i].RowPitch, (int)pRowSizesInBytes[i], pNumRows[i], pLayouts[i].Footprint.Depth);
             }
             pIntermediate.Unmap(0, null);
 

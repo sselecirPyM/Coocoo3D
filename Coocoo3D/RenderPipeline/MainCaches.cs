@@ -39,6 +39,7 @@ namespace Coocoo3D.RenderPipeline
 
         public ConcurrentQueue<Mesh> MeshReadyToUpload = new();
 
+        public DiskLoadHandler diskLoadHandler = new();
         public TextureDecodeHandler textureDecodeHandler = new();
         public GPUUploadHandler uploadHandler = new();
         public SceneApplyHandler sceneApplyHandler = new();
@@ -51,6 +52,7 @@ namespace Coocoo3D.RenderPipeline
         public MainCaches()
         {
             textureDecodeHandler.LoadComplete = () => gameDriverContext.RequireRender(true);
+            diskLoadHandler.LoadComplete = () => gameDriverContext.RequireRender(true);
         }
 
 
@@ -104,10 +106,11 @@ namespace Coocoo3D.RenderPipeline
                 var tex1 = TextureCaches.GetOrCreate(key);
                 var task = new TextureLoadTask(tex1);
                 tex1.fullPath = key;
-                task.knownFile = GetFileInfo(key);
+                task.KnownFile = GetFileInfo(key);
                 cacheHandler.Add(task);
             }
             HandlerUpdate(cacheHandler);
+            HandlerUpdate(diskLoadHandler);
 
             textureDecodeHandler.Update();
 
@@ -116,11 +119,11 @@ namespace Coocoo3D.RenderPipeline
                 if (uploadHandler.Count > 3)
                     return false;
                 var task = (TextureLoadTask)task1;
-                if (task.texture != null && task.uploader == null)
-                    task.texture.Status = task.pack.Status;
-                if (task.uploader != null)
+                if (task.texture != null && task.Uploader == null)
+                    task.texture.Status = task.TexturePack.Status;
+                if (task.Uploader != null)
                     uploadHandler.Add(task);
-                TextureOnDemand.Remove(task.pack.fullPath);
+                TextureOnDemand.Remove(task.TexturePack.fullPath);
                 return true;
             });
         }
@@ -149,9 +152,11 @@ namespace Coocoo3D.RenderPipeline
                 navigableTask.OnLeavePipeline();
                 if (navigableTask is TextureLoadTask textureLoadTask)
                 {
-                    TextureOnDemand.Remove(textureLoadTask.pack.fullPath);
+                    TextureOnDemand.Remove(textureLoadTask.TexturePack.fullPath);
                 }
             }
+            else if (navigableTask.Next == typeof(IDiskLoadTask))
+                AddTask(diskLoadHandler, (IDiskLoadTask)navigableTask);
             else if (navigableTask.Next == typeof(ITextureDecodeTask))
                 AddTask(textureDecodeHandler, (ITextureDecodeTask)navigableTask);
             else if (navigableTask.Next == typeof(IGpuUploadTask))
@@ -228,7 +233,8 @@ namespace Coocoo3D.RenderPipeline
                 var texturePack1 = new Texture2DPack();
                 texturePack1.fullPath = path;
                 Uploader uploader = new Uploader();
-                texturePack1.ReloadTexture(file, uploader);
+                using var stream = file.OpenRead();
+                texturePack1.LoadTexture(file.FullName, stream, uploader);
                 graphicsContext.UploadTexture(texturePack1.texture2D, uploader);
                 texturePack1.Status = GraphicsObjectStatus.loaded;
                 texturePack1.texture2D.Status = GraphicsObjectStatus.loaded;
@@ -264,7 +270,8 @@ namespace Coocoo3D.RenderPipeline
             if (string.IsNullOrEmpty(path)) return null;
             return GetT(Motions, path, file =>
             {
-                BinaryReader reader = new BinaryReader(file.OpenRead());
+                using var stream = file.OpenRead();
+                BinaryReader reader = new BinaryReader(stream);
                 VMDFormat motionSet = VMDFormat.Load(reader);
 
                 var motion = new MMDMotion();
@@ -636,7 +643,7 @@ namespace Coocoo3D.RenderPipeline
             ModelPackCaches.Clear();
             foreach (var t in TextureCaches)
             {
-                t.Value.texture2D.Dispose();
+                t.Value?.Dispose();
             }
             TextureCaches.Clear();
             foreach (var t in ComputeShaders)

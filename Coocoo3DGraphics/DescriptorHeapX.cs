@@ -8,30 +8,28 @@ namespace Coocoo3DGraphics
 {
     public class DescriptorHeapX : IDisposable
     {
-        public GraphicsDevice graphicsDevice;
         public ID3D12DescriptorHeap heap;
-        public int allocatedCount;
+        public int allocateOffset;
         public int descriptorCount;
         public int IncrementSize;
 
-        public void Initialize(GraphicsDevice graphicsDevice, DescriptorHeapDescription descriptorHeapDescription)
+        public void Initialize(ID3D12Device device, DescriptorHeapDescription descriptorHeapDescription)
         {
-            this.graphicsDevice = graphicsDevice;
-            allocatedCount = 0;
+            allocateOffset = 0;
             descriptorCount = descriptorHeapDescription.DescriptorCount;
-            ThrowIfFailed(graphicsDevice.device.CreateDescriptorHeap(descriptorHeapDescription, out heap));
-            IncrementSize = graphicsDevice.device.GetDescriptorHandleIncrementSize(descriptorHeapDescription.Type);
+            ThrowIfFailed(device.CreateDescriptorHeap(descriptorHeapDescription, out heap));
+            IncrementSize = device.GetDescriptorHandleIncrementSize(descriptorHeapDescription.Type);
         }
 
 
         public void GetTempHandle(out CpuDescriptorHandle cpuHandle, out GpuDescriptorHandle gpuHandle)
         {
             CpuDescriptorHandle cpuHandle1 = heap.GetCPUDescriptorHandleForHeapStart();
-            cpuHandle1.Ptr += (nuint)(allocatedCount * IncrementSize);
+            cpuHandle1.Ptr += (nuint)(allocateOffset * IncrementSize);
             GpuDescriptorHandle gpuHandle1 = heap.GetGPUDescriptorHandleForHeapStart();
-            gpuHandle1.Ptr += (ulong)(allocatedCount * IncrementSize);
+            gpuHandle1.Ptr += (ulong)(allocateOffset * IncrementSize);
 
-            allocatedCount = (allocatedCount + 1) % descriptorCount;
+            allocateOffset = (allocateOffset + 1) % descriptorCount;
             cpuHandle = cpuHandle1;
             gpuHandle = gpuHandle1;
         }
@@ -40,9 +38,9 @@ namespace Coocoo3DGraphics
         public CpuDescriptorHandle GetTempCpuHandle()
         {
             CpuDescriptorHandle cpuHandle1 = heap.GetCPUDescriptorHandleForHeapStart();
-            cpuHandle1.Ptr += (nuint)(allocatedCount * IncrementSize);
+            cpuHandle1.Ptr += (nuint)(allocateOffset * IncrementSize);
 
-            allocatedCount = (allocatedCount + 1) % descriptorCount;
+            allocateOffset = (allocateOffset + 1) % descriptorCount;
             return cpuHandle1;
         }
 

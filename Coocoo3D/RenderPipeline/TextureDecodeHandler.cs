@@ -22,15 +22,12 @@ namespace Coocoo3D.RenderPipeline
         public bool Add(ITextureDecodeTask task)
         {
             inputs.Enqueue(task);
-            var task1 = (TextureLoadTask)task;
-            if (task1.texture != null)
-                task1.texture.Status = GraphicsObjectStatus.loading;
             return true;
         }
 
         public void Update()
         {
-            while (Processing.Count + Output.Count < 9 && inputs.TryDequeue(out var input))
+            while (Processing.Count + Output.Count < 6 && inputs.TryDequeue(out var input))
             {
                 Processing.Add(input);
             }
@@ -39,23 +36,13 @@ namespace Coocoo3D.RenderPipeline
             {
                 bool r = false;
                 if (!loadTasks.TryGetValue(task, out var loadTask))
-                    loadTask = loadTasks[task] = Task.Factory.StartNew((object a) =>
-                    {
-                        var taskParam = (TextureLoadTask)a;
-                        var texturePack = taskParam.pack;
-                        var knownFile = taskParam.knownFile;
-
-                        LoadTexture(texturePack, knownFile, out var uploader);
-
-                        taskParam.uploader = uploader;
-
-                        LoadComplete?.Invoke();
-                    }, task);
+                    loadTask = loadTasks[task] = Task.Factory.StartNew(_Task, task);
 
                 if (loadTask.Status == TaskStatus.RanToCompletion ||
                     loadTask.Status == TaskStatus.Faulted)
                 {
                     loadTasks.Remove(task);
+                    loadTask.Dispose();
                     Output.Add(task);
                     r = true;
                 }
@@ -63,14 +50,26 @@ namespace Coocoo3D.RenderPipeline
             });
         }
 
+        void _Task(object a)
+        {
+            var taskParam = (ITextureDecodeTask)a;
+            var texturePack = taskParam.TexturePack;
+            var datas = taskParam.GetDatas();
+            using var stream = new MemoryStream(datas);
+            LoadTexture(texturePack, taskParam.GetFileName(), stream, out var uploader);
 
-        bool LoadTexture(Texture2DPack texturePack, KnownFile knownFile, out Uploader uploader)
+            taskParam.Uploader = uploader;
+
+            LoadComplete?.Invoke();
+        }
+
+        bool LoadTexture(Texture2DPack texturePack, string fileName, Stream stream, out Uploader uploader)
         {
             uploader = null;
             try
             {
                 Uploader uploader1 = new Uploader();
-                if (texturePack.ReloadTexture(knownFile.file, uploader1))
+                if (texturePack.LoadTexture(fileName, stream, uploader1))
                 {
                     uploader = uploader1;
                     texturePack.Status = GraphicsObjectStatus.loaded;

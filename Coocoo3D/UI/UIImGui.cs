@@ -296,7 +296,7 @@ namespace Coocoo3D.UI
             ImGui.Text(string.Format("Fps:{0:f1}", statistics.FramePerSecond));
             foreach (var input in mainCaches.textureDecodeHandler.inputs)
             {
-                ImGui.Text(((TextureLoadTask)input).knownFile.fullPath);
+                ImGui.Text(((TextureLoadTask)input).KnownFile.fullPath);
             }
         }
 
@@ -321,8 +321,8 @@ namespace Coocoo3D.UI
 
             var rps = renderSystem.RenderPipelineTypes;
 
-            string[] newRPs = new string[rps.Length];
-            for (int i = 0; i < rps.Length; i++)
+            string[] newRPs = new string[rps.Count];
+            for (int i = 0; i < rps.Count; i++)
             {
                 var uiShowAttribute = rps[i].GetCustomAttribute<UIShowAttribute>(true);
                 if (uiShowAttribute != null)
@@ -335,7 +335,7 @@ namespace Coocoo3D.UI
                 }
             }
 
-            if (ImGui.Combo("渲染管线", ref renderPipelineIndex, newRPs, rps.Length))
+            if (ImGui.Combo("渲染管线", ref renderPipelineIndex, newRPs, rps.Count))
             {
                 rpc.currentChannel.DelaySetRenderPipeline(rps[renderPipelineIndex]);
             }

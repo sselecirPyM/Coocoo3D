@@ -9,23 +9,23 @@ using Vortice.DXGI;
 
 namespace Coocoo3D.RenderPipeline
 {
-    public class TextureLoadTask : ICacheTask, INavigableTask, ITextureDecodeTask, IGpuUploadTask
+    public class TextureLoadTask : ICacheTask, INavigableTask, IDiskLoadTask, ITextureDecodeTask, IGpuUploadTask
     {
         public TextureLoadTask(Texture2D texture, Uploader uploader)
         {
             this.texture = texture;
-            this.uploader = uploader;
+            this.Uploader = uploader;
         }
         public TextureLoadTask(Texture2DPack pack, Uploader uploader)
         {
             this.texture = pack.texture2D;
-            this.uploader = uploader;
-            this.pack = pack;
+            this.Uploader = uploader;
+            this.TexturePack = pack;
         }
         public TextureLoadTask(Texture2DPack pack)
         {
             this.texture = pack.texture2D;
-            this.pack = pack;
+            this.TexturePack = pack;
         }
 
         public int width;
@@ -33,44 +33,60 @@ namespace Coocoo3D.RenderPipeline
         public Format format;
 
         public Texture2D texture;
-        public Uploader uploader;
-        public Texture2DPack pack;
+        public Texture2DPack TexturePack { get; set; }
 
-        public KnownFile knownFile;
+        public KnownFile KnownFile { get; set; }
 
         public Type Next { get; set; }
 
+        public byte[] Datas { get; set; }
+
         public void SetCurrentHandleType(Type type)
         {
-            Next = null;
+            switch (type.Name)
+            {
+                case "IDiskLoadTask":
+                    Next = typeof(ITextureDecodeTask);
+                    break;
+                default:
+                    Next = null;
+                    break;
+            }
         }
 
-        public string CachePath => knownFile.fullPath;
+        public string CachePath => KnownFile.fullPath;
 
         public Texture2D Texture => texture;
 
-        public Uploader Uploader => uploader;
+        public Uploader Uploader { get; set; }
+
+        public string FileName { get; set; }
 
         public void CacheInvalid()
         {
-            Next = typeof(ITextureDecodeTask);
+            Next = typeof(IDiskLoadTask);
         }
 
         public void OnEnterPipeline()
         {
-
+            if (texture != null)
+                texture.Status = GraphicsObjectStatus.loading;
         }
 
         public void OnLeavePipeline()
         {
-            if (pack != null)
-                texture.Status = pack.Status;
+            if (TexturePack != null)
+                texture.Status = TexturePack.Status;
         }
         public void OnError(Exception exception)
         {
-            if (pack != null)
-                pack.Status = GraphicsObjectStatus.error;
+            if (TexturePack != null)
+                TexturePack.Status = GraphicsObjectStatus.error;
             Next = null;
         }
+
+        public byte[] GetDatas() => Datas;
+
+        public string GetFileName() => KnownFile.fullPath;
     }
 }

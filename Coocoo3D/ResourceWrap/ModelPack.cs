@@ -120,25 +120,6 @@ namespace Coocoo3D.ResourceWrap
                 int typeSize = Marshal.SizeOf(typeof(T));
                 return MemoryMarshal.Cast<byte, T>(new Span<byte>(buffer, bufferView.ByteOffset + accessor.ByteOffset, accessor.Count * typeSize));
             }
-            //Span<T> GetBuffer1<T>(int accessorIndex, int stride) where T : struct
-            //{
-            //    var accessor = deserializedFile.Accessors[accessorIndex];
-            //    var bufferView = deserializedFile.BufferViews[(int)accessor.BufferView];
-            //    var buffer = buffers[bufferView.Buffer];
-            //    int typeSize = Marshal.SizeOf(typeof(T));
-            //    if (typeSize == stride)
-            //        return MemoryMarshal.Cast<byte, T>(new Span<byte>(buffer, bufferView.ByteOffset + accessor.ByteOffset, accessor.Count * typeSize));
-            //    else
-            //    {
-            //        int count = buffer.Length / stride;
-            //        T[] array1 = new T[count];
-            //        for (int i = 0; i < count; i++)
-            //        {
-            //            array1[i] = MemoryMarshal.Read<T>(new ReadOnlySpan<byte>(buffer, i * stride, typeSize));
-            //        }
-            //        return array1;
-            //    }
-            //}
 
             Accessor.ComponentTypeEnum GetAccessorComponentType(int accessorIndex)
             {
@@ -274,7 +255,8 @@ namespace Coocoo3D.ResourceWrap
 
         public void LoadPMX(string fileName)
         {
-            BinaryReader reader = new BinaryReader(new FileInfo(fileName).OpenRead());
+            using var stream = new FileInfo(fileName).OpenRead();
+            using BinaryReader reader = new BinaryReader(stream);
             string folder = Path.GetDirectoryName(fileName);
 
             pmx = new PMXFormat();

@@ -11,7 +11,7 @@ using System.IO;
 
 namespace Coocoo3DGraphics
 {
-    public class GraphicsContext
+    public sealed class GraphicsContext
     {
         const int D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING = 5768;
 
@@ -43,9 +43,11 @@ namespace Coocoo3DGraphics
         {
             if (!computeShader.computeShaders.TryGetValue(currentRootSignature.rootSignature, out ID3D12PipelineState pipelineState))
             {
-                ComputePipelineStateDescription desc = new ComputePipelineStateDescription();
-                desc.ComputeShader = computeShader.data;
-                desc.RootSignature = currentRootSignature.rootSignature;
+                var desc = new ComputePipelineStateDescription
+                {
+                    ComputeShader = computeShader.data,
+                    RootSignature = currentRootSignature.rootSignature
+                };
                 if (graphicsDevice.device.CreateComputePipelineState(desc, out pipelineState).Failure)
                 {
                     return false;
@@ -138,7 +140,7 @@ namespace Coocoo3DGraphics
                 CreateUAVBuffer(134217728, ref graphicsDevice.scratchResource, ResourceStates.UnorderedAccess);
             }
             int instanceCount = accelerationStruct.instances.Count;
-            RaytracingInstanceDescription[] raytracingInstanceDescriptions = new RaytracingInstanceDescription[instanceCount];
+            Span<RaytracingInstanceDescription> raytracingInstanceDescriptions = stackalloc RaytracingInstanceDescription[instanceCount];
             for (int i = 0; i < instanceCount; i++)
             {
                 RTInstance instance = accelerationStruct.instances[i];
@@ -153,7 +155,7 @@ namespace Coocoo3DGraphics
                     pos = v0.vertex.GPUVirtualAddress + (ulong)btas.vertexStart * 12;
                 else
                     pos = mesh.vtBuffers[0].vertex.GPUVirtualAddress + (ulong)btas.vertexStart * 12;
-                BuildRaytracingAccelerationStructureInputs inputs = new BuildRaytracingAccelerationStructureInputs();
+                var inputs = new BuildRaytracingAccelerationStructureInputs();
                 inputs.Type = RaytracingAccelerationStructureType.BottomLevel;
                 inputs.Layout = ElementsLayout.Array;
                 inputs.GeometryDescriptions = new RaytracingGeometryDescription[]
@@ -169,10 +171,10 @@ namespace Coocoo3DGraphics
                 InReference(mesh.vtBuffers[0].vertex);
                 InReference(mesh.indexBuffer);
                 inputs.DescriptorsCount = 1;
-                RaytracingAccelerationStructurePrebuildInfo info = graphicsDevice.device.GetRaytracingAccelerationStructurePrebuildInfo(inputs);
+                var info = graphicsDevice.device.GetRaytracingAccelerationStructurePrebuildInfo(inputs);
 
                 CreateUAVBuffer((int)info.ResultDataMaxSizeInBytes, ref btas.resource, ResourceStates.RaytracingAccelerationStructure);
-                BuildRaytracingAccelerationStructureDescription brtas = new BuildRaytracingAccelerationStructureDescription();
+                var brtas = new BuildRaytracingAccelerationStructureDescription();
                 brtas.Inputs = inputs;
                 brtas.ScratchAccelerationStructureData = graphicsDevice.scratchResource.GPUVirtualAddress;
                 brtas.DestinationAccelerationStructureData = btas.resource.GPUVirtualAddress;
@@ -180,29 +182,33 @@ namespace Coocoo3DGraphics
                 m_commandList.BuildRaytracingAccelerationStructure(brtas);
                 m_commandList.ResourceBarrierUnorderedAccessView(btas.resource);
                 InReference(btas.resource);
-                RaytracingInstanceDescription raytracingInstanceDescription = new RaytracingInstanceDescription();
-                raytracingInstanceDescription.AccelerationStructure = btas.resource.GPUVirtualAddress;
-                raytracingInstanceDescription.InstanceContributionToHitGroupIndex = (Vortice.UInt24)(uint)i;
-                raytracingInstanceDescription.InstanceID = (Vortice.UInt24)(uint)i;
-                raytracingInstanceDescription.InstanceMask = instance.instanceMask;
-                raytracingInstanceDescription.Transform = GetMatrix3X4(Matrix4x4.Transpose(instance.transform));
+                var raytracingInstanceDescription = new RaytracingInstanceDescription
+                {
+                    AccelerationStructure = btas.resource.GPUVirtualAddress,
+                    InstanceContributionToHitGroupIndex = (Vortice.UInt24)(uint)i,
+                    InstanceID = (Vortice.UInt24)(uint)i,
+                    InstanceMask = instance.instanceMask,
+                    Transform = GetMatrix3X4(Matrix4x4.Transpose(instance.transform))
+                };
                 raytracingInstanceDescriptions[i] = raytracingInstanceDescription;
                 btas.initialized = true;
             }
-            GetRingBuffer().Upload(raytracingInstanceDescriptions, out ulong gpuAddr);
-            BuildRaytracingAccelerationStructureInputs tpInputs = new BuildRaytracingAccelerationStructureInputs();
+            GetRingBuffer().Upload<RaytracingInstanceDescription>(raytracingInstanceDescriptions, out ulong gpuAddr);
+            var tpInputs = new BuildRaytracingAccelerationStructureInputs();
             tpInputs.Layout = ElementsLayout.Array;
             tpInputs.Type = RaytracingAccelerationStructureType.TopLevel;
             tpInputs.DescriptorsCount = accelerationStruct.instances.Count;
             tpInputs.InstanceDescriptions = gpuAddr;
 
-            RaytracingAccelerationStructurePrebuildInfo info1 = graphicsDevice.device.GetRaytracingAccelerationStructurePrebuildInfo(tpInputs);
+            var info1 = graphicsDevice.device.GetRaytracingAccelerationStructurePrebuildInfo(tpInputs);
             CreateUAVBuffer((int)info1.ResultDataMaxSizeInBytes, ref accelerationStruct.resource, ResourceStates.RaytracingAccelerationStructure);
             InReference(accelerationStruct.resource);
-            BuildRaytracingAccelerationStructureDescription trtas = new BuildRaytracingAccelerationStructureDescription();
-            trtas.Inputs = tpInputs;
-            trtas.DestinationAccelerationStructureData = accelerationStruct.resource.GPUVirtualAddress;
-            trtas.ScratchAccelerationStructureData = graphicsDevice.scratchResource.GPUVirtualAddress;
+            var trtas = new BuildRaytracingAccelerationStructureDescription
+            {
+                Inputs = tpInputs,
+                DestinationAccelerationStructureData = accelerationStruct.resource.GPUVirtualAddress,
+                ScratchAccelerationStructureData = graphicsDevice.scratchResource.GPUVirtualAddress
+            };
             m_commandList.BuildRaytracingAccelerationStructure(trtas);
         }
 
@@ -210,84 +216,31 @@ namespace Coocoo3DGraphics
         {
             SetRTTopAccelerationStruct(call.tpas);
             const int D3D12ShaderIdentifierSizeInBytes = 32;
-            ID3D12StateObjectProperties pRtsoProps = currentRTPSO.so.QueryInterface<ID3D12StateObjectProperties>();
+            var pRtsoProps = currentRTPSO.so.QueryInterface<ID3D12StateObjectProperties>();
             InReference(currentRTPSO.so);
-            DispatchRaysDescription dispatchRaysDescription = new DispatchRaysDescription();
-            dispatchRaysDescription.Width = width;
-            dispatchRaysDescription.Height = height;
-            dispatchRaysDescription.Depth = depth;
-            dispatchRaysDescription.HitGroupTable = new GpuVirtualAddressRangeAndStride();
-            dispatchRaysDescription.MissShaderTable = new GpuVirtualAddressRangeAndStride();
 
             currentRootSignature = currentRTPSO.globalRootSignature;
             SetSRVRSlot(call.tpas.resource.GPUVirtualAddress, 0);
 
-            {
-                int cbvOffset = 0;
-                int srvOffset = 0;
-                int uavOffset = 0;
-                foreach (var access in currentRTPSO.shaderAccessTypes)
-                {
-                    if (access == ResourceAccessType.SRV)
-                    {
-                        srvOffset++;
-                    }
-                    else if (access == ResourceAccessType.SRVTable)
-                    {
-                        if (call.SRVs != null && call.SRVs.TryGetValue(srvOffset, out object srv0))
-                        {
-                            if (srv0 is Texture2D tex2d)
-                            {
-                                if (!call.srvFlags.ContainsKey(srvOffset))
-                                    SetSRVTSlot(tex2d, srvOffset);
-                                else
-                                    SetSRVTSlotLinear(tex2d, srvOffset);
-                            }
-                            else if (srv0 is TextureCube texCube)
-                                SetSRVTSlot(texCube, srvOffset);
-                            else if (srv0 is GPUBuffer buffer)
-                                SetSRVTSlot(buffer, srvOffset);
-                        }
+            WriteGlobalHandles(call);
 
-                        srvOffset++;
-                    }
-                    else if (access == ResourceAccessType.CBV)
-                    {
-                        if (call.CBVs != null && call.CBVs.TryGetValue(cbvOffset, out object cbv0))
-                        {
-                            if (cbv0 is byte[] cbvData)
-                                SetCBVRSlot<byte>(cbvData, cbvOffset);
-                            else if (cbv0 is Matrix4x4[] cbvDataM)
-                                SetCBVRSlot<Matrix4x4>(cbvDataM, cbvOffset);
-                            else if (cbv0 is Vector4[] cbvDataF4)
-                                SetCBVRSlot<Vector4>(cbvDataF4, cbvOffset);
-                        }
-
-                        cbvOffset++;
-                    }
-                    else if (access == ResourceAccessType.UAVTable)
-                    {
-                        if (call.UAVs != null && call.UAVs.TryGetValue(uavOffset, out object uav0))
-                        {
-                            if (uav0 is Texture2D tex2d)
-                                SetRTSlot(tex2d, uavOffset);
-                            else if (uav0 is GPUBuffer buffer)
-                                SetUAVTSlot(buffer, uavOffset);
-                        }
-                        uavOffset++;
-                    }
-                }
-            }
-
-            byte[] data = new byte[32];
+            Span<byte> data = stackalloc byte[32];
             MemoryStream memoryStream = new MemoryStream();
             BinaryWriter writer = new BinaryWriter(memoryStream);
             memcpy(data, pRtsoProps.GetShaderIdentifier(call.rayGenShader).ToPointer(), D3D12ShaderIdentifierSizeInBytes);
             writer.Write(data);
             ulong gpuaddr;
             int length1 = (int)memoryStream.Position;
-            GetRingBuffer().Upload(new Span<byte>(memoryStream.GetBuffer(), 0, length1), out gpuaddr);
-            dispatchRaysDescription.RayGenerationShaderRecord = new GpuVirtualAddressRange(gpuaddr, (ulong)length1);
+            GetRingBuffer().Upload(new ReadOnlySpan<byte>(memoryStream.GetBuffer(), 0, length1), out gpuaddr);
+            var dispatchRaysDescription = new DispatchRaysDescription
+            {
+                Width = width,
+                Height = height,
+                Depth = depth,
+                HitGroupTable = new GpuVirtualAddressRangeAndStride(),
+                MissShaderTable = new GpuVirtualAddressRangeAndStride(),
+                RayGenerationShaderRecord = new GpuVirtualAddressRange(gpuaddr, (ulong)length1)
+            };
             writer.Seek(0, SeekOrigin.Begin);
 
             foreach (var inst in call.tpas.instances)
@@ -309,54 +262,9 @@ namespace Coocoo3DGraphics
                         else
                             writer.Write(mesh.vtBuffers[i].vertex.GPUVirtualAddress + (ulong)(mesh.vtBuffers[i].vertexBufferView.StrideInBytes * vertexStart));
                     }
-                    int cbvOffset = 0;
-                    int srvOffset = 0;
-                    foreach (var access in currentRTPSO.localShaderAccessTypes)
-                    {
-                        if (access == ResourceAccessType.CBV)
-                        {
-                            if (inst.CBVs != null && inst.CBVs.TryGetValue(cbvOffset, out object cbv0))
-                            {
-                                if (cbv0 is byte[] cbvData)
-                                    _RTWriteGpuAddr<byte>(cbvData, writer);
-                                else if (cbv0 is Matrix4x4[] cbvDataM)
-                                    _RTWriteGpuAddr<Matrix4x4>(cbvDataM, writer);
-                                else if (cbv0 is Vector4[] cbvDataF4)
-                                    _RTWriteGpuAddr<Vector4>(cbvDataF4, writer);
-                                else
-                                    writer.Write((ulong)0);
-                            }
-                            else
-                                writer.Write((ulong)0);
-                            cbvOffset++;
-                        }
-                        else if (access == ResourceAccessType.SRV)
-                        {
-                            srvOffset++;
-                        }
-                        else if (access == ResourceAccessType.SRVTable)
-                        {
-                            if (inst.SRVs != null && inst.SRVs.TryGetValue(srvOffset, out object srv0))
-                            {
-                                if (srv0 is Texture2D tex2d)
-                                    writer.Write(GetSRVHandle(tex2d).Ptr);
-                                else if (srv0 is GPUBuffer buffer)
-                                    writer.Write(GetSRVHandle(buffer).Ptr);
-                                else if (srv0 is ID3D12Resource resource)
-                                    writer.Write(InReferenceAddr(resource));
-                                else
-                                    writer.Write((ulong)0);
-                            }
-                            else
-                                writer.Write((ulong)0);
-                            srvOffset++;
-                        }
-                    }
-                    var newPos = align_to(64, (int)memoryStream.Position) - (int)memoryStream.Position;
-                    for (int k = 0; k < newPos; k++)
-                    {
-                        writer.Write((byte)0);
-                    }
+
+                    WriteLocalHandles(inst, currentRTPSO, writer);
+                    BufferAlign(writer, 64);
                 }
                 else
                 {
@@ -366,17 +274,13 @@ namespace Coocoo3DGraphics
                     {
                         writer.Write((byte)0);
                     }
-                    var newPos = align_to(64, (int)memoryStream.Position) - (int)memoryStream.Position;
-                    for (int k = 0; k < newPos; k++)
-                    {
-                        writer.Write((byte)0);
-                    }
+                    BufferAlign(writer, 64);
                 }
             }
             if (memoryStream.Position > 0)
             {
                 length1 = (int)memoryStream.Position;
-                GetRingBuffer().Upload(new Span<byte>(memoryStream.GetBuffer(), 0, length1), out gpuaddr);
+                GetRingBuffer().Upload(new ReadOnlySpan<byte>(memoryStream.GetBuffer(), 0, length1), out gpuaddr);
                 dispatchRaysDescription.HitGroupTable = new GpuVirtualAddressRangeAndStride(gpuaddr, (ulong)length1, (ulong)(length1 / call.tpas.instances.Count));
             }
             writer.Seek(0, SeekOrigin.Begin);
@@ -390,7 +294,7 @@ namespace Coocoo3DGraphics
                 }
 
                 length1 = (int)memoryStream.Position;
-                GetRingBuffer().Upload(new Span<byte>(memoryStream.GetBuffer(), 0, length1), out gpuaddr);
+                GetRingBuffer().Upload(new ReadOnlySpan<byte>(memoryStream.GetBuffer(), 0, length1), out gpuaddr);
                 dispatchRaysDescription.MissShaderTable = new GpuVirtualAddressRangeAndStride(gpuaddr, (ulong)length1, (ulong)(length1 / call.missShaders.Length));
             }
             writer.Seek(0, SeekOrigin.Begin);
@@ -400,9 +304,118 @@ namespace Coocoo3DGraphics
             m_commandList.DispatchRays(dispatchRaysDescription);
         }
 
-        public void SetInputLayout(UnnamedInputLayout inputLayout)
+        void WriteGlobalHandles(RayTracingCall call)
         {
-            currentInputLayout = inputLayout;
+            int cbvOffset = 0;
+            int srvOffset = 0;
+            int uavOffset = 0;
+            foreach (var access in currentRTPSO.shaderAccessTypes)
+            {
+                if (access == ResourceAccessType.SRV)
+                {
+                    srvOffset++;
+                }
+                else if (access == ResourceAccessType.SRVTable)
+                {
+                    if (call.SRVs != null && call.SRVs.TryGetValue(srvOffset, out object srv0))
+                    {
+                        if (srv0 is Texture2D tex2d)
+                        {
+                            if (!call.srvFlags.ContainsKey(srvOffset))
+                                SetSRVTSlot(tex2d, srvOffset);
+                            else
+                                SetSRVTSlotLinear(tex2d, srvOffset);
+                        }
+                        else if (srv0 is TextureCube texCube)
+                            SetSRVTSlot(texCube, srvOffset);
+                        else if (srv0 is GPUBuffer buffer)
+                            SetSRVTSlot(buffer, srvOffset);
+                    }
+
+                    srvOffset++;
+                }
+                else if (access == ResourceAccessType.CBV)
+                {
+                    if (call.CBVs != null && call.CBVs.TryGetValue(cbvOffset, out object cbv0))
+                    {
+                        if (cbv0 is byte[] cbvData)
+                            SetCBVRSlot<byte>(cbvData, cbvOffset);
+                        else if (cbv0 is Matrix4x4[] cbvDataM)
+                            SetCBVRSlot<Matrix4x4>(cbvDataM, cbvOffset);
+                        else if (cbv0 is Vector4[] cbvDataF4)
+                            SetCBVRSlot<Vector4>(cbvDataF4, cbvOffset);
+                    }
+
+                    cbvOffset++;
+                }
+                else if (access == ResourceAccessType.UAVTable)
+                {
+                    if (call.UAVs != null && call.UAVs.TryGetValue(uavOffset, out object uav0))
+                    {
+                        if (uav0 is Texture2D tex2d)
+                            SetRTSlot(tex2d, uavOffset);
+                        else if (uav0 is GPUBuffer buffer)
+                            SetUAVTSlot(buffer, uavOffset);
+                    }
+                    uavOffset++;
+                }
+            }
+        }
+
+        void WriteLocalHandles(RTInstance inst, RTPSO rtpso, BinaryWriter writer)
+        {
+            int cbvOffset = 0;
+            int srvOffset = 0;
+            foreach (var access in rtpso.localShaderAccessTypes)
+            {
+                if (access == ResourceAccessType.CBV)
+                {
+                    if (inst.CBVs != null && inst.CBVs.TryGetValue(cbvOffset, out object cbv0))
+                    {
+                        if (cbv0 is byte[] cbvData)
+                            _RTWriteGpuAddr<byte>(cbvData, writer);
+                        else if (cbv0 is Matrix4x4[] cbvDataM)
+                            _RTWriteGpuAddr<Matrix4x4>(cbvDataM, writer);
+                        else if (cbv0 is Vector4[] cbvDataF4)
+                            _RTWriteGpuAddr<Vector4>(cbvDataF4, writer);
+                        else
+                            writer.Write((ulong)0);
+                    }
+                    else
+                        writer.Write((ulong)0);
+                    cbvOffset++;
+                }
+                else if (access == ResourceAccessType.SRV)
+                {
+                    srvOffset++;
+                }
+                else if (access == ResourceAccessType.SRVTable)
+                {
+                    if (inst.SRVs != null && inst.SRVs.TryGetValue(srvOffset, out object srv0))
+                    {
+                        if (srv0 is Texture2D tex2d)
+                            writer.Write(GetSRVHandle(tex2d).Ptr);
+                        else if (srv0 is GPUBuffer buffer)
+                            writer.Write(GetSRVHandle(buffer).Ptr);
+                        else if (srv0 is ID3D12Resource resource)
+                            writer.Write(InReferenceAddr(resource));
+                        else
+                            writer.Write((ulong)0);
+                    }
+                    else
+                        writer.Write((ulong)0);
+                    srvOffset++;
+                }
+            }
+        }
+        void BufferAlign(BinaryWriter writer, int align)
+        {
+            var stream = writer.BaseStream;
+            var newPos = align_to(align, (int)stream.Position) - (int)stream.Position;
+            for (int k = 0; k < newPos; k++)
+            {
+                writer.Write((byte)0);
+            }
         }
 
         public void SetSRVTSlotLinear(Texture2D texture, int slot) => currentSRVs[slot] = GetSRVHandle(texture, true).Ptr;
@@ -421,7 +434,7 @@ namespace Coocoo3DGraphics
 
         public void SetCBVRSlot(CBuffer buffer, int offset256, int size256, int slot) => currentCBVs[slot] = buffer.GetCurrentVirtualAddress() + (ulong)(offset256 * 256);
 
-        public void SetCBVRSlot<T>(Span<T> data, int slot) where T : unmanaged
+        public void SetCBVRSlot<T>(ReadOnlySpan<T> data, int slot) where T : unmanaged
         {
             GetRingBuffer().Upload(data, out ulong addr);
             currentCBVs[slot] = addr;
@@ -466,7 +479,7 @@ namespace Coocoo3DGraphics
             currentUAVs[slot] = CreateUAV(texture.resource, uavDesc).Ptr;
         }
 
-        public unsafe void UpdateCBStaticResource<T>(CBuffer buffer, ID3D12GraphicsCommandList commandList, Span<T> data) where T : unmanaged
+        public unsafe void UpdateCBStaticResource<T>(CBuffer buffer, ID3D12GraphicsCommandList commandList, ReadOnlySpan<T> data) where T : unmanaged
         {
             commandList.ResourceBarrierTransition(buffer.resource, ResourceStates.GenericRead, ResourceStates.CopyDest);
 
@@ -475,7 +488,7 @@ namespace Coocoo3DGraphics
             commandList.ResourceBarrierTransition(buffer.resource, ResourceStates.CopyDest, ResourceStates.GenericRead);
         }
 
-        public void UpdateCBResource<T>(CBuffer buffer, ID3D12GraphicsCommandList commandList, Span<T> data) where T : unmanaged
+        public void UpdateCBResource<T>(CBuffer buffer, ID3D12GraphicsCommandList commandList, ReadOnlySpan<T> data) where T : unmanaged
         {
             GetRingBuffer().Upload(data, out buffer.gpuRefAddress);
         }
@@ -545,7 +558,7 @@ namespace Coocoo3DGraphics
 
         }
 
-        unsafe public void UpdateMesh<T>(Mesh mesh, Span<T> data, int slot) where T : unmanaged
+        unsafe public void UpdateMesh<T>(Mesh mesh, ReadOnlySpan<T> data, int slot) where T : unmanaged
         {
             int size1 = Marshal.SizeOf(typeof(T));
             int sizeInBytes = data.Length * size1;
@@ -592,9 +605,9 @@ namespace Coocoo3DGraphics
         public void UpdateResource<T>(CBuffer buffer, T[] data, int sizeInByte, int dataOffset) where T : unmanaged
         {
             int size1 = Marshal.SizeOf(typeof(T));
-            UpdateResource(buffer, new Span<T>(data, dataOffset, sizeInByte / size1));
+            UpdateResource(buffer, new ReadOnlySpan<T>(data, dataOffset, sizeInByte / size1));
         }
-        public void UpdateResource<T>(CBuffer buffer, Span<T> data) where T : unmanaged
+        public void UpdateResource<T>(CBuffer buffer, ReadOnlySpan<T> data) where T : unmanaged
         {
             if (buffer.Mutable)
                 UpdateCBResource(buffer, m_commandList, data);
@@ -612,37 +625,10 @@ namespace Coocoo3DGraphics
             var textureDesc = texture.GetResourceDescription();
 
             CreateResource(textureDesc, null, ref texture.resource);
-
+            texture.InitResourceState(ResourceStates.CopyDest);
             texture.resource.Name = texture.Name ?? "tex2d";
-            ID3D12Resource uploadBuffer = null;
-            CreateBuffer(uploader.m_data.Length, ref uploadBuffer, ResourceStates.GenericRead, HeapType.Upload);
-            uploadBuffer.Name = "uploadbuffer tex";
-            graphicsDevice.ResourceDelayRecycle(uploadBuffer);
 
-            Span<SubresourceData> subresources = stackalloc SubresourceData[textureDesc.MipLevels];
-
-            IntPtr pdata = Marshal.UnsafeAddrOfPinnedArrayElement(uploader.m_data, 0);
-            int bitsPerPixel = (int)BitsPerPixel(textureDesc.Format);
-            int width = (int)textureDesc.Width;
-            int height = textureDesc.Height;
-            for (int i = 0; i < textureDesc.MipLevels; i++)
-            {
-                SubresourceData subresourcedata = new SubresourceData();
-                subresourcedata.Data = pdata;
-                subresourcedata.RowPitch = (IntPtr)(width * bitsPerPixel / 8);
-                subresourcedata.SlicePitch = (IntPtr)(width * height * bitsPerPixel / 8);
-                pdata += width * height * bitsPerPixel / 8;
-
-                subresources[i] = subresourcedata;
-                width /= 2;
-                height /= 2;
-            }
-
-            UpdateSubresources(m_commandList, texture.resource, uploadBuffer, 0, 0, textureDesc.MipLevels, subresources);
-
-            m_commandList.ResourceBarrierTransition(texture.resource, ResourceStates.CopyDest, ResourceStates.GenericRead);
-            InReference(texture.resource);
-            texture.InitResourceState(ResourceStates.GenericRead);
+            UploadTexture(texture, uploader.m_data);
 
             texture.Status = GraphicsObjectStatus.loaded;
         }
@@ -650,11 +636,22 @@ namespace Coocoo3DGraphics
         public void UploadTexture(Texture2D texture, byte[] data)
         {
             int bitsPerPixel = (int)BitsPerPixel(texture.format);
-            int width = (int)texture.width;
+            int width = texture.width;
             int height = texture.height;
 
+            int width1 = width;
+            int height1 = height;
+            int total = 0;
+            for (int i = 0; i < texture.mipLevels; i++)
+            {
+                int rowNumByte1 = (width * bitsPerPixel / 8 + 255) & ~255;
+                total += rowNumByte1 * height1;
+                width1 /= 2;
+                height1 /= 2;
+            }
+
             ID3D12Resource uploadBuffer = null;
-            CreateBuffer(align_to(64, width) * align_to(64, height) * bitsPerPixel / 8, ref uploadBuffer, ResourceStates.GenericRead, HeapType.Upload);
+            CreateBuffer(total, ref uploadBuffer, ResourceStates.GenericRead, HeapType.Upload);
             uploadBuffer.Name = "uploadbuffer tex";
             graphicsDevice.ResourceDelayRecycle(uploadBuffer);
 
@@ -663,10 +660,11 @@ namespace Coocoo3DGraphics
             for (int i = 0; i < texture.mipLevels; i++)
             {
                 SubresourceData subresourcedata = new SubresourceData();
+                int rowNumByte = width * bitsPerPixel / 8;
                 subresourcedata.Data = pdata;
-                subresourcedata.RowPitch = (IntPtr)(width * bitsPerPixel / 8);
-                subresourcedata.SlicePitch = (IntPtr)(width * height * bitsPerPixel / 8);
-                pdata += width * height * bitsPerPixel / 8;
+                subresourcedata.RowPitch = (IntPtr)rowNumByte;
+                subresourcedata.SlicePitch = (IntPtr)(rowNumByte * height);
+                pdata += rowNumByte * height;
 
                 subresources[i] = subresourcedata;
                 width /= 2;
@@ -716,16 +714,8 @@ namespace Coocoo3DGraphics
 
         public void UpdateReadBackTexture(ReadBackTexture2D texture)
         {
-            if (texture.m_textureReadBack != null)
-                foreach (var tex in texture.m_textureReadBack)
-                    graphicsDevice.ResourceDelayRecycle(tex);
-            if (texture.m_textureReadBack == null)
-                texture.m_textureReadBack = new ID3D12Resource[3];
-            for (int i = 0; i < texture.m_textureReadBack.Length; i++)
-            {
-                CreateBuffer(((texture.m_width * texture.bytesPerPixel + 255) & ~255) * texture.m_height, ref texture.m_textureReadBack[i], heapType: HeapType.Readback);
-                texture.m_textureReadBack[i].Name = "texture readback";
-            }
+            CreateBuffer(((texture.m_width * texture.bytesPerPixel + 255) & ~255) * texture.m_height * 3, ref texture.m_textureReadBack, heapType: HeapType.Readback);
+            texture.m_textureReadBack.Name = "texture readback";
         }
 
         public void SetMesh(Mesh mesh)
@@ -760,7 +750,7 @@ namespace Coocoo3DGraphics
             InReference(mesh.indexBuffer);
         }
 
-        public void SetMesh(GPUBuffer mesh, Span<byte> vertexData, Span<byte> indexData, int vertexCount, int indexCount)
+        public void SetMesh(GPUBuffer mesh, ReadOnlySpan<byte> vertexData, ReadOnlySpan<byte> indexData, int vertexCount, int indexCount)
         {
             m_commandList.IASetPrimitiveTopology(PrimitiveTopology.TriangleList);
             int alignedVertSize = align_to(vertexData.Length, 256);
@@ -811,7 +801,9 @@ namespace Coocoo3DGraphics
             footPrint.Footprint.Depth = 1;
             footPrint.Footprint.RowPitch = (target.m_width * 4 + 255) & ~255;
             footPrint.Footprint.Format = texture2D.format;
-            TextureCopyLocation Dst = new TextureCopyLocation(target.m_textureReadBack[index], footPrint);
+            footPrint.Offset = (ulong)(index * footPrint.Footprint.RowPitch * footPrint.Footprint.Height);
+
+            TextureCopyLocation Dst = new TextureCopyLocation(target.m_textureReadBack, footPrint);
             TextureCopyLocation Src = new TextureCopyLocation(backBuffer, 0);
             m_commandList.CopyTextureRegion(Dst, 0, 0, 0, Src, null);
         }
@@ -842,7 +834,6 @@ namespace Coocoo3DGraphics
             _currentGraphicsRootSignature = null;
             _currentComputeRootSignature = null;
             currentRootSignature = null;
-            currentInputLayout = null;
             currentCBVs.Clear();
             currentSRVs.Clear();
             currentUAVs.Clear();
@@ -860,20 +851,19 @@ namespace Coocoo3DGraphics
 
         public void SetDSV(Texture2D texture, bool clear)
         {
-            m_commandList.RSSetScissorRect(texture.width, texture.height);
-            m_commandList.RSSetViewport(0, 0, texture.width, texture.height);
+            SetViewportAndRect(texture);
             texture.SetAllResourceState(m_commandList, ResourceStates.DepthWrite);
             var dsv = graphicsDevice.GetDepthStencilView(texture.resource);
             InReference(texture.resource);
             if (clear)
                 m_commandList.ClearDepthStencilView(dsv, ClearFlags.Depth | ClearFlags.Stencil, 1.0f, 0);
-            m_commandList.OMSetRenderTargets(new CpuDescriptorHandle[0], dsv);
+            m_commandList.OMSetRenderTargets(Array.Empty<CpuDescriptorHandle>(), dsv);
         }
 
         public void SetRTVDSV(Texture2D RTV, Texture2D DSV, Vector4 color, bool clearRTV, bool clearDSV)
         {
-            m_commandList.RSSetScissorRect(RTV.width, RTV.height);
-            m_commandList.RSSetViewport(0, 0, RTV.width, RTV.height);
+            SetViewportAndRect(RTV);
+
             RTV.SetAllResourceState(m_commandList, ResourceStates.RenderTarget);
             var rtv = graphicsDevice.GetRenderTargetView(RTV.resource);
             InReference(RTV.resource);
@@ -921,8 +911,7 @@ namespace Coocoo3DGraphics
 
         public void SetRTVDSV(IReadOnlyList<Texture2D> RTVs, Texture2D DSV, Vector4 color, bool clearRTV, bool clearDSV)
         {
-            m_commandList.RSSetScissorRect(RTVs[0].width, RTVs[0].height);
-            m_commandList.RSSetViewport(0, 0, RTVs[0].width, RTVs[0].height);
+            SetViewportAndRect(RTVs[0]);
 
             CpuDescriptorHandle[] handles = new CpuDescriptorHandle[RTVs.Count];
             for (int i = 0; i < RTVs.Count; i++)
@@ -947,6 +936,12 @@ namespace Coocoo3DGraphics
             {
                 m_commandList.OMSetRenderTargets(handles);
             }
+        }
+
+        void SetViewportAndRect(Texture2D texture)
+        {
+            m_commandList.RSSetScissorRect(texture.width, texture.height);
+            m_commandList.RSSetViewport(0, 0, texture.width, texture.height);
         }
 
         public void ClearTexture(Texture2D texture, Vector4 color, float depth)
@@ -1207,7 +1202,7 @@ namespace Coocoo3DGraphics
                 out resource));
         }
 
-        void _RTWriteGpuAddr<T>(Span<T> data, BinaryWriter writer) where T : unmanaged
+        void _RTWriteGpuAddr<T>(ReadOnlySpan<T> data, BinaryWriter writer) where T : unmanaged
         {
             GetRingBuffer().Upload(data, out ulong addr);
             writer.Write(addr);
@@ -1221,7 +1216,6 @@ namespace Coocoo3DGraphics
 
         GpuDescriptorHandle GetUAVHandle(TextureCube texture)
         {
-            //texture.StateChange(m_commandList, ResourceStates.UnorderedAccess);
             texture.SetAllResourceState(m_commandList, ResourceStates.UnorderedAccess);
             var uavDesc = new UnorderedAccessViewDescription()
             {
@@ -1349,8 +1343,6 @@ namespace Coocoo3DGraphics
             return iD3D12Object.GPUVirtualAddress;
         }
         public HashSet<ID3D12Object> referenceThisCommand = new HashSet<ID3D12Object>();
-
-        public UnnamedInputLayout currentInputLayout;
 
         Dictionary<SwapChain, bool> presents = new Dictionary<SwapChain, bool>();
 

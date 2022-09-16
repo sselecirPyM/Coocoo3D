@@ -11,7 +11,6 @@ namespace Coocoo3DGraphics
     {
         public ID3D12Resource resource;
         public string Name;
-        //public ResourceStates resourceStates;
         public ID3D12DescriptorHeap renderTargetView;
         public ID3D12DescriptorHeap depthStencilView;
         public int width;
@@ -46,7 +45,7 @@ namespace Coocoo3DGraphics
                 if (states != prev)
                 {
                     commandList.ResourceBarrierTransition(resource, prev, states);
-                    for (int i = 0; i < mipLevels * 6; i++)
+                    for (int i = 0; i < resourceStates.Count; i++)
                     {
                         resourceStates[i] = states;
                     }
@@ -58,7 +57,7 @@ namespace Coocoo3DGraphics
             }
             else
             {
-                for (int i = 0; i < mipLevels * 6; i++)
+                for (int i = 0; i < resourceStates.Count; i++)
                 {
                     if (states != resourceStates[i])
                     {
@@ -149,25 +148,28 @@ namespace Coocoo3DGraphics
 
         internal ResourceDescription GetResourceDescription()
         {
-            ResourceDescription textureDesc = new ResourceDescription();
-            textureDesc.MipLevels = (ushort)mipLevels;
+            ResourceDescription textureDesc = new ResourceDescription
+            {
+                MipLevels = (ushort)mipLevels,
+                Width = (ulong)width,
+                Height = height,
+                DepthOrArraySize = 6,
+                Dimension = ResourceDimension.Texture2D,
+                Flags = ResourceFlags.None,
+                SampleDescription = new SampleDescription(1, 0)
+            };
+
             if (dsvFormat != Format.Unknown)
                 textureDesc.Format = dsvFormat;
             else
                 textureDesc.Format = format;
-            textureDesc.Width = (ulong)width;
-            textureDesc.Height = height;
-            textureDesc.Flags = ResourceFlags.None;
+
             if (dsvFormat != Format.Unknown)
                 textureDesc.Flags |= ResourceFlags.AllowDepthStencil;
             if (rtvFormat != Format.Unknown)
                 textureDesc.Flags |= ResourceFlags.AllowRenderTarget;
             if (uavFormat != Format.Unknown)
                 textureDesc.Flags |= ResourceFlags.AllowUnorderedAccess;
-            textureDesc.DepthOrArraySize = 6;
-            textureDesc.SampleDescription.Count = 1;
-            textureDesc.SampleDescription.Quality = 0;
-            textureDesc.Dimension = ResourceDimension.Texture2D;
 
             return textureDesc;
         }
@@ -185,18 +187,5 @@ namespace Coocoo3DGraphics
             resource = null;
             Status = GraphicsObjectStatus.unload;
         }
-
-        //public void StateChange(ID3D12GraphicsCommandList commandList, ResourceStates states)
-        //{
-        //    if (states != resourceStates)
-        //    {
-        //        commandList.ResourceBarrierTransition(resource, resourceStates, states);
-        //        resourceStates = states;
-        //    }
-        //    else if (states == ResourceStates.UnorderedAccess)
-        //    {
-        //        commandList.ResourceBarrierUnorderedAccessView(resource);
-        //    }
-        //}
     }
 }

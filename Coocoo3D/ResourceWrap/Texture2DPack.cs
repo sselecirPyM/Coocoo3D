@@ -10,18 +10,18 @@ using ImageMagick;
 
 namespace Coocoo3D.ResourceWrap
 {
-    public class Texture2DPack
+    public class Texture2DPack:IDisposable
     {
         public Texture2D texture2D = new Texture2D();
         public string fullPath;
 
         public GraphicsObjectStatus Status;
 
-        public bool ReloadTexture(FileInfo fileInfo, Uploader uploader)
+        public bool LoadTexture(string fileName, Stream stream, Uploader uploader)
         {
             try
             {
-                switch (fileInfo.Extension.ToLower())
+                switch (Path.GetExtension(fileName).ToLower())
                 {
                     case ".jpg":
                     case ".jpeg":
@@ -32,14 +32,12 @@ namespace Coocoo3D.ResourceWrap
                     case ".bmp":
                     case ".webp":
                         {
-                            using var stream = fileInfo.OpenRead();
                             byte[] data = GetImageData(stream, out int width, out int height, out _, out int mipMap);
                             uploader.Texture2DRawLessCopy(data, Format.R8G8B8A8_UNorm_SRgb, width, height, mipMap);
                         }
                         break;
                     default:
                         {
-                            using var stream = fileInfo.OpenRead();
                             byte[] data = GetImageDataMagick(stream, out int width, out int height, out int bitPerPixel, out int mipMap);
                             uploader.Texture2DRawLessCopy(data, bitPerPixel == 16 * 4 ? Format.R16G16B16A16_UNorm : Format.R8G8B8A8_UNorm_SRgb, width, height, mipMap);
                         }
@@ -159,7 +157,7 @@ namespace Coocoo3D.ResourceWrap
             level = 1;
             if (width > 4096 || height > 4096)
                 return totalCount;
-            while (width > 64 && height > 64)
+            while (width > 2 && height > 2)
             {
                 width /= 2;
                 height /= 2;
@@ -168,6 +166,11 @@ namespace Coocoo3D.ResourceWrap
                 level++;
             }
             return totalCount;
+        }
+
+        public void Dispose()
+        {
+            texture2D.Dispose();
         }
     }
 }

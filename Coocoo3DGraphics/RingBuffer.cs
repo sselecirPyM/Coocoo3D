@@ -7,7 +7,7 @@ using static Coocoo3DGraphics.DXHelper;
 
 namespace Coocoo3DGraphics
 {
-    internal class RingBuffer : IDisposable
+    internal sealed class RingBuffer : IDisposable
     {
         public unsafe void Init(ID3D12Device device, int size)
         {
@@ -20,7 +20,7 @@ namespace Coocoo3DGraphics
             mapped = new IntPtr(ptr1);
         }
 
-        IntPtr Upload(ID3D12GraphicsCommandList commandList, int size, ID3D12Resource target, int offset)
+        IntPtr GetUploadBuffer(ID3D12GraphicsCommandList commandList, int size, ID3D12Resource target, int offset)
         {
             if (currentPosition + size > this.size)
             {
@@ -33,10 +33,10 @@ namespace Coocoo3DGraphics
             return result;
         }
 
-        public unsafe void Upload<T>(ID3D12GraphicsCommandList commandList, Span<T> data, ID3D12Resource target, int offset = 0) where T : unmanaged
+        public unsafe void Upload<T>(ID3D12GraphicsCommandList commandList, ReadOnlySpan<T> data, ID3D12Resource target, int offset = 0) where T : unmanaged
         {
             int size1 = Marshal.SizeOf(typeof(T)) * data.Length;
-            IntPtr ptr = Upload(commandList, size1, target, offset);
+            IntPtr ptr = GetUploadBuffer(commandList, size1, target, offset);
             var range = new Span<T>(ptr.ToPointer(), data.Length);
             data.CopyTo(range);
         }
@@ -54,7 +54,7 @@ namespace Coocoo3DGraphics
             return result;
         }
 
-        public unsafe void Upload<T>(Span<T> data, out ulong gpuAddress) where T : unmanaged
+        public unsafe void Upload<T>(ReadOnlySpan<T> data, out ulong gpuAddress) where T : unmanaged
         {
             int size1 = Marshal.SizeOf(typeof(T)) * data.Length;
             var range = new Span<T>(Upload(size1, out gpuAddress).ToPointer(), data.Length);

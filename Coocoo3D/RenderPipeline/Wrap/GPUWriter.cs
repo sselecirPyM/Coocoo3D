@@ -47,7 +47,7 @@ namespace Coocoo3D.RenderPipeline.Wrap
                 cBuffer = new CBuffer();
             cBuffer.Mutable = true;
 
-            context.UpdateResource(cBuffer, new Span<byte>(memoryStream.GetBuffer(), 0, (int)memoryStream.Position));
+            context.UpdateResource(cBuffer, new ReadOnlySpan<byte>(memoryStream.GetBuffer(), 0, (int)memoryStream.Position));
             binaryWriter.Seek(0, SeekOrigin.Begin);
             return cBuffer;
         }
@@ -175,7 +175,7 @@ namespace Coocoo3D.RenderPipeline.Wrap
 
         public void SetCBV(int slot)
         {
-            graphicsContext.SetCBVRSlot(new Span<byte>(memoryStream.GetBuffer(), 0, (int)memoryStream.Position), slot);
+            graphicsContext.SetCBVRSlot(new ReadOnlySpan<byte>(memoryStream.GetBuffer(), 0, (int)memoryStream.Position), slot);
             binaryWriter.Seek(0, SeekOrigin.Begin);
         }
     }

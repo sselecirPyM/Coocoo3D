@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -21,7 +22,7 @@ namespace Coocoo3D.Core
         public RenderPipelineContext renderPipelineContext;
         public MainCaches mainCaches;
 
-        public Type[] RenderPipelineTypes = new Type[0];
+        public List<Type> RenderPipelineTypes = new List<Type>();
 
         public void Initialize()
         {
@@ -135,7 +136,7 @@ namespace Coocoo3D.Core
 
         public void LoadRenderPipelines(DirectoryInfo dir)
         {
-            RenderPipelineTypes = new Type[0];
+            RenderPipelineTypes.Clear();
             foreach (var file in dir.EnumerateFiles("*.dll"))
             {
                 LoadRenderPipelineTypes(file.FullName);
@@ -146,7 +147,7 @@ namespace Coocoo3D.Core
         {
             try
             {
-                RenderPipelineTypes = RenderPipelineTypes.Concat(mainCaches.GetDerivedTypes(Path.GetFullPath(path), typeof(RenderPipeline.RenderPipeline))).ToArray();
+                RenderPipelineTypes.AddRange(mainCaches.GetDerivedTypes(Path.GetFullPath(path), typeof(RenderPipeline.RenderPipeline)));
             }
             catch
             {
@@ -218,20 +219,20 @@ namespace Coocoo3D.Core
                 int l = Math.Min(matrices.Length, 1024);
                 for (int k = 0; k < l; k++)
                     mats[k] = Matrix4x4.Transpose(matrices[k]);
-                graphicsContext.UpdateResource(rpc.CBs_Bone[i], mats.Slice(0, l));
+                graphicsContext.UpdateResource<Matrix4x4>(rpc.CBs_Bone[i], mats.Slice(0, l));
                 rpc.findRenderer[renderer] = i;
             }
             #endregion
         }
         void Skinning(ModelPack model, MMDRendererComponent renderer, Mesh mesh)
         {
-            const int parallelSize = 1024;
-            Span<Vector3> dat0 = MemoryMarshal.Cast<byte, Vector3>(new Span<byte>(bigBuffer, 0, bigBuffer.Length / 12 * 12));
-            Parallel.For(0, (model.vertexCount + parallelSize - 1) / parallelSize, u =>
+
+            var rangePartitioner = Partitioner.Create(0, model.vertexCount);
+            Parallel.ForEach(rangePartitioner, (range, loopState) =>
             {
                 Span<Vector3> _d3 = MemoryMarshal.Cast<byte, Vector3>(new Span<byte>(bigBuffer, 0, bigBuffer.Length / 12 * 12));
-                int from = u * parallelSize;
-                int to = Math.Min(from + parallelSize, model.vertexCount);
+                int from = range.Item1;
+                int to = range.Item2;
                 for (int j = from; j < to; j++)
                 {
                     Vector3 pos0 = renderer.meshPositionCache[j];
@@ -252,15 +253,16 @@ namespace Coocoo3D.Core
                         _d3[j] = pos0;
                 }
             });
+            Span<Vector3> dat0 = MemoryMarshal.Cast<byte, Vector3>(new Span<byte>(bigBuffer, 0, bigBuffer.Length / 12 * 12));
             //graphicsContext.BeginUpdateMesh(mesh);
             //graphicsContext.UpdateMesh(mesh, d3.Slice(0, model.vertexCount), 0);
             mesh.AddBuffer(dat0.Slice(0, model.vertexCount), 0);//for compatibility
 
-            Parallel.For(0, (model.vertexCount + parallelSize - 1) / parallelSize, u =>
+            Parallel.ForEach(rangePartitioner, (range, loopState) =>
             {
                 Span<Vector3> _d3 = MemoryMarshal.Cast<byte, Vector3>(new Span<byte>(bigBuffer, 0, bigBuffer.Length / 12 * 12));
-                int from = u * parallelSize;
-                int to = Math.Min(from + parallelSize, model.vertexCount);
+                int from = range.Item1;
+                int to = range.Item2;
                 for (int j = from; j < to; j++)
                 {
                     Vector3 norm0 = model.normal[j];

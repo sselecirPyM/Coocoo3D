@@ -66,31 +66,34 @@ namespace Coocoo3D.UI
                         caches.modelLoadHandler.Add(new ModelLoadTask() { path = file.FullName, scene = scene });
                         break;
                     case ".vmd":
-                        BinaryReader reader = new BinaryReader(file.OpenRead());
-                        VMDFormat motionSet = VMDFormat.Load(reader);
-                        if (motionSet.CameraKeyFrames.Count != 0)
                         {
-                            var camera = windowSystem.currentChannel.camera;
-                            camera.cameraMotion.cameraKeyFrames = new List<CameraKeyFrame>();
-                            var cameraKeyFrames = camera.cameraMotion.cameraKeyFrames;
-                            cameraKeyFrames.AddRange(motionSet.CameraKeyFrames);
-                            for (int i = 0; i < cameraKeyFrames.Count; i++)
+                            using var stream = file.OpenRead();
+                            using BinaryReader reader = new BinaryReader(stream);
+                            VMDFormat motionSet = VMDFormat.Load(reader);
+                            if (motionSet.CameraKeyFrames.Count != 0)
                             {
-                                CameraKeyFrame frame = cameraKeyFrames[i];
-                                frame.distance *= 0.1f;
-                                frame.position *= 0.1f;
-                                cameraKeyFrames[i] = frame;
-                            }
-                            camera.CameraMotionOn = true;
-                        }
-                        else
-                        {
-                            foreach (var gameObject in this.scene.SelectedGameObjects)
-                            {
-                                var animationState = gameObject.GetComponent<Components.AnimationStateComponent>();
-                                if (animationState != null)
+                                var camera = windowSystem.currentChannel.camera;
+                                camera.cameraMotion.cameraKeyFrames = new List<CameraKeyFrame>();
+                                var cameraKeyFrames = camera.cameraMotion.cameraKeyFrames;
+                                cameraKeyFrames.AddRange(motionSet.CameraKeyFrames);
+                                for (int i = 0; i < cameraKeyFrames.Count; i++)
                                 {
-                                    animationState.motionPath = file.FullName;
+                                    CameraKeyFrame frame = cameraKeyFrames[i];
+                                    frame.distance *= 0.1f;
+                                    frame.position *= 0.1f;
+                                    cameraKeyFrames[i] = frame;
+                                }
+                                camera.CameraMotionOn = true;
+                            }
+                            else
+                            {
+                                foreach (var gameObject in this.scene.SelectedGameObjects)
+                                {
+                                    var animationState = gameObject.GetComponent<Components.AnimationStateComponent>();
+                                    if (animationState != null)
+                                    {
+                                        animationState.motionPath = file.FullName;
+                                    }
                                 }
                             }
                         }

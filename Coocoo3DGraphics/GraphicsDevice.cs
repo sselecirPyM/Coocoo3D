@@ -89,19 +89,19 @@ namespace Coocoo3DGraphics
             descriptorHeapDescription.Type = DescriptorHeapType.ConstantBufferViewShaderResourceViewUnorderedAccessView;
             descriptorHeapDescription.Flags = DescriptorHeapFlags.ShaderVisible;
             cbvsrvuavHeap = new DescriptorHeapX();
-            cbvsrvuavHeap.Initialize(this, descriptorHeapDescription);
+            cbvsrvuavHeap.Initialize(device, descriptorHeapDescription);
 
             descriptorHeapDescription.DescriptorCount = 16;
             descriptorHeapDescription.Type = DescriptorHeapType.RenderTargetView;
             descriptorHeapDescription.Flags = DescriptorHeapFlags.None;
             rtvHeap = new DescriptorHeapX();
-            rtvHeap.Initialize(this, descriptorHeapDescription);
+            rtvHeap.Initialize(device, descriptorHeapDescription);
 
             descriptorHeapDescription.DescriptorCount = 16;
             descriptorHeapDescription.Type = DescriptorHeapType.DepthStencilView;
             descriptorHeapDescription.Flags = DescriptorHeapFlags.None;
             dsvHeap = new DescriptorHeapX();
-            dsvHeap.Initialize(this, descriptorHeapDescription);
+            dsvHeap.Initialize(device, descriptorHeapDescription);
 
             fenceEvent = new EventWaitHandle(false, EventResetMode.AutoReset);
 
