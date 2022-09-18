@@ -9,15 +9,23 @@ using System.Threading.Tasks;
 
 namespace Coocoo3D.RenderPipeline
 {
+    public class TextureRecordData
+    {
+        public ulong frame;
+        public int offset;
+        public int width;
+        public int height;
+        public string target;
+
+        public Stream stream;
+    }
     public class Recorder : IDisposable
     {
-        public ReadBackTexture2D ReadBackTexture2D = new ReadBackTexture2D();
+        public ReadBackBuffer ReadBackBuffer = new ReadBackBuffer();
 
         public GraphicsContext graphicsContext;
 
         public GraphicsDevice graphicsDevice;
-
-        public Stream stream;
 
         byte[] temp;
 
@@ -27,57 +35,57 @@ namespace Coocoo3D.RenderPipeline
         {
             if (recordQueue.Count == 0) return;
             ulong completed = graphicsDevice.GetInternalCompletedFenceValue();
-            int width = ReadBackTexture2D.GetWidth();
-            int height = ReadBackTexture2D.GetHeight();
-            while (recordQueue.Count > 0 && recordQueue.Peek().Item1 <= completed)
+            while (recordQueue.Count > 0 && recordQueue.Peek().frame <= completed)
             {
-                var triple = recordQueue.Dequeue();
+                var tuple = recordQueue.Dequeue();
+                int width = tuple.width;
+                int height = tuple.height;
+                var stream = tuple.stream;
 
                 if (temp == null || temp.Length != width * height * 4)
                 {
                     temp = new byte[width * height * 4];
                 }
                 var data = temp;
-                ReadBackTexture2D.GetRaw<byte>(triple.Item2, data);
+                ReadBackBuffer.GetData<byte>(tuple.offset, height, (width * 4 + 255) & ~255, width * 4, data);
+
                 if (stream == null)
-                    TextureHelper.SaveToFile(data, width, height, triple.Item3);
+                    TextureHelper.SaveToFile(data, width, height, tuple.target);
                 else
-                    TextureHelper.SaveToFile(data, width, height, triple.Item3, stream);
-            }
-            if(!recording&& recordQueue.Count == 0)
-            {
-                if (stream != null)
                 {
+                    TextureHelper.SaveToFile(data, width, height, tuple.target, stream);
                     stream.Flush();
-                    stream.Dispose();
-                    stream = null;
                 }
             }
         }
 
-        int index1;
+        public Queue<TextureRecordData> recordQueue = new();
 
-        Queue<ValueTuple<ulong, int, string>> recordQueue = new();
-
-        public void Record(Texture2D texture, string output)
+        public void Record(Texture2D texture, Stream stream, string output)
         {
             int width = texture.width;
             int height = texture.height;
-            if (ReadBackTexture2D.GetWidth() != width || ReadBackTexture2D.GetHeight() != height)
+            if (ReadBackBuffer.size < ((width * 4 + 255) & ~255) * height)
             {
-                ReadBackTexture2D.Reload(width, height, 4);
-                graphicsContext.UpdateReadBackTexture(ReadBackTexture2D);
+                graphicsContext.UpdateReadBackTexture(ReadBackBuffer, width, height, 4);
             }
 
-            graphicsContext.CopyTexture(ReadBackTexture2D, texture, index1);
+            int offset = graphicsContext.ReadBack(ReadBackBuffer, texture);
 
-            recordQueue.Enqueue(new ValueTuple<ulong, int, string>(graphicsDevice.GetInternalFenceValue(), index1, output));
-            index1 = (index1 + 1) % 3;
+            recordQueue.Enqueue(new TextureRecordData
+            {
+                frame = graphicsDevice.GetInternalFenceValue(),
+                offset = offset,
+                target = output,
+                width = width,
+                height = height,
+                stream = stream
+            });
         }
 
         public void Dispose()
         {
-            ReadBackTexture2D = null;
+            ReadBackBuffer = null;
         }
     }
 }

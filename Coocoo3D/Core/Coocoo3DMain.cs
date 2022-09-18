@@ -214,11 +214,11 @@ namespace Coocoo3D.Core
             recordSystem.Record();
 
             uiRenderSystem.Update();
-            graphicsContext.Present(swapChain, config.VSync);
             graphicsContext.EndCommand();
             graphicsContext.Execute();
             graphicsDevice.RenderComplete();
             statistics.DrawTriangleCount = graphicsContext.TriangleCount;
+            swapChain.Present(config.VSync);
 
             return true;
         }

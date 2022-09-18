@@ -3,7 +3,6 @@ using Coocoo3DGraphics;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 using Caprice.Attributes;
@@ -30,11 +29,10 @@ namespace Coocoo3D.RenderPipeline
 
         public Type newRenderPipelineType;
         public string newRenderPipelinePath;
-        public RenderPipelineContext rpc;
 
         public Dictionary<string, object> pipelineSettings = new();
 
-        public void Onframe()
+        public void Onframe(float time)
         {
             if (newRenderPipelineType != null)
             {
@@ -52,7 +50,7 @@ namespace Coocoo3D.RenderPipeline
             }
 
             if (camera.CameraMotionOn)
-                camera.SetCameraMotion((float)rpc.Time);
+                camera.SetCameraMotion(time);
             cameraData = camera.GetCameraData();
 
             if (this.renderPipeline != null)
@@ -73,8 +71,6 @@ namespace Coocoo3D.RenderPipeline
             var renderWrap = new RenderWrap()
             {
                 RenderPipelineView = renderPipelineView,
-                //visualChannel = this,
-                rpc = rpc,
             };
             renderPipeline.renderWrap = renderWrap;
             renderPipelineView.renderWrap = renderWrap;

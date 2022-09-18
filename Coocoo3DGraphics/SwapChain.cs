@@ -1,7 +1,6 @@
 ﻿using SharpGen.Runtime;
 using System;
 using System.Collections.Generic;
-using System.Numerics;
 using System.Text;
 using Vortice.Direct3D12;
 using Vortice.DXGI;
@@ -9,7 +8,7 @@ using static Coocoo3DGraphics.DXHelper;
 
 namespace Coocoo3DGraphics
 {
-    public class SwapChain :IDisposable
+    public class SwapChain : IDisposable
     {
         internal IDXGISwapChain3 m_swapChain;
         internal ID3D12Resource[] m_renderTargets = new ID3D12Resource[c_frameCount];
@@ -97,7 +96,7 @@ namespace Coocoo3DGraphics
             }
         }
 
-        internal void Present(bool vsync)
+        public void Present(bool vsync)
         {
             Result hr;
             if (vsync)
@@ -141,7 +140,7 @@ namespace Coocoo3DGraphics
         {
             m_swapChain?.Dispose();
             m_swapChain = null;
-            foreach(var tex in m_renderTargets)
+            foreach (var tex in m_renderTargets)
             {
                 tex.Dispose();
             }

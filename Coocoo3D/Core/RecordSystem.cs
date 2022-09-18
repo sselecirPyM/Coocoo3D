@@ -96,13 +96,17 @@ namespace Coocoo3D.Core
                         fileName = Path.GetFullPath(string.Format("{0}.png", RecordCount));
                     else
                         fileName = Path.GetFullPath(string.Format("{0}.bmp", RecordCount));
-                    recorder.Record(aov, fileName);
+                    recorder.Record(aov, pipe, fileName);
                     RecordCount++;
                 }
             }
 
-
             recorder.OnFrame();
+            if (recorder.recordQueue.Count == 0 && !recording && pipe != null)
+            {
+                pipe.Dispose();
+                pipe = null;
+            }
         }
 
         public void StartRecord()
@@ -151,29 +155,23 @@ namespace Coocoo3D.Core
                         processStartInfo.ArgumentList.Add(arg);
                     ffmpegProcess = Process.Start(processStartInfo);
                 });
-                recorder.stream = pipe;
                 pipe.WaitForConnection();
             }
             else
             {
-                recorder.stream = null;
+                pipe?.Dispose();
+                pipe = null;
             }
         }
 
         public void StopRecord()
         {
             recording = false;
-            if (pipe != null)
-            {
-                pipe = null;
-            }
             if (windowSystem.visualChannels.TryGetValue(recordChannel, out var visualchannel))
             {
                 visualchannel.resolusionSizeSource = ResolusionSizeSource.Default;
             }
         }
-
-
 
         public void Dispose()
         {

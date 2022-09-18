@@ -1,7 +1,6 @@
 ﻿using Coocoo3D.RenderPipeline;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -13,8 +12,6 @@ namespace Coocoo3D.Core
         public Dictionary<string, VisualChannel> visualChannels = new();
 
         public VisualChannel currentChannel;
-
-        public RenderPipelineContext RenderPipelineContext;
 
         Queue<string> delayAddVisualChannel = new();
         Queue<string> delayRemoveVisualChannel = new();
@@ -70,7 +67,6 @@ namespace Coocoo3D.Core
             var visualChannel = new VisualChannel();
             visualChannels[name] = visualChannel;
             visualChannel.Name = name;
-            visualChannel.rpc = RenderPipelineContext;
 
             return visualChannel;
         }

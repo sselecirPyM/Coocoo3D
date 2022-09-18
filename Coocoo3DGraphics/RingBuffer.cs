@@ -22,13 +22,9 @@ namespace Coocoo3DGraphics
 
         IntPtr GetUploadBuffer(ID3D12GraphicsCommandList commandList, int size, ID3D12Resource target, int offset)
         {
-            if (currentPosition + size > this.size)
-            {
-                currentPosition = 0;
-            }
-            IntPtr result = mapped + currentPosition;
-            commandList.CopyBufferRegion(target, (ulong)offset, resource, (ulong)currentPosition, (ulong)size);
-            currentPosition = ((currentPosition + size + 255) & ~255) % this.size;
+            int offset1 = GetOffsetAndMove(size);
+            IntPtr result = mapped + offset1;
+            commandList.CopyBufferRegion(target, (ulong)offset, resource, (ulong)offset1, (ulong)size);
 
             return result;
         }
@@ -43,14 +39,20 @@ namespace Coocoo3DGraphics
 
         IntPtr Upload(int size, out ulong gpuAddress)
         {
+            int offset1 = GetOffsetAndMove(size);
+            IntPtr result = mapped + offset1;
+            gpuAddress = resource.GPUVirtualAddress + (ulong)offset1;
+            return result;
+        }
+
+        int GetOffsetAndMove(int size)
+        {
             if (currentPosition + size > this.size)
             {
                 currentPosition = 0;
             }
-            IntPtr result = mapped + currentPosition;
-            gpuAddress = resource.GPUVirtualAddress + (ulong)currentPosition;
+            int result = currentPosition;
             currentPosition = ((currentPosition + size + 255) & ~255) % this.size;
-
             return result;
         }
 

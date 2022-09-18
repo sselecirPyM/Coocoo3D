@@ -76,9 +76,12 @@ namespace Coocoo3D.Core
             }
             foreach (var visualChannel in channels)
             {
-                visualChannel.Onframe();
+                visualChannel.Onframe((float)context.Time);
                 var renderPipeline = visualChannel.renderPipeline;
-                foreach (var cap in visualChannel.renderPipelineView.sceneCaptures)
+                var renderPipelineView = visualChannel.renderPipelineView;
+                renderPipeline.renderWrap.rpc = context;
+
+                foreach (var cap in renderPipelineView.sceneCaptures)
                 {
                     var member = cap.Value.Item1;
                     var captureAttribute = cap.Value.Item2;

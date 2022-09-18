@@ -41,19 +41,20 @@ namespace Coocoo3DGraphics
 
         public bool SetPSO(ComputeShader computeShader)
         {
-            if (!computeShader.computeShaders.TryGetValue(currentRootSignature.rootSignature, out ID3D12PipelineState pipelineState))
+            var rootSignature = currentRootSignature.rootSignature;
+            if (!computeShader.computeShaders.TryGetValue(rootSignature, out ID3D12PipelineState pipelineState))
             {
                 var desc = new ComputePipelineStateDescription
                 {
                     ComputeShader = computeShader.data,
-                    RootSignature = currentRootSignature.rootSignature
+                    RootSignature = rootSignature
                 };
                 if (graphicsDevice.device.CreateComputePipelineState(desc, out pipelineState).Failure)
                 {
                     return false;
                 }
 
-                computeShader.computeShaders[currentRootSignature.rootSignature] = pipelineState;
+                computeShader.computeShaders[rootSignature] = pipelineState;
             }
 
             m_commandList.SetPipelineState(pipelineState);
@@ -331,7 +332,6 @@ namespace Coocoo3DGraphics
                         else if (srv0 is GPUBuffer buffer)
                             SetSRVTSlot(buffer, srvOffset);
                     }
-
                     srvOffset++;
                 }
                 else if (access == ResourceAccessType.CBV)
@@ -345,7 +345,6 @@ namespace Coocoo3DGraphics
                         else if (cbv0 is Vector4[] cbvDataF4)
                             SetCBVRSlot<Vector4>(cbvDataF4, cbvOffset);
                     }
-
                     cbvOffset++;
                 }
                 else if (access == ResourceAccessType.UAVTable)
@@ -479,7 +478,7 @@ namespace Coocoo3DGraphics
             currentUAVs[slot] = CreateUAV(texture.resource, uavDesc).Ptr;
         }
 
-        public unsafe void UpdateCBStaticResource<T>(CBuffer buffer, ID3D12GraphicsCommandList commandList, ReadOnlySpan<T> data) where T : unmanaged
+        unsafe void UpdateCBStaticResource<T>(CBuffer buffer, ID3D12GraphicsCommandList commandList, ReadOnlySpan<T> data) where T : unmanaged
         {
             commandList.ResourceBarrierTransition(buffer.resource, ResourceStates.GenericRead, ResourceStates.CopyDest);
 
@@ -488,7 +487,7 @@ namespace Coocoo3DGraphics
             commandList.ResourceBarrierTransition(buffer.resource, ResourceStates.CopyDest, ResourceStates.GenericRead);
         }
 
-        public void UpdateCBResource<T>(CBuffer buffer, ID3D12GraphicsCommandList commandList, ReadOnlySpan<T> data) where T : unmanaged
+        void UpdateCBResource<T>(CBuffer buffer, ID3D12GraphicsCommandList commandList, ReadOnlySpan<T> data) where T : unmanaged
         {
             GetRingBuffer().Upload(data, out buffer.gpuRefAddress);
         }
@@ -712,10 +711,12 @@ namespace Coocoo3DGraphics
             buffer.resourceStates = ResourceStates.UnorderedAccess;
         }
 
-        public void UpdateReadBackTexture(ReadBackTexture2D texture)
+        public void UpdateReadBackTexture(ReadBackBuffer texture,int width,int height,int bytesPerPixel)
         {
-            CreateBuffer(((texture.m_width * texture.bytesPerPixel + 255) & ~255) * texture.m_height * 3, ref texture.m_textureReadBack, heapType: HeapType.Readback);
-            texture.m_textureReadBack.Name = "texture readback";
+            int size = ((width * bytesPerPixel + 255) & ~255) * height * 3;
+            CreateBuffer(size, ref texture.bufferReadBack, heapType: HeapType.Readback);
+            texture.size = size;
+            texture.bufferReadBack.Name = "texture readback";
         }
 
         public void SetMesh(Mesh mesh)
@@ -790,22 +791,25 @@ namespace Coocoo3DGraphics
             m_commandList.CopyResource(target.resource, source.resource);
         }
 
-        public void CopyTexture(ReadBackTexture2D target, Texture2D texture2D, int index)
+        public int ReadBack(ReadBackBuffer target, Texture2D texture2D)
         {
-            var backBuffer = texture2D.resource;
+            var readBackBuffer = texture2D.resource;
             texture2D.SetAllResourceState(m_commandList, ResourceStates.CopySource);
-
+            int RowPitch = (texture2D.width * 4 + 255) & ~255;
+            int offset = target.GetOffsetAndMove(RowPitch * texture2D.height);
             PlacedSubresourceFootPrint footPrint = new PlacedSubresourceFootPrint();
-            footPrint.Footprint.Width = target.m_width;
-            footPrint.Footprint.Height = target.m_height;
+            footPrint.Footprint.Width = texture2D.width;
+            footPrint.Footprint.Height = texture2D.height;
             footPrint.Footprint.Depth = 1;
-            footPrint.Footprint.RowPitch = (target.m_width * 4 + 255) & ~255;
+            footPrint.Footprint.RowPitch = RowPitch;
             footPrint.Footprint.Format = texture2D.format;
-            footPrint.Offset = (ulong)(index * footPrint.Footprint.RowPitch * footPrint.Footprint.Height);
+            footPrint.Offset = (ulong)offset;
 
-            TextureCopyLocation Dst = new TextureCopyLocation(target.m_textureReadBack, footPrint);
-            TextureCopyLocation Src = new TextureCopyLocation(backBuffer, 0);
+            TextureCopyLocation Dst = new TextureCopyLocation(target.bufferReadBack, footPrint);
+            TextureCopyLocation Src = new TextureCopyLocation(readBackBuffer, 0);
             m_commandList.CopyTextureRegion(Dst, 0, 0, 0, Src, null);
+
+            return offset;
         }
 
         public void RSSetScissorRect(int left, int top, int right, int bottom)
@@ -843,6 +847,7 @@ namespace Coocoo3DGraphics
         {
             var handle1 = graphicsDevice.GetRenderTargetView(swapChain.GetResource(m_commandList));
             m_commandList.ClearRenderTargetView(handle1, new Vortice.Mathematics.Color(color));
+            presents[swapChain] = true;
         }
 
         public void SetRTV(Texture2D RTV, Vector4 color, bool clear) => SetRTVDSV(RTV, null, color, clear, false);
@@ -988,6 +993,7 @@ namespace Coocoo3DGraphics
             if (clear)
                 m_commandList.ClearRenderTargetView(renderTargetView, new Vortice.Mathematics.Color4(color));
             m_commandList.OMSetRenderTargets(renderTargetView);
+            presents[swapChain] = true;
         }
 
         public void Draw(int vertexCount, int startVertexLocation)
@@ -1138,6 +1144,7 @@ namespace Coocoo3DGraphics
             {
                 pair.Key.EndRenderTarget(m_commandList);
             }
+            presents.Clear();
 
             m_commandList.Close();
         }
@@ -1148,22 +1155,11 @@ namespace Coocoo3DGraphics
             graphicsDevice.ReturnCommandList(m_commandList);
             m_commandList = null;
 
-            foreach (var pair in presents)
-            {
-                pair.Key.Present(pair.Value);
-            }
-            presents.Clear();
-
             foreach (var resource in referenceThisCommand)
             {
                 graphicsDevice.ResourceDelayRecycle(resource);
             }
             referenceThisCommand.Clear();
-        }
-
-        public void Present(SwapChain swapChain, bool vsync)
-        {
-            presents[swapChain] = vsync;
         }
 
         void CreateBuffer(int bufferLength, ref ID3D12Resource resource, ResourceStates resourceStates = ResourceStates.CopyDest, HeapType heapType = HeapType.Default)
