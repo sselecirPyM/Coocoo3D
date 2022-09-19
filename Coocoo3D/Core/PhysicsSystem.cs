@@ -1,6 +1,8 @@
 ﻿using Coocoo3D.Base;
 using Coocoo3D.Components;
+using Coocoo3D.Present;
 using Coocoo3D.Utility;
+using DefaultEcs;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,7 +19,9 @@ namespace Coocoo3D.Core
     }
     public class PhysicsSystem
     {
+        public World world;
         public Scene scene;
+        EntitySet set;
 
         public double deltaTime;
 
@@ -33,29 +37,43 @@ namespace Coocoo3D.Core
         {
             physics3DScene.Initialize();
             physics3DScene.SetGravitation(new Vector3(0, -9.801f, 0));
+            world.SubscribeComponentAdded<MMDRendererComponent>(OnAdd);
+            world.SubscribeComponentRemoved<MMDRendererComponent>(OnRemove);
+            world.SubscribeComponentChanged<Transform>(OnChange);
+            set = world.GetEntities().With<MMDRendererComponent>().AsSet();
+        }
+
+        public void OnAdd(in Entity entity, in MMDRendererComponent component)
+        {
+            component.SetTransform(entity.Get<Transform>());
+            physicsObjects[component] = AddPhysics(component);
+        }
+
+        public void OnRemove(in Entity entity, in MMDRendererComponent component)
+        {
+            if (physicsObjects.Remove(component, out var phyObj))
+                RemovePhysics(phyObj);
+        }
+
+        public void OnChange(in Entity entity, in Transform oldValue, in Transform newValue)
+        {
+            if (entity.Has<MMDRendererComponent>())
+            {
+                var renderer = entity.Get<MMDRendererComponent>();
+                renderer.SetTransform(newValue);
+
+                var phyObj = GetOrCreatePhysics(renderer);
+                TransformToNew(renderer, phyObj.rigidbodies);
+                resetPhysics = true;
+            }
         }
 
         public void Update()
         {
-            foreach (var gameObject in scene.gameObjects)
+            foreach (var gameObject in set.GetEntities())
             {
-                var render = gameObject.GetComponent<MMDRendererComponent>();
-                if (render != null)
-                {
-                    rendererComponents.Add(render);
-                }
-
-                if (scene.setTransform.TryGetValue(gameObject, out var transform))
-                {
-                    gameObject.Transform = transform;
-                    if (render != null)
-                    {
-                        render.SetTransform(transform);
-                        var phyObj = GetOrCreatePhysics(render);
-                        TransformToNew(render, phyObj.rigidbodies);
-                        resetPhysics = true;
-                    }
-                }
+                var render = gameObject.Get<MMDRendererComponent>();
+                rendererComponents.Add(render);
             }
 
             if (resetPhysics)
@@ -67,28 +85,7 @@ namespace Coocoo3D.Core
 
             BoneUpdate((float)deltaTime, rendererComponents);
             rendererComponents.Clear();
-        }
-
-        public void OnFrame()
-        {
-            foreach (var gameObject in scene.gameObjectLoadList)
-            {
-                var r = gameObject.GetComponent<MMDRendererComponent>();
-                if (r != null)
-                {
-                    r.SetTransform(gameObject.Transform);
-                    physicsObjects[r] = AddPhysics(r);
-                }
-            }
-            foreach (var gameObject in scene.gameObjectRemoveList)
-            {
-                var r = gameObject.GetComponent<MMDRendererComponent>();
-                if (r != null)
-                {
-                    if (physicsObjects.Remove(r, out var phyObj))
-                        RemovePhysics(phyObj);
-                }
-            }
+            resetPhysics = false;
         }
 
         void _ResetPhysics(IReadOnlyList<MMDRendererComponent> renderers)

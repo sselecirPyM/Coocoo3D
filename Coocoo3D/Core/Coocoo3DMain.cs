@@ -7,11 +7,15 @@ using System.Threading;
 using Coocoo3DGraphics;
 using Coocoo3D.Common;
 using Coocoo3D.RenderPipeline;
+using DefaultEcs.System;
+using DefaultEcs.Command;
 
 namespace Coocoo3D.Core
 {
     public class Coocoo3DMain : IDisposable
     {
+        DefaultEcs.World world;
+        public EntityCommandRecorder recorder;
         public Statistics statistics;
 
         GraphicsDevice graphicsDevice;
@@ -37,6 +41,7 @@ namespace Coocoo3D.Core
 
         public List<object> systems = new();
         public Dictionary<Type, object> systems1 = new();
+        SequentialSystem<State> system2;
 
         GraphicsContext graphicsContext { get => RPContext.graphicsContext; }
 
@@ -48,8 +53,16 @@ namespace Coocoo3D.Core
             return system;
         }
 
+        T AddSystem<T>(T system) where T : class
+        {
+            systems.Add(system);
+            systems1[typeof(T)] = system;
+            return system;
+        }
+
         void InitializeSystems()
         {
+
             foreach (var system in systems)
             {
                 var type = system.GetType();
@@ -85,6 +98,9 @@ namespace Coocoo3D.Core
 
         public Coocoo3DMain()
         {
+            world = AddSystem<DefaultEcs.World>();
+            recorder = AddSystem<EntityCommandRecorder>();
+
             statistics = AddSystem<Statistics>();
 
             config = AddSystem<Config>();
@@ -121,6 +137,10 @@ namespace Coocoo3D.Core
             UIHelper = AddSystem<UI.UIHelper>();
             UIImGui = AddSystem<UI.UIImGui>();
 
+            system2 = new SequentialSystem<State>(
+                renderSystem,
+                recordSystem,
+                uiRenderSystem);
             InitializeSystems();
             statistics.DeviceDescription = graphicsDevice.GetDeviceDescription();
 
@@ -163,18 +183,13 @@ namespace Coocoo3D.Core
             var gdc = GameDriverContext;
 
             CurrentScene.OnFrame();
-            physicsSystem.OnFrame();
-            particleSystem.Onframe();
-            if (CurrentScene.setTransform.Count != 0)
-                gdc.RequireResetPhysics = true;
-            if (gdc.Playing || gdc.RequireResetPhysics)
-            {
-                CurrentScene.Simulation();
 
+            if (gdc.Playing || gdc.RequireResetPhysics || physicsSystem.resetPhysics)
+            {
                 animationSystem.playTime = (float)gdc.PlayTime;
                 animationSystem.Update();
 
-                physicsSystem.resetPhysics = gdc.RequireResetPhysics;
+                physicsSystem.resetPhysics |= gdc.RequireResetPhysics;
                 physicsSystem.deltaTime = gdc.DeltaTime;
                 physicsSystem.Update();
 
@@ -182,7 +197,6 @@ namespace Coocoo3D.Core
 
                 gdc.RequireResetPhysics = false;
             }
-            CurrentScene.ClearChanges();
         }
 
         private bool RenderFrame()
@@ -204,19 +218,17 @@ namespace Coocoo3D.Core
             platformIO.Update();
             windowSystem.Update();
             UIImGui.GUI();
-            graphicsDevice.RenderBegin();
-            graphicsContext.Begin();
             RPContext.FrameBegin();
 
-            renderSystem.Update();
+            graphicsDevice.RenderBegin();
+            graphicsContext.Begin();
 
-            GameDriver.AfterRender();
-            recordSystem.Record();
+            system2.Update(null);
 
-            uiRenderSystem.Update();
             graphicsContext.EndCommand();
             graphicsContext.Execute();
             graphicsDevice.RenderComplete();
+
             statistics.DrawTriangleCount = graphicsContext.TriangleCount;
             swapChain.Present(config.VSync);
 

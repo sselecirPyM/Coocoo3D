@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Coocoo3D.Components
+namespace Coocoo3D.Core
 {
-    public class Component
+    public class State
     {
     }
 }

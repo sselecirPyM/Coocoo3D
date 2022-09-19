@@ -10,6 +10,7 @@ using Coocoo3D.FileFormat;
 using Coocoo3D.Present;
 using Coocoo3D.RenderPipeline;
 using Coocoo3D.Utility;
+using DefaultEcs;
 
 namespace Coocoo3D.UI
 {
@@ -87,10 +88,10 @@ namespace Coocoo3D.UI
                             }
                             else
                             {
-                                foreach (var gameObject in this.scene.SelectedGameObjects)
+                                foreach (var gameObject in scene.world)
                                 {
-                                    var animationState = gameObject.GetComponent<Components.AnimationStateComponent>();
-                                    if (animationState != null)
+                                    if (this.scene.SelectedGameObjects.Contains(gameObject.GetHashCode()) &&
+                                        TryGetComponent(gameObject, out Components.AnimationStateComponent animationState))
                                     {
                                         animationState.motionPath = file.FullName;
                                     }
@@ -134,6 +135,19 @@ namespace Coocoo3D.UI
                 {
                     caches.sceneSaveHandler.Add(new SceneSaveTask() { path = fileDialog.file, Scene = this.scene });
                 }
+            }
+        }
+        static bool TryGetComponent<T>(Entity obj, out T value)
+        {
+            if (obj.Has<T>())
+            {
+                value = obj.Get<T>();
+                return true;
+            }
+            else
+            {
+                value = default(T);
+                return false;
             }
         }
 

@@ -11,10 +11,11 @@ using Vortice.DXGI;
 using System.Buffers;
 using Coocoo3D.Utility;
 using Coocoo3D.RenderPipeline;
+using DefaultEcs.System;
 
 namespace Coocoo3D.Core
 {
-    public class UIRenderSystem : IDisposable
+    public class UIRenderSystem : ISystem<State>
     {
         GPUBuffer imguiMesh = new GPUBuffer();
         GPUWriter GPUWriter = new GPUWriter();
@@ -34,6 +35,8 @@ namespace Coocoo3D.Core
         public const int uiTextureIndex = 200000000;
         public Texture2D uiTexture;
 
+        public bool IsEnabled { get; set; } = true;
+
         public UIRenderSystem()
         {
             imguiShaderPath = System.IO.Path.GetFullPath("Shaders/ImGui.hlsl", workDir);
@@ -49,7 +52,7 @@ namespace Coocoo3D.Core
             return ptr;
         }
 
-        public void Update()
+        public void Update(State state)
         {
             viewTextures[new IntPtr(uiTextureIndex)] = uiTexture;
             Texture2D texLoading = caches.GetTextureLoaded(loadingTexturePath, graphicsContext);
@@ -132,7 +135,7 @@ namespace Coocoo3D.Core
 
                     tex = TextureStatusSelect(tex, texLoading, texError, texError);
 
-                    graphicsContext.SetSRVTSlotLinear(tex, 0);//srgb2srgb
+                    graphicsContext.SetSRVTSlotLinear(tex, 0);//srgb to srgb
                     var rect = cmd.ClipRect;
                     graphicsContext.RSSetScissorRect((int)(rect.X - displayPosition.X), (int)(rect.Y - displayPosition.Y), (int)(rect.Z - displayPosition.X), (int)(rect.W - displayPosition.Y));
                     graphicsContext.DrawIndexed((int)cmd.ElemCount, (int)(cmd.IdxOffset) + idxOfs, (int)(cmd.VtxOffset) + vtxOfs);

@@ -9,6 +9,9 @@ using Coocoo3D.Components;
 using Coocoo3D.Present;
 using Coocoo3D.ResourceWrap;
 using Coocoo3D.RenderPipeline;
+using DefaultEcs;
+using DefaultEcs.Command;
+using ImageMagick;
 
 namespace Coocoo3D.FileFormat
 {
@@ -18,12 +21,17 @@ namespace Coocoo3D.FileFormat
         {
 
         }
-        public CooSceneObject(GameObject obj)
+        public CooSceneObject(Entity obj)
         {
-            name = obj.Name;
-            position = obj.Transform.position;
-            rotation = obj.Transform.rotation;
-            scale = obj.Transform.scale;
+            TryGetComponent<Transform>(obj, out var transform);
+
+            position = transform.position;
+            rotation = transform.rotation;
+            scale = transform.scale;
+            if (TryGetComponent<ObjectDescription>(obj, out var objectDescription))
+            {
+                name = objectDescription.Name;
+            }
         }
         public string type;
         public string path;
@@ -36,6 +44,27 @@ namespace Coocoo3D.FileFormat
         public Dictionary<string, string> properties;
         public Dictionary<string, _cooMaterial> materials;
         public CooSceneObjectVisual visual;
+        static T GetComponent<T>(Entity entity) where T : class
+        {
+            if (entity.Has<T>())
+            {
+                return entity.Get<T>();
+            }
+            return null;
+        }
+        static bool TryGetComponent<T>(Entity entity, out T value)
+        {
+            if (entity.Has<T>())
+            {
+                value = entity.Get<T>();
+                return true;
+            }
+            else
+            {
+                value = default(T);
+                return false;
+            }
+        }
     }
     public class CooSceneObjectVisual
     {
@@ -83,11 +112,11 @@ namespace Coocoo3D.FileFormat
         {
             Coocoo3DScene scene = new Coocoo3DScene();
             scene.objects = new List<CooSceneObject>();
-
-            foreach (var obj in saveScene.gameObjects)
+            var world = saveScene.world;
+            foreach (var obj in world)
             {
-                var renderer = obj.GetComponent<MMDRendererComponent>();
-                var animationState = obj.GetComponent<AnimationStateComponent>();
+                var renderer = GetComponent<MMDRendererComponent>(obj);
+                var animationState = GetComponent<AnimationStateComponent>(obj);
                 if (renderer != null)
                 {
                     CooSceneObject sceneObject = new CooSceneObject(obj);
@@ -104,7 +133,7 @@ namespace Coocoo3D.FileFormat
                     }
                     scene.objects.Add(sceneObject);
                 }
-                var meshRenderer = obj.GetComponent<MeshRendererComponent>();
+                var meshRenderer = GetComponent<MeshRendererComponent>(obj);
                 if (meshRenderer != null)
                 {
                     CooSceneObject sceneObject = new CooSceneObject(obj);
@@ -117,7 +146,7 @@ namespace Coocoo3D.FileFormat
                     }
                     scene.objects.Add(sceneObject);
                 }
-                var visual = obj.GetComponent<VisualComponent>();
+                var visual = GetComponent<VisualComponent>(obj);
                 if (visual != null)
                 {
                     CooSceneObject decalObject = new CooSceneObject(obj);
@@ -134,6 +163,14 @@ namespace Coocoo3D.FileFormat
 
             return scene;
         }
+        static T GetComponent<T>(Entity entity) where T : class
+        {
+            if (entity.Has<T>())
+            {
+                return entity.Get<T>();
+            }
+            return null;
+        }
         static void _func2<T>(Dictionary<string, T> dict, Dictionary<string, object> target)
         {
             if (dict != null)
@@ -142,17 +179,19 @@ namespace Coocoo3D.FileFormat
         }
         public void ToScene(Scene currentScene, MainCaches caches)
         {
+            var world = currentScene.recorder.Record(currentScene.world);
+
             foreach (var obj in objects)
             {
-                GameObject gameObject = GetGameObject(obj);
+                var entity = world.CreateEntity();
+                var transform = new Transform(obj.position, obj.rotation, obj.scale);
                 if (obj.type == "mmdModel")
                 {
                     string pmxPath = obj.path;
                     ModelPack modelPack = caches.GetModel(pmxPath);
 
-                    gameObject.LoadPmx(modelPack);
-                    var renderer = gameObject.GetComponent<MMDRendererComponent>();
-                    var animationState = gameObject.GetComponent<AnimationStateComponent>();
+                    (var renderer, var animationState) = entity.LoadPmx(modelPack, transform);
+
                     if (obj.skinning != null)
                         renderer.skinning = (bool)obj.skinning;
                     if (obj.enableIK != null)
@@ -168,21 +207,18 @@ namespace Coocoo3D.FileFormat
                     {
                         Mat2Mat(obj.materials, renderer.Materials);
                     }
-                    currentScene.AddGameObject(gameObject);
                 }
                 else if (obj.type == "model")
                 {
                     string path = obj.path;
                     ModelPack modelPack = caches.GetModel(path);
 
-                    modelPack.LoadMeshComponent(gameObject);
-                    var renderer = gameObject.GetComponent<MeshRendererComponent>();
+                    var renderer = modelPack.LoadMeshComponent(entity, transform);
 
                     if (obj.materials != null)
                     {
                         Mat2Mat(obj.materials, renderer.Materials);
                     }
-                    currentScene.AddGameObject(gameObject);
                 }
                 else
                 {
@@ -203,14 +239,18 @@ namespace Coocoo3D.FileFormat
                     }
                     VisualComponent component = new VisualComponent();
                     component.UIShowType = uiShowType;
-                    gameObject.AddComponent(component);
+                    entity.Set(component);
+                    entity.Set(transform);
                     if (obj.visual != null)
                     {
                         component.material = Mat2Mat(obj.visual.material);
                     }
-                    currentScene.AddGameObject(gameObject);
-
                 }
+                entity.Set(new ObjectDescription
+                {
+                    Name = obj.name ?? string.Empty,
+                    Description = ""
+                });
             }
         }
         static void Mat2Mat(Dictionary<string, _cooMaterial> materials, List<RenderMaterial> renderMaterials)
@@ -270,14 +310,6 @@ namespace Coocoo3D.FileFormat
                 }
             }
             return material1;
-        }
-        GameObject GetGameObject(CooSceneObject obj)
-        {
-            GameObject gameObject = new GameObject();
-
-            gameObject.Name = obj.name ?? string.Empty;
-            gameObject.Transform = new(obj.position, obj.rotation, obj.scale);
-            return gameObject;
         }
     }
 }

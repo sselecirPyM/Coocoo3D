@@ -12,10 +12,11 @@ using Coocoo3D.RenderPipeline;
 using Coocoo3D.ResourceWrap;
 using Coocoo3D.Utility;
 using Coocoo3DGraphics;
+using DefaultEcs.System;
 
 namespace Coocoo3D.Core
 {
-    public class RenderSystem : IDisposable
+    public class RenderSystem : ISystem<State>
     {
         public WindowSystem windowSystem;
         public GraphicsContext graphicsContext;
@@ -52,7 +53,7 @@ namespace Coocoo3D.Core
         }
 
         List<VisualChannel> channels = new();
-        public void Update()
+        public void Update(State state)
         {
             var context = renderPipelineContext;
             while (mainCaches.MeshReadyToUpload.TryDequeue(out var mesh))
@@ -160,6 +161,9 @@ namespace Coocoo3D.Core
 
         LinearPool<Mesh> meshPool = new();
         public byte[] bigBuffer = new byte[0];
+
+        public bool IsEnabled { get; set; } = true;
+
         void UpdateGPUResource()
         {
             var rpc = renderPipelineContext;
@@ -229,7 +233,6 @@ namespace Coocoo3D.Core
         }
         void Skinning(ModelPack model, MMDRendererComponent renderer, Mesh mesh)
         {
-
             var rangePartitioner = Partitioner.Create(0, model.vertexCount);
             Parallel.ForEach(rangePartitioner, (range, loopState) =>
             {

@@ -7,15 +7,16 @@ using System.Threading.Tasks;
 
 namespace Coocoo3D.Components
 {
-    public class AnimationStateComponent : Component
+    public class AnimationStateComponent
     {
         public string motionPath = "";
         public bool LockMotion;
         public WeightGroup Weights = new();
 
-        public const float c_frameInterval = 1 / 30.0f;
         public Dictionary<string, int> stringToMorphIndex = new();
         public List<(Vector3, Quaternion)> cachedBoneKeyFrames = new();
+
+        public float timeOffset;
 
         public AnimationStateComponent GetClone()
         {
@@ -43,11 +44,6 @@ namespace Coocoo3D.Components
         }
 
         void ComputeWeight(List<MorphDesc> morphs)
-        {
-            ComputeWeight1(morphs);
-        }
-
-        void ComputeWeight1(List<MorphDesc> morphs)
         {
             for (int i = 0; i < morphs.Count; i++)
             {
@@ -108,6 +104,7 @@ namespace Coocoo3D.Components
 
         public void ComputeMotion(float time, MMDMotion motion, List<MorphDesc> morphs, List<BoneEntity> bones)
         {
+            time += timeOffset;
             if (!LockMotion)
             {
                 if (motion != null)
@@ -115,7 +112,6 @@ namespace Coocoo3D.Components
                 else
                     SetPoseDefault();
             }
-
 
             ComputeWeight(morphs);
 
@@ -130,7 +126,6 @@ namespace Coocoo3D.Components
             {
                 SetPoseNoMotion(bones);
             }
-
         }
     }
 

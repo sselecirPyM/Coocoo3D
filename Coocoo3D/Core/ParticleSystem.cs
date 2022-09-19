@@ -7,49 +7,54 @@ using System.Numerics;
 using Coocoo3D.Utility;
 using Coocoo3D.Present;
 using Coocoo3D.Components;
+using DefaultEcs;
+using Caprice.Display;
 
 namespace Coocoo3D.Core
 {
     public class ParticleSystem
     {
+        public World world;
         public Scene scene;
         public GameDriverContext gameDriverContext;
         Random Random = new Random();
 
         public Dictionary<int, ParticleHolder> particles = new();
-        List<(GameObject, ParticleHolder)> particles2 = new();
+        List<ParticleHolder> particles2 = new();
 
-        public void Onframe()
+        public void Initialize()
         {
-            foreach (var gameObject in scene.gameObjectLoadList)
+            world.SubscribeComponentAdded<VisualComponent>(OnAdd);
+            world.SubscribeComponentRemoved<VisualComponent>(OnRemove);
+        }
+
+        public void OnAdd(in Entity entity, in VisualComponent component)
+        {
+            if (component.UIShowType == UIShowType.Particle)
             {
-                if (gameObject.TryGetComponent<VisualComponent>(out var visual) && visual.UIShowType == Caprice.Display.UIShowType.Particle)
-                {
-                    particles.Add(gameObject.id, new ParticleHolder());
-                }
-            }
-            foreach (var gameObject in scene.gameObjectRemoveList)
-            {
-                particles.Remove(gameObject.id);
+                particles.Add(entity.GetHashCode(), new ParticleHolder(component));
             }
         }
+
+        public void OnRemove(in Entity entity, in VisualComponent component)
+        {
+            particles.Remove(entity.GetHashCode());
+        }
+
         public void Update()
         {
-
             float deltaTime = (float)gameDriverContext.DeltaTime;
 
             particles2.Clear();
-            foreach (var gameObject in scene.gameObjects)
+
+            foreach(var c in particles)
             {
-                if (particles.TryGetValue(gameObject.id, out var particle))
-                {
-                    particles2.Add((gameObject, particle));
-                }
+                particles2.Add(c.Value);
             }
-            foreach (var pair in particles2)
+            foreach (var p in particles2)
             {
-                var particle = pair.Item2;
-                var material = pair.Item1.GetComponent<VisualComponent>().material;
+                var particle = p;
+                var material = p.visualComponent.material;
                 var parameters = material.Parameters;
 
                 int parameterCount = 0;

@@ -8,12 +8,14 @@ using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 using Coocoo3D.Present;
+using DefaultEcs;
 
 namespace Coocoo3D.RenderPipeline
 {
     public class RenderPipelineContext : IDisposable
     {
         public Scene scene;
+
         public ParticleSystem particleSystem;
         public MainCaches mainCaches;
 
@@ -40,10 +42,10 @@ namespace Coocoo3D.RenderPipeline
 
         public List<MMDRendererComponent> renderers = new();
         public List<MeshRendererComponent> meshRenderers = new();
-        public List<GameObject> visuals = new();
+        public List<VisualComponent> visuals = new();
         public List<(RenderMaterial, ParticleHolder)> particles = new();
 
-        public Dictionary<int, GameObject> gameObjects = new();
+        public Dictionary<int, Entity> gameObjects = new();
 
         public void FrameBegin()
         {
@@ -52,28 +54,27 @@ namespace Coocoo3D.RenderPipeline
             visuals.Clear();
             gameObjects.Clear();
             particles.Clear();
-            foreach (GameObject gameObject in scene.gameObjects)
+            foreach (Entity gameObject in scene.world)
             {
-                if (gameObject.TryGetComponent(out MMDRendererComponent renderer))
+                if (TryGetComponent(gameObject, out MMDRendererComponent renderer))
                 {
                     renderers.Add(renderer);
                 }
-                if (gameObject.TryGetComponent(out MeshRendererComponent meshRenderer))
+                if (TryGetComponent(gameObject, out MeshRendererComponent meshRenderer))
                 {
                     meshRenderers.Add(meshRenderer);
                 }
-                if (gameObject.TryGetComponent(out VisualComponent visual))
+                if (TryGetComponent(gameObject, out VisualComponent visual))
                 {
-                    visual.transform = gameObject.Transform;
-                    visuals.Add(gameObject);
+                    visual.transform = gameObject.Get<Transform>();
+                    visuals.Add(visual);
                 }
-                this.gameObjects[gameObject.id] = gameObject;
+                this.gameObjects[gameObject.GetHashCode()] = gameObject;
             }
-            foreach (var visualObject in visuals)
+            foreach (var visual in visuals)
             {
-                var visual = visualObject.GetComponent<VisualComponent>();
                 if (visual.bindBone != null && this.gameObjects.TryGetValue(visual.bindId, out var gameObject) &&
-                    gameObject.TryGetComponent<MMDRendererComponent>(out var renderer))
+                    TryGetComponent<MMDRendererComponent>(gameObject,out var renderer))
                 {
                     var bone = renderer.bones.Find(u => u.Name == visual.bindBone);
                     if (bone == null)
@@ -97,9 +98,23 @@ namespace Coocoo3D.RenderPipeline
             foreach (var particle in particleSystem.particles)
             {
                 var gameObject = gameObjects[particle.Key];
-                var visual = gameObject.GetComponent<VisualComponent>();
-                particle.Value.transform = gameObject.Transform;
+                var visual = particle.Value.visualComponent;
+                particle.Value.transform = gameObject.Get<Transform>();
                 particles.Add((visual.material, particle.Value));
+            }
+        }
+
+        bool TryGetComponent<T>(in Entity entity, out T value)
+        {
+            if (entity.Has<T>())
+            {
+                value = entity.Get<T>();
+                return true;
+            }
+            else
+            {
+                value = default(T);
+                return false;
             }
         }
 

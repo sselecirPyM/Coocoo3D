@@ -39,7 +39,7 @@ namespace RenderPipelines
 
         public Matrix4x4 viewProj;
 
-        public IEnumerable<GameObject> Visuals;
+        public IEnumerable<VisualComponent> Visuals;
 
         public Func<RenderWrap, VisualComponent, List<(string, string)>, bool> filter;
 
@@ -64,10 +64,8 @@ namespace RenderPipelines
             BoundingFrustum frustum = new(viewProj);
 
             keywords2.Clear();
-            foreach (var visualObject in Visuals)
+            foreach (var visual in Visuals)
             {
-                var visual = visualObject.GetComponent<VisualComponent>();
-
                 if (visual.UIShowType != Caprice.Display.UIShowType.Decal)
                     continue;
 

@@ -13,6 +13,7 @@ using glTFLoader;
 using glTFLoader.Schema;
 using System.Runtime.InteropServices;
 using Coocoo3D.Present;
+using DefaultEcs.Command;
 
 namespace Coocoo3D.ResourceWrap
 {
@@ -552,14 +553,25 @@ namespace Coocoo3D.ResourceWrap
             return meshInstance;
         }
 
-        public void LoadMeshComponent(GameObject gameObject)
+        public MeshRendererComponent LoadMeshComponent(EntityRecord gameObject)
+        {
+            return LoadMeshComponent(gameObject, new Transform(Vector3.Zero, Quaternion.Identity));
+        }
+        public MeshRendererComponent LoadMeshComponent(EntityRecord gameObject, Transform transform)
         {
             var meshRenderer = new MeshRendererComponent();
-            gameObject.AddComponent(meshRenderer);
+            gameObject.Set(transform);
+            gameObject.Set(meshRenderer);
+            gameObject.Set(new ObjectDescription()
+            {
+                Name = Path.GetFileName(fullPath),
+                Description = ""
+            });
             meshRenderer.meshPath = fullPath;
-            meshRenderer.transform = gameObject.Transform;
+            meshRenderer.transform = new Transform(Vector3.Zero, Quaternion.Identity);
             foreach (var material in Materials)
                 meshRenderer.Materials.Add(material.GetClone());
+            return meshRenderer;
         }
 
         public void Dispose()

@@ -3,7 +3,6 @@ using Coocoo3D.RenderPipeline;
 using Coocoo3D.Utility;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -74,7 +73,7 @@ namespace Coocoo3D.Core
             renderPipelineContext.RealDeltaTime = gameDriverContext.RealDeltaTime;
             renderPipelineContext.Time = gameDriverContext.PlayTime;
             renderPipelineContext.DeltaTime = gameDriverContext.Playing ? gameDriverContext.DeltaTime : 0;
-
+            Update();
             return returnValue;
         }
 
@@ -110,27 +109,25 @@ namespace Coocoo3D.Core
             return true;
         }
 
-        public void AfterRender()
+        void Update()
         {
             if (!renderPipelineContext.recording) return;
-            ref GameDriverContext context = ref gameDriverContext;
             if (!windowSystem.visualChannels.TryGetValue(recordChannel, out var visualChannel1))
             {
                 ToPlayMode();
                 return;
             }
 
-
-            if (context.PlayTime > StopTime)
+            if (gameDriverContext.PlayTime > StopTime)
                 ToPlayMode();
+
             RenderCount++;
         }
-
 
         public void RequireRender(bool updateEntities)
         {
             if (updateEntities)
-               gameDriverContext.RequireResetPhysics = true;
+                gameDriverContext.RequireResetPhysics = true;
             gameDriverContext.NeedRender = 10;
         }
 
@@ -138,11 +135,14 @@ namespace Coocoo3D.Core
         public float StopTime;
 
         public float FrameIntervalF = 1 / 60.0f;
-        public int RenderCount = 0;
+        int RenderCount = 0;
         bool toRecordMode;
         bool toPlayMode;
         public string saveDirectory;
         public string recordChannel = "main";
+
+        public bool IsEnabled { get; set; } = true;
+
         public void ToRecordMode(string saveDirectory)
         {
             toRecordMode = true;
@@ -152,5 +152,6 @@ namespace Coocoo3D.Core
         {
             toPlayMode = true;
         }
+
     }
 }

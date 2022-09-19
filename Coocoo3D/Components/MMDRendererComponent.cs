@@ -10,7 +10,7 @@ using Coocoo3D.ResourceWrap;
 
 namespace Coocoo3D.Components
 {
-    public class MMDRendererComponent : Component
+    public class MMDRendererComponent
     {
         public string meshPath;
 

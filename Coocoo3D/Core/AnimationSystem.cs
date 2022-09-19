@@ -1,5 +1,6 @@
 ﻿using Coocoo3D.Components;
 using Coocoo3D.RenderPipeline;
+using DefaultEcs;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,38 +9,39 @@ using System.Threading.Tasks;
 
 namespace Coocoo3D.Core
 {
-    public class AnimationSession
-    {
-        public float progress;
-        public float duration;
-        public object target;
-    }
     public class AnimationSystem
     {
+        public World world;
         public Scene scene;
 
         public float playTime;
 
         public MainCaches caches;
 
+        EntitySet set;
+
         List<(MMDRendererComponent, AnimationStateComponent)> animationRenderers = new();
+
+        public void Initialize()
+        {
+            set = world.GetEntities().With<MMDRendererComponent>().With<AnimationStateComponent>().AsSet();
+        }
+
         public void Update()
         {
             animationRenderers.Clear();
-            foreach (var gameObject in scene.gameObjects)
+            foreach (var gameObject in set.GetEntities())
             {
-                var render = gameObject.GetComponent<MMDRendererComponent>();
-                var animation = gameObject.GetComponent<AnimationStateComponent>();
-                if (render != null)
-                {
-                    animationRenderers.Add((render, animation));
-                }
+                var render = gameObject.Get<MMDRendererComponent>();
+                var animation = gameObject.Get<AnimationStateComponent>();
+                animationRenderers.Add((render, animation));
             }
 
-            UpdateGameObjects((float)playTime, animationRenderers);
+
+            UpdateGameObjects(playTime);
         }
 
-        void UpdateGameObjects(float playTime, IReadOnlyList<(MMDRendererComponent, AnimationStateComponent)> animationRenderers)
+        void UpdateGameObjects(float playTime)
         {
             Parallel.For(0, animationRenderers.Count, i =>
             {

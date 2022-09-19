@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Coocoo3D.Components;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
@@ -15,6 +16,13 @@ namespace Coocoo3D.Present
         public List<float> scales = new();
 
         public Transform transform;
+
+        public VisualComponent visualComponent;
+
+        public ParticleHolder(VisualComponent visualComponent)
+        {
+            this.visualComponent = visualComponent;
+        }
 
         public void Add(Vector3 position, float life)
         {

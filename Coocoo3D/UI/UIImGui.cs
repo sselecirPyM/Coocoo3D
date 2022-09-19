@@ -1,20 +1,20 @@
-﻿using Coocoo3D.Components;
+﻿using Caprice.Display;
+using Coocoo3D.Components;
 using Coocoo3D.Core;
+using Coocoo3D.FileFormat;
 using Coocoo3D.Present;
+using Coocoo3D.RenderPipeline;
 using Coocoo3D.Utility;
+using DefaultEcs;
+using DefaultEcs.Command;
 using ImGuiNET;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
-using System.IO;
 using System.Reflection;
-using Caprice.Display;
-using Coocoo3D.FileFormat;
 using System.Threading;
-using Coocoo3D.RenderPipeline;
 
 namespace Coocoo3D.UI
 {
@@ -30,7 +30,7 @@ namespace Coocoo3D.UI
 
         public UIRenderSystem uiRenderSystem;
 
-        public RenderPipeline.MainCaches mainCaches;
+        public MainCaches mainCaches;
 
         public GameDriverContext gameDriverContext;
 
@@ -38,11 +38,13 @@ namespace Coocoo3D.UI
 
         public Scene CurrentScene;
 
-        public RenderPipeline.RenderPipelineContext renderPipelineContext;
+        public RenderPipelineContext renderPipelineContext;
 
         public Config config;
 
         public Statistics statistics;
+
+        public EntityCommandRecorder recorder;
 
         public void GUI()
         {
@@ -58,20 +60,27 @@ namespace Coocoo3D.UI
             var context = renderPipelineContext;
             io.DisplaySize = new Vector2(platformIO.windowSize.Item1, platformIO.windowSize.Item2);
             io.DeltaTime = (float)context.RealDeltaTime;
-            GameObject selectedObject = null;
+            Entity selectedObject = default(Entity);
 
             positionChange = false;
             rotationChange = false;
             scaleChange = false;
             if (CurrentScene.SelectedGameObjects.Count == 1)
             {
-                selectedObject = CurrentScene.SelectedGameObjects[0];
-                position = selectedObject.Transform.position;
-                scale = selectedObject.Transform.scale;
-                if (rotationCache != selectedObject.Transform.rotation)
+                foreach (var entity in CurrentScene.world)
                 {
-                    rotation = QuaternionToEularYXZ(selectedObject.Transform.rotation);
-                    rotationCache = selectedObject.Transform.rotation;
+                    if (entity.GetHashCode() == CurrentScene.SelectedGameObjects[0])
+                    {
+                        selectedObject = entity;
+                    }
+                }
+                ref var transform = ref selectedObject.Get<Transform>();
+                position = transform.position;
+                scale = transform.scale;
+                if (rotationCache != transform.rotation)
+                {
+                    rotation = QuaternionToEularYXZ(transform.rotation);
+                    rotationCache = transform.rotation;
                 }
             }
 
@@ -144,7 +153,7 @@ namespace Coocoo3D.UI
             ImGui.SetNextWindowPos(new Vector2(0, 400), ImGuiCond.FirstUseEver);
             if (ImGui.Begin("物体"))
             {
-                if (selectedObject != null)
+                if (selectedObject != default(Entity))
                 {
                     GameObjectPanel(selectedObject);
                 }
@@ -153,7 +162,7 @@ namespace Coocoo3D.UI
             RenderBuffersPannel();
             Popups(selectedObject);
             ImGui.Render();
-            if (selectedObject != null)
+            if (selectedObject != default(Entity))
             {
                 bool transformChange = rotationChange || positionChange;
                 if (rotationChange)
@@ -162,7 +171,7 @@ namespace Coocoo3D.UI
                 }
                 if (transformChange)
                 {
-                    CurrentScene.SetTransform(selectedObject, new(position, rotationCache, scale));
+                    selectedObject.Set(new Transform(position, rotationCache, scale));
                 }
             }
             platformIO.dropFile = null;
@@ -376,7 +385,7 @@ namespace Coocoo3D.UI
             ImGui.TextUnformatted("绘制三角形数：" + statistics.DrawTriangleCount); ;
         }
 
-        void ShowParams(RenderPipeline.RenderPipelineView view)
+        void ShowParams(RenderPipelineView view)
         {
             if (view == null) return;
             ImGui.Separator();
@@ -431,7 +440,7 @@ namespace Coocoo3D.UI
             }
         }
 
-        void ShowParams(UIShowType showType, RenderPipeline.RenderPipelineView view, Dictionary<string, object> parameters)
+        void ShowParams(UIShowType showType, RenderPipelineView view, Dictionary<string, object> parameters)
         {
             if (view == null) return;
             ShowParams(showType, view.UIUsages, view.renderPipeline, parameters);
@@ -692,7 +701,7 @@ namespace Coocoo3D.UI
             ImGui.End();
         }
 
-        void ShowRenderBuffers(RenderPipeline.RenderPipelineView view)
+        void ShowRenderBuffers(RenderPipelineView view)
         {
             string filter = ImFilter("filter", "filter");
             foreach (var pair in view.RenderTextures)
@@ -877,56 +886,70 @@ vmd格式动作。支持几乎所有的图片格式。");
             //    gameObjectSelected.Add(false);
             //}
             string filter = ImFilter("查找物体", "查找名称");
-            var gameObjects = CurrentScene.gameObjects;
-            for (int i = 0; i < gameObjects.Count; i++)
+            var gameObjects = CurrentScene.world;
+            int i = 0;
+            foreach (var gameObject in gameObjects)
             {
-                GameObject gameObject = gameObjects[i];
-                if (!Contains(gameObject.Name, filter)) continue;
-                bool selected = gameObjectSelectIndex == i;
-                bool selected1 = ImGui.Selectable(gameObject.Name + "###" + gameObject.GetHashCode(), ref selected);
-                if (ImGui.IsItemActive() && !ImGui.IsItemHovered())
+                TryGetComponent(gameObject, out ObjectDescription objectDescription);
+                string name = objectDescription == null ? "object" : objectDescription.Name;
+
+                if (!Contains(name, filter))
                 {
-                    int n_next = i + (ImGui.GetMouseDragDelta(0).Y < 0.0f ? -1 : 1);
-                    if (n_next >= 0 && n_next < gameObjects.Count)
-                    {
-                        gameObjects[i] = gameObjects[n_next];
-                        gameObjects[n_next] = gameObject;
-                        ImGui.ResetMouseDragDelta();
-                    }
+                    i++;
+                    continue;
                 }
+                bool selected = gameObjectSelectIndex == i;
+                bool selected1 = ImGui.Selectable(name + "###" + gameObject.GetHashCode(), ref selected);
+                //if (ImGui.IsItemActive() && !ImGui.IsItemHovered())
+                //{
+                //    int n_next = i + (ImGui.GetMouseDragDelta(0).Y < 0.0f ? -1 : 1);
+                //    if (n_next >= 0 && n_next < gameObjects.Count)
+                //    {
+                //        gameObjects[i] = gameObjects[n_next];
+                //        gameObjects[n_next] = gameObject;
+                //        ImGui.ResetMouseDragDelta();
+                //    }
+                //}
                 if (selected1 || CurrentScene.SelectedGameObjects.Count < 1)
                 {
                     gameObjectSelectIndex = i;
                     CurrentScene.SelectedGameObjects.Clear();
-                    CurrentScene.SelectedGameObjects.Add(gameObject);
+                    CurrentScene.SelectedGameObjects.Add(gameObject.GetHashCode());
                 }
+                i++;
             }
             if (removeObject)
             {
-                foreach (var gameObject in CurrentScene.SelectedGameObjects)
-                    CurrentScene.RemoveGameObject(gameObject);
+                foreach (var entity in CurrentScene.world)
+                {
+                    if (CurrentScene.SelectedGameObjects.Contains(entity.GetHashCode()))
+                        recorder.Record(entity).Dispose();
+                }
                 CurrentScene.SelectedGameObjects.Clear();
 
-                if (gameObjects.Count > gameObjectSelectIndex + 1)
-                    CurrentScene.SelectedGameObjects.Add(gameObjects[gameObjectSelectIndex + 1]);
+                //if (gameObjects.Count > gameObjectSelectIndex + 1)
+                //    CurrentScene.SelectedGameObjects.Add(gameObjects[gameObjectSelectIndex + 1]);
             }
             if (copyObject)
             {
-                foreach (var gameObject in CurrentScene.SelectedGameObjects)
-                    DuplicateObject(gameObject);
+                foreach (var gameObject in CurrentScene.world)
+                    if (CurrentScene.SelectedGameObjects.Contains(gameObject.GetHashCode()))
+                        DuplicateObject(gameObject);
             }
         }
 
-        void GameObjectPanel(GameObject gameObject)
+        void GameObjectPanel(Entity gameObject)
         {
-            var renderer = gameObject.GetComponent<MMDRendererComponent>();
-            var meshRenderer = gameObject.GetComponent<MeshRendererComponent>();
-            var visual = gameObject.GetComponent<VisualComponent>();
+            TryGetComponent<MMDRendererComponent>(gameObject, out var renderer);
+            TryGetComponent<MeshRendererComponent>(gameObject, out var meshRenderer);
+            TryGetComponent<VisualComponent>(gameObject, out var visual);
+            TryGetComponent<AnimationStateComponent>(gameObject, out var animationState);
+            TryGetComponent<ObjectDescription>(gameObject, out var objectDescription);
 
-            ImGui.InputText("名称", ref gameObject.Name, 256);
+            ImGui.InputText("名称", ref objectDescription.Name, 256);
             if (ImGui.TreeNode("描述"))
             {
-                ImGui.Text(gameObject.Description);
+                ImGui.Text(objectDescription.Description);
                 if (renderer != null)
                 {
                     var mesh = mainCaches.GetModel(renderer.meshPath).GetMesh();
@@ -953,7 +976,7 @@ vmd格式动作。支持几乎所有的图片格式。");
             }
             if (renderer != null)
             {
-                RendererComponent(gameObject);
+                RendererComponent(renderer, animationState);
             }
             if (meshRenderer != null)
             {
@@ -961,14 +984,12 @@ vmd格式动作。支持几乎所有的图片格式。");
             }
             if (visual != null)
             {
-                VisualComponent(gameObject, visual);
+                VisualComponent(ref gameObject.Get<Transform>(), visual);
             }
         }
 
-        void RendererComponent(GameObject gameObject)
+        void RendererComponent(MMDRendererComponent renderer, AnimationStateComponent animationState)
         {
-            var renderer = gameObject.GetComponent<MMDRendererComponent>();
-            var animationState = gameObject.GetComponent<AnimationStateComponent>();
             if (ImGui.TreeNode("材质"))
             {
                 ShowMaterials(mainCaches.GetModel(renderer.meshPath).Submeshes, renderer.Materials);
@@ -1052,7 +1073,7 @@ vmd格式动作。支持几乎所有的图片格式。");
             ImGui.EndChild();
         }
 
-        void VisualComponent(GameObject gameObject, VisualComponent visualComponent)
+        void VisualComponent(ref Transform transform, VisualComponent visualComponent)
         {
             if (ImGui.TreeNode("绑定"))
             {
@@ -1064,14 +1085,14 @@ vmd格式动作。支持几乎所有的图片格式。");
                 int count = 1;
                 int currentItem = 0;
 
-                foreach (var gameObject1 in CurrentScene.gameObjects)
+                foreach (var gameObject1 in CurrentScene.world)
                 {
-                    var renderer = gameObject1.GetComponent<MMDRendererComponent>();
-                    if (renderer == null)
+                    if (!TryGetComponent<MMDRendererComponent>(gameObject1, out var renderer))
                         continue;
-                    renderers[count] = gameObject1.Name;
-                    ids[count] = gameObject1.id;
-                    if (gameObject1.id == visualComponent.bindId)
+                    TryGetComponent<ObjectDescription>(gameObject1, out var desc);
+                    renderers[count] = desc == null ? "object" : desc.Name;
+                    ids[count] = gameObject1.GetHashCode();
+                    if (gameObject1.GetHashCode() == visualComponent.bindId)
                         currentItem = count;
                     count++;
                     if (count == rendererCount + 1)
@@ -1086,7 +1107,7 @@ vmd格式动作。支持几乎所有的图片格式。");
                 string[] bones;
                 if (renderPipelineContext.gameObjects.TryGetValue(visualComponent.bindId, out var gameObject2))
                 {
-                    var renderer = gameObject2.GetComponent<MMDRendererComponent>();
+                    var renderer = gameObject2.Get<MMDRendererComponent>();
                     bones = new string[renderer.bones.Count + 1];
                     bones[0] = "-";
                     for (int i = 0; i < renderer.bones.Count; i++)
@@ -1125,7 +1146,7 @@ vmd格式动作。支持几乎所有的图片格式。");
             {
                 ImGui.Checkbox("显示包围盒", ref showBounding);
 
-                ImGui.DragFloat3("大小", ref gameObject.Transform.scale, 0.01f);
+                ImGui.DragFloat3("大小", ref transform.scale, 0.01f);
                 ShowParams(visualComponent.UIShowType, windowSystem.currentChannel.renderPipelineView, visualComponent.material.Parameters);
                 if (visualComponent.UIShowType == UIShowType.Particle)
                 {
@@ -1135,7 +1156,7 @@ vmd格式动作。支持几乎所有的图片格式。");
             }
         }
 
-        void SceneView(RenderPipeline.VisualChannel channel, float mouseWheelDelta, Vector2 mouseMoveDelta)
+        void SceneView(VisualChannel channel, float mouseWheelDelta, Vector2 mouseMoveDelta)
         {
             var io = ImGui.GetIO();
             var tex = channel.GetAOV(Caprice.Attributes.AOVType.Color);
@@ -1195,7 +1216,7 @@ vmd格式动作。支持几乎所有的图片格式。");
             }
         }
 
-        void DrawGizmo(RenderPipeline.VisualChannel channel, Vector2 imagePosition, Vector2 imageSize)
+        void DrawGizmo(VisualChannel channel, Vector2 imagePosition, Vector2 imageSize)
         {
             var io = ImGui.GetIO();
             Vector2 mousePos = ImGui.GetMousePos();
@@ -1214,15 +1235,17 @@ vmd格式动作。支持几乎所有的图片格式。");
             var drawList = ImGui.GetWindowDrawList();
             bool hasDrag = false;
 
-            for (int i = 0; i < scene.gameObjects.Count; i++)
+            int i = 0;
+            foreach (var obj in scene.world)
             {
-                GameObject obj = scene.gameObjects[i];
-                Vector3 position = obj.Transform.position;
+                ref var transform = ref obj.Get<Transform>();
+                var objectDescription = obj.Get<ObjectDescription>();
+                Vector3 position = transform.position;
                 Vector2 basePos = imagePosition + (ImGuiExt.TransformToImage(position, vpMatrix, out bool canView)) * imageSize;
                 Vector2 diff = Vector2.Abs(basePos - mousePos);
                 if (diff.X < 10 && diff.Y < 10 && canView)
                 {
-                    toolTipMessage += obj.Name + "\n";
+                    toolTipMessage += objectDescription.Name + "\n";
                     hoveredIndex = i;
                     drawList.AddNgon(basePos, 10, 0xffffffff, 4);
                 }
@@ -1236,26 +1259,27 @@ vmd格式动作。支持几乎所有的图片格式。");
                         hasDrag = true;
                     }
                 }
-                if (obj.TryGetComponent(out VisualComponent visual) && showBounding)
+                if (TryGetComponent(obj, out VisualComponent visual) && showBounding)
                 {
-                    viewport.mvp = obj.Transform.GetMatrix() * vpMatrix;
+                    viewport.mvp = transform.GetMatrix() * vpMatrix;
                     ImGuiExt.DrawCube(drawList, viewport);
                 }
+                i++;
             }
             ImGui.PopClipRect();
 
-            if (ImGui.IsItemHovered())
-            {
-                if (io.MouseReleased[0] && ImGui.IsItemFocused() && !hasDrag)
-                {
-                    gameObjectSelectIndex = hoveredIndex;
-                    if (hoveredIndex != -1)
-                    {
-                        CurrentScene.SelectedGameObjects.Clear();
-                        CurrentScene.SelectedGameObjects.Add(scene.gameObjects[hoveredIndex]);
-                    }
-                }
-            }
+            //if (ImGui.IsItemHovered())
+            //{
+            //    if (io.MouseReleased[0] && ImGui.IsItemFocused() && !hasDrag)
+            //    {
+            //        gameObjectSelectIndex = hoveredIndex;
+            //        if (hoveredIndex != -1)
+            //        {
+            //            CurrentScene.SelectedGameObjects.Clear();
+            //            CurrentScene.SelectedGameObjects.Add(scene.gameObjects[hoveredIndex]);
+            //        }
+            //    }
+            //}
             if (!string.IsNullOrEmpty(toolTipMessage))
             {
                 ImGui.BeginTooltip();
@@ -1292,7 +1316,7 @@ vmd格式动作。支持几乎所有的图片格式。");
             requestParamEdit = true;
         }
 
-        void Popups(GameObject gameObject)
+        void Popups(Entity gameObject)
         {
             if (requestOpenResource.SetFalse())
             {
@@ -1325,8 +1349,8 @@ vmd格式动作。支持几乎所有的图片格式。");
 
                 if (ImGui.Button("确定"))
                 {
-                    var meshRenderer = gameObject.GetComponent<MeshRendererComponent>();
-                    var mmdRenderer = gameObject.GetComponent<MMDRendererComponent>();
+                    TryGetComponent<MeshRendererComponent>(gameObject, out var meshRenderer);
+                    TryGetComponent<MMDRendererComponent>(gameObject, out var mmdRenderer);
                     IList<RenderMaterial> materials = null;
                     if (meshRenderer != null)
                     {
@@ -1356,28 +1380,40 @@ vmd格式动作。支持几乎所有的图片格式。");
 
         void NewLighting()
         {
-            VisualComponent decalComponent = new VisualComponent();
-            decalComponent.UIShowType = UIShowType.Light;
-            GameObject gameObject = new GameObject();
-            gameObject.AddComponent(decalComponent);
-            gameObject.Name = "Lighting";
-            gameObject.Transform = new(new Vector3(0, 1, 0), Quaternion.CreateFromYawPitchRoll(0, 1.3962634015954636615389526147909f, 0));
-            CurrentScene.AddGameObject(gameObject);
+            var world = CurrentScene.recorder.Record(CurrentScene.world);
+            var gameObject = world.CreateEntity();
+
+            VisualComponent lightComponent = new VisualComponent();
+            lightComponent.UIShowType = UIShowType.Light;
+            gameObject.Set(lightComponent);
+            gameObject.Set(new ObjectDescription
+            {
+                Name = "光照",
+                Description = ""
+            });
+            gameObject.Set(new Transform(new Vector3(0, 1, 0), Quaternion.CreateFromYawPitchRoll(0, 1.3962634015954636615389526147909f, 0)));
         }
 
         void NewDecal()
         {
+            var world = CurrentScene.recorder.Record(CurrentScene.world);
+            var gameObject = world.CreateEntity();
+
             VisualComponent decalComponent = new VisualComponent();
             decalComponent.UIShowType = UIShowType.Decal;
-            GameObject gameObject = new GameObject();
-            gameObject.AddComponent(decalComponent);
-            gameObject.Name = "Decal";
-            gameObject.Transform = new(new Vector3(0, 0, 0), Quaternion.CreateFromYawPitchRoll(0, -1.5707963267948966192313216916398f, 0), new Vector3(1, 1, 0.1f));
-            CurrentScene.AddGameObject(gameObject);
+            gameObject.Set(decalComponent);
+            gameObject.Set(new ObjectDescription
+            {
+                Name = "贴花",
+                Description = ""
+            });
+            gameObject.Set(new Transform(new Vector3(0, 0, 0), Quaternion.CreateFromYawPitchRoll(0, -1.5707963267948966192313216916398f, 0), new Vector3(1, 1, 0.1f)));
         }
 
         void NewParticle()
         {
+            var world = CurrentScene.recorder.Record(CurrentScene.world);
+            var gameObject = world.CreateEntity();
             VisualComponent component = new VisualComponent();
             component.UIShowType = UIShowType.Particle;
             component.material.Parameters["ParticleCount"] = 100;
@@ -1386,36 +1422,54 @@ vmd格式动作。支持几乎所有的图片格式。");
             component.material.Parameters["ParticleInitialSpeed"] = new Vector3(0, 0, 0);
             component.material.Parameters["ParticleScale"] = new Vector2(0.02f, 0.02f);
             component.material.Parameters["ParticleAcceleration"] = new Vector3(0, 0, 0);
-            GameObject gameObject = new GameObject();
-            gameObject.AddComponent(component);
-            gameObject.Name = "Particle";
-            gameObject.Transform = new(new Vector3(0, 1, 0), Quaternion.CreateFromYawPitchRoll(0, 0, 0), new Vector3(1, 1, 1));
-            CurrentScene.AddGameObject(gameObject);
+            gameObject.Set(component);
+            gameObject.Set(new ObjectDescription
+            {
+                Name = "粒子",
+                Description = ""
+            });
+            gameObject.Set(new Transform(new Vector3(0, 1, 0), Quaternion.CreateFromYawPitchRoll(0, 0, 0), new Vector3(1, 1, 1)));
         }
 
-        void DuplicateObject(GameObject obj)
+        void DuplicateObject(Entity obj)
         {
-            var newObj = new GameObject();
-            if (obj.TryGetComponent<VisualComponent>(out var visual))
-                newObj.AddComponent(visual.GetClone());
-            if (obj.TryGetComponent<MeshRendererComponent>(out var meshRenderer))
-                newObj.AddComponent(meshRenderer.GetClone());
-            if (obj.TryGetComponent<MMDRendererComponent>(out var mmdRenderer))
+            var world = recorder.Record(obj.World);
+            var newObj = world.CreateEntity();
+
+            if (TryGetComponent(obj, out VisualComponent visual))
+                newObj.Set(visual.GetClone());
+            if (TryGetComponent(obj, out MeshRendererComponent meshRenderer))
+                newObj.Set(meshRenderer.GetClone());
+            if (TryGetComponent(obj, out MMDRendererComponent mmdRenderer))
             {
-                newObj.LoadPmx(mainCaches.GetModel(mmdRenderer.meshPath));
-                var newRenderer = newObj.GetComponent<MMDRendererComponent>();
+                (var newRenderer, var animationState1) = newObj.LoadPmx(mainCaches.GetModel(mmdRenderer.meshPath));
                 newRenderer.Materials = mmdRenderer.Materials.Select(u => u.GetClone()).ToList();
                 newRenderer.enableIK = mmdRenderer.enableIK;
-                CurrentScene.SetTransform(newObj, obj.Transform);
+                newObj.Set(obj.Get<Transform>());
             }
-            if (obj.TryGetComponent<AnimationStateComponent>(out var animationState))
+            if (TryGetComponent(obj, out AnimationStateComponent animationState))
             {
-                newObj.SetComponent(animationState.GetClone());
+                newObj.Set(animationState.GetClone());
             }
-            newObj.Name = obj.Name;
-            newObj.Transform = obj.Transform;
-            newObj.Description = obj.Description;
-            CurrentScene.AddGameObject(newObj);
+            if (TryGetComponent(obj, out ObjectDescription description))
+            {
+                newObj.Set(description.GetClone());
+            }
+            newObj.Set(obj.Get<Transform>());
+        }
+
+        static bool TryGetComponent<T>(Entity obj, out T value)
+        {
+            if (obj.Has<T>())
+            {
+                value = obj.Get<T>();
+                return true;
+            }
+            else
+            {
+                value = default(T);
+                return false;
+            }
         }
 
         static string ImFilter(string lable, string hint)

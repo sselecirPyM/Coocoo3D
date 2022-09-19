@@ -1,5 +1,6 @@
 ﻿using Coocoo3D.RenderPipeline;
 using Coocoo3DGraphics;
+using DefaultEcs.System;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -20,7 +21,7 @@ namespace Coocoo3D.Core
         public int Height;
     }
 
-    public class RecordSystem : IDisposable
+    public class RecordSystem : ISystem<State>
     {
         public Process ffmpegProcess;
 
@@ -56,6 +57,8 @@ namespace Coocoo3D.Core
         };
 
         public Recorder recorder;
+
+        public bool IsEnabled { get; set; } = true;
 
         public void Initialize()
         {
@@ -173,9 +176,15 @@ namespace Coocoo3D.Core
             }
         }
 
+        public void Update(State state)
+        {
+            Record();
+        }
+
         public void Dispose()
         {
             recorder.Dispose();
         }
+
     }
 }

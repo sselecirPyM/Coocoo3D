@@ -9,6 +9,7 @@ using Coocoo3DGraphics;
 using System.Numerics;
 using Caprice.Display;
 using Coocoo3D.Present;
+using Coocoo3D.Components;
 
 namespace RenderPipelines
 {
@@ -361,7 +362,7 @@ namespace RenderPipelines
         public CameraData camera;
 
         [SceneCapture("Visual")]
-        public IReadOnlyList<GameObject> Visuals;
+        public IReadOnlyList<VisualComponent> Visuals;
 
         [SceneCapture("Particle")]
         public IReadOnlyList<(RenderMaterial, ParticleHolder)> Particles;

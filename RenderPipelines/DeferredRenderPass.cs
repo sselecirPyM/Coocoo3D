@@ -369,7 +369,7 @@ namespace RenderPipelines
 
         public DebugRenderType DebugRenderType;
 
-        public IEnumerable<GameObject> Visuals;
+        public IEnumerable<VisualComponent> Visuals;
 
         public IReadOnlyList<(RenderMaterial, ParticleHolder)> Particles;
 
@@ -429,9 +429,8 @@ namespace RenderPipelines
             byte[] pointLightData = ArrayPool<byte>.Shared.Rent(64 * 32);
             DirectionalLightData? directionalLight = null;
             var pointLightWriter = new SpanWriter<PointLightData>(MemoryMarshal.Cast<byte, PointLightData>(pointLightData));
-            foreach (var visualObject in Visuals)
+            foreach (var visual in Visuals)
             {
-                var visual = visualObject.GetComponent<VisualComponent>();
                 var material = visual.material;
                 if (visual.UIShowType == Caprice.Display.UIShowType.Light)
                 {

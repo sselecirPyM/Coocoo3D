@@ -118,7 +118,7 @@ namespace RenderPipelines
         public bool Recording;
 
         [SceneCapture("Visual")]
-        public IEnumerable<GameObject> Visuals;
+        public IEnumerable<VisualComponent> Visuals;
 
         RPRContext context;
         RPRScene scene;
@@ -229,9 +229,8 @@ namespace RenderPipelines
             scene.AttachLight(envLight);
             lights.Add(envLight);
 
-            foreach (var visualObject in Visuals)
+            foreach (var visual in Visuals)
             {
-                var visual = visualObject.GetComponent<VisualComponent>();
                 var material = visual.material;
                 if (visual.UIShowType == Caprice.Display.UIShowType.Light)
                 {

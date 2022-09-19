@@ -1,6 +1,7 @@
 ﻿using Coocoo3D.Components;
 using Coocoo3D.Present;
 using Coocoo3D.ResourceWrap;
+using DefaultEcs.Command;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,23 +13,31 @@ namespace Coocoo3D.FileFormat
 {
     public static class PMXFormatExtension
     {
-        public static void LoadPmx(this GameObject gameObject, ModelPack modelPack)
+        public static (MMDRendererComponent, AnimationStateComponent) LoadPmx(this EntityRecord gameObject, ModelPack modelPack)
         {
-            gameObject.Name = modelPack.name;
-            gameObject.Description = modelPack.description;
+            return LoadPmx(gameObject, modelPack, new Transform(Vector3.Zero, Quaternion.Identity));
+        }
+        public static (MMDRendererComponent, AnimationStateComponent) LoadPmx(this EntityRecord gameObject, ModelPack modelPack, Transform transform)
+        {
+            gameObject.Set(new ObjectDescription
+            {
+                Name = modelPack.name,
+                Description = modelPack.description,
+            });
+            gameObject.Set(transform);
 
             var renderer = new MMDRendererComponent();
-            gameObject.AddComponent(renderer);
+            gameObject.Set(renderer);
             renderer.skinning = true;
             renderer.morphs.Clear();
             renderer.morphs.AddRange(modelPack.morphs);
-            var animationState=new AnimationStateComponent();
-            gameObject.AddComponent(animationState);
+            var animationState = new AnimationStateComponent();
+            gameObject.Set(animationState);
             animationState.LoadAnimationStates(modelPack);
 
             renderer.Initialize(modelPack);
             renderer.LoadMesh(modelPack);
-            renderer.SetTransform(gameObject.Transform);
+            return (renderer, animationState);
         }
 
         static void Initialize(this MMDRendererComponent renderer, ModelPack modelPack)

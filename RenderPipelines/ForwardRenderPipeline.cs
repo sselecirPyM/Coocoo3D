@@ -9,6 +9,7 @@ using Coocoo3D.RenderPipeline;
 using Coocoo3DGraphics;
 using System.Numerics;
 using Coocoo3D.Present;
+using Coocoo3D.Components;
 
 namespace RenderPipelines
 {
@@ -213,7 +214,7 @@ namespace RenderPipelines
         public CameraData camera;
 
         [SceneCapture("Visual")]
-        public IEnumerable<GameObject> Visuals;
+        public IEnumerable<VisualComponent> Visuals;
 
         [Indexable]
         public float cameraFar;

@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace Coocoo3D.Components
 {
-    public class MeshRendererComponent : Component
+    public class MeshRendererComponent
     {
         public string meshPath;
         public List<RenderMaterial> Materials = new();

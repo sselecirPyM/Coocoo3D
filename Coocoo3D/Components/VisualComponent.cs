@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Coocoo3D.Components
 {
-    public class VisualComponent : Component
+    public class VisualComponent
     {
         public UIShowType UIShowType;
         public RenderMaterial material = new RenderMaterial();
