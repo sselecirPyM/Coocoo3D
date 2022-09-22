@@ -1,4 +1,5 @@
 ﻿using Coocoo3D.RenderPipeline;
+using Coocoo3D.ResourceWrap;
 using Coocoo3DGraphics;
 using DefaultEcs.System;
 using System;
@@ -12,6 +13,16 @@ using System.Threading.Tasks;
 
 namespace Coocoo3D.Core
 {
+    public class TextureRecordData
+    {
+        public ulong frame;
+        public int offset;
+        public int width;
+        public int height;
+        public string target;
+
+        public Stream stream;
+    }
     public class RecordSettings
     {
         public float FPS;
@@ -56,17 +67,10 @@ namespace Coocoo3D.Core
             StopTime = 9999,
         };
 
-        public Recorder recorder;
-
         public bool IsEnabled { get; set; } = true;
 
         public void Initialize()
         {
-            recorder = new Recorder()
-            {
-                graphicsDevice = graphicsDevice,
-                graphicsContext = graphicsContext,
-            };
             try
             {
                 ProcessStartInfo processStartInfo = new ProcessStartInfo();
@@ -99,13 +103,13 @@ namespace Coocoo3D.Core
                         fileName = Path.GetFullPath(string.Format("{0}.png", RecordCount));
                     else
                         fileName = Path.GetFullPath(string.Format("{0}.bmp", RecordCount));
-                    recorder.Record(aov, pipe, fileName);
+                    Record(aov, pipe, fileName);
                     RecordCount++;
                 }
             }
 
-            recorder.OnFrame();
-            if (recorder.recordQueue.Count == 0 && !recording && pipe != null)
+            OnFrame();
+            if (recordQueue.Count == 0 && !recording && pipe != null)
             {
                 pipe.Dispose();
                 pipe = null;
@@ -181,10 +185,66 @@ namespace Coocoo3D.Core
             Record();
         }
 
-        public void Dispose()
+        public ReadBackBuffer ReadBackBuffer = new ReadBackBuffer();
+
+        byte[] temp;
+
+        public void OnFrame()
         {
-            recorder.Dispose();
+            if (recordQueue.Count == 0) return;
+            ulong completed = graphicsDevice.GetInternalCompletedFenceValue();
+            while (recordQueue.Count > 0 && recordQueue.Peek().frame <= completed)
+            {
+                var tuple = recordQueue.Dequeue();
+                int width = tuple.width;
+                int height = tuple.height;
+                var stream = tuple.stream;
+
+                if (temp == null || temp.Length != width * height * 4)
+                {
+                    temp = new byte[width * height * 4];
+                }
+                var data = temp;
+                ReadBackBuffer.GetData<byte>(tuple.offset, height, (width * 4 + 255) & ~255, width * 4, data);
+
+                if (stream == null)
+                    TextureHelper.SaveToFile(data, width, height, tuple.target);
+                else
+                {
+                    TextureHelper.SaveToFile(data, width, height, tuple.target, stream);
+                    stream.Flush();
+                }
+            }
         }
 
+        public Queue<TextureRecordData> recordQueue = new();
+
+        public void Record(Texture2D texture, Stream stream, string output)
+        {
+            int width = texture.width;
+            int height = texture.height;
+            if (ReadBackBuffer.size < ((width * 4 + 255) & ~255) * height)
+            {
+                graphicsContext.UpdateReadBackTexture(ReadBackBuffer, width, height, 4);
+            }
+
+            int offset = graphicsContext.ReadBack(ReadBackBuffer, texture);
+
+            recordQueue.Enqueue(new TextureRecordData
+            {
+                frame = graphicsDevice.GetInternalFenceValue(),
+                offset = offset,
+                target = output,
+                width = width,
+                height = height,
+                stream = stream
+            });
+        }
+
+        public void Dispose()
+        {
+            ReadBackBuffer?.Dispose();
+            ReadBackBuffer = null;
+        }
     }
 }

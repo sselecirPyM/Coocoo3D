@@ -1,12 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using BulletSharp;
+﻿using BulletSharp;
 using System.Numerics;
 
-namespace Coocoo3D.Base
+namespace Coocoo3D.Extensions
 {
     public class Physics3DRigidBody
     {

@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Coocoo3D\Coocoo3D.csproj" />
+  </ItemGroup>
+
+
+	<Target Name="PostBuild" AfterTargets="PostBuildEvent">
+		<Exec Command="xcopy &quot;$(TargetDir)\Coocoo3D.Extensions.dll&quot; &quot;$(SolutionDir)\Coocoo3D.Windows\bin\$(Configuration)\net6.0\Extension\&quot; /y" />
+	</Target>
+</Project>

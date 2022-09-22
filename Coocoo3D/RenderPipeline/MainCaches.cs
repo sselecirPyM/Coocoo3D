@@ -283,7 +283,7 @@ namespace Coocoo3D.RenderPipeline
         public Type[] GetDerivedTypes(string path, Type baseType)
         {
             var assembly = GetAssembly(path);
-            return assembly.GetTypes().Where(u => u.IsSubclassOf(baseType)).ToArray();
+            return assembly.GetTypes().Where(u => u.IsSubclassOf(baseType) && !u.IsAbstract && !u.IsGenericType).ToArray();
         }
 
         public Assembly GetAssembly(string path)

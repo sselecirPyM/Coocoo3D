@@ -15,15 +15,43 @@ namespace RenderPipelines
         public string history;
         public string historyDepth;
 
-        public object[] cbv;
+        public object[] cbv =
+        {
+            null,//nameof(ViewProjection),
+            null,//nameof(InvertViewProjection),
+            null,//nameof(_ViewProjection),
+            null,//nameof(_InvertViewProjection),
+            null,//nameof(outputWidth),
+            null,//nameof(outputHeight),
+            null,//nameof(cameraFar),
+            null,//nameof(cameraNear),
+            null,//nameof(TAAFactor),
+        };
 
         public DebugRenderType DebugRenderType;
+
+        public void SetCamera(CameraData historyCamera, CameraData camera)
+        {
+            cbv[0] = camera.vpMatrix;
+            cbv[1] = camera.pvMatrix;
+            cbv[2] = historyCamera.vpMatrix;
+            cbv[3] = historyCamera.pvMatrix;
+            cbv[6] = camera.far;
+            cbv[7] = camera.near;
+        }
+
+        public void SetProperties(int width, int height, float factor)
+        {
+            cbv[4] = width;
+            cbv[5] = height;
+            cbv[8] = factor;
+        }
+        List<(string, string)> keywords = new List<(string, string)>();
 
         public void Execute(RenderWrap renderWrap)
         {
             renderWrap.SetRootSignature("Csssu");
-
-            List<(string, string)> keywords = new List<(string, string)>();
+            keywords.Clear();
             keywords.Add(("ENABLE_TAA", "1"));
             if (DebugRenderType == DebugRenderType.TAA)
                 keywords.Add(("DEBUG_TAA", "1"));

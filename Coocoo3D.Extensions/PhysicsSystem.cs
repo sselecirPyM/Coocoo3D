@@ -1,5 +1,5 @@
-﻿using Coocoo3D.Base;
-using Coocoo3D.Components;
+﻿using Coocoo3D.Components;
+using Coocoo3D.Core;
 using Coocoo3D.Present;
 using Coocoo3D.Utility;
 using DefaultEcs;
@@ -10,22 +10,18 @@ using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Coocoo3D.Core
+namespace Coocoo3D.Extensions
 {
     public class _physicsObjects
     {
         public List<Physics3DRigidBody> rigidbodies = new();
         public List<Physics3DJoint> joints = new();
     }
-    public class PhysicsSystem
+    public class PhysicsSystem : ISceneExtension
     {
+        public GameDriverContext gameDriverContext;
         public World world;
-        public Scene scene;
         EntitySet set;
-
-        public double deltaTime;
-
-        public bool resetPhysics;
 
         public Physics3DScene physics3DScene = new();
 
@@ -33,7 +29,7 @@ namespace Coocoo3D.Core
 
         List<MMDRendererComponent> rendererComponents = new();
 
-        public void Initialize()
+        public override void Initialize()
         {
             physics3DScene.Initialize();
             physics3DScene.SetGravitation(new Vector3(0, -9.801f, 0));
@@ -62,20 +58,21 @@ namespace Coocoo3D.Core
                 var renderer = entity.Get<MMDRendererComponent>();
                 renderer.SetTransform(newValue);
 
-                var phyObj = GetOrCreatePhysics(renderer);
+                var phyObj = GetPhysics(renderer);
                 TransformToNew(renderer, phyObj.rigidbodies);
-                resetPhysics = true;
+                gameDriverContext.RequireResetPhysics = true;
             }
         }
 
-        public void Update()
+        public override void Update()
         {
             foreach (var gameObject in set.GetEntities())
             {
                 var render = gameObject.Get<MMDRendererComponent>();
                 rendererComponents.Add(render);
             }
-
+            var resetPhysics = gameDriverContext.RequireResetPhysics;
+            var deltaTime = gameDriverContext.DeltaTime;
             if (resetPhysics)
             {
                 _ResetPhysics(rendererComponents);
@@ -85,7 +82,6 @@ namespace Coocoo3D.Core
 
             BoneUpdate((float)deltaTime, rendererComponents);
             rendererComponents.Clear();
-            resetPhysics = false;
         }
 
         void _ResetPhysics(IReadOnlyList<MMDRendererComponent> renderers)
@@ -93,7 +89,7 @@ namespace Coocoo3D.Core
             for (int i = 0; i < renderers.Count; i++)
             {
                 var r = renderers[i];
-                var phyO = GetOrCreatePhysics(r);
+                var phyO = GetPhysics(r);
 
                 r.UpdateAllMatrix();
                 for (int j = 0; j < r.rigidBodyDescs.Count; j++)
@@ -110,14 +106,9 @@ namespace Coocoo3D.Core
             physics3DScene.Simulation(1 / 60.0);
         }
 
-        _physicsObjects GetOrCreatePhysics(MMDRendererComponent r)
+        _physicsObjects GetPhysics(MMDRendererComponent r)
         {
-            if (!physicsObjects.TryGetValue(r, out var _PhysicsObjects))
-            {
-                _PhysicsObjects = AddPhysics(r);
-                physicsObjects[r] = _PhysicsObjects;
-            }
-            return _PhysicsObjects;
+            return physicsObjects[r];
         }
 
         _physicsObjects AddPhysics(MMDRendererComponent r)
@@ -141,18 +132,18 @@ namespace Coocoo3D.Core
         }
         void RemovePhysics(_physicsObjects _physicsObjects)
         {
-            var rigidbodies = _physicsObjects.rigidbodies;
             var joints = _physicsObjects.joints;
-            for (int j = 0; j < rigidbodies.Count; j++)
-            {
-                physics3DScene.RemoveRigidBody(rigidbodies[j]);
-            }
             for (int j = 0; j < joints.Count; j++)
             {
                 physics3DScene.RemoveJoint(joints[j]);
             }
-            rigidbodies.Clear();
             joints.Clear();
+            var rigidbodies = _physicsObjects.rigidbodies;
+            for (int j = 0; j < rigidbodies.Count; j++)
+            {
+                physics3DScene.RemoveRigidBody(rigidbodies[j]);
+            }
+            rigidbodies.Clear();
         }
         void PrePhysicsSync(MMDRendererComponent r, IReadOnlyList<Physics3DRigidBody> rigidbodies)
         {
@@ -201,7 +192,7 @@ namespace Coocoo3D.Core
             for (int i = 0; i < renderers.Count; i++)
             {
                 var r = renderers[i];
-                var _PhysicsObjects = GetOrCreatePhysics(r);
+                var _PhysicsObjects = GetPhysics(r);
                 PrePhysicsSync(r, _PhysicsObjects.rigidbodies);
             }
             physics3DScene.Simulation(t1 >= 0 ? t1 : -t1);

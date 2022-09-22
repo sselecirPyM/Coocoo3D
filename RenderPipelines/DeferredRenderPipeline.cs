@@ -371,21 +371,14 @@ namespace RenderPipelines
         public float cameraFar;
         [Indexable]
         public float cameraNear;
-        [Indexable]
-        public Matrix4x4 ViewProjection = Matrix4x4.Identity;
-        [Indexable]
-        public Matrix4x4 InvertViewProjection = Matrix4x4.Identity;
-
-        [Indexable]
-        public Matrix4x4 _ViewProjection = Matrix4x4.Identity;
-        [Indexable]
-        public Matrix4x4 _InvertViewProjection = Matrix4x4.Identity;
 
         Random random = new Random(0);
         [Indexable]
         public int outputWidth;
         [Indexable]
         public int outputHeight;
+
+        CameraData historyCamera;
 
         public DeferredRenderPass deferredRenderPass = new DeferredRenderPass()
         {
@@ -406,18 +399,6 @@ namespace RenderPipelines
             depth = nameof(depth),
             history = nameof(noPostProcess2),
             historyDepth = nameof(depth2),
-            cbv = new object[]
-            {
-                nameof(ViewProjection),
-                nameof(InvertViewProjection),
-                nameof(_ViewProjection),
-                nameof(_InvertViewProjection),
-                nameof(outputWidth),
-                nameof(outputHeight),
-                nameof(cameraFar),
-                nameof(cameraNear),
-                nameof(TAAFactor),
-            }
         };
 
         public override void BeforeRender()
@@ -440,8 +421,6 @@ namespace RenderPipelines
         public override void Render()
         {
             var camera = this.camera;
-            ViewProjection = camera.vpMatrix;
-            InvertViewProjection = camera.pvMatrix;
             cameraFar = camera.far;
             cameraNear = camera.near;
             if (EnableTAA)
@@ -464,15 +443,15 @@ namespace RenderPipelines
             if (EnableTAA)
             {
                 taaPass.DebugRenderType = DebugRenderType;
+                taaPass.SetCamera(historyCamera, this.camera);
+                taaPass.SetProperties(outputWidth, outputHeight, TAAFactor);
                 taaPass.Execute(renderWrap);
             }
             postProcess.Execute(renderWrap);
 
             renderWrap.Swap(nameof(noPostProcess), nameof(noPostProcess2));
             renderWrap.Swap(nameof(depth), nameof(depth2));
-            camera = this.camera;
-            _ViewProjection = camera.vpMatrix;
-            _InvertViewProjection = camera.pvMatrix;
+            historyCamera = this.camera;
         }
 
         public override void AfterRender()

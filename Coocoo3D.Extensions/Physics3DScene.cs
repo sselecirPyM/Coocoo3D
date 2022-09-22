@@ -1,13 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Numerics;
-using BulletSharp;
+﻿using BulletSharp;
 using Coocoo3D.Utility;
+using System.Numerics;
 
-namespace Coocoo3D.Base
+namespace Coocoo3D.Extensions
 {
     public class Physics3DScene
     {
@@ -75,9 +70,8 @@ namespace Coocoo3D.Base
 
         public void AddJoint(Physics3DJoint joint, Physics3DRigidBody r1, Physics3DRigidBody r2, Components.JointDesc desc)
         {
-
             var t0 = MatrixExt.Transform(desc.Position, ToQuaternion(desc.Rotation));
-            Matrix4x4.Invert(t0, out var res);
+            //Matrix4x4.Invert(t0, out var res);
             Matrix4x4.Invert(MatrixExt.Transform(r1.defaultPosition, r1.defaultRotation), out var t1);
             Matrix4x4.Invert(MatrixExt.Transform(r2.defaultPosition, r2.defaultRotation), out var t2);
             t1 = t0 * t1;

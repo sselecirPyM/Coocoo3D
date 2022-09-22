@@ -26,8 +26,10 @@ namespace Coocoo3D.Core
 
         public Scene CurrentScene;
         public AnimationSystem animationSystem;
-        public PhysicsSystem physicsSystem;
         public ParticleSystem particleSystem;
+
+        public SceneExtensionsSystem sceneExtensions;
+
         public WindowSystem windowSystem;
         public RenderSystem renderSystem;
         public RecordSystem recordSystem;
@@ -69,8 +71,6 @@ namespace Coocoo3D.Core
                 var fields = type.GetFields();
                 foreach (var field in fields)
                 {
-                    if (field.FieldType == typeof(GraphicsContext))
-                        field.SetValue(system, graphicsContext);
                     if (systems1.TryGetValue(field.FieldType, out var system1))
                     {
                         field.SetValue(system, system1);
@@ -112,6 +112,7 @@ namespace Coocoo3D.Core
             mainCaches = AddSystem<MainCaches>();
 
             RPContext = AddSystem<RenderPipelineContext>();
+            AddSystem(RPContext.graphicsContext);
 
             GameDriverContext = AddSystem<GameDriverContext>();
 
@@ -119,11 +120,11 @@ namespace Coocoo3D.Core
 
             animationSystem = AddSystem<AnimationSystem>();
 
-            physicsSystem = AddSystem<PhysicsSystem>();
-
             windowSystem = AddSystem<WindowSystem>();
 
             particleSystem = AddSystem<ParticleSystem>();
+
+            sceneExtensions = AddSystem<SceneExtensionsSystem>();
 
             renderSystem = AddSystem<RenderSystem>();
 
@@ -184,16 +185,13 @@ namespace Coocoo3D.Core
 
             CurrentScene.OnFrame();
 
-            if (gdc.Playing || gdc.RequireResetPhysics || physicsSystem.resetPhysics)
+            if (gdc.Playing || gdc.RequireResetPhysics)
             {
                 animationSystem.playTime = (float)gdc.PlayTime;
                 animationSystem.Update();
 
-                physicsSystem.resetPhysics |= gdc.RequireResetPhysics;
-                physicsSystem.deltaTime = gdc.DeltaTime;
-                physicsSystem.Update();
-
                 particleSystem.Update();
+                sceneExtensions.Update();
 
                 gdc.RequireResetPhysics = false;
             }
