@@ -45,7 +45,6 @@ namespace Coocoo3D.RenderPipeline.Wrap
         {
             if (cBuffer == null)
                 cBuffer = new CBuffer();
-            cBuffer.Mutable = true;
 
             context.UpdateResource(cBuffer, new ReadOnlySpan<byte>(memoryStream.GetBuffer(), 0, (int)memoryStream.Position));
             binaryWriter.Seek(0, SeekOrigin.Begin);

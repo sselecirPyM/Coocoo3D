@@ -17,7 +17,6 @@ namespace Coocoo3D.Core
 {
     public class UIRenderSystem : ISystem<State>
     {
-        GPUBuffer imguiMesh = new GPUBuffer();
         GPUWriter GPUWriter = new GPUWriter();
         string workDir = System.Environment.CurrentDirectory;
         string imguiShaderPath;
@@ -86,13 +85,10 @@ namespace Coocoo3D.Core
             desc.inputLayout = InputLayout.Imgui;
             var pso = caches.GetPSOWithKeywords(null, imguiShaderPath);
             graphicsContext.SetPSO(pso, desc);
-            Matrix4x4 matrix = new(
-                2.0f / (R - L), 0.0f, 0.0f, (R + L) / (L - R),
-                0.0f, 2.0f / (T - B), 0.0f, (T + B) / (B - T),
-                0.0f, 0.0f, 0.5f, 0.5f,
-                0.0f, 0.0f, 0.0f, 1.0f);
+
+            Vector4 scaleTrans = new Vector4(2.0f / (R - L), 2.0f / (T - B), (R + L) / (L - R), (T + B) / (B - T));
             GPUWriter.graphicsContext = graphicsContext;
-            GPUWriter.Write(matrix);
+            GPUWriter.Write(scaleTrans);
             GPUWriter.SetCBV(0);
             unsafe
             {
@@ -113,7 +109,7 @@ namespace Coocoo3D.Core
                     vertexWriter.Write(new Span<byte>(cmdList.VtxBuffer.Data.ToPointer(), vertBytes));
                     indexWriter.Write(new Span<byte>(cmdList.IdxBuffer.Data.ToPointer(), indexBytes));
                 }
-                graphicsContext.SetMesh(imguiMesh, vertexDatas,
+                graphicsContext.SetMesh(vertexDatas,
                    indexDatas, data.TotalVtxCount, data.TotalIdxCount);
                 pool.Return(buffer);
             }
@@ -162,7 +158,6 @@ namespace Coocoo3D.Core
         public void Dispose()
         {
             uiTexture?.Dispose();
-            imguiMesh?.Dispose();
         }
     }
 }

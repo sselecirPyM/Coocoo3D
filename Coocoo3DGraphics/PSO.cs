@@ -187,11 +187,11 @@ namespace Coocoo3DGraphics
             m_pipelineStates.Clear();
         }
 
-        internal bool TryGetPipelineState(GraphicsDevice graphicsDevice, RootSignature graphicsSignature, PSODesc psoDesc, out ID3D12PipelineState pipelineState)
+        internal bool TryGetPipelineState(ID3D12Device device, ID3D12RootSignature rootSignature, PSODesc psoDesc, out ID3D12PipelineState pipelineState)
         {
             _PSODesc1 _psoDesc1;
             _psoDesc1.desc = psoDesc;
-            _psoDesc1.rootSignature = graphicsSignature.rootSignature;
+            _psoDesc1.rootSignature = rootSignature;
 
             for (int i = 0; i < m_pipelineStates.Count; i++)
             {
@@ -201,33 +201,33 @@ namespace Coocoo3DGraphics
                     return true;
                 }
             }
-            GraphicsPipelineStateDescription state = new GraphicsPipelineStateDescription();
+            GraphicsPipelineStateDescription desc = new GraphicsPipelineStateDescription();
 
             if (psoDesc.inputLayout == InputLayout.Default)
-                state.InputLayout = inputLayoutDefault;
+                desc.InputLayout = inputLayoutDefault;
             else if (psoDesc.inputLayout == InputLayout.NoInput)
-                state.InputLayout = inputLayoutNoInput;
+                desc.InputLayout = inputLayoutNoInput;
             else if (psoDesc.inputLayout == InputLayout.Imgui)
-                state.InputLayout = inputLayoutImGui;
+                desc.InputLayout = inputLayoutImGui;
             else if (psoDesc.inputLayout == InputLayout.Particle)
-                state.InputLayout = inputLayoutParticle;
+                desc.InputLayout = inputLayoutParticle;
 
-            state.RootSignature = graphicsSignature.rootSignature;
+            desc.RootSignature = rootSignature;
             if (vertexShader != null)
-                state.VertexShader = vertexShader;
+                desc.VertexShader = vertexShader;
             if (geometryShader != null)
-                state.GeometryShader = geometryShader;
+                desc.GeometryShader = geometryShader;
             if (pixelShader != null)
-                state.PixelShader = pixelShader;
-            state.SampleMask = uint.MaxValue;
-            state.PrimitiveTopologyType = PrimitiveTopologyType.Triangle;
-            state.BlendState = BlendDescSelect(psoDesc.blendState);
-            state.SampleDescription = new SampleDescription(1, 0);
+                desc.PixelShader = pixelShader;
+            desc.SampleMask = uint.MaxValue;
+            desc.PrimitiveTopologyType = PrimitiveTopologyType.Triangle;
+            desc.BlendState = BlendDescSelect(psoDesc.blendState);
+            desc.SampleDescription = new SampleDescription(1, 0);
 
-            state.RenderTargetFormats = new Format[psoDesc.renderTargetCount];
+            desc.RenderTargetFormats = new Format[psoDesc.renderTargetCount];
             for (int i = 0; i < psoDesc.renderTargetCount; i++)
             {
-                state.RenderTargetFormats[i] = psoDesc.rtvFormat;
+                desc.RenderTargetFormats[i] = psoDesc.rtvFormat;
             }
             CullMode cullMode = psoDesc.cullMode;
             if (cullMode == 0) cullMode = CullMode.None;
@@ -236,18 +236,18 @@ namespace Coocoo3DGraphics
             rasterizerDescription.SlopeScaledDepthBias = psoDesc.slopeScaledDepthBias;
             if (psoDesc.dsvFormat != Format.Unknown)
             {
-                state.DepthStencilState = new DepthStencilDescription(true, DepthWriteMask.All, ComparisonFunction.Less);
-                state.DepthStencilFormat = psoDesc.dsvFormat;
+                desc.DepthStencilState = new DepthStencilDescription(true, DepthWriteMask.All, ComparisonFunction.Less);
+                desc.DepthStencilFormat = psoDesc.dsvFormat;
                 rasterizerDescription.DepthClipEnable = true;
             }
             else
             {
-                state.DepthStencilState = new DepthStencilDescription();
+                desc.DepthStencilState = new DepthStencilDescription();
             }
 
-            state.RasterizerState = rasterizerDescription;
+            desc.RasterizerState = rasterizerDescription;
             ID3D12PipelineState pipelineState1;
-            if (graphicsDevice.device.CreateGraphicsPipelineState(state, out pipelineState1).Failure)
+            if (device.CreateGraphicsPipelineState(desc, out pipelineState1).Failure)
             {
                 Status = GraphicsObjectStatus.error;
                 pipelineState = null;

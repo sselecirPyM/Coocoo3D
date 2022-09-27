@@ -214,9 +214,7 @@ namespace Coocoo3D.Core
             rpc.findRenderer.Clear();
             while (rpc.CBs_Bone.Count < renderers.Count)
             {
-                CBuffer constantBuffer = new CBuffer();
-                constantBuffer.Mutable = true;
-                rpc.CBs_Bone.Add(constantBuffer);
+                rpc.CBs_Bone.Add(new CBuffer());
             }
             Span<Matrix4x4> mats = stackalloc Matrix4x4[1024];
             for (int i = 0; i < renderers.Count; i++)

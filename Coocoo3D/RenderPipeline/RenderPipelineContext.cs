@@ -58,10 +58,12 @@ namespace Coocoo3D.RenderPipeline
             {
                 if (TryGetComponent(gameObject, out MMDRendererComponent renderer))
                 {
+                    renderer.SetTransform(gameObject.Get<Transform>());
                     renderers.Add(renderer);
                 }
                 if (TryGetComponent(gameObject, out MeshRendererComponent meshRenderer))
                 {
+                    meshRenderer.transform = gameObject.Get<Transform>();
                     meshRenderers.Add(meshRenderer);
                 }
                 if (TryGetComponent(gameObject, out VisualComponent visual))
@@ -74,7 +76,7 @@ namespace Coocoo3D.RenderPipeline
             foreach (var visual in visuals)
             {
                 if (visual.bindBone != null && this.gameObjects.TryGetValue(visual.bindId, out var gameObject) &&
-                    TryGetComponent<MMDRendererComponent>(gameObject,out var renderer))
+                    TryGetComponent<MMDRendererComponent>(gameObject, out var renderer))
                 {
                     var bone = renderer.bones.Find(u => u.Name == visual.bindBone);
                     if (bone == null)
@@ -121,7 +123,7 @@ namespace Coocoo3D.RenderPipeline
         #endregion
         public void Initialize()
         {
-            graphicsContext.Reload(graphicsDevice);
+            graphicsContext.Initialize(graphicsDevice);
         }
 
         public CBuffer GetBoneBuffer(MMDRendererComponent rendererComponent)

@@ -10,7 +10,7 @@ using static Coocoo3DGraphics.DXHelper;
 
 namespace Coocoo3DGraphics
 {
-    public class GraphicsDevice : IDisposable
+    public sealed class GraphicsDevice : IDisposable
     {
         public const int CBVSRVUAVDescriptorCount = 65536;
         internal ID3D12Device5 device;
@@ -24,25 +24,17 @@ namespace Coocoo3DGraphics
 
         internal ID3D12Resource scratchResource;
 
+        internal CommandQueue commandQueue;
+        internal CommandQueue copyCommandQueue;
+
         string m_deviceDescription;
         UInt64 m_deviceVideoMem;
 
-        internal UInt64 currentFenceValue = 3;
-
         internal List<(ID3D12Object, ulong)> m_recycleList = new List<(ID3D12Object, ulong)>();
-        List<ID3D12GraphicsCommandList4> m_commandLists = new List<ID3D12GraphicsCommandList4>();
-        List<ID3D12GraphicsCommandList4> m_commandLists1 = new List<ID3D12GraphicsCommandList4>();
 
         internal IDXGIFactory6 m_dxgiFactory;
 
-        internal ID3D12CommandQueue commandQueue;
-        ID3D12CommandAllocator[] commandAllocators = new ID3D12CommandAllocator[c_frameCount];
-
         bool m_isRayTracingSupport;
-
-        ID3D12Fence fence;
-        EventWaitHandle fenceEvent;
-        internal uint executeIndex = 0;
 
         public GraphicsDevice()
         {
@@ -80,7 +72,10 @@ namespace Coocoo3DGraphics
             m_deviceVideoMem = (ulong)(long)adapter.Description.DedicatedVideoMemory;
             m_isRayTracingSupport = CheckRayTracingSupport(device);
 
-            ThrowIfFailed(device.CreateCommandQueue(new CommandQueueDescription(CommandListType.Direct), out commandQueue));
+            commandQueue = new CommandQueue();
+            commandQueue.Initialize(device, CommandListType.Direct);
+            copyCommandQueue = new CommandQueue();
+            copyCommandQueue.Initialize(device, CommandListType.Copy);
 
             DescriptorHeapDescription descriptorHeapDescription;
             descriptorHeapDescription.NodeMask = 0;
@@ -103,88 +98,28 @@ namespace Coocoo3DGraphics
             dsvHeap = new DescriptorHeapX();
             dsvHeap.Initialize(device, descriptorHeapDescription);
 
-            fenceEvent = new EventWaitHandle(false, EventResetMode.AutoReset);
-
-
-            for (int i = 0; i < c_frameCount; i++)
-            {
-                ThrowIfFailed(device.CreateCommandAllocator(CommandListType.Direct, out ID3D12CommandAllocator commandAllocator));
-                commandAllocators[i] = commandAllocator;
-            }
-            ThrowIfFailed(device.CreateFence(currentFenceValue, FenceFlags.None, out fence));
-            superRingBuffer.Init(this.device, 134217728);
-            currentFenceValue++;
-        }
-
-        internal ID3D12GraphicsCommandList4 GetCommandList()
-        {
-            if (m_commandLists.Count > 0)
-            {
-                var commandList = m_commandLists[m_commandLists.Count - 1];
-                m_commandLists.RemoveAt(m_commandLists.Count - 1);
-                return commandList;
-            }
-            else
-            {
-                ID3D12GraphicsCommandList4 commandList;
-                ThrowIfFailed(device.CreateCommandList(0, CommandListType.Direct, GetCommandAllocator(), null, out commandList));
-                commandList.Close();
-                return commandList;
-            }
-        }
-
-        internal void ReturnCommandList(ID3D12GraphicsCommandList4 commandList)
-        {
-            m_commandLists1.Add(commandList);
+            superRingBuffer.Initialize(this.device, 134217728, 8388608);
         }
 
         internal void ResourceDelayRecycle(ID3D12Object resource)
         {
             if (resource != null)
-                m_recycleList.Add((resource, currentFenceValue));
-        }
-
-        public void RenderBegin()
-        {
-            GetCommandAllocator().Reset();
-        }
-
-        public void RenderComplete()
-        {
-            commandQueue.Signal(fence, currentFenceValue);
-
-            // 提高帧索引。
-            executeIndex = (executeIndex < (c_frameCount - 1)) ? (executeIndex + 1) : 0;
-
-            // 检查下一帧是否准备好启动。
-            if (fence.CompletedValue < currentFenceValue - c_frameCount + 1)
-            {
-                fence.SetEventOnCompletion(currentFenceValue - c_frameCount + 1, fenceEvent);
-                fenceEvent.WaitOne();
-            }
-            Recycle();
-
-            // 为下一帧设置围栏值。
-            currentFenceValue++;
+                m_recycleList.Add((resource, commandQueue.currentFenceValue));
         }
 
         public void WaitForGpu()
         {
-            // 在队列中安排信号命令。
-            commandQueue.Signal(fence, currentFenceValue);
-
-            // 等待跨越围栏。
-            fence.SetEventOnCompletion(currentFenceValue, fenceEvent);
-            fenceEvent.WaitOne();
+            commandQueue.Wait();
 
             Recycle();
 
             // 对当前帧递增围栏值。
-            currentFenceValue++;
+            commandQueue.currentFenceValue++;
         }
 
-        void Recycle()
+        internal void Recycle()
         {
+            var fence = commandQueue.fence;
             ulong completedFrame = fence.CompletedValue;
             m_recycleList.RemoveAll(x =>
             {
@@ -195,9 +130,6 @@ namespace Coocoo3DGraphics
                 }
                 return false;
             });
-
-            m_commandLists.AddRange(m_commandLists1);
-            m_commandLists1.Clear();
         }
 
         public bool IsRayTracingSupport()
@@ -217,11 +149,12 @@ namespace Coocoo3DGraphics
 
         public ulong GetInternalFenceValue()
         {
-            return currentFenceValue;
+            return commandQueue.currentFenceValue;
         }
 
         public ulong GetInternalCompletedFenceValue()
         {
+            var fence = commandQueue.fence;
             return fence.CompletedValue;
         }
 
@@ -269,18 +202,11 @@ namespace Coocoo3DGraphics
             return cpuHandle;
         }
 
-        internal ID3D12CommandAllocator GetCommandAllocator() { return commandAllocators[executeIndex]; }
-
         public void Dispose()
         {
             Recycle();
-            foreach (var commandList in m_commandLists)
-                commandList?.Release();
-            if (commandAllocators != null)
-                foreach (var allocator in commandAllocators)
-                    allocator.Release();
-            fence?.Release();
-            commandQueue?.Release();
+            commandQueue?.Dispose();
+            copyCommandQueue?.Dispose();
             superRingBuffer?.Dispose();
             cbvsrvuavHeap?.Dispose();
             rtvHeap?.Dispose();

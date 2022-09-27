@@ -64,7 +64,6 @@ namespace Coocoo3D.Core
 
         void InitializeSystems()
         {
-
             foreach (var system in systems)
             {
                 var type = system.GetType();
@@ -218,14 +217,11 @@ namespace Coocoo3D.Core
             UIImGui.GUI();
             RPContext.FrameBegin();
 
-            graphicsDevice.RenderBegin();
             graphicsContext.Begin();
 
             system2.Update(null);
 
-            graphicsContext.EndCommand();
             graphicsContext.Execute();
-            graphicsDevice.RenderComplete();
 
             statistics.DrawTriangleCount = graphicsContext.TriangleCount;
             swapChain.Present(config.VSync);

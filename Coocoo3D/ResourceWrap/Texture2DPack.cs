@@ -116,7 +116,7 @@ namespace Coocoo3D.ResourceWrap
             width = sizex;
             height = sizey;
 
-            bitPerPixel = Math.Max(img.BitDepth(), 8) * 4;
+            bitPerPixel = Math.Max(img.DetermineBitDepth(), 8) * 4;
             int bytePerPixel = bitPerPixel / 8;
 
             int totalCount = sizex * sizey * bytePerPixel;
@@ -144,7 +144,7 @@ namespace Coocoo3D.ResourceWrap
         {
             int size;
             for (size = 64; size < 8192; size <<= 1)
-                if (size >= x * 0.95)
+                if (size >= x * 0.90)
                     break;
             return size;
         }

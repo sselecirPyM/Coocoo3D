@@ -84,7 +84,7 @@ namespace Coocoo3DGraphics
                 swapChainDescription1.Scaling = Scaling.Stretch;
                 swapChainDescription1.AlphaMode = AlphaMode.Ignore;
 
-                var swapChain = device.m_dxgiFactory.CreateSwapChainForHwnd(device.commandQueue, hwnd, swapChainDescription1);
+                var swapChain = device.m_dxgiFactory.CreateSwapChainForHwnd(device.commandQueue.commandQueue, hwnd, swapChainDescription1);
                 m_swapChain?.Dispose();
                 m_swapChain = swapChain.QueryInterface<IDXGISwapChain3>();
                 swapChain.Dispose();

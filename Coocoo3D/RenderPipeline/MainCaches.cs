@@ -560,7 +560,7 @@ namespace Coocoo3D.RenderPipeline
                 result.Dispose();
                 throw new Exception(err);
             }
-            byte[] resultData = result.GetResult().ToArray();
+            byte[] resultData = result.GetResult().AsBytes();
             result.Dispose();
             return resultData;
         }

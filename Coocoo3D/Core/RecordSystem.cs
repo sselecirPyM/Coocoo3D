@@ -36,7 +36,7 @@ namespace Coocoo3D.Core
     {
         public Process ffmpegProcess;
 
-        public NamedPipeServerStream pipe;
+        public Stream pipe;
         public string pipeName;
 
         public WindowSystem windowSystem;
@@ -136,7 +136,8 @@ namespace Coocoo3D.Core
             if (ffmpegInstalled)
             {
                 pipeName = Path.GetRandomFileName();
-                pipe = new NamedPipeServerStream(pipeName, PipeDirection.Out, 1, PipeTransmissionMode.Byte, PipeOptions.None, 0, 1024 * 1024 * 64);
+                var pipe = new NamedPipeServerStream(pipeName, PipeDirection.Out, 1, PipeTransmissionMode.Byte, PipeOptions.None, 0, 1024 * 1024 * 64);
+                this.pipe = pipe;
                 Task.Run(() =>
                 {
                     string[] args =
@@ -225,7 +226,7 @@ namespace Coocoo3D.Core
             int height = texture.height;
             if (ReadBackBuffer.size < ((width * 4 + 255) & ~255) * height)
             {
-                graphicsContext.UpdateReadBackTexture(ReadBackBuffer, width, height, 4);
+                graphicsContext.UpdateReadBackBuffer(ReadBackBuffer, width, height, 4);
             }
 
             int offset = graphicsContext.ReadBack(ReadBackBuffer, texture);
