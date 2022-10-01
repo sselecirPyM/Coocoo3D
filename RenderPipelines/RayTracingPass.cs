@@ -1,5 +1,4 @@
 ﻿using Caprice.Attributes;
-using Coocoo3D.Present;
 using Coocoo3D.RenderPipeline;
 using Coocoo3DGraphics;
 using System;
@@ -91,11 +90,11 @@ namespace RenderPipelines
             CameraPosition = camera.Position;
         }
 
-        public void Execute(RenderWrap renderWrap, DirectionalLightData? directionalLight)
+        public void Execute(RenderHelper renderHelper, DirectionalLightData? directionalLight)
         {
+            RenderWrap renderWrap = renderHelper.renderWrap;
             var graphicsContext = renderWrap.graphicsContext;
             var mainCaches = renderWrap.rpc.mainCaches;
-
 
             var path1 = Path.GetFullPath(RayTracingShader, renderWrap.BasePath);
             var rayTracingShader = mainCaches.GetRayTracingShader(path1);
@@ -120,7 +119,7 @@ namespace RenderPipelines
 
             var tpas = new RTTopLevelAcclerationStruct();
             tpas.instances = new();
-            foreach (var renderable in renderWrap.MeshRenderables())
+            foreach (var renderable in renderHelper.MeshRenderables(false))
             {
                 var material = renderable.material;
                 cbv1[0] = renderable.transform;

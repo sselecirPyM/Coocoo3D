@@ -1,5 +1,4 @@
 ﻿using Coocoo3D.Components;
-using Coocoo3D.Present;
 using Coocoo3D.RenderPipeline;
 using Coocoo3DGraphics;
 using System;
@@ -43,8 +42,9 @@ namespace RenderPipelines
 
         public Func<RenderWrap, VisualComponent, List<(string, string)>, bool> filter;
 
-        public override void Execute(RenderWrap renderWrap)
+        public override void Execute(RenderHelper renderHelper)
         {
+            RenderWrap renderWrap = renderHelper.renderWrap;
             renderWrap.SetRootSignature(rs);
             renderWrap.SetRenderTarget(renderTargets, depthStencil, clearRenderTarget, clearDepth);
             if (scissorViewport != null)
@@ -89,7 +89,7 @@ namespace RenderPipelines
 
                 renderWrap.SetSRVs(srvs, visual.material);
 
-                renderWrap.DrawCube();
+                renderHelper.DrawCube();
                 keywords2.Clear();
             }
         }

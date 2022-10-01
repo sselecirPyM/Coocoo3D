@@ -35,8 +35,9 @@ namespace RenderPipelines
 
         public Func<RenderWrap, MeshRenderable, List<(string, string)>, bool> filter;
 
-        public override void Execute(RenderWrap renderWrap)
+        public override void Execute(RenderHelper renderHelper)
         {
+            RenderWrap renderWrap = renderHelper.renderWrap;
             renderWrap.SetRootSignature(rs);
             renderWrap.SetRenderTarget(renderTargets, depthStencil, clearRenderTarget, clearDepth);
             if (scissorViewport != null)
@@ -55,7 +56,7 @@ namespace RenderPipelines
             }
 
             keywords2.Clear();
-            foreach (var renderable in renderWrap.MeshRenderables())
+            foreach (var renderable in renderHelper.MeshRenderables())
             {
                 if (filter != null && !filter.Invoke(renderWrap, renderable, keywords2)) continue;
                 keywords2.AddRange(this.keywords);
@@ -70,9 +71,6 @@ namespace RenderPipelines
                     desc.cullMode = CullMode.Back;
                 renderWrap.SetShader(shader, desc, keywords2, enableVS, enablePS, enableGS);
 
-                if (renderable.gpuSkinning)
-                    renderWrap.SetCBV(renderWrap.GetBoneBuffer(), 0);
-
                 CBVPerObject[0] = renderable.transform;
 
                 renderWrap.Write(CBVPerObject, writer, renderable.material);
@@ -80,7 +78,8 @@ namespace RenderPipelines
 
                 renderWrap.SetSRVs(srvs, renderable.material);
 
-                renderWrap.Draw(renderable);
+                //renderWrap.Draw(renderable);
+                renderWrap.graphicsContext.DrawIndexed(renderable.indexCount, renderable.indexStart, renderable.vertexStart);
                 keywords2.Clear();
             }
         }

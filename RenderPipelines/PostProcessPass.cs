@@ -1,10 +1,5 @@
 ﻿using Coocoo3D.RenderPipeline;
 using Coocoo3DGraphics;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace RenderPipelines
 {
@@ -65,8 +60,9 @@ namespace RenderPipelines
 
         public string output;
 
-        public void Execute(RenderWrap renderWrap)
+        public void Execute(RenderHelper renderHelper)
         {
+            RenderWrap renderWrap = renderHelper.renderWrap;
             var outputTexture = renderWrap.GetRenderTexture2D("intermedia2");
             renderWrap.ClearTexture(outputTexture);
             if (EnableBloom)
@@ -100,7 +96,7 @@ namespace RenderPipelines
             }
 
             postProcess.renderTargets[0] = output;
-            postProcess.Execute(renderWrap);
+            postProcess.Execute(renderHelper);
         }
     }
 }

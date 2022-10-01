@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using System.Text;
 using Vortice.Direct3D12;
-using Vortice.DXGI;
 
 namespace Coocoo3DGraphics
 {
@@ -11,7 +9,7 @@ namespace Coocoo3DGraphics
     {
         public ID3D12Resource vertex;
         public VertexBufferView vertexBufferView;
-        public int actualLength;
+        public int Capacity;
         public byte[] data;
 
         public void Dispose()
@@ -35,13 +33,12 @@ namespace Coocoo3DGraphics
 
         public byte[] m_indexData;
 
-        public void AddBuffer<T>(Span<T> verticeData, int slot) where T : unmanaged
+        public void AddBuffer<T>(ReadOnlySpan<T> verticeData, int slot) where T : unmanaged
         {
-            Span<byte> dat = MemoryMarshal.Cast<T, byte>(verticeData);
-            byte[] verticeData1 = new byte[dat.Length];
-            dat.CopyTo(verticeData1);
+            ReadOnlySpan<byte> dat = MemoryMarshal.Cast<T, byte>(verticeData);
+
             var bufDef = new _vertexBuffer();
-            bufDef.data = verticeData1;
+            bufDef.data = dat.ToArray();
             vtBuffers.Add(slot, bufDef);
         }
         internal _vertexBuffer AddBuffer(int slot)
@@ -51,14 +48,14 @@ namespace Coocoo3DGraphics
             return bufDef;
         }
 
-        public void ReloadIndex<T>(int vertexCount, Span<T> indexData) where T : unmanaged
+        public void ReloadIndex<T>(int vertexCount, ReadOnlySpan<T> indexData) where T : unmanaged
         {
             vtBuffersDisposed.AddRange(vtBuffers.Values);
             vtBuffers.Clear();
             this.m_vertexCount = vertexCount;
             if (indexData != null)
             {
-                Span<byte> d1 = MemoryMarshal.Cast<T, byte>(indexData);
+                ReadOnlySpan<byte> d1 = MemoryMarshal.Cast<T, byte>(indexData);
                 this.m_indexData = new byte[d1.Length];
                 d1.CopyTo(this.m_indexData);
                 this.m_indexCount = indexData.Length;
@@ -85,11 +82,6 @@ namespace Coocoo3DGraphics
             }
             else
                 return false;
-        }
-
-        public void SetIndexFormat(Format format)
-        {
-            indexBufferView.Format = format;
         }
 
         public void Dispose()

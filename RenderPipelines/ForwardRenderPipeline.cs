@@ -13,7 +13,7 @@ using Coocoo3D.Components;
 namespace RenderPipelines
 {
     [UIShow(name: "前向渲染")]
-    public class ForwardRenderPipeline : RenderPipeline
+    public class ForwardRenderPipeline : RenderPipeline, IDisposable
     {
         [AOV(AOVType.Color)]
         [Size("UnscaledOutput")]
@@ -29,7 +29,7 @@ namespace RenderPipelines
         [Size("Output")]
         [Format(ResourceFormat.D32_Float)]
         public Texture2D depth2;
-        
+
         [Size("BloomSize")]
         [Format(ResourceFormat.R16G16B16A16_Float)]
         public Texture2D intermedia1;//used by bloom
@@ -123,7 +123,7 @@ namespace RenderPipelines
         [UISlider(0.5f, 2.0f, name: "渲染倍数")]
         public float RenderScale = 1;
 
-        [UIShow(name:"调试渲染")]
+        [UIShow(name: "调试渲染")]
         public DebugRenderType DebugRenderType;
 
         #region Material Parameters
@@ -215,16 +215,9 @@ namespace RenderPipelines
         [SceneCapture("Visual")]
         public IEnumerable<VisualComponent> Visuals;
 
-        [Indexable]
-        public float cameraFar;
-        [Indexable]
-        public float cameraNear;
-
         Random random = new Random(0);
 
-        [Indexable]
         public int outputWidth;
-        [Indexable]
         public int outputHeight;
 
         CameraData historyCamera;
@@ -240,7 +233,6 @@ namespace RenderPipelines
             inputColor = nameof(noPostProcess),
             inputDepth = nameof(depth),
             output = nameof(output),
-
         };
 
         public TAAPass taaPass = new TAAPass()
@@ -251,8 +243,15 @@ namespace RenderPipelines
             historyDepth = nameof(depth2),
         };
 
+        RenderHelper renderHelper;
+
         public override void BeforeRender()
         {
+            renderHelper ??= new RenderHelper();
+            renderHelper.renderWrap = renderWrap;
+            renderHelper.CPUSkinning = false;
+            renderHelper.UpdateGPUResource();
+
             renderWrap.GetOutputSize(out outputWidth, out outputHeight);
             renderWrap.SetSize("UnscaledOutput", outputWidth, outputHeight);
             outputWidth = (int)(outputWidth * RenderScale);
@@ -268,8 +267,6 @@ namespace RenderPipelines
         public override void Render()
         {
             var camera = this.camera;
-            cameraFar = camera.far;
-            cameraNear = camera.near;
             if (EnableTAA)
             {
                 Vector2 jitterVector = new Vector2((float)(random.NextDouble() * 2 - 1) / outputWidth, (float)(random.NextDouble() * 2 - 1) / outputHeight);
@@ -282,7 +279,7 @@ namespace RenderPipelines
             postProcess.EnableBloom = EnableBloom;
 
             forwordRenderPass.SetCamera(camera);
-            forwordRenderPass.Execute(renderWrap);
+            forwordRenderPass.Execute(renderHelper);
 
             if (EnableTAA)
             {
@@ -291,7 +288,7 @@ namespace RenderPipelines
                 taaPass.SetProperties(outputWidth, outputHeight, TAAFactor);
                 taaPass.Execute(renderWrap);
             }
-            postProcess.Execute(renderWrap);
+            postProcess.Execute(renderHelper);
 
             renderWrap.Swap(nameof(noPostProcess), nameof(noPostProcess2));
             renderWrap.Swap(nameof(depth), nameof(depth2));
@@ -300,6 +297,12 @@ namespace RenderPipelines
 
         public override void AfterRender()
         {
+        }
+
+        public void Dispose()
+        {
+            renderHelper?.Dispose();
+            renderHelper = null;
         }
     }
 }

@@ -1,9 +1,4 @@
 ﻿using Coocoo3D.RenderPipeline;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace RenderPipelines
 {
@@ -13,8 +8,9 @@ namespace RenderPipelines
         public string output;
         static (string, string)[] keyword1 = new[] { ("INPUT_SELF", "1") };
 
-        public void Execute(RenderWrap renderWrap)
+        public void Execute(RenderHelper renderHelper)
         {
+            RenderWrap renderWrap = renderHelper.renderWrap;
             var inputTexture = renderWrap.GetTex2D(input);
             var outputTexture = renderWrap.GetTex2D(output);
             int width = inputTexture.width;

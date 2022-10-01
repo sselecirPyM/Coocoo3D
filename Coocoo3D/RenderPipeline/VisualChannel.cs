@@ -89,6 +89,8 @@ namespace Coocoo3D.RenderPipeline
         public void Dispose()
         {
             renderPipelineView?.Dispose();
+            if (renderPipeline is IDisposable disposable1)
+                disposable1.Dispose();
         }
     }
 }

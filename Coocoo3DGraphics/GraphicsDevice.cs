@@ -1,11 +1,9 @@
-﻿using System;
+﻿using SharpGen.Runtime;
+using System;
 using System.Collections.Generic;
-using System.Text;
 using Vortice.Direct3D12;
-using SharpGen.Runtime;
-using Vortice.DXGI;
-using System.Threading;
 using Vortice.Direct3D12.Debug;
+using Vortice.DXGI;
 using static Coocoo3DGraphics.DXHelper;
 
 namespace Coocoo3DGraphics
@@ -98,7 +96,7 @@ namespace Coocoo3DGraphics
             dsvHeap = new DescriptorHeapX();
             dsvHeap.Initialize(device, descriptorHeapDescription);
 
-            superRingBuffer.Initialize(this.device, 134217728, 8388608);
+            superRingBuffer.Initialize(this.device, 134217728, 33554432);
         }
 
         internal void ResourceDelayRecycle(ID3D12Object resource)

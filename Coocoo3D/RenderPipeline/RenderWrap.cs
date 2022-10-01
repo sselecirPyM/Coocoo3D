@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using Coocoo3D.Present;
 using Coocoo3DGraphics;
 using System.Numerics;
-using Coocoo3D.Components;
 using Coocoo3D.RenderPipeline.Wrap;
 using Coocoo3D.Utility;
 using System.Reflection;
@@ -24,8 +23,6 @@ namespace Coocoo3D.RenderPipeline
         public GraphicsContext graphicsContext { get => rpc.graphicsContext; }
 
         public string BasePath { get => RenderPipelineView.path; }
-
-        public bool CPUSkinning { get => rpc.CPUSkinning; set => rpc.CPUSkinning = value; }
 
         List<(object, Dictionary<string, MemberInfo>)> dataStack = new();
 
@@ -51,33 +48,20 @@ namespace Coocoo3D.RenderPipeline
             }
         }
 
-        public void Draw(in MeshRenderable renderable)
-        {
-            graphicsContext.DrawIndexed(renderable.indexCount, renderable.indexStart, renderable.vertexStart);
-        }
-
         public void Draw(int indexCount, int startIndexLocation, int baseVertexLocation)
         {
             graphicsContext.DrawIndexed(indexCount, startIndexLocation, baseVertexLocation);
         }
 
-        public void DrawQuad(int instanceCount = 1)
+        public void Draw(int indexCount, int instanceCount, int startIndexLocation, int baseVertexLocation, int startInstanceLocation)
         {
-            var graphicsContext = this.graphicsContext;
-            graphicsContext.SetMesh(rpc.quadMesh);
-            graphicsContext.DrawIndexedInstanced(6, instanceCount, 0, 0, 0);
-        }
-
-        public void DrawCube(int instanceCount = 1)
-        {
-            var graphicsContext = this.graphicsContext;
-            graphicsContext.SetMesh(rpc.cubeMesh);
-            graphicsContext.DrawIndexedInstanced(36, instanceCount, 0, 0, 0);
+            graphicsContext.DrawIndexedInstanced(indexCount, instanceCount, startIndexLocation, baseVertexLocation, startInstanceLocation);
         }
 
         public void SetSRVs(IReadOnlyList<string> textures, RenderMaterial material = null)
         {
-            if (textures == null) return;
+            if (textures == null)
+                return;
             var graphicsContext = this.graphicsContext;
             for (int i = 0; i < textures.Count; i++)
             {
@@ -103,7 +87,8 @@ namespace Coocoo3D.RenderPipeline
 
         public void SetUAVs(IReadOnlyList<string> textures, RenderMaterial material = null)
         {
-            if (textures == null) return;
+            if (textures == null)
+                return;
             var graphicsContext = this.graphicsContext;
             for (int i = 0; i < textures.Count; i++)
             {
@@ -334,7 +319,8 @@ namespace Coocoo3D.RenderPipeline
         }
         public static Texture2D TextureStatusSelect(Texture2D texture, Texture2D loading, Texture2D unload, Texture2D error)
         {
-            if (texture == null) return error;
+            if (texture == null)
+                return error;
             return texture.Status switch
             {
                 GraphicsObjectStatus.loaded => texture,
@@ -342,66 +328,6 @@ namespace Coocoo3D.RenderPipeline
                 GraphicsObjectStatus.unload => unload,
                 _ => error
             };
-        }
-
-
-        internal MMDRendererComponent renderer;
-
-        internal Mesh GetMesh(string path) => rpc.mainCaches.GetModel(path).GetMesh();
-
-        internal ResourceWrap.ModelPack GetModel(string path) => rpc.mainCaches.GetModel(path);
-
-        public IEnumerable<MeshRenderable> MeshRenderables(bool setMesh = true)
-        {
-            var drp = rpc;
-            foreach (var renderer in drp.renderers)
-            {
-                var model = GetModel(renderer.meshPath);
-                var mesh = model.GetMesh();
-                var meshOverride = rpc.meshOverride[renderer];
-                if (setMesh)
-                    graphicsContext.SetMesh(mesh, meshOverride);
-                this.renderer = renderer;
-                for (int i = 0; i < renderer.Materials.Count; i++)
-                {
-                    var material = renderer.Materials[i];
-                    var submesh = model.Submeshes[i];
-                    var renderable = new MeshRenderable()
-                    {
-                        mesh = mesh,
-                        meshOverride = meshOverride,
-                        transform = renderer.LocalToWorld,
-                        gpuSkinning = renderer.skinning && !drp.CPUSkinning,
-                    };
-                    renderable.material = material;
-                    WriteRenderable1(ref renderable, submesh);
-                    yield return renderable;
-                }
-            }
-            this.renderer = null;
-            foreach (var renderer in drp.meshRenderers)
-            {
-                var model = GetModel(renderer.meshPath);
-                var mesh = model.GetMesh();
-                if (setMesh)
-                    graphicsContext.SetMesh(mesh);
-                for (int i = 0; i < renderer.Materials.Count; i++)
-                {
-                    var material = renderer.Materials[i];
-                    var submesh = model.Submeshes[i];
-                    var renderable = new MeshRenderable()
-                    {
-                        mesh = mesh,
-                        meshOverride = null,
-                        transform = renderer.transform.GetMatrix(),
-                        gpuSkinning = false,
-                    };
-                    renderable.material = material;
-                    WriteRenderable1(ref renderable, submesh);
-                    yield return renderable;
-                }
-            }
-            this.renderer = null;
         }
 
         public void PushParameters(object parameterProvider)
@@ -432,20 +358,6 @@ namespace Coocoo3D.RenderPipeline
         public void PopParameters()
         {
             dataStack.RemoveAt(dataStack.Count - 1);
-        }
-
-        void WriteRenderable1(ref MeshRenderable renderable, Submesh submesh)
-        {
-            renderable.indexStart = submesh.indexOffset;
-            renderable.indexCount = submesh.indexCount;
-            renderable.vertexStart = submesh.vertexStart;
-            renderable.vertexCount = submesh.vertexCount;
-            renderable.drawDoubleFace = submesh.DrawDoubleFace;
-        }
-
-        public CBuffer GetBoneBuffer()
-        {
-            return rpc.GetBoneBuffer(renderer);
         }
 
         public void SetRenderTarget(Texture2D texture2D, bool clear)
@@ -495,7 +407,7 @@ namespace Coocoo3D.RenderPipeline
 
         public void SetCBV(CBuffer cBuffer, int slot)
         {
-            graphicsContext.SetCBVRSlot(cBuffer, 0, 0, slot);
+            graphicsContext.SetCBVRSlot(cBuffer, slot);
         }
 
         public void SetRootSignature(string rs)

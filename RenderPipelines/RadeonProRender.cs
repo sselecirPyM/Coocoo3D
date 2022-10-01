@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using Caprice.Attributes;
 using Caprice.Display;
 using Coocoo3D.Components;
-using Coocoo3D.Present;
 using Coocoo3D.RenderPipeline;
 using Coocoo3DGraphics;
 using FireRender.AMD.RenderEngine.Core;
@@ -134,6 +133,8 @@ namespace RenderPipelines
 
         byte[] frameBuffer1 = new byte[2048 * 2048 * 16];
 
+        RenderHelper renderHelper;
+
         Vector2 size;
         public DrawQuadPass postProcess = new DrawQuadPass()
         {
@@ -176,7 +177,11 @@ namespace RenderPipelines
 
         public override void BeforeRender()
         {
-            renderWrap.CPUSkinning = true;
+            renderHelper ??= new RenderHelper();
+            renderHelper.renderWrap = renderWrap;
+            renderHelper.CPUSkinning = true;
+            renderHelper.CPUOnlySkinning();
+
             renderWrap.GetOutputSize(out int width, out int height);
             renderWrap.SetSize("Output", width, height);
         }
@@ -264,7 +269,7 @@ namespace RenderPipelines
                 }
             }
 
-            foreach (var renderable in renderWrap.MeshRenderables(false))
+            foreach (var renderable in renderHelper.MeshRenderables(false))
             {
                 renderable.mesh.TryGetBuffer(0, out byte[] vertexBuf);
                 renderable.mesh.TryGetBuffer(1, out byte[] normalBuf);
@@ -380,7 +385,7 @@ namespace RenderPipelines
             scene.Dispose();
             renderWrap.graphicsContext.UploadTexture(noPostProcess, frameBuffer1);
 
-            postProcess.Execute(renderWrap);
+            postProcess.Execute(renderHelper);
         }
 
         public override void AfterRender()
@@ -390,6 +395,7 @@ namespace RenderPipelines
 
         public void Dispose()
         {
+            renderHelper?.Dispose();
             foreach (var image in images)
             {
                 image.Value.Dispose();

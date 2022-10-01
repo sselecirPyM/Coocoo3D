@@ -24,8 +24,10 @@ namespace RenderPipelines
         public bool clearRenderTarget = false;
         public bool clearDepth = false;
 
-        public override void Execute(RenderWrap renderWrap)
+        public override void Execute(RenderHelper renderHelper)
         {
+
+            RenderWrap renderWrap = renderHelper.renderWrap;
             _keywords.Clear();
             _keywords.AddRange(this.keywords);
 
@@ -46,7 +48,7 @@ namespace RenderPipelines
                     renderWrap.Write(cbv1, writer);
                     writer.SetCBV(i);
                 }
-            renderWrap.DrawQuad();
+            renderHelper.DrawQuad();
             writer.Clear();
             _keywords.Clear();
         }

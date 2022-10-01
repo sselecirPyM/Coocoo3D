@@ -30,8 +30,9 @@ namespace RenderPipelines
         public bool clearRenderTarget = false;
         public bool clearDepth = false;
 
-        public override void Execute(RenderWrap renderWrap)
+        public override void Execute(RenderHelper renderHelper)
         {
+            RenderWrap renderWrap = renderHelper.renderWrap;
             if (Particles.Count == 0)
                 return;
             _keywords.Clear();
@@ -44,13 +45,14 @@ namespace RenderPipelines
 
             foreach (var particle in Particles)
             {
-                DrawParticle(renderWrap, particle.Item1, particle.Item2);
+                DrawParticle(renderHelper, particle.Item1, particle.Item2);
             }
             _keywords.Clear();
         }
 
-        void DrawParticle(RenderWrap renderWrap, RenderMaterial material, ParticleHolder particle)
+        void DrawParticle(RenderHelper renderHelper, RenderMaterial material, ParticleHolder particle)
         {
+            RenderWrap renderWrap = renderHelper.renderWrap;
             var desc = GetPSODesc(renderWrap, psoDesc);
             object particleBlendMode = renderWrap.GetIndexableValue("ParticleBlendMode", material);
             if (particleBlendMode is BlendMode.Add)
@@ -74,7 +76,7 @@ namespace RenderPipelines
             if (count == 0) return;
             renderWrap.SetSRVs(srvs, material);
 
-            renderWrap.DrawQuad(count);
+            renderHelper.DrawQuad(count);
             writer.Clear();
         }
     }

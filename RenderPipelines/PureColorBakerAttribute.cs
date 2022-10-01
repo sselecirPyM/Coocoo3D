@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -12,6 +13,7 @@ namespace RenderPipelines
 {
     public class PureColorBakerAttribute : RuntimeBakeAttribute, ITexture2DBaker
     {
+        static ushort[] quad = new ushort[] { 0, 1, 2, 2, 1, 3 };
         public bool Bake(Texture2D texture, RenderWrap renderWrap, ref object tag)
         {
             renderWrap.SetRootSignature("C");
@@ -27,7 +29,8 @@ namespace RenderPipelines
             renderWrap.Writer.Write(Color);
             renderWrap.Writer.SetCBV(0);
             renderWrap.SetShader("PureColor.hlsl", psoDesc);
-            renderWrap.DrawQuad();
+            renderWrap.graphicsContext.SetMesh(null, MemoryMarshal.Cast<ushort, byte>(quad), 0, 6);
+            renderWrap.Draw(6, 0, 0);
             return true;
         }
 

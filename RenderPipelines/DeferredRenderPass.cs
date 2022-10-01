@@ -403,8 +403,9 @@ namespace RenderPipelines
             this.depthStencil = depthStencil;
         }
 
-        public void Execute(RenderWrap renderWrap)
+        public void Execute(RenderHelper renderHelper)
         {
+            RenderWrap renderWrap = renderHelper.renderWrap;
             drawGBuffer.depthStencil = depthStencil;
             HiZPass.input = depthStencil;
             drawObjectTransparent.depthStencil = depthStencil;
@@ -506,17 +507,17 @@ namespace RenderPipelines
                 int height = shadowMap.height;
                 drawShadowMap.CBVPerObject[1] = ShadowMapVP;
                 drawShadowMap.scissorViewport = new Rectangle(0, 0, width / 2, height / 2);
-                drawShadowMap.Execute(renderWrap);
+                drawShadowMap.Execute(renderHelper);
                 drawShadowMap.CBVPerObject[1] = ShadowMapVP1;
                 drawShadowMap.scissorViewport = new Rectangle(width / 2, 0, width / 2, height / 2);
-                drawShadowMap.Execute(renderWrap);
+                drawShadowMap.Execute(renderHelper);
             }
 
             Split = SplitTest(pointLightCount * 6);
             if (pointLightCount > 0)
             {
                 var pointLightDatas = MemoryMarshal.Cast<byte, PointLightData>(pointLightData).Slice(0, pointLightCount);
-                DrawPointShadow(renderWrap, pointLightDatas);
+                DrawPointShadow(renderHelper, pointLightDatas);
 
                 finalPass.cbvs[1][0] = (pointLightData, pointLightCount * 32);
                 finalPass.keywords.Add(("ENABLE_POINT_LIGHT", "1"));
@@ -526,21 +527,21 @@ namespace RenderPipelines
                 drawObjectTransparent.keywords.Add(("ENABLE_POINT_LIGHT", "1"));
                 drawObjectTransparent.keywords.Add(("POINT_LIGHT_COUNT", pointLightCount.ToString()));
             }
-            drawGBuffer.Execute(renderWrap);
-            decalPass.Execute(renderWrap);
+            drawGBuffer.Execute(renderHelper);
+            decalPass.Execute(renderHelper);
             if (true.Equals(renderWrap.GetIndexableValue("EnableSSR")))
-                HiZPass.Execute(renderWrap);
+                HiZPass.Execute(renderHelper);
 
             if (rayTracing || updateGI)
             {
                 rayTracingPass.RayTracing = rayTracing;
                 rayTracingPass.RayTracingGI = updateGI;
                 rayTracingPass.UseGI = true.Equals(renderWrap.GetIndexableValue("UseGI"));
-                rayTracingPass.Execute(renderWrap, directionalLight);
+                rayTracingPass.Execute(renderHelper, directionalLight);
             }
-            finalPass.Execute(renderWrap);
-            drawObjectTransparent.Execute(renderWrap);
-            particlePass.Execute(renderWrap);
+            finalPass.Execute(renderHelper);
+            drawObjectTransparent.Execute(renderHelper);
+            particlePass.Execute(renderHelper);
 
             renderWrap.PopParameters();
 
@@ -575,8 +576,9 @@ namespace RenderPipelines
             return new Rectangle(x, y, sizeX1, sizeY1);
         }
 
-        void DrawPointShadow(RenderWrap renderWrap, Span<PointLightData> pointLightDatas)
+        void DrawPointShadow(RenderHelper renderHelper, Span<PointLightData> pointLightDatas)
         {
+            RenderWrap renderWrap = renderHelper.renderWrap;
             int index = 0;
             var shadowMap = renderWrap.GetRenderTexture2D("_ShadowMap");
             int width = shadowMap.width;
@@ -589,32 +591,32 @@ namespace RenderPipelines
 
                 drawShadowMap.CBVPerObject[1] = GetShadowMapMatrix(pl.Position, new Vector3(1, 0, 0), new Vector3(0, -1, 0), near, far);
                 drawShadowMap.scissorViewport = GetRectangle(index, Split, width, height);
-                drawShadowMap.Execute(renderWrap);
+                drawShadowMap.Execute(renderHelper);
                 index++;
 
                 drawShadowMap.CBVPerObject[1] = GetShadowMapMatrix(pl.Position, new Vector3(-1, 0, 0), new Vector3(0, 1, 0), near, far);
                 drawShadowMap.scissorViewport = GetRectangle(index, Split, width, height);
-                drawShadowMap.Execute(renderWrap);
+                drawShadowMap.Execute(renderHelper);
                 index++;
 
                 drawShadowMap.CBVPerObject[1] = GetShadowMapMatrix(pl.Position, new Vector3(0, 1, 0), new Vector3(0, 0, -1), near, far);
                 drawShadowMap.scissorViewport = GetRectangle(index, Split, width, height);
-                drawShadowMap.Execute(renderWrap);
+                drawShadowMap.Execute(renderHelper);
                 index++;
 
                 drawShadowMap.CBVPerObject[1] = GetShadowMapMatrix(pl.Position, new Vector3(0, -1, 0), new Vector3(0, 0, 1), near, far);
                 drawShadowMap.scissorViewport = GetRectangle(index, Split, width, height);
-                drawShadowMap.Execute(renderWrap);
+                drawShadowMap.Execute(renderHelper);
                 index++;
 
                 drawShadowMap.CBVPerObject[1] = GetShadowMapMatrix(pl.Position, new Vector3(0, 0, 1), new Vector3(-1, 0, 0), near, far);
                 drawShadowMap.scissorViewport = GetRectangle(index, Split, width, height);
-                drawShadowMap.Execute(renderWrap);
+                drawShadowMap.Execute(renderHelper);
                 index++;
 
                 drawShadowMap.CBVPerObject[1] = GetShadowMapMatrix(pl.Position, new Vector3(0, 0, -1), new Vector3(1, 0, 0), near, far);
                 drawShadowMap.scissorViewport = GetRectangle(index, Split, width, height);
-                drawShadowMap.Execute(renderWrap);
+                drawShadowMap.Execute(renderHelper);
                 index++;
             }
         }

@@ -14,7 +14,7 @@ using Coocoo3D.Components;
 namespace RenderPipelines
 {
     [UIShow(name: "延迟渲染")]
-    public class DeferredRenderPipeline : RenderPipeline
+    public class DeferredRenderPipeline : RenderPipeline, IDisposable
     {
         [AOV(AOVType.Color)]
         [Size("UnscaledOutput")]
@@ -354,7 +354,7 @@ namespace RenderPipelines
         [UIColor(UIShowType.Particle, "颜色")]
         public Vector4 ParticleColor = new Vector4(1, 1, 1, 1);
         [Indexable]
-        [UIShow(UIShowType.Particle,"混合模式")]
+        [UIShow(UIShowType.Particle, "混合模式")]
         public BlendMode ParticleBlendMode;
         #endregion
 
@@ -367,15 +367,10 @@ namespace RenderPipelines
         [SceneCapture("Particle")]
         public IReadOnlyList<(RenderMaterial, ParticleHolder)> Particles;
 
-        [Indexable]
-        public float cameraFar;
-        [Indexable]
-        public float cameraNear;
+        RenderHelper renderHelper;
 
         Random random = new Random(0);
-        [Indexable]
         public int outputWidth;
-        [Indexable]
         public int outputHeight;
 
         CameraData historyCamera;
@@ -403,6 +398,11 @@ namespace RenderPipelines
 
         public override void BeforeRender()
         {
+            renderHelper ??= new RenderHelper();
+            renderHelper.renderWrap = renderWrap;
+            renderHelper.CPUSkinning = EnableRayTracing || UpdateGI;
+            renderHelper.UpdateGPUResource();
+
             renderWrap.GetOutputSize(out outputWidth, out outputHeight);
             renderWrap.SetSize("UnscaledOutput", outputWidth, outputHeight);
             outputWidth = Math.Max((int)(outputWidth * RenderScale), 1);
@@ -415,14 +415,11 @@ namespace RenderPipelines
             renderWrap.texLoading = renderWrap.GetTex2DLoaded("loading.png");
             renderWrap.texError = renderWrap.GetTex2DLoaded("error.png");
 
-            renderWrap.CPUSkinning = EnableRayTracing || UpdateGI;
         }
 
         public override void Render()
         {
             var camera = this.camera;
-            cameraFar = camera.far;
-            cameraNear = camera.near;
             if (EnableTAA)
             {
                 Vector2 jitterVector = new Vector2((float)(random.NextDouble() * 2 - 1) / outputWidth, (float)(random.NextDouble() * 2 - 1) / outputHeight);
@@ -438,7 +435,7 @@ namespace RenderPipelines
             postProcess.EnableBloom = EnableBloom;
 
             deferredRenderPass.SetCamera(camera);
-            deferredRenderPass.Execute(renderWrap);
+            deferredRenderPass.Execute(renderHelper);
 
             if (EnableTAA)
             {
@@ -447,7 +444,7 @@ namespace RenderPipelines
                 taaPass.SetProperties(outputWidth, outputHeight, TAAFactor);
                 taaPass.Execute(renderWrap);
             }
-            postProcess.Execute(renderWrap);
+            postProcess.Execute(renderHelper);
 
             renderWrap.Swap(nameof(noPostProcess), nameof(noPostProcess2));
             renderWrap.Swap(nameof(depth), nameof(depth2));
@@ -456,6 +453,12 @@ namespace RenderPipelines
 
         public override void AfterRender()
         {
+        }
+
+        public void Dispose()
+        {
+            renderHelper?.Dispose();
+            renderHelper = null;
         }
     }
 }

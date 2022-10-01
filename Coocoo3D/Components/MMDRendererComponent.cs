@@ -22,12 +22,14 @@ namespace Coocoo3D.Components
         public Vector3[] meshPositionCache;
 
         public float[] weights;
-        public bool meshNeedUpdate;
+        internal bool meshNeedUpdate;
         public List<MorphDesc> morphs = new();
 
         public void ComputeVertexMorph(ModelPack model)
         {
-            if (!meshNeedUpdate) return;
+            if (!meshNeedUpdate)
+                return;
+            meshNeedUpdate = false;
             new Span<Vector3>(model.position).CopyTo(meshPositionCache);
 
             for (int i = 0; i < morphs.Count; i++)
@@ -116,7 +118,8 @@ namespace Coocoo3D.Components
         void IK(int boneIndex, List<BoneEntity> bones)
         {
             int ikTargetIndex = bones[boneIndex].IKTargetIndex;
-            if (ikTargetIndex == -1) return;
+            if (ikTargetIndex == -1)
+                return;
             var entity = bones[boneIndex];
             var entitySource = bones[ikTargetIndex];
 
@@ -125,7 +128,8 @@ namespace Coocoo3D.Components
 
             int h1 = entity.CCDIterateLimit / 2;
             Vector3 posSource = entitySource.GetPos();
-            if ((posTarget - posSource).LengthSquared() < 1e-6f) return;
+            if ((posTarget - posSource).LengthSquared() < 1e-6f)
+                return;
             for (int i = 0; i < entity.CCDIterateLimit; i++)
             {
                 bool axis_lim = i < h1;

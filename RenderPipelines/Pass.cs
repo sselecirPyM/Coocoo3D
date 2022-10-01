@@ -1,11 +1,7 @@
 ﻿using Coocoo3D.Present;
 using Coocoo3D.RenderPipeline;
 using Coocoo3DGraphics;
-using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace RenderPipelines
 {
@@ -17,7 +13,7 @@ namespace RenderPipelines
 
         public string depthStencil;
 
-        public abstract void Execute(RenderWrap renderWrap);
+        public abstract void Execute(RenderHelper renderHelper);
 
         public List<(string, string)> AutoKeyMap = new();
 

@@ -1,13 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Numerics;
-using System.Text;
-using Vortice.Direct3D12;
+using System.Runtime.InteropServices;
 using Vortice.Direct3D;
+using Vortice.Direct3D12;
 using Vortice.DXGI;
 using static Coocoo3DGraphics.DXHelper;
-using System.Runtime.InteropServices;
-using System.IO;
 
 namespace Coocoo3DGraphics
 {
@@ -69,51 +68,12 @@ namespace Coocoo3DGraphics
 
         public bool SetPSO(RTPSO pso)
         {
-            if (!graphicsDevice.IsRayTracingSupport()) return false;
-            if (pso == null) return false;
+            if (!graphicsDevice.IsRayTracingSupport() || pso == null)
+                return false;
 
-            var device = graphicsDevice.device;
             if (pso.so == null)
             {
-                if (pso.exports == null || pso.exports.Length == 0) return false;
-
-                pso.globalRootSignature?.Dispose();
-                pso.globalRootSignature = new RootSignature();
-                pso.globalRootSignature.ReloadCompute(pso.shaderAccessTypes);
-                pso.globalRootSignature.Sign1(graphicsDevice);
-
-                List<StateSubObject> stateSubObjects = new List<StateSubObject>();
-
-                List<ExportDescription> exportDescriptions = new List<ExportDescription>();
-                foreach (var export in pso.exports)
-                    exportDescriptions.Add(new ExportDescription(export));
-
-                stateSubObjects.Add(new StateSubObject(new DxilLibraryDescription(pso.datas, exportDescriptions.ToArray())));
-                stateSubObjects.Add(new StateSubObject(new HitGroupDescription("emptyhitgroup", HitGroupType.Triangles, null, null, null)));
-                foreach (var hitGroup in pso.hitGroups)
-                {
-                    stateSubObjects.Add(new StateSubObject(new HitGroupDescription(hitGroup.name, HitGroupType.Triangles, hitGroup.anyHit, hitGroup.closestHit, hitGroup.intersection)));
-                }
-                if (pso.localShaderAccessTypes != null)
-                {
-                    pso.localRootSignature?.Dispose();
-                    pso.localRootSignature = new RootSignature();
-                    pso.localRootSignature.ReloadLocalRootSignature(pso.localShaderAccessTypes);
-                    pso.localRootSignature.Sign1(graphicsDevice, 1);
-                    pso.localSize += pso.localShaderAccessTypes.Length * 8;
-                    stateSubObjects.Add(new StateSubObject(new LocalRootSignature(pso.localRootSignature.rootSignature)));
-                    string[] hitGroups = new string[pso.hitGroups.Length];
-                    for (int i = 0; i < pso.hitGroups.Length; i++)
-                        hitGroups[i] = pso.hitGroups[i].name;
-                    stateSubObjects.Add(new StateSubObject(new SubObjectToExportsAssociation(stateSubObjects[stateSubObjects.Count - 1], hitGroups)));
-                }
-
-                stateSubObjects.Add(new StateSubObject(new RaytracingShaderConfig(64, 20)));
-                stateSubObjects.Add(new StateSubObject(new SubObjectToExportsAssociation(stateSubObjects[stateSubObjects.Count - 1], pso.exports)));
-                stateSubObjects.Add(new StateSubObject(new RaytracingPipelineConfig(2)));
-                stateSubObjects.Add(new StateSubObject(new GlobalRootSignature(pso.globalRootSignature.rootSignature)));
-                var result = device.CreateStateObject(new StateObjectDescription(StateObjectType.RaytracingPipeline, stateSubObjects.ToArray()), out pso.so);
-                if (result.Failure)
+                if (!pso.InitializeSO(graphicsDevice))
                     return false;
             }
             SetRootSignature(pso.globalRootSignature);
@@ -144,9 +104,9 @@ namespace Coocoo3DGraphics
 
                 ulong pos;
                 if (meshOverride != null && meshOverride.vtBuffers.TryGetValue(0, out var v0))
-                    pos = v0.vertex.GPUVirtualAddress + (ulong)btas.vertexStart * 12;
+                    pos = v0.vertexBufferView.BufferLocation + (ulong)btas.vertexStart * 12;
                 else
-                    pos = mesh.vtBuffers[0].vertex.GPUVirtualAddress + (ulong)btas.vertexStart * 12;
+                    pos = mesh.vtBuffers[0].vertexBufferView.BufferLocation + (ulong)btas.vertexStart * 12;
                 var inputs = new BuildRaytracingAccelerationStructureInputs();
                 inputs.Type = RaytracingAccelerationStructureType.BottomLevel;
                 inputs.Layout = ElementsLayout.Array;
@@ -249,10 +209,10 @@ namespace Coocoo3DGraphics
                     {
                         if (meshOverride != null && meshOverride.vtBuffers.TryGetValue(i, out var meshX1))
                         {
-                            writer.Write(meshX1.vertex.GPUVirtualAddress + (ulong)(meshX1.vertexBufferView.StrideInBytes * vertexStart));
+                            writer.Write(meshX1.vertexBufferView.BufferLocation + (ulong)(meshX1.vertexBufferView.StrideInBytes * vertexStart));
                         }
                         else
-                            writer.Write(mesh.vtBuffers[i].vertex.GPUVirtualAddress + (ulong)(mesh.vtBuffers[i].vertexBufferView.StrideInBytes * vertexStart));
+                            writer.Write(mesh.vtBuffers[i].vertexBufferView.BufferLocation + (ulong)(mesh.vtBuffers[i].vertexBufferView.StrideInBytes * vertexStart));
                     }
 
                     WriteLocalHandles(inst, currentRTPSO, writer);
@@ -422,7 +382,7 @@ namespace Coocoo3DGraphics
 
         void SetSRVRSlot(ulong gpuAddr, int slot) => currentSRVs[slot] = gpuAddr;
 
-        public void SetCBVRSlot(CBuffer buffer, int offset256, int size256, int slot) => currentCBVs[slot] = buffer.GetCurrentVirtualAddress() + (ulong)(offset256 * 256);
+        public void SetCBVRSlot(CBuffer buffer, int slot) => currentCBVs[slot] = buffer.GetCurrentVirtualAddress();
 
         public void SetCBVRSlot<T>(ReadOnlySpan<T> data, int slot) where T : unmanaged
         {
@@ -462,16 +422,11 @@ namespace Coocoo3DGraphics
             var uavDesc = new UnorderedAccessViewDescription()
             {
                 ViewDimension = UnorderedAccessViewDimension.Texture2D,
-                Texture2DArray = new Texture2DArrayUnorderedAccessView() { MipSlice = mipIndex, ArraySize = 6 },
+                Texture2D = new Texture2DUnorderedAccessView { MipSlice = mipIndex },
                 Format = texture.uavFormat,
             };
 
             currentUAVs[slot] = CreateUAV(texture.resource, uavDesc).Ptr;
-        }
-
-        void UpdateCBResource<T>(CBuffer buffer, ReadOnlySpan<T> data) where T : unmanaged
-        {
-            GetRingBuffer().DelayUpload(data, out buffer.gpuRefAddress);
         }
 
         unsafe public void UploadMesh(Mesh mesh)
@@ -480,25 +435,26 @@ namespace Coocoo3DGraphics
             {
                 var mesh1 = vtBuf.Value;
                 int dataLength = mesh1.data.Length;
-                int index1 = mesh.vtBuffersDisposed.FindIndex(u => u.actualLength >= dataLength && u.actualLength <= dataLength * 2 + 256);
+                int index1 = mesh.vtBuffersDisposed.FindIndex(u => u.Capacity >= dataLength && u.Capacity <= dataLength * 2 + 256);
                 if (index1 != -1)
                 {
                     mesh1.vertex = mesh.vtBuffersDisposed[index1].vertex;
-                    mesh1.actualLength = mesh.vtBuffersDisposed[index1].actualLength;
-                    m_commandList.ResourceBarrierTransition(mesh1.vertex, ResourceStates.GenericRead, ResourceStates.CopyDest);
+                    mesh1.Capacity = mesh.vtBuffersDisposed[index1].Capacity;
+                    m_commandList.ResourceBarrierTransition(mesh1.vertex, ResourceStates.Common, ResourceStates.CopyDest);
+                    GetRingBuffer().Upload<byte>(m_commandList, mesh1.data, mesh1.vertex);
+                    m_commandList.ResourceBarrierTransition(mesh1.vertex, ResourceStates.CopyDest, ResourceStates.Common);
 
                     mesh.vtBuffersDisposed.RemoveAt(index1);
                 }
                 else
                 {
-                    CreateBuffer(dataLength + 256, ref mesh1.vertex);
-                    mesh1.actualLength = dataLength + 256;
+                    mesh1.Capacity = dataLength + 256;
+                    CreateBuffer(mesh1.Capacity, ref mesh1.vertex, ResourceStates.Common);
+                    GetRingBuffer().Upload<byte>(m_copyCommandList, mesh1.data, mesh1.vertex);
                 }
 
                 mesh1.vertex.Name = "vertex buffer" + vtBuf.Key;
 
-                GetRingBuffer().Upload<byte>(m_commandList, mesh1.data, mesh1.vertex);
-                m_commandList.ResourceBarrierTransition(mesh1.vertex, ResourceStates.CopyDest, ResourceStates.GenericRead);
                 Reference(mesh1.vertex);
 
                 mesh1.vertexBufferView.BufferLocation = mesh1.vertex.GPUVirtualAddress;
@@ -507,26 +463,26 @@ namespace Coocoo3DGraphics
             }
 
             foreach (var vtBuf in mesh.vtBuffersDisposed)
-                vtBuf.vertex.Release();
+                vtBuf.vertex?.Release();
             mesh.vtBuffersDisposed.Clear();
 
             if (mesh.m_indexCount > 0)
             {
                 int indexBufferLength = mesh.m_indexCount * 4;
                 ref var indexBuffer = ref mesh.indexBuffer;
-                if (mesh.indexBufferCapacity < indexBufferLength)
+                if (mesh.indexBufferCapacity >= indexBufferLength)
                 {
-                    CreateBuffer(indexBufferLength, ref indexBuffer);
-                    mesh.indexBufferCapacity = indexBufferLength;
-                    indexBuffer.Name = "index buffer";
+                    m_commandList.ResourceBarrierTransition(indexBuffer, ResourceStates.Common, ResourceStates.CopyDest);
+                    GetRingBuffer().Upload<byte>(m_commandList, new Span<byte>(mesh.m_indexData, 0, indexBufferLength), indexBuffer);
+                    m_commandList.ResourceBarrierTransition(indexBuffer, ResourceStates.CopyDest, ResourceStates.Common);
                 }
                 else
                 {
-                    m_commandList.ResourceBarrierTransition(indexBuffer, ResourceStates.GenericRead, ResourceStates.CopyDest);
+                    CreateBuffer(indexBufferLength, ref indexBuffer, ResourceStates.Common);
+                    mesh.indexBufferCapacity = indexBufferLength;
+                    indexBuffer.Name = "index buffer";
+                    GetRingBuffer().Upload<byte>(m_copyCommandList, new Span<byte>(mesh.m_indexData, 0, indexBufferLength), indexBuffer);
                 }
-                GetRingBuffer().Upload<byte>(m_commandList, new Span<byte>(mesh.m_indexData, 0, indexBufferLength), indexBuffer);
-
-                m_commandList.ResourceBarrierTransition(indexBuffer, ResourceStates.CopyDest, ResourceStates.GenericRead);
                 Reference(indexBuffer);
                 mesh.indexBufferView.BufferLocation = indexBuffer.GPUVirtualAddress;
                 mesh.indexBufferView.SizeInBytes = indexBufferLength;
@@ -534,44 +490,47 @@ namespace Coocoo3DGraphics
             }
         }
 
-        public void BeginUpdateMesh(Mesh mesh)
+        unsafe public void UpdateMeshOneFrame(Mesh mesh)
         {
+            foreach (var vtBuf in mesh.vtBuffers)
+            {
+                var mesh1 = vtBuf.Value;
+                int dataLength = mesh1.data.Length;
 
+                GetRingBuffer().DelayUpload<byte>(mesh1.data, out ulong addr);
+
+                mesh1.vertexBufferView.BufferLocation = addr;
+                mesh1.vertexBufferView.StrideInBytes = dataLength / mesh.m_vertexCount;
+                mesh1.vertexBufferView.SizeInBytes = dataLength;
+            }
+
+            foreach (var vtBuf in mesh.vtBuffersDisposed)
+                vtBuf.vertex?.Release();
+            mesh.vtBuffersDisposed.Clear();
+
+            if (mesh.m_indexCount > 0)
+            {
+                int indexBufferLength = mesh.m_indexCount * 4;
+                GetRingBuffer().DelayUpload<byte>(new ReadOnlySpan<byte>(mesh.m_indexData, 0, indexBufferLength), out ulong addr);
+
+                mesh.indexBufferView.BufferLocation = addr;
+                mesh.indexBufferView.SizeInBytes = indexBufferLength;
+                mesh.indexBufferView.Format = Format.R32_UInt;
+            }
         }
 
-        unsafe public void UpdateMesh<T>(Mesh mesh, ReadOnlySpan<T> data, int slot) where T : unmanaged
+        public void UpdateMeshOneFrame<T>(Mesh mesh, ReadOnlySpan<T> data, int slot) where T : unmanaged
         {
-            int size1 = Marshal.SizeOf(typeof(T));
+            int size1 = Marshal.SizeOf<T>();
             int sizeInBytes = data.Length * size1;
 
             if (!mesh.vtBuffers.TryGetValue(slot, out var vtBuf))
             {
                 vtBuf = mesh.AddBuffer(slot);
             }
+            GetRingBuffer().DelayUpload(data, out ulong addr);
 
-
-            int index1 = mesh.vtBuffersDisposed.FindIndex(u => u.actualLength == sizeInBytes);
-            if (index1 != -1)
-            {
-                vtBuf.vertex = mesh.vtBuffersDisposed[index1].vertex;
-                vtBuf.actualLength = mesh.vtBuffersDisposed[index1].actualLength;
-                m_commandList.ResourceBarrierTransition(vtBuf.vertex, ResourceStates.GenericRead, ResourceStates.CopyDest);
-
-                mesh.vtBuffersDisposed.RemoveAt(index1);
-            }
-            else
-            {
-                CreateBuffer(sizeInBytes, ref vtBuf.vertex);
-                vtBuf.actualLength = sizeInBytes;
-            }
-
-            vtBuf.vertex.Name = "vertex buffer" + slot;
-
-            GetRingBuffer().Upload(m_commandList, data, vtBuf.vertex);
-
-            m_commandList.ResourceBarrierTransition(vtBuf.vertex, ResourceStates.CopyDest, ResourceStates.GenericRead);
-            Reference(vtBuf.vertex);
-            vtBuf.vertexBufferView.BufferLocation = vtBuf.vertex.GPUVirtualAddress;
+            vtBuf.vertexBufferView.BufferLocation = addr;
             vtBuf.vertexBufferView.StrideInBytes = sizeInBytes / mesh.m_vertexCount;
             vtBuf.vertexBufferView.SizeInBytes = sizeInBytes;
         }
@@ -579,13 +538,14 @@ namespace Coocoo3DGraphics
         public void EndUpdateMesh(Mesh mesh)
         {
             foreach (var vtBuf in mesh.vtBuffersDisposed)
-                vtBuf.vertex.Release();
+                vtBuf.vertex?.Release();
             mesh.vtBuffersDisposed.Clear();
         }
 
         public void UpdateResource<T>(CBuffer buffer, ReadOnlySpan<T> data) where T : unmanaged
         {
-            UpdateCBResource(buffer, data);
+            buffer.size = Marshal.SizeOf<T>() * data.Length;
+            GetRingBuffer().DelayUpload(data, out buffer.gpuRefAddress);
         }
 
         public unsafe void UploadTexture(Texture2D texture, Uploader uploader)
@@ -719,30 +679,44 @@ namespace Coocoo3DGraphics
             foreach (var vtBuf in meshOverride.vtBuffers)
             {
                 m_commandList.IASetVertexBuffers(vtBuf.Key, vtBuf.Value.vertexBufferView);
-                Reference(vtBuf.Value.vertex);
+                if (vtBuf.Value.vertex != null)
+                    Reference(vtBuf.Value.vertex);
             }
-            m_commandList.IASetIndexBuffer(mesh.indexBufferView);
-            Reference(mesh.indexBuffer);
+            if (meshOverride.indexBuffer != null)
+            {
+                m_commandList.IASetIndexBuffer(meshOverride.indexBufferView);
+                Reference(meshOverride.indexBuffer);
+            }
+            else
+            {
+                m_commandList.IASetIndexBuffer(mesh.indexBufferView);
+                Reference(mesh.indexBuffer);
+            }
         }
 
         public void SetMesh(ReadOnlySpan<byte> vertexData, ReadOnlySpan<byte> indexData, int vertexCount, int indexCount)
         {
             m_commandList.IASetPrimitiveTopology(PrimitiveTopology.TriangleList);
 
-            GetRingBuffer().DelayUpload(vertexData, out ulong vertexGpuAddress);
-            GetRingBuffer().DelayUpload(indexData, out ulong indexGpuAddress);
-            VertexBufferView vertexBufferView;
-            vertexBufferView.BufferLocation = vertexGpuAddress;
-            vertexBufferView.SizeInBytes = vertexData.Length;
-            vertexBufferView.StrideInBytes = vertexData.Length / vertexCount;
+            if (vertexData != null)
+            {
+                GetRingBuffer().DelayUpload(vertexData, out ulong vertexGpuAddress);
+                VertexBufferView vertexBufferView;
+                vertexBufferView.BufferLocation = vertexGpuAddress;
+                vertexBufferView.SizeInBytes = vertexData.Length;
+                vertexBufferView.StrideInBytes = vertexData.Length / vertexCount;
+                m_commandList.IASetVertexBuffers(0, vertexBufferView);
+            }
 
-            IndexBufferView indexBufferView;
-            indexBufferView.BufferLocation = indexGpuAddress;
-            indexBufferView.SizeInBytes = indexData.Length;
-            indexBufferView.Format = (indexData.Length / indexCount) == 2 ? Format.R16_UInt : Format.R32_UInt;
-
-            m_commandList.IASetVertexBuffers(0, vertexBufferView);
-            m_commandList.IASetIndexBuffer(indexBufferView);
+            if (indexData != null)
+            {
+                GetRingBuffer().DelayUpload(indexData, out ulong indexGpuAddress);
+                IndexBufferView indexBufferView;
+                indexBufferView.BufferLocation = indexGpuAddress;
+                indexBufferView.SizeInBytes = indexData.Length;
+                indexBufferView.Format = (indexData.Length / indexCount) == 2 ? Format.R16_UInt : Format.R32_UInt;
+                m_commandList.IASetIndexBuffer(indexBufferView);
+            }
         }
 
         public void CopyTexture(Texture2D target, Texture2D source)

@@ -1,14 +1,11 @@
 ﻿using Coocoo3D.Components;
 using Coocoo3D.Core;
+using Coocoo3D.Present;
 using Coocoo3DGraphics;
+using DefaultEcs;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
-using Coocoo3D.Present;
-using DefaultEcs;
 
 namespace Coocoo3D.RenderPipeline
 {
@@ -19,21 +16,12 @@ namespace Coocoo3D.RenderPipeline
         public ParticleSystem particleSystem;
         public MainCaches mainCaches;
 
-        public Mesh quadMesh = new Mesh();
-        public Mesh cubeMesh = new Mesh();
-
         public GraphicsDevice graphicsDevice;
         public GraphicsContext graphicsContext = new GraphicsContext();
-
-        public Dictionary<MMDRendererComponent, int> findRenderer = new();
-
-        public List<CBuffer> CBs_Bone = new();
 
         internal Wrap.GPUWriter gpuWriter = new();
 
         public bool recording = false;
-
-        public bool CPUSkinning = false;
 
         public double Time;
         public double DeltaTime;
@@ -126,17 +114,8 @@ namespace Coocoo3D.RenderPipeline
             graphicsContext.Initialize(graphicsDevice);
         }
 
-        public CBuffer GetBoneBuffer(MMDRendererComponent rendererComponent)
-        {
-            return CBs_Bone[findRenderer[rendererComponent]];
-        }
-
-        public Dictionary<MMDRendererComponent, Mesh> meshOverride = new();
-
         public void Dispose()
         {
-            cubeMesh.Dispose();
-            quadMesh.Dispose();
         }
     }
 }

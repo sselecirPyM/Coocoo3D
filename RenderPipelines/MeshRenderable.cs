@@ -7,7 +7,7 @@ using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Coocoo3D.RenderPipeline
+namespace RenderPipelines
 {
     public struct MeshRenderable
     {
@@ -21,12 +21,5 @@ namespace Coocoo3D.RenderPipeline
         public Matrix4x4 transform;
         public bool gpuSkinning;
         public bool drawDoubleFace;
-        public RenderableType type;
-    }
-    public enum RenderableType
-    {
-        Object,
-        Particle,
-
     }
 }
