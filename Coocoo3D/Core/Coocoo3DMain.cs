@@ -37,7 +37,6 @@ namespace Coocoo3D.Core
 
         public GameDriver GameDriver;
 
-        public UI.UIHelper UIHelper;
         public PlatformIO platformIO;
         public UI.UIImGui UIImGui;
 
@@ -134,7 +133,6 @@ namespace Coocoo3D.Core
             GameDriver = AddSystem<GameDriver>();
 
             platformIO = AddSystem<PlatformIO>();
-            UIHelper = AddSystem<UI.UIHelper>();
             UIImGui = AddSystem<UI.UIImGui>();
 
             system2 = new SequentialSystem<State>(

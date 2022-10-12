@@ -4,6 +4,10 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 VisualStudioVersion = 17.3.32901.215
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Coocoo3D.Windows", "Coocoo3D.Windows\Coocoo3D.Windows.csproj", "{DC40E8A4-271A-422A-800D-B4BF93E3E79F}"
+	ProjectSection(ProjectDependencies) = postProject
+		{7A9AE508-3D7C-469E-B56A-276235B628E8} = {7A9AE508-3D7C-469E-B56A-276235B628E8}
+		{B8E8B8EA-2C0B-4D0C-8196-850B3002A7A5} = {B8E8B8EA-2C0B-4D0C-8196-850B3002A7A5}
+	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Coocoo3D", "Coocoo3D\Coocoo3D.csproj", "{4E800B60-F532-4E7E-910A-CCCC1FEFF508}"
 EndProject

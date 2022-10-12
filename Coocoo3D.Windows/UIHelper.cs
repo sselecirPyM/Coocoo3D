@@ -9,10 +9,10 @@ using Coocoo3D.Core;
 using Coocoo3D.FileFormat;
 using Coocoo3D.Present;
 using Coocoo3D.RenderPipeline;
-using Coocoo3D.Utility;
 using DefaultEcs;
+using UIImGui = Coocoo3D.UI.UIImGui;
 
-namespace Coocoo3D.UI
+namespace Coocoo3D.Windows
 {
     public class UIHelper
     {
@@ -22,12 +22,13 @@ namespace Coocoo3D.UI
 
         public Scene scene;
 
-        public WindowSystem windowSystem;
+        public Core.WindowSystem windowSystem;
 
         public void OnFrame()
         {
-            if (UIImGui.requireOpenFolder.SetFalse())
+            if (UIImGui.requireOpenFolder)
             {
+                UIImGui.requireOpenFolder = false;
                 string path = OpenResourceFolder();
                 if (!string.IsNullOrEmpty(path))
                 {
@@ -36,8 +37,9 @@ namespace Coocoo3D.UI
                 }
                 gameDriver.RequireRender(false);
             }
-            if (UIImGui.requestSelectRenderPipelines.SetFalse())
+            if (UIImGui.requestSelectRenderPipelines)
             {
+                UIImGui.requestSelectRenderPipelines = false;
                 string path = OpenResourceFolder();
                 if (!string.IsNullOrEmpty(path))
                 {
@@ -106,8 +108,9 @@ namespace Coocoo3D.UI
 
                 gameDriver.RequireRender(true);
             }
-            if (UIImGui.requestRecord.SetFalse())
+            if (UIImGui.requestRecord)
             {
+                UIImGui.requestRecord = false;
                 gameDriver.gameDriverContext.NeedRender = 0;
                 string path = OpenResourceFolder();
                 if (!string.IsNullOrEmpty(path))
@@ -117,8 +120,9 @@ namespace Coocoo3D.UI
                     gameDriver.ToRecordMode(folder.FullName);
                 }
             }
-            if (UIImGui.requestSave.SetFalse())
+            if (UIImGui.requestSave)
             {
+                UIImGui.requestSave = false;
                 FileOpenDialog fileDialog = new FileOpenDialog()
                 {
                     file = new string(new char[512]),

@@ -1,13 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 
 namespace Coocoo3D.Utility
 {
-    public struct CubicBezierCurve//使用struct避免gc
+    public struct CubicBezierCurve
     {
         public static CubicBezierCurve Load(float p1x, float p1y, float p2x, float p2y)
         {
@@ -46,21 +43,25 @@ namespace Coocoo3D.Utility
             ay = 1.0f - 3.0f * v12.Y;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         float SampleCurveX(float t)
         {
             return ((ax * t + bx) * t + cx) * t;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         float SampleCurveY(float t)
         {
             return ((ay * t + by) * t + cy) * t;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         float SampleCurveDerivativeX(float t)
         {
             return (3.0f * ax * t + 2.0f * bx) * t + cx;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         float SolveCurveX(float x, float epsilon)
         {
             float t0;
@@ -76,9 +77,9 @@ namespace Coocoo3D.Utility
                 if (MathF.Abs(x2) < epsilon)
                     return t2;
                 d2 = SampleCurveDerivativeX(t2);
-                if (MathF.Abs(d2) < 1e-6)
+                if (MathF.Abs(d2) < epsilon)
                     break;
-                t2 = t2 - x2 / d2;
+                t2 -= x2 / d2;
             }
 
             t0 = 0.0f;

@@ -13,6 +13,8 @@ namespace Coocoo3D.Windows
         public bool quitRequested = false;
         Dictionary<SDL_Keycode, int> sdlKeycode2ImguiKey = SDLKey();
         Dictionary<ImGuiMouseCursor, IntPtr> cursors = CreateSDLCursor();
+
+        UIHelper uiHelper;
         IntPtr window;
         public void Initialize()
         {
@@ -23,6 +25,11 @@ namespace Coocoo3D.Windows
             IntPtr hwnd = info.info.win.window;
             coocoo3DMain.SetWindow(hwnd, Width, Height);
             SDL_SetWindowTitle(window, "Coocoo3D GPU: " + coocoo3DMain.statistics.DeviceDescription);
+            uiHelper = new UIHelper();
+            uiHelper.windowSystem = coocoo3DMain.windowSystem;
+            uiHelper.gameDriver = coocoo3DMain.GameDriver;
+            uiHelper.caches = coocoo3DMain.mainCaches;
+            uiHelper.scene = coocoo3DMain.CurrentScene;
         }
 
         public void Update()
@@ -44,7 +51,7 @@ namespace Coocoo3D.Windows
             SDL_CaptureMouse(platformIO.WantCaptureMouse ? SDL_bool.SDL_TRUE : SDL_bool.SDL_FALSE);
             try
             {
-                coocoo3DMain.UIHelper.OnFrame();
+                uiHelper.OnFrame();
             }
             catch (Exception e)
             {

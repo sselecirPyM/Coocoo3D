@@ -1318,8 +1318,9 @@ vmd格式动作。支持几乎所有的图片格式。");
 
         void Popups(Entity gameObject)
         {
-            if (requestOpenResource.SetFalse())
+            if (requestOpenResource)
             {
+                requestOpenResource = false;
                 ImGui.OpenPopup("选择资源");
                 popupOpenResource = true;
             }
@@ -1338,8 +1339,9 @@ vmd格式动作。支持几乎所有的图片格式。");
                 }
                 ImGui.EndPopup();
             }
-            if (requestParamEdit.SetFalse())
+            if (requestParamEdit)
             {
+                requestParamEdit = false;
                 ImGui.OpenPopup("编辑参数");
                 popupParamEdit = true;
             }

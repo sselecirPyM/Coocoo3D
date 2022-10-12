@@ -1,6 +1,5 @@
 ﻿using Coocoo3D.Common;
 using Coocoo3D.RenderPipeline;
-using Coocoo3D.Utility;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -43,8 +42,9 @@ namespace Coocoo3D.Core
         {
             var recordSettings = recordSystem.recordSettings;
 
-            if (toRecordMode.SetFalse())
+            if (toRecordMode)
             {
+                toRecordMode = false;
                 renderPipelineContext.recording = true;
                 gameDriverContext.Playing = true;
                 gameDriverContext.PlaySpeed = 1.0f;
@@ -59,8 +59,9 @@ namespace Coocoo3D.Core
                 recordSystem.saveDirectory = saveDirectory;
                 recordSystem.StartRecord();
             }
-            if (toPlayMode.SetFalse())
+            if (toPlayMode)
             {
+                toPlayMode = false;
                 renderPipelineContext.recording = false;
                 recordSystem.StopRecord();
             }

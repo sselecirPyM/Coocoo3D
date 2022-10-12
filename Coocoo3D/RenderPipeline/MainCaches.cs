@@ -68,14 +68,16 @@ namespace Coocoo3D.RenderPipeline
         Queue<string> textureLoadQueue = new();
         public void OnFrame()
         {
-            if (ReloadShaders.SetFalse())
+            if (ReloadShaders)
             {
+                ReloadShaders = false;
                 foreach (var knownFile in KnownFiles)
                     knownFile.Value.requireReload = true;
                 Console.Clear();
             }
-            if (ReloadTextures.SetFalse())
+            if (ReloadTextures)
             {
+                ReloadTextures = false;
                 var packs = TextureCaches.ToList();
                 foreach (var pair in packs)
                 {
@@ -187,8 +189,9 @@ namespace Coocoo3D.RenderPipeline
         {
             var knownFile = GetFileInfo(realPath);
             int modifyCount = knownFile.modifiyCount;
-            if (knownFile.requireReload.SetFalse() || knownFile.file == null)
+            if (knownFile.requireReload || knownFile.file == null)
             {
+                knownFile.requireReload = false;
                 string folderPath = Path.GetDirectoryName(realPath);
                 if (!Path.IsPathRooted(folderPath))
                     return null;
