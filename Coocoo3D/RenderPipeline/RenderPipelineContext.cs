@@ -17,9 +17,9 @@ namespace Coocoo3D.RenderPipeline
         public MainCaches mainCaches;
 
         public GraphicsDevice graphicsDevice;
-        public GraphicsContext graphicsContext = new GraphicsContext();
+        public GraphicsContext graphicsContext = new();
 
-        internal Wrap.GPUWriter gpuWriter = new();
+        public Wrap.GPUWriter gpuWriter = new();
 
         public bool recording = false;
 

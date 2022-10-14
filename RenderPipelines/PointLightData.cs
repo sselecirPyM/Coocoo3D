@@ -1,17 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Numerics;
 
-namespace RenderPipelines
+namespace RenderPipelines;
+
+public struct PointLightData
 {
-    internal struct PointLightData
-    {
-        public Vector3 Position;
-        public int unuse;
-        public Vector3 Color;
-        public float Range;
-    }
+    public Vector3 Position;
+    public int unuse;
+    public Vector3 Color;
+    public float Range;
 }

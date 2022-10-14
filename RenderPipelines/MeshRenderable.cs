@@ -1,25 +1,19 @@
 ﻿using Coocoo3D.Present;
 using Coocoo3DGraphics;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace RenderPipelines
+namespace RenderPipelines;
+
+public struct MeshRenderable
 {
-    public struct MeshRenderable
-    {
-        public Mesh mesh;
-        public Mesh meshOverride;
-        public int indexStart;
-        public int indexCount;
-        public int vertexStart;
-        public int vertexCount;
-        public RenderMaterial material;
-        public Matrix4x4 transform;
-        public bool gpuSkinning;
-        public bool drawDoubleFace;
-    }
+    public Mesh mesh;
+    public Mesh meshOverride;
+    public int indexStart;
+    public int indexCount;
+    public int vertexStart;
+    public int vertexCount;
+    public RenderMaterial material;
+    public Matrix4x4 transform;
+    public bool gpuSkinning;
+    public bool drawDoubleFace;
 }

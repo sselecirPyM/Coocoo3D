@@ -1,16 +1,11 @@
-﻿using System;
+﻿using Coocoo3D.Present;
+using Coocoo3D.RenderPipeline.Wrap;
+using Coocoo3DGraphics;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Coocoo3D.Present;
-using Coocoo3DGraphics;
 using System.Numerics;
-using Coocoo3D.RenderPipeline.Wrap;
-using Coocoo3D.Utility;
-using System.Reflection;
-using Caprice.Attributes;
 
 namespace Coocoo3D.RenderPipeline
 {
@@ -23,10 +18,6 @@ namespace Coocoo3D.RenderPipeline
         public GraphicsContext graphicsContext { get => rpc.graphicsContext; }
 
         public string BasePath { get => RenderPipelineView.path; }
-
-        List<(object, Dictionary<string, MemberInfo>)> dataStack = new();
-
-        Dictionary<Type, Dictionary<string, MemberInfo>> memberInfoCache = new();
 
         public (int, int) outputSize;
 
@@ -330,36 +321,6 @@ namespace Coocoo3D.RenderPipeline
             };
         }
 
-        public void PushParameters(object parameterProvider)
-        {
-            var type = parameterProvider.GetType();
-
-            if (memberInfoCache.TryGetValue(type, out var parameters))
-            {
-
-            }
-            else
-            {
-                parameters = new();
-                foreach (var member in type.GetMembers())
-                {
-                    var indexableAttribute = member.GetCustomAttribute<IndexableAttribute>();
-                    if (indexableAttribute != null)
-                    {
-                        parameters[indexableAttribute.Name ?? member.Name] = member;
-                    }
-                }
-                memberInfoCache[type] = parameters;
-            }
-
-            dataStack.Add((parameterProvider, parameters));
-        }
-
-        public void PopParameters()
-        {
-            dataStack.RemoveAt(dataStack.Count - 1);
-        }
-
         public void SetRenderTarget(Texture2D texture2D, bool clear)
         {
             graphicsContext.SetRTV(texture2D, Vector4.Zero, clear);
@@ -416,38 +377,6 @@ namespace Coocoo3D.RenderPipeline
             graphicsContext.SetRootSignature(rootSignature);
         }
 
-        public object GetIndexableValue(string key)
-        {
-            if (RenderPipelineView.indexables.TryGetValue(key, out var indexable))
-            {
-                return indexable.GetValue<object>(RenderPipelineView.renderPipeline);
-            }
-            return null;
-        }
-
-        public object GetIndexableValue(string key, RenderMaterial material)
-        {
-            if (RenderPipelineView.indexables.TryGetValue(key, out var memberInfo))
-            {
-                var type = memberInfo.GetGetterType();
-                if (material != null && material.Parameters.TryGetValue(key, out object obj1))
-                {
-                    var objType = obj1.GetType();
-                    if (objType == type)
-                        return obj1;
-                    else if (type.IsEnum && objType == typeof(string))
-                    {
-                        if (Enum.TryParse(type, (string)obj1, out var obj2))
-                        {
-                            return obj2;
-                        }
-                    }
-                }
-                return memberInfo.GetValue<object>(RenderPipelineView.renderPipeline);
-            }
-            return null;
-        }
-
         public void Dispatch(string computeShader, IReadOnlyList<(string, string)> keywords, int x = 1, int y = 1, int z = 1)
         {
 
@@ -466,73 +395,9 @@ namespace Coocoo3D.RenderPipeline
         public void AfterRender()
         {
             rootSignature = null;
-            dataStack.Clear();
-        }
-
-        public void Write(IReadOnlyList<object> datas, GPUWriter writer, RenderMaterial material = null)
-        {
-            foreach (var obj in datas)
-                WriteObject(obj, writer, material);
-        }
-
-        public void Write(object[] datas, GPUWriter writer, RenderMaterial material = null)
-        {
-            foreach (var obj in datas)
-                WriteObject(obj, writer, material);
-        }
-
-        public void Write(Span<object> datas, GPUWriter writer, RenderMaterial material = null)
-        {
-            foreach (var obj in datas)
-                WriteObject(obj, writer, material);
         }
 
         public GPUWriter Writer { get => rpc.gpuWriter; }
-
-        void WriteObject(object obj, GPUWriter writer, RenderMaterial material = null)
-        {
-            var indexable = RenderPipelineView.indexables;
-            var pipeline = RenderPipelineView.renderPipeline;
-            if (obj is string s)
-            {
-                bool t0 = false;
-                for (int i = dataStack.Count - 1; i >= 0; i--)
-                {
-                    var finder = dataStack[i];
-                    if (finder.Item2.TryGetValue(s, out var memberInfo1))
-                    {
-                        writer.WriteObject(memberInfo1.GetValue<object>(finder.Item1));
-                        t0 = true;
-                        break;
-                    }
-                }
-                if (!t0 && indexable.TryGetValue(s, out var memberInfo))
-                {
-                    var type = memberInfo.GetGetterType();
-                    if (material != null && material.Parameters.TryGetValue(s, out object obj1) &&
-                        obj1.GetType() == type)
-                    {
-                        writer.WriteObject(obj1);
-                    }
-                    else
-                    {
-                        writer.WriteObject(memberInfo.GetValue<object>(pipeline));
-                    }
-                }
-            }
-            else if (obj is Func<object> function)
-            {
-                writer.WriteObject(function());
-            }
-            else if (obj is MemberInfo memberInfo)
-            {
-                writer.WriteObject(memberInfo.GetValue<object>(pipeline));
-            }
-            else
-            {
-                writer.WriteObject(obj);
-            }
-        }
 
         public void Swap(string renderTexture1, string renderTexture2)
         {

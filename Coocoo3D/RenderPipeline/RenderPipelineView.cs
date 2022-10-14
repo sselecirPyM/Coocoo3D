@@ -1,14 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Reflection;
-using Caprice.Attributes;
-using Coocoo3DGraphics;
-using System.IO;
-using Coocoo3D.Utility;
+﻿using Caprice.Attributes;
 using Caprice.Display;
+using Coocoo3D.Utility;
+using Coocoo3DGraphics;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using Vortice.DXGI;
 
 namespace Coocoo3D.RenderPipeline
 {
@@ -29,7 +28,6 @@ namespace Coocoo3D.RenderPipeline
         internal Dictionary<string, RenderTextureUsage> RenderTextures = new();
 
         internal Dictionary<string, string> textureReplacement = new();
-        internal Dictionary<string, MemberInfo> indexables = new();
         internal Dictionary<string, (MemberInfo, SceneCaptureAttribute)> sceneCaptures = new();
 
         internal Dictionary<string, UIUsage> UIUsages = new();
@@ -173,12 +171,6 @@ namespace Coocoo3D.RenderPipeline
 
         void _Member(MemberInfo member)
         {
-            var indexableAttribute = member.GetCustomAttribute<IndexableAttribute>();
-            if (indexableAttribute != null)
-            {
-                indexables[indexableAttribute.Name ?? member.Name] = member;
-            }
-
             var uiShowAttribute = member.GetCustomAttribute<UIShowAttribute>();
             var uiDescriptionAttribute = member.GetCustomAttribute<UIDescriptionAttribute>();
             if (uiShowAttribute != null)
@@ -227,24 +219,23 @@ namespace Coocoo3D.RenderPipeline
                 var textureCube = rt.textureCube;
                 var gpuBuffer = rt.gpuBuffer;
                 if (texture2D != null && rt.resourceFormat != ResourceFormat.Unknown && rt.width != 0 && rt.height != 0)
-                    RPUtil.Texture2D(texture2D, (Vortice.DXGI.Format)rt.resourceFormat, rt.width, rt.height, rt.mips, graphicsContext);
+                    Texture2D(texture2D, (Vortice.DXGI.Format)rt.resourceFormat, rt.width, rt.height, rt.mips, graphicsContext);
 
                 if (textureCube != null && rt.resourceFormat != ResourceFormat.Unknown && rt.width != 0 && rt.height != 0)
-                    RPUtil.TextureCube(textureCube, (Vortice.DXGI.Format)rt.resourceFormat, rt.width, rt.height, rt.mips, graphicsContext);
+                    TextureCube(textureCube, (Vortice.DXGI.Format)rt.resourceFormat, rt.width, rt.height, rt.mips, graphicsContext);
 
                 if (gpuBuffer != null && rt.width != 0)
-                    RPUtil.DynamicBuffer(gpuBuffer, rt.width, graphicsContext);
+                    DynamicBuffer(gpuBuffer, rt.width, graphicsContext);
 
             }
             foreach (var rt in RenderTextures.Values)
             {
-                if (rt.autoClearAttribute != null)
+                var c = rt.autoClearAttribute;
+                if (c == null)
+                    continue;
+                if (rt.texture2D != null)
                 {
-                    var c = rt.autoClearAttribute;
-                    if (rt.texture2D != null)
-                    {
-                        graphicsContext.ClearTexture(rt.texture2D, new System.Numerics.Vector4(c.R, c.G, c.B, c.A), c.Depth);
-                    }
+                    graphicsContext.ClearTexture(rt.texture2D, new System.Numerics.Vector4(c.R, c.G, c.B, c.A), c.Depth);
                 }
             }
             foreach (var rt in RenderTextures.Values)
@@ -253,14 +244,17 @@ namespace Coocoo3D.RenderPipeline
 
         void Bake(RenderTextureUsage rt)
         {
-            if (rt.baked || rt.runtimeBakeAttribute == null) return;
+            if (rt.baked || rt.runtimeBakeAttribute == null)
+                return;
 
             if (rt.bakeDependencyAttribute != null)
             {
                 foreach (var dep in rt.bakeDependencyAttribute.dependencies)
                 {
-                    if (!RenderTextures.TryGetValue(dep, out var rt2)) return;
-                    if (rt2.runtimeBakeAttribute != null && rt2.baked == false) return;
+                    if (!RenderTextures.TryGetValue(dep, out var rt2))
+                        return;
+                    if (rt2.runtimeBakeAttribute != null && rt2.baked == false)
+                        return;
                 }
             }
 
@@ -276,38 +270,37 @@ namespace Coocoo3D.RenderPipeline
 
         public void Export(Dictionary<string, object> settings)
         {
-            foreach (var uiUsage in UIUsages)
+            foreach ((var key, var value) in UIUsages)
             {
-                if (uiUsage.Value.UIShowType != UIShowType.Global && uiUsage.Value.UIShowType != UIShowType.All)
+                if (value.UIShowType != UIShowType.Global && value.UIShowType != UIShowType.All)
                     continue;
-                object obj = uiUsage.Value.MemberInfo.GetValue<object>(renderPipeline);
-                if (uiUsage.Value.MemberInfo.GetGetterType() == typeof(Texture2D))
+                object obj = value.MemberInfo.GetValue<object>(renderPipeline);
+                if (value.MemberInfo.GetGetterType() == typeof(Texture2D))
                 {
-                    if (textureReplacement.TryGetValue(uiUsage.Key, out var rt))
-                        settings[uiUsage.Key] = rt;
+                    if (textureReplacement.TryGetValue(key, out var rt))
+                        settings[key] = rt;
                 }
                 else
-                    settings[uiUsage.Key] = obj;
+                    settings[key] = obj;
             }
         }
 
         public void Import(Dictionary<string, object> settings)
         {
-            foreach (var uiUsage in UIUsages)
+            foreach ((var key, var value) in UIUsages)
             {
-                if (settings.TryGetValue(uiUsage.Key, out object value))
+                if (!settings.TryGetValue(key, out object settingValue))
+                    continue;
+                var type = value.MemberInfo.GetGetterType();
+                if (type == typeof(Texture2D))
                 {
-                    var type = uiUsage.Value.MemberInfo.GetGetterType();
-                    if (type == typeof(Texture2D))
+                    if (settingValue is string s)
                     {
-                        if (value is string s)
-                        {
-                            textureReplacement[uiUsage.Key] = s;
-                        }
+                        textureReplacement[key] = s;
                     }
-                    else if (type == value.GetType())
-                        uiUsage.Value.MemberInfo.SetValue(renderPipeline, value);
                 }
+                else if (type == settingValue.GetType())
+                    value.MemberInfo.SetValue(renderPipeline, settingValue);
             }
         }
 
@@ -326,6 +319,39 @@ namespace Coocoo3D.RenderPipeline
                 rt.Value.gpuBuffer?.Dispose();
             }
             RenderTextures = null;
+        }
+
+        static void Texture2D(Texture2D tex2d, Format format, int x, int y, int mips, GraphicsContext graphicsContext)
+        {
+            if (tex2d.width != x || tex2d.height != y || tex2d.mipLevels != mips || tex2d.GetFormat() != format)
+            {
+                if (format == Format.D16_UNorm || format == Format.D24_UNorm_S8_UInt || format == Format.D32_Float)
+                    tex2d.ReloadAsDSV(x, y, mips, format);
+                else
+                    tex2d.ReloadAsRTVUAV(x, y, mips, format);
+                graphicsContext.UpdateRenderTexture(tex2d);
+            }
+        }
+
+        static void TextureCube(TextureCube texCube, Format format, int x, int y, int mips, GraphicsContext graphicsContext)
+        {
+            if (texCube.width != x || texCube.height != y || texCube.mipLevels != mips || texCube.GetFormat() != format)
+            {
+                if (format == Format.D16_UNorm || format == Format.D24_UNorm_S8_UInt || format == Format.D32_Float)
+                    texCube.ReloadAsDSV(x, y, mips, format);
+                else
+                    texCube.ReloadAsRTVUAV(x, y, mips, format);
+                graphicsContext.UpdateRenderTexture(texCube);
+            }
+        }
+
+        static void DynamicBuffer(GPUBuffer dynamicBuffer, int width, GraphicsContext graphicsContext)
+        {
+            if (width != dynamicBuffer.size)
+            {
+                dynamicBuffer.size = width;
+                graphicsContext.UpdateDynamicBuffer(dynamicBuffer);
+            }
         }
     }
 }
