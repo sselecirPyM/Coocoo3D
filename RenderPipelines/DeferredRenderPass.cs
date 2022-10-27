@@ -1,4 +1,5 @@
 ﻿using Caprice.Attributes;
+using Caprice.Display;
 using Coocoo3D.Components;
 using Coocoo3D.Present;
 using Coocoo3D.RenderPipeline;
@@ -151,27 +152,27 @@ public class DeferredRenderPass
                 nameof(Fov),
                 nameof(AspectRatio),
                 nameof(CameraPosition),
-                "SkyLightMultiple",
-                "FogColor",
-                "FogDensity",
-                "FogStartDistance",
-                "FogEndDistance",
+                nameof(SkyLightMultiple),
+                nameof(FogColor),
+                nameof(FogDensity),
+                nameof(FogStartDistance),
+                nameof(FogEndDistance),
                 nameof(OutputSize),
                 nameof(Brightness),
-                "VolumetricLightingSampleCount",
-                "VolumetricLightingDistance",
-                "VolumetricLightingIntensity",
+                nameof(VolumetricLightingSampleCount),
+                nameof(VolumetricLightingDistance),
+                nameof(VolumetricLightingIntensity),
                 nameof(ShadowMapVP),
                 nameof(ShadowMapVP1),
                 nameof(LightDir),
                 0,
                 nameof(LightColor),
                 0,
-                "GIVolumePosition",
-                "AODistance",
-                "GIVolumeSize",
-                "AOLimit",
-                "AORaySampleCount",
+                nameof(GIVolumePosition),
+                nameof(AODistance),
+                nameof(GIVolumeSize),
+                nameof(AOLimit),
+                nameof(AORaySampleCount),
                 nameof(RandomI),
                 nameof(Split),
             },
@@ -182,10 +183,10 @@ public class DeferredRenderPass
         },
         AutoKeyMap =
         {
-            ("EnableFog","ENABLE_FOG"),
-            ("EnableSSAO","ENABLE_SSAO"),
-            ("EnableSSR","ENABLE_SSR"),
-            ("UseGI","ENABLE_GI"),
+            (nameof(EnableFog),"ENABLE_FOG"),
+            (nameof(EnableSSAO),"ENABLE_SSAO"),
+            (nameof(EnableSSR),"ENABLE_SSR"),
+            (nameof(UseGI),"ENABLE_GI"),
         }
     };
 
@@ -238,23 +239,23 @@ public class DeferredRenderPass
             0,
             nameof(LightColor),
             0,
-            "SkyLightMultiple",
-            "FogColor",
-            "FogDensity",
-            "FogStartDistance",
-            "FogEndDistance",
+            nameof(SkyLightMultiple),
+            nameof(FogColor),
+            nameof(FogDensity),
+            nameof(FogStartDistance),
+            nameof(FogEndDistance),
             nameof(CameraLeft),
             nameof(CameraDown),
             nameof(Split),
-            "GIVolumePosition",
-            "GIVolumeSize",
+            nameof(GIVolumePosition),
+            nameof(GIVolumeSize),
         },
         AutoKeyMap =
         {
-            ("EnableFog","ENABLE_FOG"),
+            (nameof(EnableFog),"ENABLE_FOG"),
             ("UseNormalMap","USE_NORMAL_MAP"),
             ("UseSpa","USE_SPA"),
-            ("UseGI","ENABLE_GI"),
+            (nameof(UseGI),"ENABLE_GI"),
         },
         filter = FilterTransparent,
     };
@@ -307,9 +308,6 @@ public class DeferredRenderPass
         },
     };
 
-    public bool rayTracing;
-    public bool updateGI;
-
     public Random random = new Random(0);
 
     [Indexable]
@@ -328,6 +326,95 @@ public class DeferredRenderPass
     public Vector3 CameraDown;
     [Indexable]
     public Vector3 CameraBack;
+
+
+    [UIDragFloat(0.01f, 0, name: "亮度")]
+    [Indexable]
+    public float Brightness = 1;
+
+    [UIDragFloat(0.01f, 0, name: "天空盒亮度")]
+    [Indexable]
+    public float SkyLightMultiple = 3;
+
+
+    [Indexable]
+    [UIShow(name: "启用体积光")]
+    public bool EnableVolumetricLighting;
+
+    [Indexable]
+    [UIDragInt(1, 1, 256, name: "体积光采样次数")]
+    public int VolumetricLightingSampleCount = 16;
+
+    [Indexable]
+    [UIDragFloat(0.1f, name: "体积光距离")]
+    public float VolumetricLightingDistance = 12;
+
+    [Indexable]
+    [UIDragFloat(0.1f, name: "体积光强度")]
+    public float VolumetricLightingIntensity = 0.001f;
+
+    [Indexable]
+    [UIShow(name: "启用SSAO")]
+    public bool EnableSSAO;
+
+    [Indexable]
+    [UIDragFloat(0.1f, 0, name: "AO距离")]
+    public float AODistance = 1;
+
+    [Indexable]
+    [UIDragFloat(0.01f, 0.1f, name: "AO限制")]
+    public float AOLimit = 0.3f;
+
+    [Indexable]
+    [UIDragInt(1, 0, 128, name: "AO光线采样次数")]
+    public int AORaySampleCount = 32;
+
+    [Indexable]
+    [UIShow(name: "启用屏幕空间反射")]
+    public bool EnableSSR;
+
+
+    [UIShow(name: "启用光线追踪")]
+    public bool EnableRayTracing;
+
+    [UIDragFloat(0.01f, 0, 5, name: "光线追踪反射质量")]
+    [Indexable]
+    public float RayTracingReflectionQuality = 1.0f;
+
+    [UIDragFloat(0.01f, 0, 1.0f, name: "光线追踪反射阈值")]
+    [Indexable]
+    public float RayTracingReflectionThreshold = 0.5f;
+
+    [UIShow(name: "更新全局光照")]
+    public bool UpdateGI;
+
+    [UIDragFloat(1.0f, name: "全局光照位置")]
+    [Indexable]
+    public Vector3 GIVolumePosition = new Vector3(0, 2.5f, 0);
+
+    [UIDragFloat(1.0f, name: "全局光照范围")]
+    [Indexable]
+    public Vector3 GIVolumeSize = new Vector3(20, 5, 20);
+
+    [Indexable]
+    [UIShow(name: "使用全局光照")]
+    public bool UseGI;
+
+    [UIShow(name: "启用雾")]
+    [Indexable]
+    public bool EnableFog;
+    [UIColor(name: "雾颜色")]
+    [Indexable]
+    public Vector3 FogColor = new Vector3(0.4f, 0.4f, 0.6f);
+    [UIDragFloat(0.001f, 0, name: "雾密度")]
+    [Indexable]
+    public float FogDensity = 0.005f;
+    [UIDragFloat(0.1f, 0, name: "雾开始距离")]
+    [Indexable]
+    public float FogStartDistance = 5;
+    //[UIDragFloat(0.1f, 0, name: "雾结束距离")]
+    [Indexable]
+    public float FogEndDistance = 100000;
 
     [Indexable]
     public float Far;
@@ -348,9 +435,6 @@ public class DeferredRenderPass
     public Vector3 LightDir;
     [Indexable]
     public Vector3 LightColor;
-
-    [Indexable]
-    public float Brightness = 1;
 
     [Indexable]
     public (int, int) OutputSize;
@@ -469,7 +553,7 @@ public class DeferredRenderPass
             LightDir = dl.Direction;
             LightColor = dl.Color;
             finalPass.keywords.Add(("ENABLE_DIRECTIONAL_LIGHT", "1"));
-            if (true.Equals(renderHelper.GetIndexableValue("EnableVolumetricLighting")))
+            if (EnableVolumetricLighting)
             {
                 finalPass.keywords.Add(("ENABLE_VOLUME_LIGHTING", "1"));
             }
@@ -481,7 +565,7 @@ public class DeferredRenderPass
             LightDir = Vector3.UnitZ;
             LightColor = Vector3.Zero;
         }
-        if (rayTracing)
+        if (EnableRayTracing)
         {
             finalPass.keywords.Add(("RAY_TRACING", "1"));
         }
@@ -525,14 +609,14 @@ public class DeferredRenderPass
         }
         drawGBuffer.Execute(renderHelper);
         decalPass.Execute(renderHelper);
-        if (true.Equals(renderHelper.GetIndexableValue("EnableSSR")))
+        if (EnableSSR)
             HiZPass.Execute(renderHelper);
 
-        if (rayTracing || updateGI)
+        if (EnableRayTracing || UpdateGI)
         {
-            rayTracingPass.RayTracing = rayTracing;
-            rayTracingPass.RayTracingGI = updateGI;
-            rayTracingPass.UseGI = true.Equals(renderHelper.GetIndexableValue("UseGI"));
+            rayTracingPass.RayTracing = EnableRayTracing;
+            rayTracingPass.RayTracingGI = UpdateGI;
+            rayTracingPass.UseGI = UseGI;
             rayTracingPass.Execute(renderHelper, directionalLight);
         }
         finalPass.Execute(renderHelper);

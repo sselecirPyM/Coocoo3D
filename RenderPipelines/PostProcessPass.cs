@@ -1,4 +1,6 @@
-﻿using Coocoo3D.RenderPipeline;
+﻿using Caprice.Attributes;
+using Caprice.Display;
+using Coocoo3D.RenderPipeline;
 using Coocoo3DGraphics;
 
 namespace RenderPipelines;
@@ -14,8 +16,8 @@ public class PostProcessPass
             {
                 null,
                 null,
-                "BloomThreshold",
-                "BloomIntensity",
+                nameof(BloomThreshold),
+                nameof(BloomIntensity),
                 null,
                 null,
             }
@@ -56,12 +58,21 @@ public class PostProcessPass
 
     public string inputDepth;
 
+    [UIShow(name: "启用泛光")]
     public bool EnableBloom;
+
+    [UIDragFloat(0.01f, name: "泛光阈值")]
+    [Indexable]
+    public float BloomThreshold = 1.05f;
+    [UIDragFloat(0.01f, name: "泛光强度")]
+    [Indexable]
+    public float BloomIntensity = 0.1f;
 
     public string output;
 
     public void Execute(RenderHelper renderHelper)
     {
+        renderHelper.PushParameters(this);
         RenderWrap renderWrap = renderHelper.renderWrap;
         var outputTexture = renderWrap.GetRenderTexture2D("intermedia2");
         renderWrap.ClearTexture(outputTexture);
@@ -97,5 +108,6 @@ public class PostProcessPass
 
         postProcess.renderTargets[0] = output;
         postProcess.Execute(renderHelper);
+        renderHelper.PopParameters();
     }
 }

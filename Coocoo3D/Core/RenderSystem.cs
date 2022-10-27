@@ -45,7 +45,7 @@ namespace Coocoo3D.Core
             }
             foreach (var visualChannel in channels)
             {
-                visualChannel.Onframe((float)context.Time);
+                visualChannel.Onframe((float)context.Time, mainCaches);
                 var renderPipeline = visualChannel.renderPipeline;
                 var renderPipelineView = visualChannel.renderPipelineView;
                 renderPipeline.renderWrap.rpc = context;

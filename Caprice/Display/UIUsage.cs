@@ -24,5 +24,7 @@ namespace Caprice.Display
         public UIDragFloatAttribute dragFloatAttribute;
 
         public UIDragIntAttribute dragIntAttribute;
+
+        public UITreeAttribute treeAttribute;
     }
 }

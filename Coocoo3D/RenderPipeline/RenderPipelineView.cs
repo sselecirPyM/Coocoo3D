@@ -30,8 +30,6 @@ namespace Coocoo3D.RenderPipeline
         internal Dictionary<string, string> textureReplacement = new();
         internal Dictionary<string, (MemberInfo, SceneCaptureAttribute)> sceneCaptures = new();
 
-        internal Dictionary<string, UIUsage> UIUsages = new();
-
         internal Dictionary<string, List<string>> dependents = new();
 
         internal RenderWrap renderWrap;
@@ -75,16 +73,6 @@ namespace Coocoo3D.RenderPipeline
                     }
                 }
             }
-
-            var members = type.GetMembers();
-            foreach (var member in members)
-            {
-                if (member.MemberType == MemberTypes.Field || member.MemberType == MemberTypes.Property)
-                {
-                    _Member(member);
-                }
-            }
-
         }
 
         void RenderResource(FieldInfo field)
@@ -169,31 +157,6 @@ namespace Coocoo3D.RenderPipeline
             }
         }
 
-        void _Member(MemberInfo member)
-        {
-            var uiShowAttribute = member.GetCustomAttribute<UIShowAttribute>();
-            var uiDescriptionAttribute = member.GetCustomAttribute<UIDescriptionAttribute>();
-            if (uiShowAttribute != null)
-            {
-                var usage = new UIUsage()
-                {
-                    Name = uiShowAttribute.Name,
-                    UIShowType = uiShowAttribute.Type,
-                    sliderAttribute = member.GetCustomAttribute<UISliderAttribute>(),
-                    colorAttribute = member.GetCustomAttribute<UIColorAttribute>(),
-                    dragFloatAttribute = member.GetCustomAttribute<UIDragFloatAttribute>(),
-                    dragIntAttribute = member.GetCustomAttribute<UIDragIntAttribute>(),
-                    MemberInfo = member,
-                };
-                UIUsages[member.Name] = usage;
-                if (uiDescriptionAttribute != null)
-                {
-                    usage.Description = uiDescriptionAttribute.Description;
-                }
-                usage.Name ??= member.Name;
-            }
-        }
-
         internal void SetReplacement(string key, string path)
         {
             textureReplacement[key] = path;
@@ -268,39 +231,39 @@ namespace Coocoo3D.RenderPipeline
             }
         }
 
-        public void Export(Dictionary<string, object> settings)
+        public void Export(Dictionary<string, object> settings, List<UIUsage> UIUsages)
         {
-            foreach ((var key, var value) in UIUsages)
+            foreach (var usage in UIUsages)
             {
-                if (value.UIShowType != UIShowType.Global && value.UIShowType != UIShowType.All)
+                if (usage.UIShowType != UIShowType.Global && usage.UIShowType != UIShowType.All)
                     continue;
-                object obj = value.MemberInfo.GetValue<object>(renderPipeline);
-                if (value.MemberInfo.GetGetterType() == typeof(Texture2D))
+                object obj = usage.MemberInfo.GetValue<object>(renderPipeline);
+                if (usage.MemberInfo.GetGetterType() == typeof(Texture2D))
                 {
-                    if (textureReplacement.TryGetValue(key, out var rt))
-                        settings[key] = rt;
+                    if (textureReplacement.TryGetValue(usage.MemberInfo.Name, out var rt))
+                        settings[usage.MemberInfo.Name] = rt;
                 }
                 else
-                    settings[key] = obj;
+                    settings[usage.MemberInfo.Name] = obj;
             }
         }
 
-        public void Import(Dictionary<string, object> settings)
+        public void Import(Dictionary<string, object> settings, List<UIUsage> UIUsages)
         {
-            foreach ((var key, var value) in UIUsages)
+            foreach (var usage in UIUsages)
             {
-                if (!settings.TryGetValue(key, out object settingValue))
+                if (!settings.TryGetValue(usage.MemberInfo.Name, out object settingValue))
                     continue;
-                var type = value.MemberInfo.GetGetterType();
+                var type = usage.MemberInfo.GetGetterType();
                 if (type == typeof(Texture2D))
                 {
                     if (settingValue is string s)
                     {
-                        textureReplacement[key] = s;
+                        textureReplacement[usage.MemberInfo.Name] = s;
                     }
                 }
                 else if (type == settingValue.GetType())
-                    value.MemberInfo.SetValue(renderPipeline, settingValue);
+                    usage.MemberInfo.SetValue(renderPipeline, settingValue);
             }
         }
 

@@ -73,50 +73,6 @@ public class ForwardRenderPipeline : RenderPipeline, IDisposable
     [BakeDependency(nameof(_SkyBox))]
     public TextureCube _Environment;
 
-    [Indexable]
-    [UIDragFloat(0.01f, 0, name: "天空盒亮度")]
-    public float SkyLightMultiple = 3;
-
-    [Indexable]
-    [UIDragFloat(0.01f, 0, name: "亮度")]
-    public float Brightness = 1;
-
-    [Indexable]
-    [UIShow(name: "启用雾")]
-    public bool EnableFog;
-
-    [Indexable]
-    [UIColor(name: "雾颜色")]
-    public Vector3 FogColor = new Vector3(0.4f, 0.4f, 0.6f);
-
-    [Indexable]
-    [UIDragFloat(0.001f, 0, name: "雾密度")]
-    public float FogDensity = 0.005f;
-
-    [Indexable]
-    [UIDragFloat(0.1f, 0, name: "雾开始距离")]
-    public float FogStartDistance = 5;
-
-    [Indexable]
-    //[UIDragFloat(0.1f, 0, name: "雾结束距离")]
-    public float FogEndDistance = 100000;
-
-    [UIShow(name: "启用泛光")]
-    public bool EnableBloom;
-    [Indexable]
-    [UIDragFloat(0.01f, name: "泛光阈值")]
-    public float BloomThreshold = 1.05f;
-    [Indexable]
-    [UIDragFloat(0.01f, name: "泛光强度")]
-    public float BloomIntensity = 0.1f;
-
-    [UIShow(name: "启用TAA")]
-    public bool EnableTAA;
-
-    [UIDragFloat(0.01f, name: "TAA系数")]
-    [Indexable]
-    public float TAAFactor = 0.3f;
-
     [UISlider(0.5f, 2.0f, name: "渲染倍数")]
     public float RenderScale = 1;
 
@@ -219,12 +175,14 @@ public class ForwardRenderPipeline : RenderPipeline, IDisposable
 
     CameraData historyCamera;
 
-    ForwardRenderPass forwordRenderPass = new ForwardRenderPass()
+    [UITree]
+    public ForwardRenderPass forwordRenderPass = new ForwardRenderPass()
     {
         renderTarget = nameof(noPostProcess),
         depthStencil = nameof(depth),
     };
 
+    [UITree]
     public PostProcessPass postProcess = new PostProcessPass()
     {
         inputColor = nameof(noPostProcess),
@@ -232,6 +190,7 @@ public class ForwardRenderPipeline : RenderPipeline, IDisposable
         output = nameof(output),
     };
 
+    [UITree]
     public TAAPass taaPass = new TAAPass()
     {
         target = nameof(noPostProcess),
@@ -265,25 +224,23 @@ public class ForwardRenderPipeline : RenderPipeline, IDisposable
     public override void Render()
     {
         var camera = this.camera;
-        if (EnableTAA)
+        if (taaPass.EnableTAA)
         {
             Vector2 jitterVector = new Vector2((float)(random.NextDouble() * 2 - 1) / outputWidth, (float)(random.NextDouble() * 2 - 1) / outputHeight);
             camera = camera.GetJitter(jitterVector);
         }
 
         forwordRenderPass.Visuals = Visuals;
-        forwordRenderPass.Brightness = Brightness;
         forwordRenderPass.DebugRenderType = DebugRenderType;
-        postProcess.EnableBloom = EnableBloom;
 
         forwordRenderPass.SetCamera(camera);
         forwordRenderPass.Execute(renderHelper);
 
-        if (EnableTAA)
+        if (taaPass.EnableTAA)
         {
             taaPass.DebugRenderType = DebugRenderType;
             taaPass.SetCamera(historyCamera, this.camera);
-            taaPass.SetProperties(outputWidth, outputHeight, TAAFactor);
+            taaPass.SetProperties(outputWidth, outputHeight);
             taaPass.Execute(renderHelper);
         }
         postProcess.Execute(renderHelper);

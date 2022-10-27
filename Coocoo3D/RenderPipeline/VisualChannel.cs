@@ -30,22 +30,22 @@ namespace Coocoo3D.RenderPipeline
         public Type newRenderPipelineType;
         public string newRenderPipelinePath;
 
-        public Dictionary<string, object> pipelineSettings = new();
+        Dictionary<string, object> pipelineSettings = new();
 
-        public void Onframe(float time)
+        public void Onframe(float time, MainCaches caches)
         {
             if (newRenderPipelineType != null)
             {
                 if (renderPipelineView != null)
                 {
-                    renderPipelineView.Export(pipelineSettings);
+                    renderPipelineView.Export(pipelineSettings, caches.GetUIUsage(renderPipelineView.renderPipeline.GetType()));
                 }
                 if (renderPipeline is IDisposable disposable1)
                     disposable1.Dispose();
                 renderPipelineView?.Dispose();
 
                 SetRenderPipeline((RenderPipeline)Activator.CreateInstance(newRenderPipelineType),
-                    newRenderPipelinePath);
+                    newRenderPipelinePath, caches);
                 newRenderPipelineType = null;
             }
 
@@ -63,7 +63,7 @@ namespace Coocoo3D.RenderPipeline
             this.newRenderPipelineType = type;
         }
 
-        void SetRenderPipeline(RenderPipeline renderPipeline, string basePath)
+        void SetRenderPipeline(RenderPipeline renderPipeline, string basePath, MainCaches caches)
         {
             this.renderPipeline = renderPipeline;
             var renderPipelineView = new RenderPipelineView(renderPipeline, basePath);
@@ -74,7 +74,7 @@ namespace Coocoo3D.RenderPipeline
             };
             renderPipeline.renderWrap = renderWrap;
             renderPipelineView.renderWrap = renderWrap;
-            renderPipelineView.Import(pipelineSettings);
+            renderPipelineView.Import(pipelineSettings, caches.GetUIUsage(renderPipelineView.renderPipeline.GetType()));
         }
 
         public Texture2D GetAOV(AOVType type)

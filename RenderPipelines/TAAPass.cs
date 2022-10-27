@@ -1,4 +1,5 @@
-﻿using Coocoo3D.RenderPipeline;
+﻿using Caprice.Display;
+using Coocoo3D.RenderPipeline;
 using System.Collections.Generic;
 
 namespace RenderPipelines;
@@ -10,6 +11,13 @@ public class TAAPass
 
     public string history;
     public string historyDepth;
+
+
+    [UIShow(name: "启用TAA")]
+    public bool EnableTAA;
+
+    [UIDragFloat(0.01f, name: "TAA系数")]
+    public float TAAFactor = 0.3f;
 
     object[] cbv =
     {
@@ -36,16 +44,16 @@ public class TAAPass
         cbv[7] = camera.near;
     }
 
-    public void SetProperties(int width, int height, float factor)
+    public void SetProperties(int width, int height)
     {
         cbv[4] = width;
         cbv[5] = height;
-        cbv[8] = factor;
     }
     List<(string, string)> keywords = new List<(string, string)>();
 
     public void Execute(RenderHelper renderHelper)
     {
+        cbv[8] = TAAFactor;
         var renderWrap = renderHelper.renderWrap;
         renderWrap.SetRootSignature("Csssu");
         keywords.Clear();

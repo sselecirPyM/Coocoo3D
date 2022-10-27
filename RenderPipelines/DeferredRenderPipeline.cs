@@ -107,111 +107,6 @@ public class DeferredRenderPipeline : RenderPipeline, IDisposable
     public GPUBuffer GIBufferWrite;
 
     #region Parameters
-    [Indexable]
-    [UIDragFloat(0.01f, 0, name: "天空盒亮度")]
-    public float SkyLightMultiple = 3;
-
-    [Indexable]
-    [UIDragFloat(0.01f, 0, name: "亮度")]
-    public float Brightness = 1;
-
-    [Indexable]
-    [UIShow(name: "启用雾")]
-    public bool EnableFog;
-
-    [Indexable]
-    [UIColor(name: "雾颜色")]
-    public Vector3 FogColor = new Vector3(0.4f, 0.4f, 0.6f);
-
-    [Indexable]
-    [UIDragFloat(0.001f, 0, name: "雾密度")]
-    public float FogDensity = 0.005f;
-
-    [Indexable]
-    [UIDragFloat(0.1f, 0, name: "雾开始距离")]
-    public float FogStartDistance = 5;
-
-    [Indexable]
-    //[UIDragFloat(0.1f, 0, name: "雾结束距离")]
-    public float FogEndDistance = 100000;
-
-    [UIShow(name: "启用泛光")]
-    public bool EnableBloom;
-    [Indexable]
-    [UIDragFloat(0.01f, name: "泛光阈值")]
-    public float BloomThreshold = 1.05f;
-    [Indexable]
-    [UIDragFloat(0.01f, name: "泛光强度")]
-    public float BloomIntensity = 0.1f;
-
-    [Indexable]
-    [UIShow(name: "启用体积光")]
-    public bool EnableVolumetricLighting;
-
-    [Indexable]
-    [UIDragInt(1, 1, 256, name: "体积光采样次数")]
-    public int VolumetricLightingSampleCount = 16;
-
-    [Indexable]
-    [UIDragFloat(0.1f, name: "体积光距离")]
-    public float VolumetricLightingDistance = 12;
-
-    [Indexable]
-    [UIDragFloat(0.1f, name: "体积光强度")]
-    public float VolumetricLightingIntensity = 0.001f;
-
-    [Indexable]
-    [UIShow(name: "启用SSAO")]
-    public bool EnableSSAO;
-
-    [Indexable]
-    [UIDragFloat(0.1f, 0, name: "AO距离")]
-    public float AODistance = 1;
-
-    [Indexable]
-    [UIDragFloat(0.01f, 0.1f, name: "AO限制")]
-    public float AOLimit = 0.3f;
-
-    [Indexable]
-    [UIDragInt(1, 0, 128, name: "AO光线采样次数")]
-    public int AORaySampleCount = 32;
-
-    [UIShow(name: "启用光线追踪")]
-    public bool EnableRayTracing;
-
-    [Indexable]
-    [UIDragFloat(0.01f, 0, 5, name: "光线追踪反射质量")]
-    public float RayTracingReflectionQuality = 1.0f;
-
-    [Indexable]
-    [UIDragFloat(0.01f, 0, 1.0f, name: "光线追踪反射阈值")]
-    public float RayTracingReflectionThreshold = 0.5f;
-
-    [UIShow(name: "更新全局光照")]
-    public bool UpdateGI;
-
-    [Indexable]
-    [UIDragFloat(1.0f, name: "全局光照位置")]
-    public Vector3 GIVolumePosition = new Vector3(0, 2.5f, 0);
-
-    [Indexable]
-    [UIDragFloat(1.0f, name: "全局光照范围")]
-    public Vector3 GIVolumeSize = new Vector3(20, 5, 20);
-
-    [Indexable]
-    [UIShow(name: "使用全局光照")]
-    public bool UseGI;
-
-    [Indexable]
-    [UIShow(name: "启用屏幕空间反射")]
-    public bool EnableSSR;
-
-    [UIShow(name: "启用TAA抗锯齿")]
-    public bool EnableTAA;
-
-    [UIDragFloat(0.01f, name: "TAA系数")]
-    [Indexable]
-    public float TAAFactor = 0.3f;
 
     [UISlider(0.5f, 2.0f, name: "渲染倍数")]
     public float RenderScale = 1;
@@ -372,12 +267,14 @@ public class DeferredRenderPipeline : RenderPipeline, IDisposable
 
     CameraData historyCamera;
 
+    [UITree]
     public DeferredRenderPass deferredRenderPass = new DeferredRenderPass()
     {
         renderTarget = nameof(noPostProcess),
         depthStencil = nameof(depth),
     };
 
+    [UITree]
     public PostProcessPass postProcess = new PostProcessPass()
     {
         inputColor = nameof(noPostProcess),
@@ -385,6 +282,7 @@ public class DeferredRenderPipeline : RenderPipeline, IDisposable
         output = nameof(output),
     };
 
+    [UITree]
     public TAAPass taaPass = new TAAPass()
     {
         target = nameof(noPostProcess),
@@ -397,7 +295,7 @@ public class DeferredRenderPipeline : RenderPipeline, IDisposable
     {
         renderHelper ??= new RenderHelper();
         renderHelper.renderWrap = renderWrap;
-        renderHelper.CPUSkinning = EnableRayTracing || UpdateGI;
+        renderHelper.CPUSkinning = deferredRenderPass.EnableRayTracing || deferredRenderPass.UpdateGI;
         renderHelper.UpdateGPUResource();
 
         renderWrap.GetOutputSize(out outputWidth, out outputHeight);
@@ -417,28 +315,24 @@ public class DeferredRenderPipeline : RenderPipeline, IDisposable
     public override void Render()
     {
         var camera = this.camera;
-        if (EnableTAA)
+        if (taaPass.EnableTAA)
         {
             Vector2 jitterVector = new Vector2((float)(random.NextDouble() * 2 - 1) / outputWidth, (float)(random.NextDouble() * 2 - 1) / outputHeight);
             camera = camera.GetJitter(jitterVector);
         }
 
         deferredRenderPass.Visuals = Visuals;
-        deferredRenderPass.Brightness = Brightness;
-        deferredRenderPass.rayTracing = EnableRayTracing;
-        deferredRenderPass.updateGI = UpdateGI;
         deferredRenderPass.DebugRenderType = DebugRenderType;
         deferredRenderPass.Particles = Particles;
-        postProcess.EnableBloom = EnableBloom;
 
         deferredRenderPass.SetCamera(camera);
         deferredRenderPass.Execute(renderHelper);
 
-        if (EnableTAA)
+        if (taaPass.EnableTAA)
         {
             taaPass.DebugRenderType = DebugRenderType;
             taaPass.SetCamera(historyCamera, this.camera);
-            taaPass.SetProperties(outputWidth, outputHeight, TAAFactor);
+            taaPass.SetProperties(outputWidth, outputHeight);
             taaPass.Execute(renderHelper);
         }
         postProcess.Execute(renderHelper);

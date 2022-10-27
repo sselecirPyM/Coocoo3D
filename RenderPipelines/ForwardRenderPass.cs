@@ -1,4 +1,5 @@
 ﻿using Caprice.Attributes;
+using Caprice.Display;
 using Coocoo3D.Components;
 using Coocoo3D.RenderPipeline;
 using Coocoo3D.Utility;
@@ -35,7 +36,7 @@ public class ForwardRenderPass
             {
                 nameof(InvertViewProjection),
                 nameof(CameraPosition),
-                "SkyLightMultiple",
+                nameof(SkyLightMultiple),
                 nameof(Brightness),
             }
         }
@@ -109,18 +110,18 @@ public class ForwardRenderPass
             0,
             nameof(LightColor),
             0,
-            "SkyLightMultiple",
-            "FogColor",
-            "FogDensity",
-            "FogStartDistance",
-            "FogEndDistance",
+            nameof(SkyLightMultiple),
+            nameof(FogColor),
+            nameof(FogDensity),
+            nameof(FogStartDistance),
+            nameof(FogEndDistance),
             nameof(CameraLeft),
             nameof(CameraDown),
             nameof(Split),
         },
         AutoKeyMap =
         {
-            ("EnableFog","ENABLE_FOG"),
+            (nameof(EnableFog),"ENABLE_FOG"),
             ("UseNormalMap","USE_NORMAL_MAP"),
             ("UseSpa","USE_SPA"),
         }
@@ -143,6 +144,31 @@ public class ForwardRenderPass
     [Indexable]
     public Vector3 CameraBack;
 
+
+    [UIDragFloat(0.01f, 0, name: "亮度")]
+    [Indexable]
+    public float Brightness = 1;
+
+    [UIDragFloat(0.01f, 0, name: "天空盒亮度")]
+    [Indexable]
+    public float SkyLightMultiple = 3;
+
+    [UIShow(name: "启用雾")]
+    [Indexable]
+    public bool EnableFog;
+    [UIColor(name: "雾颜色")]
+    [Indexable]
+    public Vector3 FogColor = new Vector3(0.4f, 0.4f, 0.6f);
+    [UIDragFloat(0.001f, 0, name: "雾密度")]
+    [Indexable]
+    public float FogDensity = 0.005f;
+    [UIDragFloat(0.1f, 0, name: "雾开始距离")]
+    [Indexable]
+    public float FogStartDistance = 5;
+    //[UIDragFloat(0.1f, 0, name: "雾结束距离")]
+    [Indexable]
+    public float FogEndDistance = 100000;
+
     [Indexable]
     public float Far;
     [Indexable]
@@ -162,9 +188,6 @@ public class ForwardRenderPass
     public Vector3 LightDir;
     [Indexable]
     public Vector3 LightColor;
-
-    [Indexable]
-    public float Brightness = 1;
 
     public string renderTarget;
     public string depthStencil;

@@ -1,4 +1,5 @@
-﻿using Coocoo3D.Components;
+﻿using Caprice.Display;
+using Coocoo3D.Components;
 using Coocoo3D.Core;
 using Coocoo3D.FileFormat;
 using Coocoo3D.ResourceWrap;
@@ -14,7 +15,6 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
-using System.Threading.Tasks;
 using Vortice.Dxc;
 
 namespace Coocoo3D.RenderPipeline
@@ -36,6 +36,8 @@ namespace Coocoo3D.RenderPipeline
         public VersionedDictionary<string, TextureCube> TextureCubes = new();
         public VersionedDictionary<string, Assembly> Assemblies = new();
         public VersionedDictionary<string, RootSignature> RootSignatures = new();
+
+        public Dictionary<Type, List<UIUsage>> UIUsages = new();
 
         public ConcurrentQueue<Mesh> MeshReadyToUpload = new();
 
@@ -566,6 +568,55 @@ namespace Coocoo3D.RenderPipeline
             byte[] resultData = result.GetResult().AsBytes();
             result.Dispose();
             return resultData;
+        }
+
+
+        public List<UIUsage> GetUIUsage(Type type)
+        {
+            if (UIUsages.TryGetValue(type, out var uiUsage))
+            {
+                return uiUsage;
+            }
+            else
+            {
+                uiUsage = new List<UIUsage>();
+                var members = type.GetMembers();
+                foreach (var member in members)
+                {
+                    if (member.MemberType == MemberTypes.Field || member.MemberType == MemberTypes.Property)
+                    {
+                        _Member(member, uiUsage);
+                    }
+                }
+                UIUsages[type] = uiUsage;
+                return uiUsage;
+            }
+        }
+
+        void _Member(MemberInfo member, List<UIUsage> usages)
+        {
+            var uiShowAttribute = member.GetCustomAttribute<UIShowAttribute>();
+            var uiDescriptionAttribute = member.GetCustomAttribute<UIDescriptionAttribute>();
+            if (uiShowAttribute != null)
+            {
+                var usage = new UIUsage()
+                {
+                    Name = uiShowAttribute.Name,
+                    UIShowType = uiShowAttribute.Type,
+                    sliderAttribute = member.GetCustomAttribute<UISliderAttribute>(),
+                    colorAttribute = member.GetCustomAttribute<UIColorAttribute>(),
+                    dragFloatAttribute = member.GetCustomAttribute<UIDragFloatAttribute>(),
+                    dragIntAttribute = member.GetCustomAttribute<UIDragIntAttribute>(),
+                    treeAttribute = member.GetCustomAttribute<UITreeAttribute>(),
+                    MemberInfo = member,
+                };
+                usages.Add(usage);
+                if (uiDescriptionAttribute != null)
+                {
+                    usage.Description = uiDescriptionAttribute.Description;
+                }
+                usage.Name ??= member.Name;
+            }
         }
 
         public Texture2D GetTexture(string s)

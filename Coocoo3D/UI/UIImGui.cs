@@ -325,7 +325,7 @@ namespace Coocoo3D.UI
                 renderPipelinesRequest = null;
             }
             var rpc = windowSystem;
-            ShowParams(rpc.currentChannel.renderPipelineView);
+            ShowParams(rpc.currentChannel.renderPipelineView, rpc.currentChannel.renderPipeline);
             int renderPipelineIndex = 0;
 
             var rps = renderSystem.RenderPipelineTypes;
@@ -385,35 +385,44 @@ namespace Coocoo3D.UI
             ImGui.TextUnformatted("绘制三角形数：" + statistics.DrawTriangleCount); ;
         }
 
-        void ShowParams(RenderPipelineView view)
+        void ShowParams(RenderPipelineView view, object tree1)
         {
-            if (view == null) return;
+            if (view == null)
+                return;
             ImGui.Separator();
             string filter = ImFilter("查找参数", "搜索参数名称");
-
-            var renderPipeline = view.renderPipeline;
-            foreach (var param in view.UIUsages)
+            var usages1 = mainCaches.GetUIUsage(tree1.GetType());
+            foreach (var param in usages1)
             {
-                var val = param.Value;
-                string name = val.MemberInfo.Name;
+                string name = param.MemberInfo.Name;
 
-                if (val.UIShowType != UIShowType.All && val.UIShowType != UIShowType.Global) continue;
-                if (!Contains(val.Name, filter) && !Contains(param.Key, filter))
+                if (param.UIShowType != UIShowType.All && param.UIShowType != UIShowType.Global)
+                    continue;
+                if (!Contains(param.Name, filter) && !Contains(param.MemberInfo.Name, filter))
                     continue;
 
-                var member = val.MemberInfo;
-                object obj = member.GetValue<object>(renderPipeline);
+                var member = param.MemberInfo;
+                object obj = member.GetValue<object>(tree1);
                 var type = obj.GetType();
                 if (type.IsEnum)
                 {
-                    if (ImGuiExt.ComboBox(val.Name, ref obj))
+                    if (ImGuiExt.ComboBox(param.Name, ref obj))
                     {
-                        member.SetValue(renderPipeline, obj);
+                        member.SetValue(tree1, obj);
+                    }
+                }
+                else if (param.treeAttribute != null)
+                {
+                    if (ImGui.TreeNode(param.Name))
+                    {
+                        ShowParams(view, member.GetValue<object>(tree1));
+
+                        ImGui.TreePop();
                     }
                 }
                 else
                 {
-                    ShowParam1(val, view.renderPipeline, () =>
+                    ShowParam1(param, tree1, () =>
                     {
                         if (member.GetGetterType() == typeof(Coocoo3DGraphics.Texture2D))
                         {
@@ -421,7 +430,7 @@ namespace Coocoo3D.UI
                             return rep;
                         }
                         else
-                            return member.GetValue<object>(renderPipeline);
+                            return member.GetValue<object>(tree1);
                     },
                     (object o1) =>
                     {
@@ -432,7 +441,7 @@ namespace Coocoo3D.UI
                         }
                         else
                         {
-                            member.SetValue(renderPipeline, o1);
+                            member.SetValue(tree1, o1);
                             view.InvalidDependents(name);
                         }
                     });
@@ -442,24 +451,25 @@ namespace Coocoo3D.UI
 
         void ShowParams(UIShowType showType, RenderPipelineView view, Dictionary<string, object> parameters)
         {
-            if (view == null) return;
-            ShowParams(showType, view.UIUsages, view.renderPipeline, parameters);
+            if (view == null)
+                return;
+            ShowParams(showType, view.renderPipeline, parameters);
         }
-        void ShowParams(UIShowType showType, Dictionary<string, UIUsage> usages, object renderPipeline, Dictionary<string, object> parameters)
+        void ShowParams(UIShowType showType, object renderPipeline, Dictionary<string, object> parameters)
         {
             ImGui.Separator();
             string filter = ImFilter("查找参数", "搜索参数名称");
 
-            foreach (var param in usages)
+            foreach (var param in mainCaches.GetUIUsage(renderPipeline.GetType()))
             {
-                var val = param.Value;
-                string name = val.MemberInfo.Name;
+                string name = param.MemberInfo.Name;
 
-                if (val.UIShowType != UIShowType.All && (val.UIShowType & showType) == 0) continue;
-                if (!Contains(name, filter) && !Contains(param.Key, filter))
+                if (param.UIShowType != UIShowType.All && (param.UIShowType & showType) == 0)
+                    continue;
+                if (!Contains(param.Name, filter) && !Contains(param.MemberInfo.Name, filter))
                     continue;
 
-                var member = val.MemberInfo;
+                var member = param.MemberInfo;
                 object obj = member.GetValue<object>(renderPipeline);
                 var type = obj.GetType();
                 if (type.IsEnum)
@@ -474,14 +484,14 @@ namespace Coocoo3D.UI
                     {
                         obj = Activator.CreateInstance(type);
                     }
-                    if (ImGuiExt.ComboBox(val.Name, ref obj))
+                    if (ImGuiExt.ComboBox(param.Name, ref obj))
                     {
                         parameters[name] = obj;
                     }
                 }
                 else
                 {
-                    ShowParam1(val, renderPipeline, () =>
+                    ShowParam1(param, renderPipeline, () =>
                     {
                         parameters.TryGetValue(name, out var parameter);
                         return parameter;
