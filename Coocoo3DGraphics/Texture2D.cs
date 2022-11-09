@@ -1,9 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 using Vortice.Direct3D12;
 using Vortice.DXGI;
-using static Coocoo3DGraphics.DXHelper;
 
 namespace Coocoo3DGraphics
 {
@@ -18,14 +15,18 @@ namespace Coocoo3DGraphics
         public Format rtvFormat;
         public Format dsvFormat;
         public Format uavFormat;
-        public List<ResourceStates> resourceStates = new List<ResourceStates>();
+        private ResourceStates[] resourceStates;
         public GraphicsObjectStatus Status;
+        public int arraySize = 1;
+
+        public bool isCube;
 
         public void InitResourceState(ResourceStates rs)
         {
-            resourceStates.Clear();
-            for (int i = 0; i < mipLevels; i++)
-                resourceStates.Add(rs);
+            int arrayLenght = mipLevels * arraySize;
+            if (resourceStates == null || resourceStates.Length != arrayLenght)
+                resourceStates = new ResourceStates[arrayLenght];
+            Array.Fill(resourceStates, rs);
         }
 
         internal void SetAllResourceState(ID3D12GraphicsCommandList commandList, ResourceStates states)
@@ -35,7 +36,7 @@ namespace Coocoo3DGraphics
             prev = resourceStates[0];
             bool oneTrans = true;
 
-            for (int i = 0; i < mipLevels; i++)
+            for (int i = 0; i < resourceStates.Length; i++)
                 if (resourceStates[i] != prev)
                     oneTrans = false;
             if (oneTrans)
@@ -43,7 +44,7 @@ namespace Coocoo3DGraphics
                 if (states != prev)
                 {
                     commandList.ResourceBarrierTransition(resource, prev, states);
-                    for (int i = 0; i < mipLevels; i++)
+                    for (int i = 0; i < resourceStates.Length; i++)
                     {
                         resourceStates[i] = states;
                     }
@@ -55,7 +56,7 @@ namespace Coocoo3DGraphics
             }
             else
             {
-                for (int i = 0; i < mipLevels; i++)
+                for (int i = 0; i < resourceStates.Length; i++)
                 {
                     if (states != resourceStates[i])
                     {
@@ -79,15 +80,18 @@ namespace Coocoo3DGraphics
             bool uavBarrier = false;
             for (int i = mipLevelBegin; i < mipLevelBegin + mipLevels; i++)
             {
-                int index1 = i;
-                if (states != resourceStates[index1])
+                for (int j = 0; j < arraySize; j++)
                 {
-                    commandList.ResourceBarrierTransition(resource, resourceStates[index1], states, index1);
-                    resourceStates[index1] = states;
-                }
-                else if (states == ResourceStates.UnorderedAccess)
-                {
-                    uavBarrier = true;
+                    int index1 = j * this.mipLevels + i;
+                    if (states != resourceStates[index1])
+                    {
+                        commandList.ResourceBarrierTransition(resource, resourceStates[index1], states, index1);
+                        resourceStates[index1] = states;
+                    }
+                    else if (states == ResourceStates.UnorderedAccess)
+                    {
+                        uavBarrier = true;
+                    }
                 }
             }
             if (uavBarrier)
@@ -105,10 +109,10 @@ namespace Coocoo3DGraphics
             this.dsvFormat = format;
             this.rtvFormat = Format.Unknown;
             this.mipLevels = mips;
+            this.arraySize = 1;
         }
 
-        public void ReloadAsRTVUAV(int width, int height, Format format) => ReloadAsRTVUAV(width, height, 1, format);
-        public void ReloadAsRTVUAV(int width, int height, int mipLevels, Format format)
+        public void ReloadAsRTVUAV(int width, int height, int mipLevels, int arraySize, Format format)
         {
             this.width = width;
             this.height = height;
@@ -117,6 +121,11 @@ namespace Coocoo3DGraphics
             this.rtvFormat = format;
             this.uavFormat = format;
             this.mipLevels = mipLevels;
+            this.arraySize = arraySize;
+            if (arraySize == 6)
+            {
+                isCube = true;
+            }
         }
 
         public Format GetFormat()
@@ -128,15 +137,21 @@ namespace Coocoo3DGraphics
 
         internal ResourceDescription GetResourceDescription()
         {
-            ResourceDescription textureDesc = new ResourceDescription();
-            textureDesc.MipLevels = (ushort)mipLevels;
+            ResourceDescription textureDesc = new ResourceDescription
+            {
+                MipLevels = (ushort)mipLevels,
+                Width = (ulong)width,
+                Height = height,
+                Dimension = ResourceDimension.Texture2D,
+                DepthOrArraySize = (ushort)arraySize,
+                Flags = ResourceFlags.None,
+                SampleDescription = new SampleDescription(1, 0)
+            };
+
             if (dsvFormat != Format.Unknown)
                 textureDesc.Format = dsvFormat;
             else
                 textureDesc.Format = format;
-            textureDesc.Width = (ulong)width;
-            textureDesc.Height = height;
-            textureDesc.Flags = ResourceFlags.None;
 
             if (dsvFormat != Format.Unknown)
                 textureDesc.Flags |= ResourceFlags.AllowDepthStencil;
@@ -145,10 +160,6 @@ namespace Coocoo3DGraphics
             if (uavFormat != Format.Unknown)
                 textureDesc.Flags |= ResourceFlags.AllowUnorderedAccess;
 
-            textureDesc.DepthOrArraySize = 1;
-            textureDesc.SampleDescription.Count = 1;
-            textureDesc.SampleDescription.Quality = 0;
-            textureDesc.Dimension = ResourceDimension.Texture2D;
             return textureDesc;
         }
 

@@ -88,17 +88,17 @@ public class DeferredRenderPipeline : RenderPipeline, IDisposable
     [Resource("adams_place_bridge_2k.jpg")]
     public Texture2D skyboxTexture;
 
-    [Size(1024, 1024, 6)]
+    [Size(1024, 1024, 6, 6)]
     [Format(ResourceFormat.R16G16B16A16_Float)]
     [CubeFrom2D(nameof(skyboxTexture))]
     [BakeDependency(nameof(skyboxTexture))]
-    public TextureCube _SkyBox;
+    public Texture2D _SkyBox;
 
-    [Size(512, 512, 6)]
+    [Size(512, 512, 6, 6)]
     [Format(ResourceFormat.R16G16B16A16_Float)]
     [EnvironmentReflection(nameof(_SkyBox))]
     [BakeDependency(nameof(_SkyBox))]
-    public TextureCube _Environment;
+    public Texture2D _Environment;
 
     [Size("GIBufferSize")]
     public GPUBuffer GIBuffer;

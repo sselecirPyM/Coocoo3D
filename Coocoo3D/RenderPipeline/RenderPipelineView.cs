@@ -40,7 +40,7 @@ namespace Coocoo3D.RenderPipeline
             var fields = type.GetFields();
             foreach (var field in fields)
             {
-                if (field.FieldType == typeof(Texture2D) || field.FieldType == typeof(TextureCube) || field.FieldType == typeof(GPUBuffer))
+                if (field.FieldType == typeof(Texture2D) || field.FieldType == typeof(GPUBuffer))
                 {
                     RenderResource(field);
                 }
@@ -120,6 +120,7 @@ namespace Coocoo3D.RenderPipeline
                 rt.width = sizeAttribute.X;
                 rt.height = sizeAttribute.Y;
                 rt.mips = sizeAttribute.Mips;
+                rt.arraySize = sizeAttribute.ArraySize;
             }
             if (formatAttribute != null)
             {
@@ -140,13 +141,6 @@ namespace Coocoo3D.RenderPipeline
                     AOVs[aovAttribute.AOVType] = texture2D;
                 }
                 field.SetValue(renderPipeline, texture2D);
-            }
-            if (field.FieldType == typeof(TextureCube))
-            {
-                TextureCube textureCube = new TextureCube();
-                textureCube.Name = field.Name;
-                rt.textureCube = textureCube;
-                field.SetValue(renderPipeline, textureCube);
             }
             if (field.FieldType == typeof(GPUBuffer))
             {
@@ -179,13 +173,9 @@ namespace Coocoo3D.RenderPipeline
             foreach (var rt in RenderTextures.Values)
             {
                 var texture2D = rt.texture2D;
-                var textureCube = rt.textureCube;
                 var gpuBuffer = rt.gpuBuffer;
                 if (texture2D != null && rt.resourceFormat != ResourceFormat.Unknown && rt.width != 0 && rt.height != 0)
-                    Texture2D(texture2D, (Vortice.DXGI.Format)rt.resourceFormat, rt.width, rt.height, rt.mips, graphicsContext);
-
-                if (textureCube != null && rt.resourceFormat != ResourceFormat.Unknown && rt.width != 0 && rt.height != 0)
-                    TextureCube(textureCube, (Vortice.DXGI.Format)rt.resourceFormat, rt.width, rt.height, rt.mips, graphicsContext);
+                    Texture2D(texture2D, (Vortice.DXGI.Format)rt.resourceFormat, rt.width, rt.height, rt.mips, rt.arraySize, graphicsContext);
 
                 if (gpuBuffer != null && rt.width != 0)
                     DynamicBuffer(gpuBuffer, rt.width, graphicsContext);
@@ -224,10 +214,6 @@ namespace Coocoo3D.RenderPipeline
             if (rt.texture2D != null && rt.runtimeBakeAttribute is ITexture2DBaker baker1)
             {
                 rt.baked = baker1.Bake(rt.texture2D, renderWrap, ref rt.bakeTag);
-            }
-            else if (rt.textureCube != null && rt.runtimeBakeAttribute is ITextureCubeBaker baker2)
-            {
-                rt.baked = baker2.Bake(rt.textureCube, renderWrap, ref rt.bakeTag);
             }
         }
 
@@ -278,33 +264,20 @@ namespace Coocoo3D.RenderPipeline
             foreach (var rt in RenderTextures)
             {
                 rt.Value.texture2D?.Dispose();
-                rt.Value.textureCube?.Dispose();
                 rt.Value.gpuBuffer?.Dispose();
             }
             RenderTextures = null;
         }
 
-        static void Texture2D(Texture2D tex2d, Format format, int x, int y, int mips, GraphicsContext graphicsContext)
+        static void Texture2D(Texture2D tex2d, Format format, int x, int y, int mips, int arraySize, GraphicsContext graphicsContext)
         {
             if (tex2d.width != x || tex2d.height != y || tex2d.mipLevels != mips || tex2d.GetFormat() != format)
             {
                 if (format == Format.D16_UNorm || format == Format.D24_UNorm_S8_UInt || format == Format.D32_Float)
                     tex2d.ReloadAsDSV(x, y, mips, format);
                 else
-                    tex2d.ReloadAsRTVUAV(x, y, mips, format);
+                    tex2d.ReloadAsRTVUAV(x, y, mips, arraySize, format);
                 graphicsContext.UpdateRenderTexture(tex2d);
-            }
-        }
-
-        static void TextureCube(TextureCube texCube, Format format, int x, int y, int mips, GraphicsContext graphicsContext)
-        {
-            if (texCube.width != x || texCube.height != y || texCube.mipLevels != mips || texCube.GetFormat() != format)
-            {
-                if (format == Format.D16_UNorm || format == Format.D24_UNorm_S8_UInt || format == Format.D32_Float)
-                    texCube.ReloadAsDSV(x, y, mips, format);
-                else
-                    texCube.ReloadAsRTVUAV(x, y, mips, format);
-                graphicsContext.UpdateRenderTexture(texCube);
             }
         }
 

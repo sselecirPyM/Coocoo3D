@@ -59,9 +59,7 @@ namespace Coocoo3D.RenderPipeline
                 string texture = textures[i];
                 if (RenderPipelineView.RenderTextures.TryGetValue(texture, out var usage))
                 {
-                    if (usage.textureCube != null)
-                        graphicsContext.SetSRVTSlot(GetTexCube(usage), i);
-                    else if (usage.texture2D != null)
+                    if (usage.texture2D != null)
                     {
                         if (usage.srgbAttribute != null)
                             graphicsContext.SetSRVTSlot(GetTex2DFallBack(texture, material), i);
@@ -86,9 +84,7 @@ namespace Coocoo3D.RenderPipeline
                 string texture = textures[i];
                 if (RenderPipelineView.RenderTextures.TryGetValue(texture, out var usage))
                 {
-                    if (usage.textureCube != null)
-                        graphicsContext.SetUAVTSlot(GetTexCube(usage), i);
-                    else if (usage.texture2D != null)
+                    if (usage.texture2D != null)
                         graphicsContext.SetUAVTSlot(GetRenderTexture2D(texture), i);
                     else if (usage.gpuBuffer != null)
                         graphicsContext.SetUAVTSlot(usage.gpuBuffer, i);
@@ -101,11 +97,6 @@ namespace Coocoo3D.RenderPipeline
             graphicsContext.SetUAVTSlot(texture2D, slot);
         }
 
-        public void SetUAV(TextureCube textureCube, int slot)
-        {
-            graphicsContext.SetUAVTSlot(textureCube, slot);
-        }
-
         public void SetUAV(GPUBuffer buffer, int slot)
         {
             graphicsContext.SetUAVTSlot(buffer, slot);
@@ -114,11 +105,6 @@ namespace Coocoo3D.RenderPipeline
         public void SetUAV(Texture2D texture2D, int mipIndex, int slot)
         {
             graphicsContext.SetUAVTSlot(texture2D, mipIndex, slot);
-        }
-
-        public void SetUAV(TextureCube textureCube, int mipIndex, int slot)
-        {
-            graphicsContext.SetUAVTSlot(textureCube, mipIndex, slot);
         }
 
         public void SetSRV(Texture2D texture, int slot)
@@ -131,37 +117,9 @@ namespace Coocoo3D.RenderPipeline
             graphicsContext.SetSRVTSlot(buffer, slot);
         }
 
-        public void SetSRV(TextureCube textureCube, int slot)
-        {
-            graphicsContext.SetSRVTSlot(textureCube, slot);
-        }
-
-        public void SetSRVLim(TextureCube textureCube, int mip, int slot)
-        {
-            graphicsContext.SetSRVTLim(textureCube, mip, slot);
-        }
-
         public void SetSRVLim(Texture2D texture, int mip, int slot)
         {
             graphicsContext.SetSRVTLim(texture, mip, slot);
-        }
-
-        TextureCube GetTexCube(string name)
-        {
-            if (string.IsNullOrEmpty(name))
-                return null;
-
-            if (RenderPipelineView.RenderTextures.TryGetValue(name, out var usage) && usage.textureCube != null)
-                return usage.textureCube;
-            return null;
-        }
-
-        TextureCube GetTexCube(RenderTextureUsage usage)
-        {
-            if (usage == null)
-                return null;
-
-            return usage.textureCube;
         }
 
         public Texture2D GetTex2D(string name, RenderMaterial material = null)
@@ -197,26 +155,6 @@ namespace Coocoo3D.RenderPipeline
                 return usage.srgbAttribute == null;
             }
             return false;
-        }
-
-        public TextureCube GetTexCube(string name, RenderMaterial material = null)
-        {
-            if (string.IsNullOrEmpty(name))
-                return null;
-
-            if (RenderPipelineView.RenderTextures.TryGetValue(name, out var usage) && usage.textureCube != null)
-            {
-                //string texturePath = GetTex2DPath(name, material);
-                //if (!string.IsNullOrEmpty(texturePath))
-                //    return _GetTex2DByName(texturePath);
-
-                //if (RenderPipelineView.textureReplacement.TryGetValue(name, out var replacement))
-                //    return _GetTex2DByName(replacement);
-
-                return usage.textureCube;
-            }
-
-            return null;
         }
 
         public Texture2D GetRenderTexture2D(string name)
@@ -270,25 +208,6 @@ namespace Coocoo3D.RenderPipeline
             else
                 Console.WriteLine("shader compilation error");
         }
-
-        //public TextureCube GetTexCube(string name, RenderMaterial material = null)
-        //{
-        //    if (string.IsNullOrEmpty(name))
-        //        return null;
-
-        //    TextureCube tex2D;
-        //    if (passSetting.RenderTargetCubes.TryGetValue(name, out var renderTarget))
-        //    {
-        //        tex2D = rpc._GetTexCubeByName(visualChannel, name);
-        //    }
-        //    else
-        //    {
-        //        name = passSetting.GetAliases(name);
-
-        //        tex2D = rpc._GetTexCubeByName(visualChannel, name);
-        //    }
-        //    return tex2D;
-        //}
 
 
         public Texture2D texLoading;
@@ -405,19 +324,13 @@ namespace Coocoo3D.RenderPipeline
             rts.TryGetValue(renderTexture1, out var rt1);
             rts.TryGetValue(renderTexture2, out var rt2);
             if (rt1.width == rt2.width && rt1.height == rt2.height && rt1.resourceFormat == rt2.resourceFormat
-                && rt1.depth == rt2.depth && rt1.mips == rt2.mips)
+                && rt1.depth == rt2.depth && rt1.mips == rt2.mips && rt1.arraySize == rt2.arraySize)
             {
                 if (rt1.texture2D != null && rt2.texture2D != null)
                 {
                     (rt1.texture2D, rt2.texture2D) = (rt2.texture2D, rt1.texture2D);
                     rt1.fieldInfo.SetValue(RenderPipelineView.renderPipeline, rt1.texture2D);
                     rt2.fieldInfo.SetValue(RenderPipelineView.renderPipeline, rt2.texture2D);
-                }
-                else if (rt1.textureCube != null && rt2.textureCube != null)
-                {
-                    (rt1.textureCube, rt2.textureCube) = (rt2.textureCube, rt1.textureCube);
-                    rt1.fieldInfo.SetValue(RenderPipelineView.renderPipeline, rt1.textureCube);
-                    rt2.fieldInfo.SetValue(RenderPipelineView.renderPipeline, rt2.textureCube);
                 }
                 else if (rt1.gpuBuffer != null && rt2.gpuBuffer != null)
                 {

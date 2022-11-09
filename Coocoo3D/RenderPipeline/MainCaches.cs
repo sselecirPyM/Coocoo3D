@@ -33,7 +33,6 @@ namespace Coocoo3D.RenderPipeline
         public VersionedDictionary<string, RayTracingShader> RayTracingShaders = new();
         public VersionedDictionary<string, PSO> PipelineStateObjects = new();
         public VersionedDictionary<string, RTPSO> RTPSOs = new();
-        public VersionedDictionary<string, TextureCube> TextureCubes = new();
         public VersionedDictionary<string, Assembly> Assemblies = new();
         public VersionedDictionary<string, RootSignature> RootSignatures = new();
 
@@ -624,15 +623,6 @@ namespace Coocoo3D.RenderPipeline
             if (TextureCaches.TryGetValue(s, out var tex))
             {
                 return tex.texture2D;
-            }
-            return null;
-        }
-
-        public TextureCube GetTextureCube(string s)
-        {
-            if (TextureCubes.TryGetValue(s, out var tex))
-            {
-                return tex;
             }
             return null;
         }

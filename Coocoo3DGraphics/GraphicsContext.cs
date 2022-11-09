@@ -278,8 +278,6 @@ namespace Coocoo3DGraphics
                             else
                                 SetSRVTSlotLinear(tex2d, srvOffset);
                         }
-                        else if (srv0 is TextureCube texCube)
-                            SetSRVTSlot(texCube, srvOffset);
                         else if (srv0 is GPUBuffer buffer)
                             SetSRVTSlot(buffer, srvOffset);
                     }
@@ -372,13 +370,9 @@ namespace Coocoo3DGraphics
 
         public void SetSRVTSlot(Texture2D texture, int slot) => currentSRVs[slot] = GetSRVHandle(texture).Ptr;
 
-        public void SetSRVTSlot(TextureCube texture, int slot) => currentSRVs[slot] = GetSRVHandle(texture).Ptr;
-
         public void SetSRVTSlot(GPUBuffer buffer, int slot) => currentSRVs[slot] = GetSRVHandle(buffer).Ptr;
 
         public void SetSRVTLim(Texture2D texture, int mips, int slot) => currentSRVs[slot] = GetSRVHandleWithMip(texture, mips).Ptr;
-
-        public void SetSRVTLim(TextureCube texture, int mips, int slot) => currentSRVs[slot] = GetSRVHandleWithMip(texture, mips).Ptr;
 
         void SetSRVRSlot(ulong gpuAddr, int slot) => currentSRVs[slot] = gpuAddr;
 
@@ -392,25 +386,7 @@ namespace Coocoo3DGraphics
 
         public void SetRTSlot(Texture2D texture2D, int slot) => currentUAVs[slot] = GetUAVHandle(texture2D, ResourceStates.NonPixelShaderResource).Ptr;
         public void SetUAVTSlot(Texture2D texture2D, int slot) => currentUAVs[slot] = GetUAVHandle(texture2D).Ptr;
-        public void SetUAVTSlot(TextureCube textureCube, int slot) => currentUAVs[slot] = GetUAVHandle(textureCube).Ptr;
         public void SetUAVTSlot(GPUBuffer buffer, int slot) => currentUAVs[slot] = GetUAVHandle(buffer).Ptr;
-
-        public void SetUAVTSlot(TextureCube texture, int mipIndex, int slot)
-        {
-            texture.SetPartResourceState(m_commandList, ResourceStates.UnorderedAccess, mipIndex, 1);
-            if (!(mipIndex < texture.mipLevels))
-            {
-                throw new ArgumentOutOfRangeException();
-            }
-            var uavDesc = new UnorderedAccessViewDescription()
-            {
-                ViewDimension = UnorderedAccessViewDimension.Texture2DArray,
-                Texture2DArray = new Texture2DArrayUnorderedAccessView() { MipSlice = mipIndex, ArraySize = 6 },
-                Format = texture.uavFormat,
-            };
-
-            currentUAVs[slot] = CreateUAV(texture.resource, uavDesc).Ptr;
-        }
 
         public void SetUAVTSlot(Texture2D texture, int mipIndex, int slot)
         {
@@ -421,10 +397,18 @@ namespace Coocoo3DGraphics
             }
             var uavDesc = new UnorderedAccessViewDescription()
             {
-                ViewDimension = UnorderedAccessViewDimension.Texture2D,
-                Texture2D = new Texture2DUnorderedAccessView { MipSlice = mipIndex },
                 Format = texture.uavFormat,
             };
+            if (texture.isCube)
+            {
+                uavDesc.ViewDimension = UnorderedAccessViewDimension.Texture2DArray;
+                uavDesc.Texture2DArray = new Texture2DArrayUnorderedAccessView() { MipSlice = mipIndex, ArraySize = 6 };
+            }
+            else
+            {
+                uavDesc.ViewDimension = UnorderedAccessViewDimension.Texture2D;
+                uavDesc.Texture2D = new Texture2DUnorderedAccessView { MipSlice = mipIndex };
+            }
 
             currentUAVs[slot] = CreateUAV(texture.resource, uavDesc).Ptr;
         }
@@ -623,20 +607,6 @@ namespace Coocoo3DGraphics
             texture.Status = GraphicsObjectStatus.loaded;
         }
 
-        public void UpdateRenderTexture(TextureCube texture)
-        {
-            var textureDesc = texture.GetResourceDescription();
-
-            ClearValue clearValue = texture.dsvFormat != Format.Unknown
-                ? new ClearValue(texture.dsvFormat, new DepthStencilValue(1.0f, 0))
-                : new ClearValue(texture.format, new Vortice.Mathematics.Color4());
-            CreateResource(textureDesc, clearValue, ref texture.resource, ResourceStates.GenericRead);
-            texture.InitResourceState(ResourceStates.GenericRead);
-            texture.resource.Name = "render texCube";
-
-            texture.Status = GraphicsObjectStatus.loaded;
-        }
-
         public void UpdateDynamicBuffer(GPUBuffer buffer)
         {
             CreateUAVBuffer(buffer.size, ref buffer.resource);
@@ -807,31 +777,6 @@ namespace Coocoo3DGraphics
             SetViewportAndRect(RTV);
             RTV.SetAllResourceState(m_commandList, ResourceStates.RenderTarget);
             var rtv = graphicsDevice.GetRenderTargetView(RTV.resource);
-            Reference(RTV.resource);
-            if (clearRTV)
-                m_commandList.ClearRenderTargetView(rtv, new Vortice.Mathematics.Color4(color));
-            if (DSV != null)
-            {
-                DSV.SetAllResourceState(m_commandList, ResourceStates.DepthWrite);
-                var dsv = graphicsDevice.GetDepthStencilView(DSV.resource);
-                Reference(DSV.resource);
-                if (clearDSV)
-                    m_commandList.ClearDepthStencilView(dsv, ClearFlags.Depth | ClearFlags.Stencil, 1.0f, 0);
-                m_commandList.OMSetRenderTargets(rtv, dsv);
-            }
-            else
-            {
-                m_commandList.OMSetRenderTargets(rtv);
-            }
-        }
-
-        public void SetRTVDSV(TextureCube RTV, Texture2D DSV, Vector4 color, int faceIndex, bool clearRTV, bool clearDSV)
-        {
-            m_commandList.RSSetScissorRect(RTV.width, RTV.height);
-            m_commandList.RSSetViewport(0, 0, RTV.width, RTV.height);
-            RTV.SetResourceState(m_commandList, ResourceStates.RenderTarget, 0, faceIndex);
-            var rtv = RTV.GetRenderTargetView(graphicsDevice.device, 0, faceIndex);
-            Reference(RTV.renderTargetView);
             Reference(RTV.resource);
             if (clearRTV)
                 m_commandList.ClearRenderTargetView(rtv, new Vortice.Mathematics.Color4(color));
@@ -1151,21 +1096,22 @@ namespace Coocoo3DGraphics
         GpuDescriptorHandle GetUAVHandle(Texture2D texture, ResourceStates state = ResourceStates.UnorderedAccess)
         {
             texture.SetAllResourceState(m_commandList, state);
-            return CreateUAV(texture.resource, null);
-        }
-
-        GpuDescriptorHandle GetUAVHandle(TextureCube texture)
-        {
-            texture.SetAllResourceState(m_commandList, ResourceStates.UnorderedAccess);
-            var uavDesc = new UnorderedAccessViewDescription()
+            if (texture.isCube)
             {
-                Format = texture.uavFormat,
-                ViewDimension = UnorderedAccessViewDimension.Texture2DArray,
-            };
-            uavDesc.Texture2DArray.ArraySize = 6;
-
-            return CreateUAV(texture.resource, uavDesc);
+                var uavDesc = new UnorderedAccessViewDescription()
+                {
+                    Format = texture.uavFormat,
+                    ViewDimension = UnorderedAccessViewDimension.Texture2DArray,
+                };
+                uavDesc.Texture2DArray.ArraySize = 6;
+                return CreateUAV(texture.resource, uavDesc);
+            }
+            else
+            {
+                return CreateUAV(texture.resource, null);
+            }
         }
+
         GpuDescriptorHandle GetUAVHandle(GPUBuffer buffer)
         {
             buffer.StateChange(m_commandList, ResourceStates.UnorderedAccess);
@@ -1205,22 +1151,18 @@ namespace Coocoo3DGraphics
             ShaderResourceViewDescription srvDesc = new ShaderResourceViewDescription
             {
                 Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
-                ViewDimension = Vortice.Direct3D12.ShaderResourceViewDimension.Texture2D,
                 Format = (linear && format == Format.R8G8B8A8_UNorm_SRgb) ? Format.R8G8B8A8_UNorm : format
             };
-            srvDesc.Texture2D.MipLevels = texture.mipLevels;
-
-            return CreateSRV(texture.resource, srvDesc);
-        }
-
-        GpuDescriptorHandle GetSRVHandle(TextureCube texture)
-        {
-            texture.SetAllResourceState(m_commandList, ResourceStates.GenericRead);
-            ShaderResourceViewDescription srvDesc = new ShaderResourceViewDescription();
-            srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-            srvDesc.Format = texture.format;
-            srvDesc.ViewDimension = Vortice.Direct3D12.ShaderResourceViewDimension.TextureCube;
-            srvDesc.TextureCube.MipLevels = texture.mipLevels;
+            if (texture.isCube)
+            {
+                srvDesc.ViewDimension = Vortice.Direct3D12.ShaderResourceViewDimension.TextureCube;
+                srvDesc.TextureCube.MipLevels = texture.mipLevels;
+            }
+            else
+            {
+                srvDesc.ViewDimension = Vortice.Direct3D12.ShaderResourceViewDimension.Texture2D;
+                srvDesc.Texture2D.MipLevels = texture.mipLevels;
+            }
 
             return CreateSRV(texture.resource, srvDesc);
         }
@@ -1232,25 +1174,19 @@ namespace Coocoo3DGraphics
             {
                 Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
                 Format = texture.format,
-                ViewDimension = Vortice.Direct3D12.ShaderResourceViewDimension.Texture2D,
             };
-            srvDesc.Texture2D.MipLevels = 1;
-            srvDesc.Texture2D.MostDetailedMip = mips;
-
-            return CreateSRV(texture.resource, srvDesc);
-        }
-
-        GpuDescriptorHandle GetSRVHandleWithMip(TextureCube texture, int mips)
-        {
-            texture.SetPartResourceState(m_commandList, ResourceStates.GenericRead, mips, 1);
-            ShaderResourceViewDescription srvDesc = new ShaderResourceViewDescription
+            if (texture.isCube)
             {
-                Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
-                Format = texture.format,
-                ViewDimension = Vortice.Direct3D12.ShaderResourceViewDimension.TextureCube
-            };
-            srvDesc.TextureCube.MipLevels = 1;
-            srvDesc.TextureCube.MostDetailedMip = mips;
+                srvDesc.ViewDimension = Vortice.Direct3D12.ShaderResourceViewDimension.TextureCube;
+                srvDesc.TextureCube.MipLevels = 1;
+                srvDesc.TextureCube.MostDetailedMip = mips;
+            }
+            else
+            {
+                srvDesc.ViewDimension = Vortice.Direct3D12.ShaderResourceViewDimension.Texture2D;
+                srvDesc.Texture2D.MipLevels = 1;
+                srvDesc.Texture2D.MostDetailedMip = mips;
+            }
 
             return CreateSRV(texture.resource, srvDesc);
         }

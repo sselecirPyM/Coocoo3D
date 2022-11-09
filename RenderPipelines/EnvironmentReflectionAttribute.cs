@@ -5,11 +5,11 @@ using System;
 
 namespace RenderPipelines;
 
-public class EnvironmentReflectionAttribute : RuntimeBakeAttribute, ITextureCubeBaker
+public class EnvironmentReflectionAttribute : RuntimeBakeAttribute, ITexture2DBaker
 {
-    public bool Bake(TextureCube texture, RenderWrap renderWrap, ref object tag)
+    public bool Bake(Texture2D texture, RenderWrap renderWrap, ref object tag)
     {
-        var tex = renderWrap.GetTexCube(Source);
+        var tex = renderWrap.GetTex2D(Source);
         if (tex == null || tex.Status != GraphicsObjectStatus.loaded)
             return false;
 

@@ -61,17 +61,17 @@ public class ForwardRenderPipeline : RenderPipeline, IDisposable
     [Resource("adams_place_bridge_2k.jpg")]
     public Texture2D skyboxTexture;
 
-    [Size(1024, 1024, 6)]
+    [Size(1024, 1024, 6, 6)]
     [Format(ResourceFormat.R16G16B16A16_Float)]
     [CubeFrom2D(nameof(skyboxTexture))]
     [BakeDependency(nameof(skyboxTexture))]
-    public TextureCube _SkyBox;
+    public Texture2D _SkyBox;
 
-    [Size(512, 512, 6)]
+    [Size(512, 512, 6, 6)]
     [Format(ResourceFormat.R16G16B16A16_Float)]
     [EnvironmentReflection(nameof(_SkyBox))]
     [BakeDependency(nameof(_SkyBox))]
-    public TextureCube _Environment;
+    public Texture2D _Environment;
 
     [UISlider(0.5f, 2.0f, name: "渲染倍数")]
     public float RenderScale = 1;

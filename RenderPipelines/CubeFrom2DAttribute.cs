@@ -4,9 +4,9 @@ using Coocoo3DGraphics;
 
 namespace RenderPipelines;
 
-internal class CubeFrom2DAttribute : RuntimeBakeAttribute, ITextureCubeBaker
+internal class CubeFrom2DAttribute : RuntimeBakeAttribute, ITexture2DBaker
 {
-    public bool Bake(TextureCube texture, RenderWrap renderWrap, ref object tag)
+    public bool Bake(Texture2D texture, RenderWrap renderWrap, ref object tag)
     {
         var tex = renderWrap.GetTex2D(Source);
         if (tex == null || tex.Status != GraphicsObjectStatus.loaded)

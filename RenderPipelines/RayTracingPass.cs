@@ -181,7 +181,7 @@ public class RayTracingPass
             if (srv == null)
                 continue;
             if (i == 1)
-                call.SRVs[i] = renderWrap.GetTexCube(srv);
+                call.SRVs[i] = renderWrap.GetTex2D(srv);
             else
                 call.SRVs[i] = renderWrap.GetResourceFallBack(srv);
             if (renderWrap.SlotIsLinear(srv))
