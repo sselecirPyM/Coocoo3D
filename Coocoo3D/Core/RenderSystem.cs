@@ -15,7 +15,7 @@ namespace Coocoo3D.Core
         public RenderPipelineContext renderPipelineContext;
         public MainCaches mainCaches;
 
-        public List<Type> RenderPipelineTypes = new List<Type>();
+        public List<Type> RenderPipelineTypes = new();
 
         public void Initialize()
         {
@@ -29,7 +29,8 @@ namespace Coocoo3D.Core
             while (mainCaches.MeshReadyToUpload.TryDequeue(out var mesh))
                 graphicsContext.UploadMesh(mesh);
 
-            mainCaches.uploadHandler.graphicsContext = graphicsContext;
+            mainCaches.uploadHandler.maxProcessingCount = 10;
+            mainCaches.uploadHandler.state = graphicsContext;
             mainCaches.uploadHandler.Update();
             mainCaches.uploadHandler.Output.Clear();
 
@@ -47,9 +48,9 @@ namespace Coocoo3D.Core
             {
                 visualChannel.Onframe((float)context.Time, mainCaches);
                 var renderPipeline = visualChannel.renderPipeline;
-                var renderPipelineView = visualChannel.renderPipelineView;
                 renderPipeline.renderWrap.rpc = context;
 
+                var renderPipelineView = visualChannel.renderPipelineView;
                 foreach (var cap in renderPipelineView.sceneCaptures)
                 {
                     var member = cap.Value.Item1;

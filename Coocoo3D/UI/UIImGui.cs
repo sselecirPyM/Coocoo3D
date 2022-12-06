@@ -533,7 +533,7 @@ namespace Coocoo3D.UI
                     }
                     break;
                 case float val:
-                    if (param.sliderAttribute != null)
+                    if (sliderAttribute != null)
                     {
                         if (ImGui.SliderFloat(displayName, ref val, sliderAttribute.Min, sliderAttribute.Max))
                         {
@@ -870,11 +870,6 @@ vmd格式动作。支持几乎所有的图片格式。");
                 NewParticle();
             }
             ImGui.SameLine();
-            //if (ImGui.Button("新体积"))
-            //{
-            //    NewVolume();
-            //}
-            //ImGui.SameLine();
             if (ImGui.Button("新贴花"))
             {
                 NewDecal();
@@ -1559,7 +1554,7 @@ vmd格式动作。支持几乎所有的图片格式。");
 
             var texture2D = uiRenderSystem.uiTexture = new Coocoo3DGraphics.Texture2D();
             io.Fonts.TexID = new IntPtr(UIRenderSystem.uiTextureIndex);
-            caches.uploadHandler.Add(new TextureLoadTask(texture2D, uploader));
+            caches.uploadHandler.Add(new GpuUploadTask(texture2D, uploader));
             InitKeyMap();
         }
 

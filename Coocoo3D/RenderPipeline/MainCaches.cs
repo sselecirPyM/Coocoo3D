@@ -42,11 +42,11 @@ namespace Coocoo3D.RenderPipeline
 
         public DiskLoadHandler diskLoadHandler = new();
         public TextureDecodeHandler textureDecodeHandler = new();
-        public GPUUploadHandler uploadHandler = new();
-        public SceneApplyHandler sceneApplyHandler = new();
-        public SceneSaveHandler sceneSaveHandler = new();
-        public ModelLoadHandler modelLoadHandler = new();
         public CacheHandler cacheHandler = new();
+        public SyncHandler<GpuUploadTask> uploadHandler = new();
+        public SyncHandler<ModelLoadTask> modelLoadHandler = new();
+        public SyncHandler<SceneLoadTask> sceneLoadHandler = new();
+        public SyncHandler<SceneSaveTask> sceneSaveHandler = new();
 
         public GameDriverContext gameDriverContext;
 
@@ -91,10 +91,11 @@ namespace Coocoo3D.RenderPipeline
                 Console.Clear();
             }
             cacheHandler.mainCaches = this;
-            sceneApplyHandler.mainCaches = this;
-            modelLoadHandler.mainCaches = this;
+            sceneLoadHandler.state = this;
+            modelLoadHandler.state = this;
+            modelLoadHandler.maxProcessingCount = 8;
 
-            HandlerUpdate(sceneApplyHandler);
+            HandlerUpdate(sceneLoadHandler);
             HandlerUpdate(sceneSaveHandler);
             HandlerUpdate(modelLoadHandler);
 
@@ -119,13 +120,13 @@ namespace Coocoo3D.RenderPipeline
 
             textureDecodeHandler.Output.RemoveAll(task1 =>
             {
-                if (uploadHandler.Count > 3)
+                if (uploadHandler.inputs.Count > 3)
                     return false;
                 var task = (TextureLoadTask)task1;
                 if (task.texture != null && task.Uploader == null)
                     task.texture.Status = task.TexturePack.Status;
                 if (task.Uploader != null)
-                    uploadHandler.Add(task);
+                    uploadHandler.Add(new GpuUploadTask(task.Texture, task.Uploader));
                 TextureOnDemand.Remove(task.TexturePack.fullPath);
                 return true;
             });
@@ -162,8 +163,6 @@ namespace Coocoo3D.RenderPipeline
                 AddTask(diskLoadHandler, (IDiskLoadTask)navigableTask);
             else if (navigableTask.Next == typeof(ITextureDecodeTask))
                 AddTask(textureDecodeHandler, (ITextureDecodeTask)navigableTask);
-            else if (navigableTask.Next == typeof(IGpuUploadTask))
-                AddTask(uploadHandler, (IGpuUploadTask)navigableTask);
         }
 
         bool AddTask<T>(IHandler<T> handler, T task) where T : INavigableTask

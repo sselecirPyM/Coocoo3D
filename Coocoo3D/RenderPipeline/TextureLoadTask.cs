@@ -1,15 +1,11 @@
 ﻿using Coocoo3D.ResourceWrap;
 using Coocoo3DGraphics;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Vortice.DXGI;
 
 namespace Coocoo3D.RenderPipeline
 {
-    public class TextureLoadTask : ICacheTask, INavigableTask, IDiskLoadTask, ITextureDecodeTask, IGpuUploadTask
+    public class TextureLoadTask : ICacheTask, INavigableTask, IDiskLoadTask, ITextureDecodeTask
     {
         public TextureLoadTask(Texture2D texture, Uploader uploader)
         {

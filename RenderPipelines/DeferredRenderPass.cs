@@ -656,6 +656,15 @@ public class DeferredRenderPass
         return new Rectangle(x, y, sizeX1, sizeY1);
     }
 
+    static readonly (Vector3, Vector3)[] table =
+    {
+        (new Vector3(1, 0, 0), new Vector3(0, -1, 0)),
+        (new Vector3(-1, 0, 0), new Vector3(0, 1, 0)),
+        (new Vector3(0, 1, 0), new Vector3(0, 0, -1)),
+        (new Vector3(0, -1, 0), new Vector3(0, 0, 1)),
+        (new Vector3(0, 0, 1), new Vector3(-1, 0, 0)),
+        (new Vector3(0, 0, -1), new Vector3(1, 0, 0))
+    };
     void DrawPointShadow(RenderHelper renderHelper, Span<PointLightData> pointLightDatas)
     {
         RenderWrap renderWrap = renderHelper.renderWrap;
@@ -669,35 +678,13 @@ public class DeferredRenderPass
             float near = lightRange * 0.001f;
             float far = lightRange;
 
-            drawShadowMap.CBVPerObject[1] = GetShadowMapMatrix(pl.Position, new Vector3(1, 0, 0), new Vector3(0, -1, 0), near, far);
-            drawShadowMap.scissorViewport = GetRectangle(index, Split, width, height);
-            drawShadowMap.Execute(renderHelper);
-            index++;
-
-            drawShadowMap.CBVPerObject[1] = GetShadowMapMatrix(pl.Position, new Vector3(-1, 0, 0), new Vector3(0, 1, 0), near, far);
-            drawShadowMap.scissorViewport = GetRectangle(index, Split, width, height);
-            drawShadowMap.Execute(renderHelper);
-            index++;
-
-            drawShadowMap.CBVPerObject[1] = GetShadowMapMatrix(pl.Position, new Vector3(0, 1, 0), new Vector3(0, 0, -1), near, far);
-            drawShadowMap.scissorViewport = GetRectangle(index, Split, width, height);
-            drawShadowMap.Execute(renderHelper);
-            index++;
-
-            drawShadowMap.CBVPerObject[1] = GetShadowMapMatrix(pl.Position, new Vector3(0, -1, 0), new Vector3(0, 0, 1), near, far);
-            drawShadowMap.scissorViewport = GetRectangle(index, Split, width, height);
-            drawShadowMap.Execute(renderHelper);
-            index++;
-
-            drawShadowMap.CBVPerObject[1] = GetShadowMapMatrix(pl.Position, new Vector3(0, 0, 1), new Vector3(-1, 0, 0), near, far);
-            drawShadowMap.scissorViewport = GetRectangle(index, Split, width, height);
-            drawShadowMap.Execute(renderHelper);
-            index++;
-
-            drawShadowMap.CBVPerObject[1] = GetShadowMapMatrix(pl.Position, new Vector3(0, 0, -1), new Vector3(1, 0, 0), near, far);
-            drawShadowMap.scissorViewport = GetRectangle(index, Split, width, height);
-            drawShadowMap.Execute(renderHelper);
-            index++;
+            foreach (var val in table)
+            {
+                drawShadowMap.CBVPerObject[1] = GetShadowMapMatrix(pl.Position, val.Item1, val.Item2, near, far);
+                drawShadowMap.scissorViewport = GetRectangle(index, Split, width, height);
+                drawShadowMap.Execute(renderHelper);
+                index++;
+            }
         }
     }
 

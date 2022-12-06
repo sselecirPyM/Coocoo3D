@@ -1,15 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using System.Collections.Generic;
 
 namespace Coocoo3DGraphics
 {
     public struct SlotRes
     {
         public int Index;
-        public string ResourceType;
-        public string Resource;
-        public List<string> Datas;
         public SlotResourceFlag Flags;
     }
     public enum SlotResourceFlag

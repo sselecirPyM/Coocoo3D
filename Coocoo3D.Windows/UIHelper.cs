@@ -1,15 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
-using Coocoo3D.Core;
+﻿using Coocoo3D.Core;
 using Coocoo3D.FileFormat;
 using Coocoo3D.Present;
 using Coocoo3D.RenderPipeline;
 using DefaultEcs;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Runtime.InteropServices;
 using UIImGui = Coocoo3D.UI.UIImGui;
 
 namespace Coocoo3D.Windows
@@ -102,7 +99,7 @@ namespace Coocoo3D.Windows
                         }
                         break;
                     case ".coocoo3dscene":
-                        caches.sceneApplyHandler.Add(new SceneLoadTask { path = file.FullName, Scene = this.scene });
+                        caches.sceneLoadHandler.Add(new SceneLoadTask { path = file.FullName, Scene = this.scene });
                         break;
                 }
 

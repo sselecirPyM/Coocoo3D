@@ -92,12 +92,12 @@ namespace Coocoo3DGraphics
                 numBytes = (ulong)size,
                 resource = cbufferResource[cbufferIndex]
             };
+            DelayCopyCommand delayCopy1;
             if (delayCopyCommands.Count > 0 &&
-                delayCopy.CombineTest(delayCopyCommands[delayCopyCommands.Count - 1]))
+                delayCopy.CombineTest(delayCopy1 = delayCopyCommands[^1]))
             {
-                var delayCopy1 = delayCopyCommands[delayCopyCommands.Count - 1];
                 delayCopy1.numBytes += delayCopy.numBytes;
-                delayCopyCommands[delayCopyCommands.Count - 1] = delayCopy1;
+                delayCopyCommands[^1] = delayCopy1;
             }
             else
                 delayCopyCommands.Add(delayCopy);
@@ -114,31 +114,14 @@ namespace Coocoo3DGraphics
             return result;
         }
 
-        //public unsafe void Upload<T>(ReadOnlySpan<T> data, out ulong gpuAddress) where T : unmanaged
-        //{
-        //    int size1 = Marshal.SizeOf(typeof(T)) * data.Length;
-        //    var range = new Span<T>(Upload(size1, out gpuAddress, out var srcOffset).ToPointer(), data.Length);
-        //    data.CopyTo(range);
-        //}
-
         public unsafe void DelayUpload<T>(ReadOnlySpan<T> data, out ulong gpuAddress) where T : unmanaged
         {
             int size1 = Marshal.SizeOf(typeof(T)) * data.Length;
             size1 = (size1 + 255) & ~255;
             var range = new Span<T>(Upload(size1, out var gpuAddress1, out var srcOffset).ToPointer(), data.Length);
             data.CopyTo(range);
-            CBufferCopy(srcOffset,size1, out gpuAddress);
+            CBufferCopy(srcOffset, size1, out gpuAddress);
         }
-
-        //public unsafe void Upload<T>(IReadOnlyList<T> data, out ulong gpuAddress) where T : unmanaged
-        //{
-        //    int size1 = Marshal.SizeOf(typeof(T)) * data.Count;
-        //    var range = new Span<T>(Upload(size1, out gpuAddress).ToPointer(), data.Count);
-        //    for (int i = 0; i < data.Count; i++)
-        //    {
-        //        range[i] = data[i];
-        //    }
-        //}
 
         public List<DelayCopyCommand> delayCopyCommands = new List<DelayCopyCommand>();
 
