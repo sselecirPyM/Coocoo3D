@@ -83,7 +83,6 @@ namespace Coocoo3D.RenderPipeline
             var resourceAttribute = field.GetCustomAttribute<ResourceAttribute>();
             var runtimeBakeAttribute = field.GetCustomAttribute<RuntimeBakeAttribute>();
             var sizeAttribute = field.GetCustomAttribute<SizeAttribute>();
-            var srgbAttribute = field.GetCustomAttribute<SrgbAttribute>();
             var bakeDependencyAttribute = field.GetCustomAttribute<BakeDependencyAttribute>();
 
             var rt = new RenderTextureUsage
@@ -93,7 +92,6 @@ namespace Coocoo3D.RenderPipeline
                 formatAttribute = formatAttribute,
                 runtimeBakeAttribute = runtimeBakeAttribute,
                 bakeDependencyAttribute = bakeDependencyAttribute,
-                srgbAttribute = srgbAttribute,
                 name = field.Name,
                 fieldInfo = field,
             };

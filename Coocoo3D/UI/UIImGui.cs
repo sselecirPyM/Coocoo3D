@@ -1,7 +1,6 @@
 ﻿using Caprice.Display;
 using Coocoo3D.Components;
 using Coocoo3D.Core;
-using Coocoo3D.FileFormat;
 using Coocoo3D.Present;
 using Coocoo3D.RenderPipeline;
 using Coocoo3D.Utility;
@@ -319,10 +318,10 @@ namespace Coocoo3D.UI
                 gameDriverContext.FrameInterval = Math.Clamp(1 / a, 1e-4f, 1f);
             }
 
-            if (renderPipelinesRequest != null)
+            if (loadRPRequest != null)
             {
-                renderSystem.LoadRenderPipelines(renderPipelinesRequest);
-                renderPipelinesRequest = null;
+                renderSystem.LoadRenderPipelines(loadRPRequest);
+                loadRPRequest = null;
             }
             var rpc = windowSystem;
             ShowParams(rpc.currentChannel.renderPipelineView, rpc.currentChannel.renderPipeline);
@@ -470,23 +469,23 @@ namespace Coocoo3D.UI
                     continue;
 
                 var member = param.MemberInfo;
-                object obj = member.GetValue<object>(renderPipeline);
-                var type = obj.GetType();
+                object pipelineMemberValue = member.GetValue<object>(renderPipeline);
+                var type = pipelineMemberValue.GetType();
                 if (type.IsEnum)
                 {
                     if (parameters.TryGetValue(name, out var parameter1))
-                        obj = parameter1;
-                    if (obj is string s && Enum.TryParse(type, s, out var obj1))
+                        pipelineMemberValue = parameter1;
+                    if (pipelineMemberValue is string s && Enum.TryParse(type, s, out var enumValue))
                     {
-                        obj = obj1;
+                        pipelineMemberValue = enumValue;
                     }
-                    if (obj.GetType() != type)
+                    if (pipelineMemberValue.GetType() != type)
                     {
-                        obj = Activator.CreateInstance(type);
+                        pipelineMemberValue = Activator.CreateInstance(type);
                     }
-                    if (ImGuiExt.ComboBox(param.Name, ref obj))
+                    if (ImGuiExt.ComboBox(param.Name, ref pipelineMemberValue))
                     {
-                        parameters[name] = obj;
+                        parameters[name] = pipelineMemberValue;
                     }
                 }
                 else
@@ -862,7 +861,7 @@ vmd格式动作。支持几乎所有的图片格式。");
         {
             if (ImGui.Button("新光源"))
             {
-                NewLighting();
+                CurrentScene.NewLighting();
             }
             ImGui.SameLine();
             if (ImGui.Button("新粒子"))
@@ -872,7 +871,7 @@ vmd格式动作。支持几乎所有的图片格式。");
             ImGui.SameLine();
             if (ImGui.Button("新贴花"))
             {
-                NewDecal();
+                CurrentScene.NewDecal();
             }
             //ImGui.SameLine();
             bool removeObject = false;
@@ -939,7 +938,7 @@ vmd格式动作。支持几乎所有的图片格式。");
             {
                 foreach (var gameObject in CurrentScene.world)
                     if (CurrentScene.SelectedGameObjects.Contains(gameObject.GetHashCode()))
-                        DuplicateObject(gameObject);
+                        CurrentScene.DuplicateObject(gameObject);
             }
         }
 
@@ -1021,9 +1020,9 @@ vmd格式动作。支持几乎所有的图片格式。");
                 if (animationState.LockMotion)
                 {
                     string filter = ImFilter("搜索变形", "搜索变形");
-                    for (int i = 0; i < renderer.morphs.Count; i++)
+                    for (int i = 0; i < renderer.Morphs.Count; i++)
                     {
-                        MorphDesc morpth = renderer.morphs[i];
+                        MorphDesc morpth = renderer.Morphs[i];
                         if (!Contains(morpth.Name, filter)) continue;
                         if (ImGui.SliderFloat(morpth.Name, ref animationState.Weights.Origin[i], 0, 1))
                         {
@@ -1385,38 +1384,6 @@ vmd格式动作。支持几乎所有的图片格式。");
             }
         }
 
-        void NewLighting()
-        {
-            var world = CurrentScene.recorder.Record(CurrentScene.world);
-            var gameObject = world.CreateEntity();
-
-            VisualComponent lightComponent = new VisualComponent();
-            lightComponent.UIShowType = UIShowType.Light;
-            gameObject.Set(lightComponent);
-            gameObject.Set(new ObjectDescription
-            {
-                Name = "光照",
-                Description = ""
-            });
-            gameObject.Set(new Transform(new Vector3(0, 1, 0), Quaternion.CreateFromYawPitchRoll(0, 1.3962634015954636615389526147909f, 0)));
-        }
-
-        void NewDecal()
-        {
-            var world = CurrentScene.recorder.Record(CurrentScene.world);
-            var gameObject = world.CreateEntity();
-
-            VisualComponent decalComponent = new VisualComponent();
-            decalComponent.UIShowType = UIShowType.Decal;
-            gameObject.Set(decalComponent);
-            gameObject.Set(new ObjectDescription
-            {
-                Name = "贴花",
-                Description = ""
-            });
-            gameObject.Set(new Transform(new Vector3(0, 0, 0), Quaternion.CreateFromYawPitchRoll(0, -1.5707963267948966192313216916398f, 0), new Vector3(1, 1, 0.1f)));
-        }
-
         void NewParticle()
         {
             var world = CurrentScene.recorder.Record(CurrentScene.world);
@@ -1436,33 +1403,6 @@ vmd格式动作。支持几乎所有的图片格式。");
                 Description = ""
             });
             gameObject.Set(new Transform(new Vector3(0, 1, 0), Quaternion.CreateFromYawPitchRoll(0, 0, 0), new Vector3(1, 1, 1)));
-        }
-
-        void DuplicateObject(Entity obj)
-        {
-            var world = recorder.Record(obj.World);
-            var newObj = world.CreateEntity();
-
-            if (TryGetComponent(obj, out VisualComponent visual))
-                newObj.Set(visual.GetClone());
-            if (TryGetComponent(obj, out MeshRendererComponent meshRenderer))
-                newObj.Set(meshRenderer.GetClone());
-            if (TryGetComponent(obj, out MMDRendererComponent mmdRenderer))
-            {
-                (var newRenderer, var animationState1) = newObj.LoadPmx(mainCaches.GetModel(mmdRenderer.meshPath));
-                newRenderer.Materials = mmdRenderer.Materials.Select(u => u.GetClone()).ToList();
-                newRenderer.enableIK = mmdRenderer.enableIK;
-                newObj.Set(obj.Get<Transform>());
-            }
-            if (TryGetComponent(obj, out AnimationStateComponent animationState))
-            {
-                newObj.Set(animationState.GetClone());
-            }
-            if (TryGetComponent(obj, out ObjectDescription description))
-            {
-                newObj.Set(description.GetClone());
-            }
-            newObj.Set(obj.Get<Transform>());
         }
 
         static bool TryGetComponent<T>(Entity obj, out T value)
@@ -1513,7 +1453,7 @@ vmd格式动作。支持几乎所有的图片格式。");
         public static List<FileSystemInfo> storageItems = new List<FileSystemInfo>();
         public static DirectoryInfo currentFolder;
         public static DirectoryInfo viewRequest;
-        public static DirectoryInfo renderPipelinesRequest;
+        public static DirectoryInfo loadRPRequest;
         public static FileInfo openRequest;
         //public static List<bool> gameObjectSelected = new List<bool>();
 

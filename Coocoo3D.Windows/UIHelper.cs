@@ -41,7 +41,7 @@ namespace Coocoo3D.Windows
                 if (!string.IsNullOrEmpty(path))
                 {
                     DirectoryInfo folder = new DirectoryInfo(path);
-                    UIImGui.renderPipelinesRequest = folder;
+                    UIImGui.loadRPRequest = folder;
                 }
                 gameDriver.RequireRender(false);
             }

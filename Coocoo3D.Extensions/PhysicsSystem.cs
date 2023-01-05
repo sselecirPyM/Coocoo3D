@@ -5,10 +5,7 @@ using Coocoo3D.Utility;
 using DefaultEcs;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Coocoo3D.Extensions
 {
@@ -181,7 +178,7 @@ namespace Coocoo3D.Extensions
                 r.bones[index].translation = translation;
                 r.bones[index].rotation = rotation;
             }
-            r.UpdateMatrices(r.PhysicsNeedUpdateMatrixIndexs);
+            r.UpdateMatrices(r.PhysicsUpdateMatrixIndexs);
 
             r.UpdateAppendBones();
         }

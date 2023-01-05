@@ -3,11 +3,7 @@ using Coocoo3D.Present;
 using Coocoo3D.ResourceWrap;
 using DefaultEcs.Command;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Coocoo3D.FileFormat
 {
@@ -29,8 +25,8 @@ namespace Coocoo3D.FileFormat
             var renderer = new MMDRendererComponent();
             gameObject.Set(renderer);
             renderer.skinning = true;
-            renderer.morphs.Clear();
-            renderer.morphs.AddRange(modelPack.morphs);
+            renderer.Morphs.Clear();
+            renderer.Morphs.AddRange(modelPack.morphs);
             var animationState = new AnimationStateComponent();
             gameObject.Set(animationState);
             animationState.LoadAnimationStates(modelPack);
@@ -43,7 +39,7 @@ namespace Coocoo3D.FileFormat
         static void Initialize(this MMDRendererComponent renderer, ModelPack modelPack)
         {
             renderer.bones.Clear();
-            renderer.boneMatricesData = new Matrix4x4[modelPack.bones.Count];
+            renderer.BoneMatricesData = new Matrix4x4[modelPack.bones.Count];
 
             foreach (var bone in modelPack.bones)
                 renderer.bones.Add(bone.GetClone());
@@ -71,12 +67,12 @@ namespace Coocoo3D.FileFormat
                 var mat = modelPack.Materials[i].GetClone();
                 renderer.Materials.Add(mat);
             }
-            renderer.weights = new float[modelPack.morphs.Count];
+            renderer.Weights = new float[modelPack.morphs.Count];
 
             var mesh = modelPack.GetMesh();
             renderer.meshPath = modelPack.fullPath;
-            renderer.meshPositionCache = new Vector3[mesh.GetVertexCount()];
-            new Span<Vector3>(modelPack.position).CopyTo(renderer.meshPositionCache);
+            renderer.MeshPosition = new Vector3[mesh.GetVertexCount()];
+            new Span<Vector3>(modelPack.position).CopyTo(renderer.MeshPosition);
         }
 
         public static MorphSubMorphDesc Translate(PMX_MorphSubMorphDesc desc)

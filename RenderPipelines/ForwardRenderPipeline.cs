@@ -57,7 +57,6 @@ public class ForwardRenderPipeline : RenderPipeline, IDisposable
     public Texture2D _BRDFLUT;
 
     [UIShow(name: "天空盒")]
-    [Srgb]
     [Resource("adams_place_bridge_2k.jpg")]
     public Texture2D skyboxTexture;
 
@@ -104,7 +103,6 @@ public class ForwardRenderPipeline : RenderPipeline, IDisposable
     [PureColorBaker(1, 1, 1, 1)]
     [Format(ResourceFormat.R8G8B8A8_UNorm)]
     [Size(32, 32)]
-    [Srgb]
     public Texture2D _Albedo;
 
     [UIShow(UIShowType.Material)]
@@ -120,7 +118,6 @@ public class ForwardRenderPipeline : RenderPipeline, IDisposable
     public Texture2D _Roughness;
 
     [UIShow(UIShowType.Material)]
-    [Srgb]
     [PureColorBaker(1, 1, 1, 1)]
     [Format(ResourceFormat.R8G8B8A8_UNorm)]
     [Size(32, 32)]
@@ -144,7 +141,6 @@ public class ForwardRenderPipeline : RenderPipeline, IDisposable
     [PureColorBaker(0, 0, 0, 1)]
     [Format(ResourceFormat.R8G8B8A8_UNorm)]
     [Size(32, 32)]
-    [Srgb]
     public Texture2D _Spa;
 
     #endregion

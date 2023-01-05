@@ -33,8 +33,6 @@ namespace Coocoo3D.RenderPipeline
 
         public BakeDependencyAttribute bakeDependencyAttribute;
 
-        public SrgbAttribute srgbAttribute;
-
         public FieldInfo fieldInfo;
     }
 }

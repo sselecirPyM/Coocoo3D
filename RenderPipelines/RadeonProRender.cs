@@ -24,7 +24,6 @@ public class RadeonProRender : RenderPipeline, IDisposable
     public Texture2D noPostProcess;
 
     [UIShow(name: "天空盒")]
-    [Srgb]
     [Resource("adams_place_bridge_2k.jpg")]
     public Texture2D skyboxTexture;
 
@@ -74,7 +73,6 @@ public class RadeonProRender : RenderPipeline, IDisposable
     [UIShow(UIShowType.Material)]
     [Format(ResourceFormat.R8G8B8A8_UNorm)]
     [Size(32, 32)]
-    [Srgb]
     public Texture2D _Albedo;
 
     [UIShow(UIShowType.Material)]
@@ -88,7 +86,6 @@ public class RadeonProRender : RenderPipeline, IDisposable
     public Texture2D _Roughness;
 
     [UIShow(UIShowType.Material)]
-    [Srgb]
     [Format(ResourceFormat.R8G8B8A8_UNorm)]
     [Size(32, 32)]
     public Texture2D _Emissive;

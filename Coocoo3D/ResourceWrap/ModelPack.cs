@@ -1,19 +1,17 @@
 ﻿using Coocoo3D.Components;
 using Coocoo3D.FileFormat;
+using Coocoo3D.Present;
 using Coocoo3D.Utility;
+using DefaultEcs.Command;
+using glTFLoader;
+using glTFLoader.Schema;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
-using Mesh = Coocoo3DGraphics.Mesh;
-using glTFLoader;
-using glTFLoader.Schema;
 using System.Runtime.InteropServices;
-using Coocoo3D.Present;
-using DefaultEcs.Command;
+using Mesh = Coocoo3DGraphics.Mesh;
 
 namespace Coocoo3D.ResourceWrap
 {

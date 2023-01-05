@@ -156,7 +156,7 @@ public class RenderHelper
         for (int i = 0; i < renderers.Count; i++)
         {
             var renderer = renderers[i];
-            var matrices = renderer.boneMatricesData;
+            var matrices = renderer.BoneMatricesData;
             int l = Math.Min(matrices.Length, 1024);
             for (int k = 0; k < l; k++)
                 matrice[k] = Matrix4x4.Transpose(matrices[k]);
@@ -198,7 +198,7 @@ public class RenderHelper
             if (!renderer.skinning)
                 continue;
 
-            graphicsContext.UpdateMeshOneFrame<Vector3>(mesh, renderer.meshPositionCache, 0);
+            graphicsContext.UpdateMeshOneFrame<Vector3>(mesh, renderer.MeshPosition, 0);
             graphicsContext.EndUpdateMesh(mesh);
         }
     }
@@ -269,7 +269,7 @@ public class RenderHelper
             int to = range.Item2;
             for (int j = from; j < to; j++)
             {
-                Vector3 pos0 = renderer.meshPositionCache[j];
+                Vector3 pos0 = renderer.MeshPosition[j];
                 Vector3 pos1 = Vector3.Zero;
                 int a = 0;
                 for (int k = 0; k < 4; k++)
@@ -277,7 +277,7 @@ public class RenderHelper
                     int boneId = model.boneId[j * 4 + k];
                     if (boneId >= renderer.bones.Count)
                         break;
-                    Matrix4x4 trans = renderer.boneMatricesData[boneId];
+                    Matrix4x4 trans = renderer.BoneMatricesData[boneId];
                     float weight = model.boneWeights[j * 4 + k];
                     pos1 += Vector3.Transform(pos0, trans) * weight;
                     a++;
@@ -308,7 +308,7 @@ public class RenderHelper
                     int boneId = model.boneId[j * 4 + k];
                     if (boneId >= renderer.bones.Count)
                         break;
-                    Matrix4x4 trans = renderer.boneMatricesData[boneId];
+                    Matrix4x4 trans = renderer.BoneMatricesData[boneId];
                     float weight = model.boneWeights[j * 4 + k];
                     norm1 += Vector3.TransformNormal(norm0, trans) * weight;
                     a++;

@@ -4,9 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
-using Coocoo3D.ResourceWrap;
 
 namespace Coocoo3D.Components
 {
@@ -14,34 +11,36 @@ namespace Coocoo3D.Components
     {
         public string meshPath;
 
-        public bool skinning;
-        public bool enableIK = true;
 
         public List<RenderMaterial> Materials = new();
 
-        public Vector3[] meshPositionCache;
+        public Vector3[] MeshPosition;
 
-        public float[] weights;
+        public float[] Weights;
+        public List<MorphDesc> Morphs = new();
+
         internal bool meshNeedUpdate;
-        public List<MorphDesc> morphs = new();
+        public bool skinning;
+        public bool enableIK = true;
 
-        public void ComputeVertexMorph(ModelPack model)
+        public void ComputeVertexMorph(Vector3[] origin)
         {
             if (!meshNeedUpdate)
                 return;
             meshNeedUpdate = false;
-            new Span<Vector3>(model.position).CopyTo(meshPositionCache);
+            new Span<Vector3>(origin).CopyTo(MeshPosition);
 
-            for (int i = 0; i < morphs.Count; i++)
+            for (int i = 0; i < Morphs.Count; i++)
             {
-                if (morphs[i].Type != MorphType.Vertex) continue;
-                MorphVertexDesc[] morphVertices = morphs[i].MorphVertexs;
+                if (Morphs[i].Type != MorphType.Vertex)
+                    continue;
+                MorphVertexDesc[] morphVertices = Morphs[i].MorphVertexs;
 
-                float computedWeight = weights[i];
+                float computedWeight = Weights[i];
                 if (computedWeight != 0)
                     for (int j = 0; j < morphVertices.Length; j++)
                     {
-                        meshPositionCache[morphVertices[j].VertexIndex] += morphVertices[j].Offset * computedWeight;
+                        MeshPosition[morphVertices[j].VertexIndex] += morphVertices[j].Offset * computedWeight;
                     }
             }
         }
@@ -49,7 +48,7 @@ namespace Coocoo3D.Components
 
         #region bone
 
-        public Matrix4x4[] boneMatricesData;
+        public Matrix4x4[] BoneMatricesData;
 
         public List<BoneEntity> bones = new();
 
@@ -60,8 +59,8 @@ namespace Coocoo3D.Components
         public Matrix4x4 LocalToWorld = Matrix4x4.Identity;
         public Matrix4x4 WorldToLocal = Matrix4x4.Identity;
 
-        public List<int> AppendNeedUpdateMatIndexs = new();
-        public List<int> PhysicsNeedUpdateMatrixIndexs = new();
+        public List<int> AppendUpdateMatIndexs = new();
+        public List<int> PhysicsUpdateMatrixIndexs = new();
 
         public void SetTransform(Transform transform)
         {
@@ -72,15 +71,15 @@ namespace Coocoo3D.Components
         public void WriteMatriticesData()
         {
             for (int i = 0; i < bones.Count; i++)
-                boneMatricesData[i] = bones[i].GeneratedTransform;
+                BoneMatricesData[i] = bones[i].GeneratedTransform;
         }
         public void BoneMorphIKAppend()
         {
-            for (int i = 0; i < morphs.Count; i++)
+            for (int i = 0; i < Morphs.Count; i++)
             {
-                if (morphs[i].Type != MorphType.Bone) continue;
-                MorphBoneDesc[] morphBoneStructs = morphs[i].MorphBones;
-                float computedWeight = weights[i];
+                if (Morphs[i].Type != MorphType.Bone) continue;
+                MorphBoneDesc[] morphBoneStructs = Morphs[i].MorphBones;
+                float computedWeight = Weights[i];
                 for (int j = 0; j < morphBoneStructs.Length; j++)
                 {
                     var morphBoneStruct = morphBoneStructs[j];
@@ -112,7 +111,7 @@ namespace Coocoo3D.Components
                     bone.appendRotation = Quaternion.Slerp(Quaternion.Identity, bones[bone.AppendParentIndex].rotation, bone.AppendRatio);
                 }
             }
-            UpdateMatrices(AppendNeedUpdateMatIndexs);
+            UpdateMatrices(AppendUpdateMatIndexs);
         }
 
         void IK(int boneIndex, List<BoneEntity> bones)
@@ -246,7 +245,7 @@ namespace Coocoo3D.Components
                 bone.IKChildrenIndex = ax;
             }
             Array.Clear(bonesTest, 0, bones.Count);
-            AppendNeedUpdateMatIndexs.Clear();
+            AppendUpdateMatIndexs.Clear();
             for (int i = 0; i < bones.Count; i++)
             {
                 var bone = bones[i];
@@ -257,11 +256,11 @@ namespace Coocoo3D.Components
                     bonesTest[i] = false;
                 if (bonesTest[i])
                 {
-                    AppendNeedUpdateMatIndexs.Add(i);
+                    AppendUpdateMatIndexs.Add(i);
                 }
             }
             Array.Clear(bonesTest, 0, bones.Count);
-            PhysicsNeedUpdateMatrixIndexs.Clear();
+            PhysicsUpdateMatrixIndexs.Clear();
             for (int i = 0; i < bones.Count; i++)
             {
                 var bone = bones[i];
@@ -274,7 +273,7 @@ namespace Coocoo3D.Components
                 bonesTest[i] |= parent.IsPhysicsFreeBone;
                 if (bonesTest[i])
                 {
-                    PhysicsNeedUpdateMatrixIndexs.Add(i);
+                    PhysicsUpdateMatrixIndexs.Add(i);
                 }
             }
         }
@@ -345,6 +344,17 @@ namespace Coocoo3D.Components
         {
             UpdateAllMatrix();
             BoneMorphIKAppend();
+        }
+
+        public MMDRendererComponent GetClone()
+        {
+            MMDRendererComponent rendererComponent = (MMDRendererComponent)MemberwiseClone();
+            rendererComponent.MeshPosition = (Vector3[])MeshPosition.Clone();
+            rendererComponent.Materials = Materials.Select(u => u.GetClone()).ToList();
+            rendererComponent.bones = bones.Select(u => u.GetClone()).ToList();
+            rendererComponent.BoneMatricesData = (Matrix4x4[])BoneMatricesData.Clone();
+            rendererComponent.Weights = (float[])Weights.Clone();
+            return rendererComponent;
         }
     }
 

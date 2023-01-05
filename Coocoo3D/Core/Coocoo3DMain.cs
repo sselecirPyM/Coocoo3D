@@ -1,14 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Threading;
-using Coocoo3DGraphics;
-using Coocoo3D.Common;
+﻿using Coocoo3D.Common;
 using Coocoo3D.RenderPipeline;
-using DefaultEcs.System;
+using Coocoo3DGraphics;
 using DefaultEcs.Command;
+using System;
+using System.Collections.Generic;
+using System.Threading;
 
 namespace Coocoo3D.Core
 {
@@ -19,7 +15,7 @@ namespace Coocoo3D.Core
         public Statistics statistics;
 
         GraphicsDevice graphicsDevice;
-        public SwapChain swapChain;
+        SwapChain swapChain;
         public MainCaches mainCaches;
         public RenderPipelineContext RPContext;
         public GameDriverContext GameDriverContext;
@@ -42,7 +38,6 @@ namespace Coocoo3D.Core
 
         public List<object> systems = new();
         public Dictionary<Type, object> systems1 = new();
-        SequentialSystem<State> system2;
 
         GraphicsContext graphicsContext { get => RPContext.graphicsContext; }
 
@@ -135,10 +130,6 @@ namespace Coocoo3D.Core
             platformIO = AddSystem<PlatformIO>();
             UIImGui = AddSystem<UI.UIImGui>();
 
-            system2 = new SequentialSystem<State>(
-                renderSystem,
-                recordSystem,
-                uiRenderSystem);
             InitializeSystems();
             statistics.DeviceDescription = graphicsDevice.GetDeviceDescription();
 
@@ -217,7 +208,9 @@ namespace Coocoo3D.Core
 
             graphicsContext.Begin();
 
-            system2.Update(null);
+            renderSystem.Update(null);
+            recordSystem.Update(null);
+            uiRenderSystem.Update(null);
 
             graphicsContext.Execute();
 

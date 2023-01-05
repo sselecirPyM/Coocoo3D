@@ -84,7 +84,6 @@ public class DeferredRenderPipeline : RenderPipeline, IDisposable
     public Texture2D _BRDFLUT;
 
     [UIShow(name: "天空盒")]
-    [Srgb]
     [Resource("adams_place_bridge_2k.jpg")]
     public Texture2D skyboxTexture;
 
@@ -144,7 +143,6 @@ public class DeferredRenderPipeline : RenderPipeline, IDisposable
     [PureColorBaker(1, 1, 1, 1)]
     [Format(ResourceFormat.R8G8B8A8_UNorm)]
     [Size(32, 32)]
-    [Srgb]
     public Texture2D _Albedo;
 
     [UIShow(UIShowType.Material)]
@@ -160,7 +158,6 @@ public class DeferredRenderPipeline : RenderPipeline, IDisposable
     public Texture2D _Roughness;
 
     [UIShow(UIShowType.Material)]
-    [Srgb]
     [PureColorBaker(1, 1, 1, 1)]
     [Format(ResourceFormat.R8G8B8A8_UNorm)]
     [Size(32, 32)]
@@ -184,7 +181,6 @@ public class DeferredRenderPipeline : RenderPipeline, IDisposable
     [PureColorBaker(0, 0, 0, 1)]
     [Format(ResourceFormat.R8G8B8A8_UNorm)]
     [Size(32, 32)]
-    [Srgb]
     public Texture2D _Spa;
 
     #endregion
@@ -192,13 +188,11 @@ public class DeferredRenderPipeline : RenderPipeline, IDisposable
     [Indexable]
     [UIShow(UIShowType.Decal, "启用贴花颜色")]
     public bool EnableDecalColor = true;
-    [Srgb]
     [UIShow(UIShowType.Decal, "贴花颜色贴图")]
     public Texture2D DecalColorTexture;
     [Indexable]
     [UIShow(UIShowType.Decal, "启用贴花发光")]
     public bool EnableDecalEmissive;
-    [Srgb]
     [UIShow(UIShowType.Decal, "贴花发光贴图")]
     public Texture2D DecalEmissiveTexture;
     [Indexable]
@@ -239,7 +233,6 @@ public class DeferredRenderPipeline : RenderPipeline, IDisposable
     [UIDragFloat(0.01f, float.MinValue, float.MaxValue, UIShowType.Particle, "加速度")]
     public Vector3 ParticleAcceleration;
 
-    [Srgb]
     [UIShow(UIShowType.Particle, "贴图")]
     public Texture2D ParticleTexture;
     [Indexable]

@@ -4,13 +4,13 @@ using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 using System;
 using System.IO;
-using System.Threading.Tasks;
 using Vortice.DXGI;
 using ImageMagick;
+using System.Numerics;
 
 namespace Coocoo3D.ResourceWrap
 {
-    public class Texture2DPack:IDisposable
+    public class Texture2DPack : IDisposable
     {
         public Texture2D texture2D = new Texture2D();
         public string fullPath;
@@ -32,14 +32,14 @@ namespace Coocoo3D.ResourceWrap
                     case ".bmp":
                     case ".webp":
                         {
-                            byte[] data = GetImageData(stream, out int width, out int height, out _, out int mipMap);
-                            uploader.Texture2DRawLessCopy(data, Format.R8G8B8A8_UNorm_SRgb, width, height, mipMap);
+                            byte[] data = GetImageData(stream, out int width, out int height, out int bitPerPixel, out int mipMap);
+                            Upload(uploader, data, width, height, bitPerPixel, mipMap);
                         }
                         break;
                     default:
                         {
                             byte[] data = GetImageDataMagick(stream, out int width, out int height, out int bitPerPixel, out int mipMap);
-                            uploader.Texture2DRawLessCopy(data, bitPerPixel == 16 * 4 ? Format.R16G16B16A16_UNorm : Format.R8G8B8A8_UNorm_SRgb, width, height, mipMap);
+                            Upload(uploader, data, width, height, bitPerPixel, mipMap);
                         }
                         break;
                 }
@@ -103,13 +103,12 @@ namespace Coocoo3D.ResourceWrap
             int sizex = GetAlign(width1);
             int sizey = GetAlign(height1);
 
-            var size = new MagickGeometry(sizex, sizey)
-            {
-                IgnoreAspectRatio = true,
-            };
             if (width1 != sizex || height1 != sizey)
             {
-                img.Resize(size);
+                img.Resize(new MagickGeometry(sizex, sizey)
+                {
+                    IgnoreAspectRatio = true,
+                });
             }
             width1 = sizex;
             height1 = sizey;
@@ -166,6 +165,61 @@ namespace Coocoo3D.ResourceWrap
                 level++;
             }
             return totalCount;
+        }
+
+        static void Upload(Uploader uploader, byte[] data, int width, int height, int bitPerPixel, int mipMap)
+        {
+            Format format = bitPerPixel == 16 * 4 ? Format.R16G16B16A16_UNorm : Format.R8G8B8A8_UNorm_SRgb;
+
+            //Test whether the image is a normal map.
+            if (bitPerPixel == 8 * 4)
+            {
+                if(DetectNormalMap(data, width, height, bitPerPixel))
+                {
+                    format = Format.R8G8B8A8_UNorm;
+                }
+            }
+            uploader.Texture2DRawLessCopy(data, format, width, height, mipMap);
+        }
+
+        static bool DetectNormalMap(byte[] data, int width, int height, int bitPerPixel)
+        {
+            int c = Vector<byte>.Count;
+            byte[] bytes = new byte[c];
+            //<107,107,220,250>-<147,147,255,255>
+            for (int i = 0; i < c; i += 4)
+            {
+                bytes[i + 0] = 107;
+                bytes[i + 1] = 107;
+                bytes[i + 2] = 220;
+                bytes[i + 3] = 250;
+            }
+            Vector<byte> baseVec = new Vector<byte>(bytes);
+
+            for (int i = 0; i < c; i += 4)
+            {
+                bytes[i + 0] = 40;
+                bytes[i + 1] = 40;
+                bytes[i + 2] = 35;
+                bytes[i + 3] = 5;
+            }
+            Vector<byte> sigmaVec = new Vector<byte>(bytes);
+
+            int inPixCount = width * height;
+            int endCount = inPixCount * bitPerPixel / 8 / c * c;
+            Vector<int> pixCountVec = Vector<int>.Zero;
+            for (int i = 0; i < endCount; i += c)
+            {
+                Vector<byte> a = Vector.LessThanOrEqual(new Vector<byte>(data, i) - baseVec, sigmaVec);
+                var d = Vector.Equals(Vector.As<byte, int>(a), new Vector<int>(-1));
+                pixCountVec += Vector.BitwiseAnd(d, Vector<int>.One);
+            }
+            int pixCount = Vector.Sum(pixCountVec);
+            if ((float)pixCount / (float)inPixCount > 0.10f)
+            {
+                return true;
+            }
+            return false;
         }
 
         public void Dispose()

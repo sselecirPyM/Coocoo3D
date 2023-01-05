@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using Vortice.Direct3D12;
+﻿using System.Collections.Generic;
 
 namespace Coocoo3DGraphics
 {
@@ -13,7 +10,6 @@ namespace Coocoo3DGraphics
         public Dictionary<int, object> CBVs;
         public Dictionary<int, object> SRVs;
         public Dictionary<int, object> UAVs;
-        public Dictionary<int, int> srvFlags = new Dictionary<int, int>();
 
         public RTTopLevelAcclerationStruct tpas;
 

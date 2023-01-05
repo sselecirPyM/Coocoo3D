@@ -273,10 +273,7 @@ namespace Coocoo3DGraphics
                     {
                         if (srv0 is Texture2D tex2d)
                         {
-                            if (!call.srvFlags.ContainsKey(srvOffset))
-                                SetSRVTSlot(tex2d, srvOffset);
-                            else
-                                SetSRVTSlotLinear(tex2d, srvOffset);
+                            SetSRVTSlot(tex2d, srvOffset);
                         }
                         else if (srv0 is GPUBuffer buffer)
                             SetSRVTSlot(buffer, srvOffset);
@@ -556,16 +553,7 @@ namespace Coocoo3DGraphics
             int width = texture.width;
             int height = texture.height;
 
-            int width1 = width;
-            int height1 = height;
-            int total = 0;
-            for (int i = 0; i < texture.mipLevels; i++)
-            {
-                int rowNumByte1 = (width * bitsPerPixel / 8 + 255) & ~255;
-                total += rowNumByte1 * height1;
-                width1 /= 2;
-                height1 /= 2;
-            }
+            int total = GetTotalBytes(width, height, texture.mipLevels, bitsPerPixel);
 
             ID3D12Resource uploadBuffer = null;
             CreateBuffer(total, ref uploadBuffer, ResourceStates.GenericRead, HeapType.Upload);
@@ -591,6 +579,19 @@ namespace Coocoo3DGraphics
             UpdateSubresources(m_commandList, texture.resource, uploadBuffer, 0, 0, texture.mipLevels, subresources);
             texture.SetAllResourceState(m_commandList, ResourceStates.GenericRead);
             Reference(texture.resource);
+        }
+
+        int GetTotalBytes(int width, int height, int mipLevels, int bitsPerPixel)
+        {
+            int total = 0;
+            for (int i = 0; i < mipLevels; i++)
+            {
+                int rowNumByte1 = (width * bitsPerPixel / 8 + 255) & ~255;
+                total += rowNumByte1 * height;
+                width /= 2;
+                height /= 2;
+            }
+            return total;
         }
 
         public void UpdateRenderTexture(Texture2D texture)

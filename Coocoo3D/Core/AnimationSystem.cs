@@ -1,10 +1,7 @@
 ﻿using Coocoo3D.Components;
 using Coocoo3D.RenderPipeline;
 using DefaultEcs;
-using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace Coocoo3D.Core
@@ -47,22 +44,22 @@ namespace Coocoo3D.Core
             {
                 var renderer = animationRenderers[i].Item1;
                 var animationState = animationRenderers[i].Item2;
-                animationState.ComputeMotion(playTime, caches.GetMotion(animationState.motionPath), renderer.morphs, renderer.bones);
-                for (int j = 0; j < renderer.morphs.Count; j++)
+                animationState.ComputeMotion(playTime, caches.GetMotion(animationState.motionPath), renderer.Morphs, renderer.bones);
+                for (int j = 0; j < renderer.Morphs.Count; j++)
                 {
-                    if (renderer.morphs[j].Type == MorphType.Vertex && animationState.Weights.Computed[j] != renderer.weights[j])
+                    if (renderer.Morphs[j].Type == MorphType.Vertex && animationState.Weights.Computed[j] != renderer.Weights[j])
                     {
                         renderer.meshNeedUpdate = true;
                         break;
                     }
                 }
-                animationState.Weights.Computed.CopyTo(renderer.weights, 0);
+                animationState.Weights.Computed.CopyTo(renderer.Weights, 0);
                 renderer.ComputeMotion();
             });
             Parallel.For(0, animationRenderers.Count, i =>
             {
                 var renderer = animationRenderers[i].Item1;
-                renderer.ComputeVertexMorph(caches.GetModel(renderer.meshPath));
+                renderer.ComputeVertexMorph(caches.GetModel(renderer.meshPath).position);
             });
         }
     }

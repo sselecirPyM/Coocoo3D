@@ -184,8 +184,6 @@ public class RayTracingPass
                 call.SRVs[i] = renderWrap.GetTex2D(srv);
             else
                 call.SRVs[i] = renderWrap.GetResourceFallBack(srv);
-            if (renderWrap.SlotIsLinear(srv))
-                call.srvFlags[i] = 1;
         }
 
         call.CBVs = new();

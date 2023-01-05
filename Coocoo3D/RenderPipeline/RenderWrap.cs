@@ -61,10 +61,7 @@ namespace Coocoo3D.RenderPipeline
                 {
                     if (usage.texture2D != null)
                     {
-                        if (usage.srgbAttribute != null)
-                            graphicsContext.SetSRVTSlot(GetTex2DFallBack(texture, material), i);
-                        else
-                            graphicsContext.SetSRVTSlotLinear(GetTex2DFallBack(texture, material), i);
+                        graphicsContext.SetSRVTSlot(GetTex2DFallBack(texture, material), i);
                     }
                     else if (usage.gpuBuffer != null)
                     {
@@ -124,18 +121,11 @@ namespace Coocoo3D.RenderPipeline
 
         public Texture2D GetTex2D(string name, RenderMaterial material = null)
         {
-            return GetTex2D(name, out _, material);
-        }
-
-        public Texture2D GetTex2D(string name, out bool isLinear, RenderMaterial material = null)
-        {
-            isLinear = false;
             if (string.IsNullOrEmpty(name))
                 return null;
 
             if (RenderPipelineView.RenderTextures.TryGetValue(name, out var usage) && usage.texture2D != null)
             {
-                isLinear = usage.srgbAttribute == null;
                 if (material != null && material.Parameters.TryGetValue(name, out var o1) && o1 is string texturePath)
                     return GetTex2DByName(texturePath);
 
@@ -148,14 +138,6 @@ namespace Coocoo3D.RenderPipeline
             return null;
         }
 
-        public bool SlotIsLinear(string name)
-        {
-            if (RenderPipelineView.RenderTextures.TryGetValue(name, out var usage))
-            {
-                return usage.srgbAttribute == null;
-            }
-            return false;
-        }
 
         public Texture2D GetRenderTexture2D(string name)
         {
