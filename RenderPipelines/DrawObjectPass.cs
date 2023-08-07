@@ -15,10 +15,6 @@ public class DrawObjectPass : Pass
 
     public PSODesc psoDesc;
 
-    public bool enableVS = true;
-    public bool enablePS = true;
-    public bool enableGS = false;
-
     public string rs;
 
     public bool clearRenderTarget = false;
@@ -58,7 +54,7 @@ public class DrawObjectPass : Pass
             if (filter != null && !filter.Invoke(renderHelper, renderable, keywords2))
                 continue;
             keywords2.AddRange(this.keywords);
-            AutoMapKeyword(renderHelper, keywords2, renderable.material);
+            AutoMapKeyword(renderHelper, keywords2, renderable.material.Parameters);
             if (renderable.gpuSkinning)
             {
                 keywords2.Add(new("SKINNING", "1"));
@@ -67,7 +63,7 @@ public class DrawObjectPass : Pass
                 desc.cullMode = CullMode.None;
             else
                 desc.cullMode = CullMode.Back;
-            renderWrap.SetShader(shader, desc, keywords2, enableVS, enablePS, enableGS);
+            renderWrap.SetShader(shader, desc, keywords2);
 
             CBVPerObject[0] = renderable.transform;
 

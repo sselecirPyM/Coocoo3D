@@ -33,7 +33,7 @@ public class DrawQuadPass : Pass
         renderWrap.SetRenderTarget(renderTargets, depthStencil, clearRenderTarget, clearDepth);
         var desc = GetPSODesc(renderHelper, psoDesc);
         renderWrap.SetShader(shader, desc, _keywords);
-        renderWrap.SetSRVs(srvs, null);
+        renderWrap.SetSRVs(srvs);
 
         var writer = renderHelper.Writer;
         if (cbvs != null)

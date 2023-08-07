@@ -3,7 +3,7 @@
 
 一个CPU要求极低的MMD渲染器，支持DirectX12 和DXR实时光线追踪，具有可编程渲染管线。
 
-(远远古版本)视频[https://www.bilibili.com/video/BV1p54y127ig/](https://www.bilibili.com/video/BV1p54y127ig/)
+(远古版本)视频[https://www.bilibili.com/video/BV1p54y127ig/](https://www.bilibili.com/video/BV1p54y127ig/)
 
 ## 基本功能
 * 加载pmx、glTF模型
@@ -21,7 +21,6 @@
 * 全局光照
 * SSAO
 * TAA
-* AMD Radeon Prorender 渲染（不支持自发光）
 
 ## 截图
 
@@ -42,9 +41,5 @@
 贴花支持
 ![屏幕截图 2022-05-26 201224](https://user-images.githubusercontent.com/63526047/170485548-466c2199-ccdb-41fc-9c2f-a1930d77ce73.png)
 
-## 使用Radeon Prorender
-RadeonProRender64.dll和Northstar64.dll未包含在此存储库中，请从Radeon Prorender SDK中获取。
-
-[https://gpuopen.com/radeon-pro-render/](https://gpuopen.com/radeon-pro-render/)
-
-使用Radeon Prorender时软件路径、图片路径必须全英文。
+## Radeon Prorender已移除
+不再使用。

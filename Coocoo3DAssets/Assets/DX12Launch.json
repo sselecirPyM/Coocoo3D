@@ -1,0 +1,14 @@
+﻿{
+  "SwapChainDescriptions": [
+    {
+      "Format": "R8G8B8A8_UNorm",
+      "Stereo": false,
+      "BufferUsage": "RenderTargetOutput",
+      "BufferCount": 3,
+      "SwapEffect": "FlipSequential",
+      "Flags": "AllowTearing",
+      "Scaling": "Stretch",
+      "AlphaMode": "Ignore"
+    }
+  ]
+}

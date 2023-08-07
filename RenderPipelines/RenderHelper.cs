@@ -4,8 +4,8 @@ using Coocoo3D.Present;
 using Coocoo3D.RenderPipeline;
 using Coocoo3D.RenderPipeline.Wrap;
 using Coocoo3D.ResourceWrap;
-using Coocoo3D.Utility;
 using Coocoo3DGraphics;
+using RenderPipelines.Utility;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -39,13 +39,62 @@ public class RenderHelper
         return boneMatrice[findRenderer[rendererComponent]];
     }
 
+    public IEnumerable<MMDRendererComponent> MMDRenderers => renderWrap.rpc.renderers;
+
+    public IEnumerable<MeshRenderable1> GetRenderables(MMDRendererComponent renderer)
+    {
+        var model = renderer.model;
+        var mesh = model.GetMesh();
+        var meshOverride = meshOverrides[renderer];
+
+        for (int i = 0; i < renderer.Materials.Count; i++)
+        {
+            var material = renderer.Materials[i];
+            var submesh = model.Submeshes[i];
+            var renderable = new MeshRenderable1()
+            {
+                mesh = mesh,
+                meshOverride = meshOverride,
+                transform = renderer.LocalToWorld,
+                gpuSkinning = renderer.skinning && !CPUSkinning,
+            };
+            renderable.properties = new Dictionary<string, object>(material.Parameters);
+            renderable.boneBuffer = GetBoneBuffer(renderer);
+            WriteRenderable1(ref renderable, submesh);
+            yield return renderable;
+        }
+    }
+
+
+    public IEnumerable<MeshRenderable1> GetRenderables(MeshRendererComponent renderer)
+    {
+        var model = renderer.model;
+        var mesh = model.GetMesh();
+
+        for (int i = 0; i < renderer.Materials.Count; i++)
+        {
+            var material = renderer.Materials[i];
+            var submesh = model.Submeshes[i];
+            var renderable = new MeshRenderable1()
+            {
+                mesh = mesh,
+                meshOverride = null,
+                transform = renderer.transform.GetMatrix(),
+                gpuSkinning = false,
+            };
+            renderable.properties = new Dictionary<string, object>(material.Parameters);
+            WriteRenderable1(ref renderable, submesh);
+            yield return renderable;
+        }
+    }
+
     public IEnumerable<MeshRenderable> MeshRenderables(bool setMesh = true)
     {
         RenderPipelineContext rpc = renderWrap.rpc;
         var graphicsContext = rpc.graphicsContext;
         foreach (var renderer in rpc.renderers)
         {
-            var model = GetModel(renderer.meshPath);
+            var model = renderer.model;
             var mesh = model.GetMesh();
             var meshOverride = meshOverrides[renderer];
             if (setMesh)
@@ -71,7 +120,7 @@ public class RenderHelper
         }
         foreach (var renderer in rpc.meshRenderers)
         {
-            var model = GetModel(renderer.meshPath);
+            var model = renderer.model;
             var mesh = model.GetMesh();
             if (setMesh)
                 graphicsContext.SetMesh(mesh);
@@ -93,7 +142,28 @@ public class RenderHelper
         }
     }
 
+    public void SetMesh(MeshRenderable1 mesh)
+    {
+        var graphicsContext = renderWrap.graphicsContext;
+        if (mesh.meshOverride != null)
+            graphicsContext.SetMesh(mesh.mesh, mesh.meshOverride);
+        else
+            graphicsContext.SetMesh(mesh.mesh);
+
+        if (mesh.boneBuffer != null)
+            graphicsContext.SetCBVRSlot(mesh.boneBuffer, 0);
+    }
+
     void WriteRenderable1(ref MeshRenderable renderable, Submesh submesh)
+    {
+        renderable.indexStart = submesh.indexOffset;
+        renderable.indexCount = submesh.indexCount;
+        renderable.vertexStart = submesh.vertexStart;
+        renderable.vertexCount = submesh.vertexCount;
+        renderable.drawDoubleFace = submesh.DrawDoubleFace;
+    }
+
+    void WriteRenderable1(ref MeshRenderable1 renderable, Submesh submesh)
     {
         renderable.indexStart = submesh.indexOffset;
         renderable.indexCount = submesh.indexCount;
@@ -121,7 +191,7 @@ public class RenderHelper
             4,7,5,
             4,6,7,
         });
-        var graphicsContext = renderWrap.rpc.graphicsContext;
+        var graphicsContext = renderWrap.graphicsContext;
         graphicsContext.UploadMesh(quadMesh);
         graphicsContext.UploadMesh(cubeMesh);
     }
@@ -173,9 +243,9 @@ public class RenderHelper
         foreach (var renderer in renderers)
         {
             if (renderer.skinning)
-                bufferSize = Math.Max(GetModel(renderer.meshPath).vertexCount, bufferSize);
+                bufferSize = Math.Max(renderer.model.vertexCount, bufferSize);
         }
-        bufferSize *= 12;
+        bufferSize *= 24;
         if (bufferSize > bigBuffer.Length)
             bigBuffer = new byte[bufferSize];
     }
@@ -191,7 +261,7 @@ public class RenderHelper
         for (int i = 0; i < renderers.Count; i++)
         {
             var renderer = renderers[i];
-            var model = GetModel(renderer.meshPath);
+            var model = renderer.model;
             var mesh = meshPool.Get(() => new Mesh());
             mesh.ReloadIndex<int>(model.vertexCount, null);
             meshOverrides[renderer] = mesh;
@@ -223,7 +293,7 @@ public class RenderHelper
         for (int i = 0; i < renderers.Count; i++)
         {
             var renderer = renderers[i];
-            var model = GetModel(renderer.meshPath);
+            var model = renderer.model;
             var mesh = meshPool.Get(() => new Mesh());
             mesh.ReloadIndex<int>(model.vertexCount, null);
             meshOverrides[renderer] = mesh;
@@ -247,7 +317,7 @@ public class RenderHelper
         for (int i = 0; i < renderers.Count; i++)
         {
             var renderer = renderers[i];
-            var model = GetModel(renderer.meshPath);
+            var model = renderer.model;
             var mesh = meshPool.Get(() => new Mesh());
             mesh.ReloadIndex<int>(model.vertexCount, null);
             meshOverrides[renderer] = mesh;
@@ -262,6 +332,7 @@ public class RenderHelper
     void Skinning(ModelPack model, MMDRendererComponent renderer, Mesh mesh)
     {
         var rangePartitioner = Partitioner.Create(0, model.vertexCount);
+        int halfLength = bigBuffer.Length / 12 / 2;
         Parallel.ForEach(rangePartitioner, (range, loopState) =>
         {
             Span<Vector3> _d3 = MemoryMarshal.Cast<byte, Vector3>(new Span<byte>(bigBuffer, 0, bigBuffer.Length / 12 * 12));
@@ -269,64 +340,40 @@ public class RenderHelper
             int to = range.Item2;
             for (int j = from; j < to; j++)
             {
-                Vector3 pos0 = renderer.MeshPosition[j];
-                Vector3 pos1 = Vector3.Zero;
-                int a = 0;
-                for (int k = 0; k < 4; k++)
+                int k;
+                Matrix4x4 final = new Matrix4x4();
+                for (k = 0; k < 4; k++)
                 {
                     int boneId = model.boneId[j * 4 + k];
                     if (boneId >= renderer.bones.Count)
                         break;
-                    Matrix4x4 trans = renderer.BoneMatricesData[boneId];
                     float weight = model.boneWeights[j * 4 + k];
-                    pos1 += Vector3.Transform(pos0, trans) * weight;
-                    a++;
+                    final += renderer.BoneMatricesData[boneId] * weight;
                 }
-                if (a > 0)
+                Vector3 pos0 = renderer.MeshPosition[j];
+                Vector3 pos1 = Vector3.Transform(pos0, final);
+                if (k > 0)
                     _d3[j] = pos1;
                 else
                     _d3[j] = pos0;
+                Vector3 norm0 = model.normal[j];
+                Vector3 norm1 = Vector3.TransformNormal(norm0, final);
+                if (k > 0)
+                    _d3[j + halfLength] = Vector3.Normalize(norm1);
+                else
+                    _d3[j + halfLength] = Vector3.Normalize(norm0);
             }
         });
         Span<Vector3> dat0 = MemoryMarshal.Cast<byte, Vector3>(new Span<byte>(bigBuffer, 0, bigBuffer.Length / 12 * 12));
         //graphicsContext.BeginUpdateMesh(mesh);
         //graphicsContext.UpdateMesh(mesh, d3.Slice(0, model.vertexCount), 0);
-        mesh.AddBuffer<Vector3>(dat0.Slice(0, model.vertexCount), 0);//for compatibility
-
-        Parallel.ForEach(rangePartitioner, (range, loopState) =>
-        {
-            Span<Vector3> _d3 = MemoryMarshal.Cast<byte, Vector3>(new Span<byte>(bigBuffer, 0, bigBuffer.Length / 12 * 12));
-            int from = range.Item1;
-            int to = range.Item2;
-            for (int j = from; j < to; j++)
-            {
-                Vector3 norm0 = model.normal[j];
-                Vector3 norm1 = Vector3.Zero;
-                int a = 0;
-                for (int k = 0; k < 4; k++)
-                {
-                    int boneId = model.boneId[j * 4 + k];
-                    if (boneId >= renderer.bones.Count)
-                        break;
-                    Matrix4x4 trans = renderer.BoneMatricesData[boneId];
-                    float weight = model.boneWeights[j * 4 + k];
-                    norm1 += Vector3.TransformNormal(norm0, trans) * weight;
-                    a++;
-                }
-                if (a > 0)
-                    _d3[j] = Vector3.Normalize(norm1);
-                else
-                    _d3[j] = Vector3.Normalize(norm0);
-            }
-        });
-
         //graphicsContext.UpdateMesh(mesh, d3.Slice(0, model.vertexCount), 1);
-        mesh.AddBuffer<Vector3>(dat0.Slice(0, model.vertexCount), 1);//for compatibility
+
+        mesh.AddBuffer<Vector3>(dat0.Slice(0, model.vertexCount), 0);//for compatibility
+        mesh.AddBuffer<Vector3>(dat0.Slice(halfLength, model.vertexCount), 1);//for compatibility
 
         //graphicsContext.EndUpdateMesh(mesh);
     }
-
-    ModelPack GetModel(string path) => renderWrap.rpc.mainCaches.GetModel(path);
 
     public void DrawQuad(int instanceCount = 1)
     {
@@ -351,9 +398,50 @@ public class RenderHelper
         renderWrap.graphicsContext.DrawIndexed(renderable.indexCount, renderable.indexStart, renderable.vertexStart);
     }
 
+    public void Draw(MeshRenderable1 renderable)
+    {
+        renderWrap.graphicsContext.DrawIndexed(renderable.indexCount, renderable.indexStart, renderable.vertexStart);
+    }
+
+    public T GetObject<T>(IDictionary<string, object> dictionary, T baseObject) where T : ICloneable
+    {
+        var clone = baseObject.Clone();
+        var members = baseObject.GetType().GetMembers();
+        foreach (var member in members)
+        {
+            if (member is FieldInfo || member is PropertyInfo)
+            {
+                var type = member.GetGetterType();
+                if (dictionary.TryGetValue(member.Name, out var val))
+                {
+                    var objType = val.GetType();
+                    if (objType == type)
+                    {
+                        member.SetValue(clone, val);
+                    }
+                    else if (type == typeof(Texture2D))
+                    {
+                        member.SetValue(clone, renderWrap.GetTex2DByNameFallBack(val as string));
+                    }
+                    else if (type.IsEnum && objType == typeof(string))
+                    {
+                        if (Enum.TryParse(type, (string)val, out var val2))
+                        {
+                            member.SetValue(clone, val2);
+                        }
+                    }
+                }
+                else if (type == typeof(Texture2D))
+                {
+                    member.SetValue(clone, renderWrap.TextureStatusSelect(member.GetValue<Texture2D>(clone)));
+                }
+            }
+        }
+        return (T)clone;
+    }
+
+
     #region write object
-
-
     public object GetIndexableValue(string key)
     {
         for (int i = dataStack.Count - 1; i >= 0; i--)
@@ -369,7 +457,12 @@ public class RenderHelper
 
     public object GetIndexableValue(string key, RenderMaterial material)
     {
-        if (material != null && material.Parameters.TryGetValue(key, out object obj1)
+        return GetIndexableValue(key, material.Parameters);
+    }
+
+    public object GetIndexableValue(string key, IDictionary<string, object> material)
+    {
+        if (material != null && material.TryGetValue(key, out object obj1)
             && paramBaseType.TryGetValue(key, out var type))
         {
             var objType = obj1.GetType();
@@ -440,31 +533,37 @@ public class RenderHelper
         dataStack.RemoveAt(dataStack.Count - 1);
     }
 
-    public void Write(IReadOnlyList<object> datas, GPUWriter writer, RenderMaterial material = null)
+    public void Write(IReadOnlyList<object> datas, GPUWriter writer, IDictionary<string, object> material = null)
     {
         foreach (var obj in datas)
             WriteObject(obj, writer, material);
+    }
+
+    public void Write(IReadOnlyList<object> datas, GPUWriter writer, RenderMaterial material = null)
+    {
+        foreach (var obj in datas)
+            WriteObject(obj, writer, material.Parameters);
     }
 
     public void Write(object[] datas, GPUWriter writer, RenderMaterial material = null)
     {
         foreach (var obj in datas)
-            WriteObject(obj, writer, material);
+            WriteObject(obj, writer, material?.Parameters);
     }
 
-    public void Write(Span<object> datas, GPUWriter writer, RenderMaterial material = null)
+    public void Write(ReadOnlySpan<object> datas, GPUWriter writer, RenderMaterial material = null)
     {
         foreach (var obj in datas)
-            WriteObject(obj, writer, material);
+            WriteObject(obj, writer, material.Parameters);
     }
 
-    void WriteObject(object obj, GPUWriter writer, RenderMaterial material = null)
+    void WriteObject(object obj, GPUWriter writer, IDictionary<string, object> material = null)
     {
         if (obj is string s)
         {
             if (paramBaseType.TryGetValue(s, out var type) && material != null)
             {
-                if (material.Parameters.TryGetValue(s, out object obj1) && obj1.GetType() == type)
+                if (material.TryGetValue(s, out object obj1) && obj1.GetType() == type)
                 {
                     writer.WriteObject(obj1);
                     return;
@@ -479,10 +578,6 @@ public class RenderHelper
                     return;
                 }
             }
-        }
-        else if (obj is Func<object> function)
-        {
-            writer.WriteObject(function());
         }
         else
         {

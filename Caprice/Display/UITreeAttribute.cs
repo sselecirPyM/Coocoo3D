@@ -1,17 +1,14 @@
-﻿using System;
+﻿namespace Caprice.Display;
 
-namespace Caprice.Display
+public class UITreeAttribute : UIShowAttribute
 {
-    public class UITreeAttribute : UIShowAttribute
+    public UITreeAttribute()
     {
-        public UITreeAttribute()
-        {
 
-        }
+    }
 
-        public UITreeAttribute(string name) : base(UIShowType.Global, name)
-        {
+    public UITreeAttribute(string name) : base(UIShowType.Global, name)
+    {
 
-        }
     }
 }

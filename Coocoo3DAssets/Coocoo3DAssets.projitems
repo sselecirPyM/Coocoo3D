@@ -18,101 +18,106 @@
     <None Include="$(MSBuildThisFileDirectory)Assets\Textures\white.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="$(MSBuildThisFileDirectory)Samples\adams_place_bridge_2k.jpg">
+    <None Include="$(MSBuildThisFileDirectory)Effects\adams_place_bridge_2k.jpg">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="$(MSBuildThisFileDirectory)Samples\Bloom.hlsl">
+    <None Include="$(MSBuildThisFileDirectory)Effects\Bloom.hlsl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="$(MSBuildThisFileDirectory)Samples\GenerateMipMap.hlsl">
+    <None Include="$(MSBuildThisFileDirectory)Effects\GenerateMipMap.hlsl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="$(MSBuildThisFileDirectory)Samples\HiZ.hlsl">
+    <None Include="$(MSBuildThisFileDirectory)Effects\HiZ.hlsl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="$(MSBuildThisFileDirectory)Samples\DeferredDecal.hlsl">
+    <None Include="$(MSBuildThisFileDirectory)Effects\DeferredDecal.hlsl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="$(MSBuildThisFileDirectory)Samples\GBufferDefine.hlsli">
+    <None Include="$(MSBuildThisFileDirectory)Effects\GBufferDefine.hlsli">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="$(MSBuildThisFileDirectory)Samples\Particle.hlsl">
+    <None Include="$(MSBuildThisFileDirectory)Effects\Particle.hlsl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="$(MSBuildThisFileDirectory)Samples\PureColor.hlsl">
+    <None Include="$(MSBuildThisFileDirectory)Effects\PureColor.hlsl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="$(MSBuildThisFileDirectory)Samples\BRDFLUT.hlsl">
+    <None Include="$(MSBuildThisFileDirectory)Effects\BRDFLUT.hlsl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="$(MSBuildThisFileDirectory)Samples\ConvertToCube.hlsl">
+    <None Include="$(MSBuildThisFileDirectory)Effects\ConvertToCube.hlsl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="$(MSBuildThisFileDirectory)Samples\DeferredFinal.hlsl">
+    <None Include="$(MSBuildThisFileDirectory)Effects\DeferredFinal.hlsl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="$(MSBuildThisFileDirectory)Samples\DeferredGBuffer.hlsl">
+    <None Include="$(MSBuildThisFileDirectory)Effects\DeferredGBuffer.hlsl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="$(MSBuildThisFileDirectory)Samples\error.png">
+    <None Include="$(MSBuildThisFileDirectory)Effects\error.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="$(MSBuildThisFileDirectory)Samples\GenerateCubeMipMap.hlsl">
+    <None Include="$(MSBuildThisFileDirectory)Effects\GenerateCubeMipMap.hlsl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="$(MSBuildThisFileDirectory)Samples\IrradianceMap.hlsl">
+    <None Include="$(MSBuildThisFileDirectory)Effects\IrradianceMap.hlsl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="$(MSBuildThisFileDirectory)Samples\loading.png">
+    <None Include="$(MSBuildThisFileDirectory)Effects\loading.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="$(MSBuildThisFileDirectory)Samples\PBR.hlsli">
+    <None Include="$(MSBuildThisFileDirectory)Effects\PBR.hlsli">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="$(MSBuildThisFileDirectory)Samples\ForwardRender.hlsl">
+    <None Include="$(MSBuildThisFileDirectory)Effects\ForwardRender.hlsl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="$(MSBuildThisFileDirectory)Samples\PostProcessing.hlsl">
+    <None Include="$(MSBuildThisFileDirectory)Effects\PostProcessing.hlsl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="$(MSBuildThisFileDirectory)Samples\PreFilterEnv.hlsl">
+    <None Include="$(MSBuildThisFileDirectory)Effects\PreFilterEnv.hlsl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="$(MSBuildThisFileDirectory)Samples\Random.hlsli">
+    <None Include="$(MSBuildThisFileDirectory)Effects\Random.hlsli">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="$(MSBuildThisFileDirectory)Samples\RayTracing.hlsl">
+    <None Include="$(MSBuildThisFileDirectory)Effects\RayTracing.hlsl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="$(MSBuildThisFileDirectory)Samples\RayTracing.json">
+    <None Include="$(MSBuildThisFileDirectory)Effects\RayTracing.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="$(MSBuildThisFileDirectory)Samples\RayTracingDenoise.hlsl">
+    <None Include="$(MSBuildThisFileDirectory)Effects\RayTracingDenoise.hlsl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="$(MSBuildThisFileDirectory)Samples\Readme.txt">
+    <None Include="$(MSBuildThisFileDirectory)Effects\Readme.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="$(MSBuildThisFileDirectory)Samples\SH.hlsli">
+    <None Include="$(MSBuildThisFileDirectory)Effects\SH.hlsli">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="$(MSBuildThisFileDirectory)Samples\ShadowMap.hlsl">
+    <None Include="$(MSBuildThisFileDirectory)Effects\ShadowMap.hlsl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="$(MSBuildThisFileDirectory)Samples\Skinning.hlsli">
+    <None Include="$(MSBuildThisFileDirectory)Effects\Skinning.hlsli">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="$(MSBuildThisFileDirectory)Samples\SkyBox.hlsl">
+    <None Include="$(MSBuildThisFileDirectory)Effects\SkyBox.hlsl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="$(MSBuildThisFileDirectory)Samples\TAA.hlsl">
+    <None Include="$(MSBuildThisFileDirectory)Effects\TAA.hlsl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="$(MSBuildThisFileDirectory)Samples\ToonLit.hlsl">
+    <None Include="$(MSBuildThisFileDirectory)Effects\ToonLit.hlsl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="$(MSBuildThisFileDirectory)Shaders\ImGui.hlsl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="$(MSBuildThisFileDirectory)Assets\DX12Launch.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 </Project>

@@ -13,10 +13,10 @@ public class TAAPass
     public string historyDepth;
 
 
-    [UIShow(name: "启用TAA")]
+    [UIShow(name: "启用TAA抗锯齿")]
     public bool EnableTAA;
 
-    [UIDragFloat(0.01f, name: "TAA系数")]
+    [UIDragFloat(0.01f, name: "混合系数")]
     public float TAAFactor = 0.3f;
 
     object[] cbv =

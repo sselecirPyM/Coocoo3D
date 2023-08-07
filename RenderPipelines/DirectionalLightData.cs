@@ -2,7 +2,7 @@
 
 namespace RenderPipelines;
 
-public struct DirectionalLightData
+public class DirectionalLightData
 {
     public Vector3 Direction;
     public Vector3 Color;

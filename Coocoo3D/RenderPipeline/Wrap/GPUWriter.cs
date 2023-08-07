@@ -1,10 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Coocoo3D.Utility;
+﻿using Coocoo3D.Utility;
 using Coocoo3DGraphics;
+using System;
 using System.IO;
 using System.Numerics;
 
@@ -14,7 +10,6 @@ namespace Coocoo3D.RenderPipeline.Wrap
     {
         MemoryStream memoryStream = new MemoryStream();
         public BinaryWriterPlus binaryWriter;
-        CBuffer cBuffer;
         public GraphicsContext graphicsContext;
 
         public GPUWriter()
@@ -39,16 +34,6 @@ namespace Coocoo3D.RenderPipeline.Wrap
         public void Clear()
         {
             binaryWriter.Seek(0, SeekOrigin.Begin);
-        }
-
-        public CBuffer GetBuffer(GraphicsContext context)
-        {
-            if (cBuffer == null)
-                cBuffer = new CBuffer();
-
-            context.UpdateResource(cBuffer, new ReadOnlySpan<byte>(memoryStream.GetBuffer(), 0, (int)memoryStream.Position));
-            binaryWriter.Seek(0, SeekOrigin.Begin);
-            return cBuffer;
         }
 
         void GetSpacing(int sizeX)

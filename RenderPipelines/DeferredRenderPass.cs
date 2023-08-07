@@ -1,10 +1,9 @@
 ﻿using Caprice.Attributes;
 using Caprice.Display;
 using Coocoo3D.Components;
-using Coocoo3D.Present;
 using Coocoo3D.RenderPipeline;
-using Coocoo3D.Utility;
 using Coocoo3DGraphics;
+using RenderPipelines.Utility;
 using System;
 using System.Buffers;
 using System.Collections.Generic;
@@ -29,7 +28,6 @@ public class DeferredRenderPass
             depthBias = 2000,
             slopeScaledDepthBias = 1.5f,
         },
-        enablePS = false,
         CBVPerObject = new object[]
         {
             null,
@@ -84,17 +82,10 @@ public class DeferredRenderPass
     };
     public DrawDecalPass decalPass = new DrawDecalPass()
     {
-        shader = "DeferredDecal.hlsl",
-        rs = "CCCssss",
         renderTargets = new string[]
         {
             "gbuffer0",
             "gbuffer2",
-        },
-        psoDesc = new PSODesc()
-        {
-            blendState = BlendState.PreserveAlpha,
-            cullMode = CullMode.Front,
         },
         srvs = new string[]
         {
@@ -114,17 +105,9 @@ public class DeferredRenderPass
             ("EnableDecalEmissive","ENABLE_DECAL_EMISSIVE"),
         }
     };
-    public DrawQuadPass finalPass = new DrawQuadPass()
+    public FinalPass finalPass = new FinalPass()
     {
-        clearRenderTarget = true,
-        rs = "CCCsssssssssss",
-        shader = "DeferredFinal.hlsl",
         renderTargets = new string[1],
-        psoDesc = new PSODesc()
-        {
-            blendState = BlendState.None,
-            cullMode = CullMode.None,
-        },
         srvs = new string[]
         {
             "gbuffer0",
@@ -181,13 +164,6 @@ public class DeferredRenderPass
                 null
             }
         },
-        AutoKeyMap =
-        {
-            (nameof(EnableFog),"ENABLE_FOG"),
-            (nameof(EnableSSAO),"ENABLE_SSAO"),
-            (nameof(EnableSSR),"ENABLE_SSR"),
-            (nameof(UseGI),"ENABLE_GI"),
-        }
     };
 
     public DrawObjectPass drawObjectTransparent = new DrawObjectPass()
@@ -274,38 +250,11 @@ public class DeferredRenderPass
             "_ShadowMap",
             "GIBuffer",
         },
-        RayTracingShader = "RayTracing.json",
     };
 
     public HiZPass HiZPass = new HiZPass()
     {
         output = "_HiZBuffer"
-    };
-
-    public DrawParticlePass particlePass = new DrawParticlePass()
-    {
-        shader = "Particle.hlsl",
-        renderTargets = new string[1],
-        depthStencil = null,
-        rs = "Css",
-        psoDesc = new PSODesc()
-        {
-            blendState = BlendState.Alpha,
-            cullMode = CullMode.None,
-        },
-        srvs = new[]
-        {
-            "ParticleTexture",
-            null,
-        },
-        cbvs = new[]
-        {
-            "ParticleColor",
-            nameof(Far),
-            nameof(Near),
-            nameof(CameraLeft),
-            nameof(CameraDown),
-        },
     };
 
     public Random random = new Random(0);
@@ -328,93 +277,75 @@ public class DeferredRenderPass
     public Vector3 CameraBack;
 
 
-    [UIDragFloat(0.01f, 0, name: "亮度")]
-    [Indexable]
+    [UIDragFloat(0.01f, 0, name: "亮度"), Indexable]
     public float Brightness = 1;
 
-    [UIDragFloat(0.01f, 0, name: "天空盒亮度")]
-    [Indexable]
+    [UIDragFloat(0.01f, 0, name: "天空盒亮度"), Indexable]
     public float SkyLightMultiple = 3;
 
 
-    [Indexable]
-    [UIShow(name: "启用体积光")]
+    [UIShow(name: "启用体积光"), Indexable]
     public bool EnableVolumetricLighting;
 
-    [Indexable]
-    [UIDragInt(1, 1, 256, name: "体积光采样次数")]
+    [UIDragInt(1, 1, 256, name: "体积光采样次数"), Indexable]
     public int VolumetricLightingSampleCount = 16;
 
-    [Indexable]
-    [UIDragFloat(0.1f, name: "体积光距离")]
+    [UIDragFloat(0.1f, name: "体积光距离"), Indexable]
     public float VolumetricLightingDistance = 12;
 
-    [Indexable]
-    [UIDragFloat(0.1f, name: "体积光强度")]
+    [UIDragFloat(0.1f, name: "体积光强度"), Indexable]
     public float VolumetricLightingIntensity = 0.001f;
 
-    [Indexable]
-    [UIShow(name: "启用SSAO")]
+    [UIShow(name: "启用SSAO"), Indexable]
     public bool EnableSSAO;
 
-    [Indexable]
-    [UIDragFloat(0.1f, 0, name: "AO距离")]
+    [UIDragFloat(0.1f, 0, name: "AO距离"), Indexable]
     public float AODistance = 1;
 
-    [Indexable]
-    [UIDragFloat(0.01f, 0.1f, name: "AO限制")]
+    [UIDragFloat(0.01f, 0.1f, name: "AO限制"), Indexable]
     public float AOLimit = 0.3f;
 
-    [Indexable]
-    [UIDragInt(1, 0, 128, name: "AO光线采样次数")]
+    [UIDragInt(1, 0, 128, name: "AO光线采样次数"), Indexable]
     public int AORaySampleCount = 32;
 
-    [Indexable]
-    [UIShow(name: "启用屏幕空间反射")]
+    [UIShow(name: "启用屏幕空间反射"), Indexable]
     public bool EnableSSR;
 
 
     [UIShow(name: "启用光线追踪")]
     public bool EnableRayTracing;
 
-    [UIDragFloat(0.01f, 0, 5, name: "光线追踪反射质量")]
-    [Indexable]
+    [UIDragFloat(0.01f, 0, 5, name: "光线追踪反射质量"), Indexable]
     public float RayTracingReflectionQuality = 1.0f;
 
-    [UIDragFloat(0.01f, 0, 1.0f, name: "光线追踪反射阈值")]
-    [Indexable]
+    [UIDragFloat(0.01f, 0, 1.0f, name: "光线追踪反射阈值"), Indexable]
     public float RayTracingReflectionThreshold = 0.5f;
 
     [UIShow(name: "更新全局光照")]
     public bool UpdateGI;
 
-    [UIDragFloat(1.0f, name: "全局光照位置")]
-    [Indexable]
+    [UIDragFloat(1.0f, name: "全局光照位置"), Indexable]
     public Vector3 GIVolumePosition = new Vector3(0, 2.5f, 0);
 
-    [UIDragFloat(1.0f, name: "全局光照范围")]
-    [Indexable]
+    [UIDragFloat(1.0f, name: "全局光照范围"), Indexable]
     public Vector3 GIVolumeSize = new Vector3(20, 5, 20);
 
-    [Indexable]
-    [UIShow(name: "使用全局光照")]
+    [UIShow(name: "使用全局光照"), Indexable]
     public bool UseGI;
 
-    [UIShow(name: "启用雾")]
-    [Indexable]
+    [UIShow(name: "启用雾"), Indexable]
     public bool EnableFog;
-    [UIColor(name: "雾颜色")]
-    [Indexable]
+    [UIColor(name: "雾颜色"), Indexable]
     public Vector3 FogColor = new Vector3(0.4f, 0.4f, 0.6f);
-    [UIDragFloat(0.001f, 0, name: "雾密度")]
-    [Indexable]
+    [UIDragFloat(0.001f, 0, name: "雾密度"), Indexable]
     public float FogDensity = 0.005f;
-    [UIDragFloat(0.1f, 0, name: "雾开始距离")]
-    [Indexable]
+    [UIDragFloat(0.1f, 0, name: "雾开始距离"), Indexable]
     public float FogStartDistance = 5;
     //[UIDragFloat(0.1f, 0, name: "雾结束距离")]
     [Indexable]
     public float FogEndDistance = 100000;
+    [UIShow(name: "无背景"), Indexable]
+    public bool NoBackGround;
 
     [Indexable]
     public float Far;
@@ -452,8 +383,6 @@ public class DeferredRenderPass
 
     public IEnumerable<VisualComponent> Visuals;
 
-    public IReadOnlyList<(RenderMaterial, ParticleHolder)> Particles;
-
     public void SetCamera(CameraData camera)
     {
         Far = camera.far;
@@ -469,7 +398,6 @@ public class DeferredRenderPass
 
         rayTracingPass.SetCamera(camera);
         decalPass.viewProj = ViewProjection;
-        particlePass.viewProj = ViewProjection;
 
 
         Matrix4x4 rotateMatrix = Matrix4x4.CreateFromYawPitchRoll(-camera.Angle.Y, -camera.Angle.X, -camera.Angle.Z);
@@ -495,22 +423,18 @@ public class DeferredRenderPass
         decalPass.Visuals = Visuals;
         finalPass.renderTargets[0] = renderTarget;
         finalPass.srvs[5] = depthStencil;
-        particlePass.renderTargets[0] = renderTarget;
 
         rayTracingPass.RenderTarget = "gbuffer2";
         rayTracingPass.srvs[3] = depthStencil;
 
         RandomI = random.Next();
 
-        particlePass.Particles = Particles;
-        particlePass.srvs[1] = depthStencil;
-
         BoundingFrustum frustum = new BoundingFrustum(ViewProjection);
 
         int pointLightCount = 0;
         byte[] pointLightData = ArrayPool<byte>.Shared.Rent(64 * 32);
-        DirectionalLightData? directionalLight = null;
-        var pointLightWriter = new SpanWriter<PointLightData>(MemoryMarshal.Cast<byte, PointLightData>(pointLightData));
+        DirectionalLightData directionalLight = null;
+        var pointLightWriter = SpanWriter.New<PointLightData>(pointLightData);
         foreach (var visual in Visuals)
         {
             var material = visual.material;
@@ -547,12 +471,13 @@ public class DeferredRenderPass
 
         if (directionalLight != null)
         {
-            var dl = directionalLight.Value;
+            var dl = directionalLight;
             ShadowMapVP = dl.GetLightingMatrix(InvertViewProjection, 0, 0.977f);
             ShadowMapVP1 = dl.GetLightingMatrix(InvertViewProjection, 0.977f, 0.993f);
             LightDir = dl.Direction;
             LightColor = dl.Color;
             finalPass.keywords.Add(("ENABLE_DIRECTIONAL_LIGHT", "1"));
+            drawObjectTransparent.keywords.Add(("ENABLE_DIRECTIONAL_LIGHT", "1"));
             if (EnableVolumetricLighting)
             {
                 finalPass.keywords.Add(("ENABLE_VOLUME_LIGHTING", "1"));
@@ -619,9 +544,13 @@ public class DeferredRenderPass
             rayTracingPass.UseGI = UseGI;
             rayTracingPass.Execute(renderHelper, directionalLight);
         }
+        finalPass.EnableSSR = EnableSSR;
+        finalPass.EnableSSAO = EnableSSAO;
+        finalPass.EnableFog = EnableFog;
+        finalPass.UseGI = UseGI;
+        finalPass.NoBackGround = NoBackGround;
         finalPass.Execute(renderHelper);
         drawObjectTransparent.Execute(renderHelper);
-        particlePass.Execute(renderHelper);
 
         renderHelper.PopParameters();
 

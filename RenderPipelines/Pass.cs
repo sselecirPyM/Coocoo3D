@@ -1,5 +1,4 @@
-﻿using Coocoo3D.Present;
-using Coocoo3DGraphics;
+﻿using Coocoo3DGraphics;
 using System.Collections.Generic;
 
 namespace RenderPipelines;
@@ -16,7 +15,7 @@ public abstract class Pass
 
     public List<(string, string)> AutoKeyMap = new();
 
-    protected void AutoMapKeyword(RenderHelper renderHelper, IList<(string, string)> keywords, RenderMaterial material)
+    protected void AutoMapKeyword(RenderHelper renderHelper, IList<(string, string)> keywords, IDictionary<string,object> material)
     {
         foreach (var keyMap in AutoKeyMap)
         {

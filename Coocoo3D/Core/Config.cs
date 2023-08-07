@@ -1,8 +1,7 @@
-﻿namespace Coocoo3D.Core
+﻿namespace Coocoo3D.Core;
+
+public class Config
 {
-    public class Config
-    {
-        public bool SaveCpuPower = true;
-        public bool VSync = false;
-    }
+    public bool SaveCpuPower = true;
+    public bool VSync = false;
 }

@@ -1,72 +1,70 @@
-﻿using Coocoo3D.Core;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace Coocoo3D.RenderPipeline
+namespace Coocoo3D.RenderPipeline;
+
+public class AsyncHandler<T> : IHandler<T> where T : IAsyncTask
 {
-    public class AsyncHandler<T> : IHandler<T> where T : IAsyncTask
+    public List<T> Output { get; } = new();
+    public Queue<T> inputs = new();
+
+    List<T> Processing = new();
+    Dictionary<T, Task> loadTasks = new();
+
+    public object state;
+
+    public int maxProcessingCount = 1;
+
+    public bool Async = true;
+
+    public bool Add(T task)
     {
-        public List<T> Output { get; } = new();
-        public Queue<T> inputs = new();
+        inputs.Enqueue(task);
+        return true;
+    }
 
-        List<T> Processing = new();
-        Dictionary<T, Task> loadTasks = new();
-
-        public object state;
-
-        public int maxProcessingCount = 1;
-
-        public bool Async = true;
-
-        public bool Add(T task)
+    public void Update()
+    {
+        while (Processing.Count + Output.Count < maxProcessingCount && inputs.TryDequeue(out var input))
         {
-            inputs.Enqueue(task);
-            return true;
+            Processing.Add(input);
+            try
+            {
+                input.SyncProcess(state);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+            }
         }
-
-        public void Update()
+        if (Async)
         {
-            while (Processing.Count + Output.Count < maxProcessingCount && inputs.TryDequeue(out var input))
+            Processing.RemoveAll(task =>
             {
-                Processing.Add(input);
-                try
-                {
-                    input.SyncProcess(state);
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine(e);
-                }
-            }
-            if (Async)
-            {
-                Processing.RemoveAll(task =>
-                {
-                    bool r = false;
-                    if (!loadTasks.TryGetValue(task, out var loadTask))
-                        loadTask = loadTasks[task] = Task.Factory.StartNew(task.Process, state);
+                bool r = false;
+                if (!loadTasks.TryGetValue(task, out var loadTask))
+                    loadTask = loadTasks[task] = Task.Factory.StartNew(task.Process, state);
 
-                    if (loadTask.Status == TaskStatus.RanToCompletion ||
-                        loadTask.Status == TaskStatus.Faulted)
-                    {
-                        loadTasks.Remove(task);
-                        loadTask.Dispose();
-                        Output.Add(task);
-                        r = true;
-                    }
-                    return r;
-                });
-            }
-            else
-            {
-                Processing.RemoveAll(task =>
+                if (loadTask.Status == TaskStatus.RanToCompletion ||
+                    loadTask.Status == TaskStatus.Faulted)
                 {
+                    loadTasks.Remove(task);
+                    loadTask.Dispose();
                     Output.Add(task);
-                    return true;
+                    r = true;
                 }
-                );
+                return r;
+            });
+        }
+        else
+        {
+            Processing.RemoveAll(task =>
+            {
+                Output.Add(task);
+                return true;
             }
+            );
         }
     }
 }

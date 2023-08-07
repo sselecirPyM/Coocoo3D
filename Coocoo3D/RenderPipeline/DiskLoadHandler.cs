@@ -1,59 +1,54 @@
-﻿using Coocoo3D.Core;
-using System;
-using System.Collections;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
-namespace Coocoo3D.RenderPipeline
+namespace Coocoo3D.RenderPipeline;
+
+public class DiskLoadHandler : IHandler<TextureLoadTask>
 {
-    public class DiskLoadHandler : IHandler<IDiskLoadTask>
+    ConcurrentQueue<TextureLoadTask> diskLoadTasks = new();
+
+    public List<TextureLoadTask> Output { get; } = new();
+    List<TextureLoadTask> Processing = new();
+    Dictionary<TextureLoadTask, Task<byte[]>> loadTasks = new();
+
+    public Action LoadComplete;
+    public bool Add(TextureLoadTask task)
     {
-        ConcurrentQueue<IDiskLoadTask> diskLoadTasks = new();
+        diskLoadTasks.Enqueue(task);
+        task.OnEnterPipeline();
+        return true;
+    }
 
-        public List<IDiskLoadTask> Output { get; } = new();
-        List<IDiskLoadTask> Processing = new();
-        Dictionary<IDiskLoadTask, Task> loadTasks = new();
-
-        public Action LoadComplete;
-        public bool Add(IDiskLoadTask task)
+    public void Update()
+    {
+        while (Processing.Count + Output.Count < 16 && Processing.Count < 8 && diskLoadTasks.TryDequeue(out var task))
         {
-            diskLoadTasks.Enqueue(task);
-            task.OnEnterPipeline();
-            return true;
+            Processing.Add(task);
         }
 
-        public void Update()
+        Processing.RemoveAll(task =>
         {
-            while (Processing.Count + Output.Count < 16 && Processing.Count < 8 && diskLoadTasks.TryDequeue(out var task))
+            bool r = false;
+
+            if (!loadTasks.TryGetValue(task, out var loadTask))
+                loadTask = loadTasks[task] = File.ReadAllBytesAsync(task.KnownFile.fullPath);
+
+            if (loadTask.Status == TaskStatus.RanToCompletion ||
+                loadTask.Status == TaskStatus.Faulted)
             {
-                Processing.Add(task);
+                if (loadTask.Status == TaskStatus.RanToCompletion)
+                    task.Datas = loadTask.Result;
+                else
+                    task.OnError(loadTask.Exception);
+                loadTasks.Remove(task);
+                loadTask.Dispose();
+                Output.Add(task);
+                r = true;
             }
-
-            Processing.RemoveAll(task =>
-            {
-                bool r = false;
-
-                if (!loadTasks.TryGetValue(task, out var loadTask))
-                    loadTask = loadTasks[task] = File.ReadAllBytesAsync(task.KnownFile.fullPath);
-
-                if (loadTask.Status == TaskStatus.RanToCompletion ||
-                    loadTask.Status == TaskStatus.Faulted)
-                {
-                    if (loadTask.Status == TaskStatus.RanToCompletion)
-                        task.Datas = ((Task<byte[]>)loadTask).Result;
-                    else
-                        task.OnError(loadTask.Exception);
-                    loadTasks.Remove(task);
-                    loadTask.Dispose();
-                    Output.Add(task);
-                    r = true;
-                }
-                return r;
-            });
-        }
+            return r;
+        });
     }
 }

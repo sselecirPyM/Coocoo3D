@@ -1,9 +1,8 @@
 ﻿using BulletSharp;
 
-namespace Coocoo3D.Extensions
+namespace Coocoo3D.Extensions;
+
+public class Physics3DJoint
 {
-    public class Physics3DJoint
-    {
-        public Generic6DofSpringConstraint constraint;
-    }
+    public Generic6DofSpringConstraint constraint;
 }

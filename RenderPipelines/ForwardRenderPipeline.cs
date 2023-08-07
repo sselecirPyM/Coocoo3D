@@ -9,9 +9,12 @@ using System.Numerics;
 
 namespace RenderPipelines;
 
-[UIShow(name: "前向渲染")]
+[Text(text: "前向渲染")]
 public class ForwardRenderPipeline : RenderPipeline, IDisposable
 {
+    public override IDictionary<UIShowType, ICloneable> materialTypes { get; } =
+        new Dictionary<UIShowType, ICloneable> { };
+
     [AOV(AOVType.Color)]
     [Size("UnscaledOutput")]
     [Format(ResourceFormat.R8G8B8A8_UNorm)]

@@ -1,23 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿namespace Coocoo3D.Components;
 
-namespace Coocoo3D.Components
+public class ObjectDescription
 {
-    public class ObjectDescription
-    {
-        public string Name;
-        public string Description;
+    public string Name;
+    public string Description;
 
-        public ObjectDescription GetClone()
+    public ObjectDescription GetClone()
+    {
+        return new ObjectDescription()
         {
-            return new ObjectDescription()
-            {
-                Name = Name,
-                Description = Description
-            };
-        }
+            Name = Name,
+            Description = Description
+        };
     }
 }

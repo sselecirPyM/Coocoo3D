@@ -2,8 +2,8 @@
 using Caprice.Display;
 using Coocoo3D.Components;
 using Coocoo3D.RenderPipeline;
-using Coocoo3D.Utility;
 using Coocoo3DGraphics;
+using RenderPipelines.Utility;
 using System;
 using System.Buffers;
 using System.Collections.Generic;
@@ -54,7 +54,6 @@ public class ForwardRenderPass
             depthBias = 2000,
             slopeScaledDepthBias = 1.5f,
         },
-        enablePS = false,
         CBVPerObject = new object[]
         {
             null,
@@ -145,25 +144,19 @@ public class ForwardRenderPass
     public Vector3 CameraBack;
 
 
-    [UIDragFloat(0.01f, 0, name: "亮度")]
-    [Indexable]
+    [UIDragFloat(0.01f, 0, name: "亮度"), Indexable]
     public float Brightness = 1;
 
-    [UIDragFloat(0.01f, 0, name: "天空盒亮度")]
-    [Indexable]
+    [UIDragFloat(0.01f, 0, name: "天空盒亮度"), Indexable]
     public float SkyLightMultiple = 3;
 
-    [UIShow(name: "启用雾")]
-    [Indexable]
+    [UIShow(name: "启用雾"), Indexable]
     public bool EnableFog;
-    [UIColor(name: "雾颜色")]
-    [Indexable]
+    [UIColor(name: "雾颜色"), Indexable]
     public Vector3 FogColor = new Vector3(0.4f, 0.4f, 0.6f);
-    [UIDragFloat(0.001f, 0, name: "雾密度")]
-    [Indexable]
+    [UIDragFloat(0.001f, 0, name: "雾密度"), Indexable]
     public float FogDensity = 0.005f;
-    [UIDragFloat(0.1f, 0, name: "雾开始距离")]
-    [Indexable]
+    [UIDragFloat(0.1f, 0, name: "雾开始距离"), Indexable]
     public float FogStartDistance = 5;
     //[UIDragFloat(0.1f, 0, name: "雾结束距离")]
     [Indexable]
@@ -235,12 +228,12 @@ public class ForwardRenderPass
 
         int pointLightCount = 0;
         byte[] pointLightData = ArrayPool<byte>.Shared.Rent(64 * 32);
-        DirectionalLightData? directionalLight = null;
-        var pointLightWriter = new SpanWriter<PointLightData>(MemoryMarshal.Cast<byte, PointLightData>(pointLightData));
+        DirectionalLightData directionalLight = null;
+        var pointLightWriter = SpanWriter.New<PointLightData>(pointLightData);
         foreach (var visual in Visuals)
         {
             var material = visual.material;
-            if (visual.UIShowType != Caprice.Display.UIShowType.Light)
+            if (visual.UIShowType != UIShowType.Light)
                 continue;
             var lightType = (LightType)renderHelper.GetIndexableValue("LightType", material);
             if (lightType == LightType.Directional)
@@ -274,7 +267,7 @@ public class ForwardRenderPass
 
         if (directionalLight != null)
         {
-            var dl = directionalLight.Value;
+            var dl = directionalLight;
             ShadowMapVP = dl.GetLightingMatrix(InvertViewProjection, 0, 0.977f);
             ShadowMapVP1 = dl.GetLightingMatrix(InvertViewProjection, 0.977f, 0.993f);
             LightDir = dl.Direction;

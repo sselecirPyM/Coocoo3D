@@ -1,7 +1,6 @@
 ﻿using Caprice.Attributes;
 using Caprice.Display;
 using Coocoo3D.Components;
-using Coocoo3D.Present;
 using Coocoo3D.RenderPipeline;
 using Coocoo3DGraphics;
 using System;
@@ -10,9 +9,12 @@ using System.Numerics;
 
 namespace RenderPipelines;
 
-[UIShow(name: "延迟渲染")]
+[Text(text: "延迟渲染")]
 public class DeferredRenderPipeline : RenderPipeline, IDisposable
 {
+    public override IDictionary<UIShowType, ICloneable> materialTypes { get; } =
+        new Dictionary<UIShowType, ICloneable> { };
+
     [AOV(AOVType.Color)]
     [Size("UnscaledOutput")]
     [Format(ResourceFormat.R8G8B8A8_UNorm)]
@@ -212,45 +214,12 @@ public class DeferredRenderPipeline : RenderPipeline, IDisposable
     public LightType LightType;
 
     #endregion
-    #region Particle Parameters
-
-    [Indexable]
-    [UIDragInt(1, 0, 1000, UIShowType.Particle, "数量")]
-    public int ParticleCount;
-    [Indexable]
-    [UIDragFloat(0.01f, 0, float.MaxValue, UIShowType.Particle, "生命")]
-    public Vector2 ParticleLife;
-    [Indexable]
-    [UIDragFloat(0.01f, 0, float.MaxValue, UIShowType.Particle, "随机速度")]
-    public Vector2 ParticleRandomSpeed;
-    [Indexable]
-    [UIDragFloat(0.01f, float.MinValue, float.MaxValue, UIShowType.Particle, "初始速度")]
-    public Vector3 ParticleInitialSpeed;
-    [Indexable]
-    [UIDragFloat(0.01f, 0, float.MaxValue, UIShowType.Particle, "尺寸")]
-    public Vector2 ParticleScale;
-    [Indexable]
-    [UIDragFloat(0.01f, float.MinValue, float.MaxValue, UIShowType.Particle, "加速度")]
-    public Vector3 ParticleAcceleration;
-
-    [UIShow(UIShowType.Particle, "贴图")]
-    public Texture2D ParticleTexture;
-    [Indexable]
-    [UIColor(UIShowType.Particle, "颜色")]
-    public Vector4 ParticleColor = new Vector4(1, 1, 1, 1);
-    [Indexable]
-    [UIShow(UIShowType.Particle, "混合模式")]
-    public BlendMode ParticleBlendMode;
-    #endregion
 
     [SceneCapture("Camera")]
     public CameraData camera;
 
     [SceneCapture("Visual")]
     public IReadOnlyList<VisualComponent> Visuals;
-
-    [SceneCapture("Particle")]
-    public IReadOnlyList<(RenderMaterial, ParticleHolder)> Particles;
 
     RenderHelper renderHelper;
 
@@ -286,7 +255,14 @@ public class DeferredRenderPipeline : RenderPipeline, IDisposable
 
     public override void BeforeRender()
     {
-        renderHelper ??= new RenderHelper();
+        if (renderHelper == null)
+        {
+            renderHelper = new RenderHelper();
+            //skyboxTexture.OnChanged(new Texture2DToCube(_SkyBox));
+            //_SkyBox.OnChanged(new EnvironmentTexture(_Environment));
+        }
+
+
         renderHelper.renderWrap = renderWrap;
         renderHelper.CPUSkinning = deferredRenderPass.EnableRayTracing || deferredRenderPass.UpdateGI;
         renderHelper.UpdateGPUResource();
@@ -316,7 +292,7 @@ public class DeferredRenderPipeline : RenderPipeline, IDisposable
 
         deferredRenderPass.Visuals = Visuals;
         deferredRenderPass.DebugRenderType = DebugRenderType;
-        deferredRenderPass.Particles = Particles;
+        //deferredRenderPass.Particles = Particles;
 
         deferredRenderPass.SetCamera(camera);
         deferredRenderPass.Execute(renderHelper);

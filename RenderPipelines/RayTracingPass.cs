@@ -10,7 +10,7 @@ namespace RenderPipelines;
 
 public class RayTracingPass
 {
-    public string RayTracingShader;
+    string RayTracingShader = "RayTracing.json";
 
     public CameraData camera;
 
@@ -26,7 +26,6 @@ public class RayTracingPass
 
     Random random = new Random(0);
 
-    public List<(string, string)> keywords = new();
     List<(string, string)> keywords1 = new();
 
     object[] cbv0 =
@@ -97,7 +96,7 @@ public class RayTracingPass
         CameraPosition = camera.Position;
     }
 
-    public void Execute(RenderHelper renderHelper, DirectionalLightData? directionalLight)
+    public void Execute(RenderHelper renderHelper, DirectionalLightData directionalLight)
     {
         RenderWrap renderWrap = renderHelper.renderWrap;
         var graphicsContext = renderWrap.graphicsContext;
@@ -110,7 +109,6 @@ public class RayTracingPass
         RandomI = random.Next();
 
         keywords1.Clear();
-        keywords1.AddRange(this.keywords);
         if (directionalLight != null)
         {
             keywords1.Add(new("ENABLE_DIRECTIONAL_LIGHT", "1"));

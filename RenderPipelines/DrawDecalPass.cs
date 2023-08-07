@@ -1,7 +1,6 @@
 ﻿using Coocoo3D.Components;
 using Coocoo3D.RenderPipeline;
 using Coocoo3DGraphics;
-using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Numerics;
@@ -11,18 +10,17 @@ namespace RenderPipelines;
 
 public class DrawDecalPass : Pass
 {
-    public string shader;
-
+    string shader = "DeferredDecal.hlsl";
     public List<(string, string)> keywords = new();
     List<(string, string)> keywords2 = new();
 
-    public PSODesc psoDesc;
+    PSODesc psoDesc = new PSODesc()
+    {
+        blendState = BlendState.PreserveAlpha,
+        cullMode = CullMode.Front,
+    };
 
-    public bool enableVS = true;
-    public bool enablePS = true;
-    public bool enableGS = false;
-
-    public string rs;
+    string rs = "CCCssss";
 
     public bool clearRenderTarget = false;
     public bool clearDepth = false;
@@ -36,8 +34,6 @@ public class DrawDecalPass : Pass
     public Matrix4x4 viewProj;
 
     public IEnumerable<VisualComponent> Visuals;
-
-    public Func<RenderHelper, VisualComponent, List<(string, string)>, bool> filter;
 
     public override void Execute(RenderHelper renderHelper)
     {
@@ -69,13 +65,11 @@ public class DrawDecalPass : Pass
             if (!frustum.Intersects(new BoundingSphere(visual.transform.position, visual.transform.scale.Length())))
                 continue;
 
-            if (filter != null && !filter.Invoke(renderHelper, visual, keywords2))
-                continue;
             keywords2.AddRange(this.keywords);
 
-            AutoMapKeyword(renderHelper, keywords2, visual.material);
+            AutoMapKeyword(renderHelper, keywords2, visual.material.Parameters);
 
-            renderWrap.SetShader(shader, desc, keywords2, enableVS, enablePS, enableGS);
+            renderWrap.SetShader(shader, desc, keywords2);
 
             Matrix4x4 m = visual.transform.GetMatrix() * viewProj;
             Matrix4x4.Invert(m, out var im);
