@@ -1,6 +1,5 @@
 ﻿using SharpGen.Runtime;
 using System;
-using System.Collections.Generic;
 using Vortice.Direct3D12;
 using Vortice.Direct3D12.Debug;
 using Vortice.DXGI;
@@ -27,8 +26,6 @@ public sealed class GraphicsDevice : IDisposable
 
     string m_deviceDescription;
     UInt64 m_deviceVideoMem;
-
-    internal List<(ID3D12Object, ulong)> m_recycleList = new List<(ID3D12Object, ulong)>();
 
     internal IDXGIFactory6 m_dxgiFactory;
 
@@ -99,35 +96,11 @@ public sealed class GraphicsDevice : IDisposable
         superRingBuffer.Initialize(this.device, 134217728, 33554432);
     }
 
-    internal void ResourceDelayRecycle(ID3D12Object resource)
-    {
-        if (resource != null)
-            m_recycleList.Add((resource, commandQueue.currentFenceValue));
-    }
-
     public void WaitForGpu()
     {
         commandQueue.Wait();
 
-        Recycle();
-
-        // 对当前帧递增围栏值。
-        commandQueue.currentFenceValue++;
-    }
-
-    internal void Recycle()
-    {
-        var fence = commandQueue.fence;
-        ulong completedFrame = fence.CompletedValue;
-        m_recycleList.RemoveAll(x =>
-        {
-            if (x.Item2 <= completedFrame)
-            {
-                x.Item1.Release();
-                return true;
-            }
-            return false;
-        });
+        commandQueue.Recycle();
     }
 
     public bool IsRayTracingSupport()
@@ -202,7 +175,6 @@ public sealed class GraphicsDevice : IDisposable
 
     public void Dispose()
     {
-        Recycle();
         commandQueue?.Dispose();
         copyCommandQueue?.Dispose();
         superRingBuffer?.Dispose();

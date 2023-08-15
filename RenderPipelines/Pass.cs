@@ -31,7 +31,6 @@ public abstract class Pass
         var dsv = renderHelper.renderWrap.GetRenderTexture2D(depthStencil);
         desc.dsvFormat = dsv == null ? Vortice.DXGI.Format.Unknown : dsv.GetFormat();
         desc.renderTargetCount = (renderTargets != null) ? renderTargets.Length : 0;
-        desc.inputLayout = InputLayout.Default;
 
         return desc;
     }

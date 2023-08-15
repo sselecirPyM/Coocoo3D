@@ -41,7 +41,7 @@ public static class ImGuiExt
         var fields = type.GetFields();
 
 
-        string[] enums= GetEnumNames(type);
+        string[] enums = GetEnumNames(type);
 
         string[] enumsTranslation = enums;
         var val1 = val;
@@ -251,14 +251,15 @@ public static class ImGuiExt
             return hitDragType == d1 && controller.dragType == dragType.DragNone || controller.dragType == d1;
         }
 
+        float axisLength = 0.25f;
         color = _isDragAxis(dragType.DragX) ? 0xffffffff : 0x7f7f7fff;
-        Draw3DLine(drawList, position, position + Vector3.UnitX, viewport, color, 10);
+        Draw3DLine(drawList, position, position + Vector3.UnitX * axisLength, viewport, color, 10);
 
         color = _isDragAxis(dragType.DragY) ? 0xffffffff : 0x7f7fff7f;
-        Draw3DLine(drawList, position, position + Vector3.UnitY, viewport, color, 10);
+        Draw3DLine(drawList, position, position + Vector3.UnitY * axisLength, viewport, color, 10);
 
         color = _isDragAxis(dragType.DragZ) ? 0xffffffff : 0x7fff7f7f;
-        Draw3DLine(drawList, position, position + Vector3.UnitZ, viewport, color, 10);
+        Draw3DLine(drawList, position, position + Vector3.UnitZ * axisLength, viewport, color, 10);
 
 
         return dragResult;

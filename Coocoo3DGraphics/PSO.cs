@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using Vortice.Direct3D;
 using Vortice.Direct3D12;
+using Vortice.Direct3D12.Shader;
 using Vortice.DXGI;
 
 namespace Coocoo3DGraphics;
@@ -46,10 +48,11 @@ public enum BlendState
 public enum InputLayout
 {
     Default = 0,
-    NoInput = 1,
+    //NoInput = 1,
     //skinned = 2,
     Imgui = 3,
-    Particle = 4,
+    //Particle = 4,
+    Other = 5,
 };
 
 public enum CullMode
@@ -116,29 +119,19 @@ public struct PSODesc : IEquatable<PSODesc>
 }
 public class PSO : IDisposable
 {
-    static readonly InputLayoutDescription inputLayoutDefault = new InputLayoutDescription(
-        new InputElementDescription("POSITION", 0, Format.R32G32B32_Float, 0, 0),
-        new InputElementDescription("NORMAL", 0, Format.R32G32B32_Float, 0, 1),
-        new InputElementDescription("TEXCOORD", 0, Format.R32G32_Float, 0, 2),
-        new InputElementDescription("TANGENT", 0, Format.R32G32B32A32_Float, 0, 3),
-        new InputElementDescription("BONES", 0, Format.R16G16B16A16_UInt, 0, 4),
-        new InputElementDescription("WEIGHTS", 0, Format.R32G32B32A32_Float, 0, 5)
-        );
-
-    //static readonly InputLayoutDescription inputLayoutPosOnly = new InputLayoutDescription(
-    //    new InputElementDescription("POSITION", 0, Format.R32G32B32_Float, 0)
+    //static readonly InputLayoutDescription inputLayoutDefault = new InputLayoutDescription(
+    //    new InputElementDescription("POSITION", 0, Format.R32G32B32_Float, 0, 0),
+    //    new InputElementDescription("NORMAL", 0, Format.R32G32B32_Float, 0, 1),
+    //    new InputElementDescription("TEXCOORD", 0, Format.R32G32_Float, 0, 2),
+    //    new InputElementDescription("TANGENT", 0, Format.R32G32B32A32_Float, 0, 3),
+    //    new InputElementDescription("BONES", 0, Format.R16G16B16A16_UInt, 0, 4),
+    //    new InputElementDescription("WEIGHTS", 0, Format.R32G32B32A32_Float, 0, 5)
     //    );
-    static readonly InputLayoutDescription inputLayoutNoInput = new InputLayoutDescription();
+
     static readonly InputLayoutDescription inputLayoutImGui = new InputLayoutDescription(
         new InputElementDescription("POSITION", 0, Format.R32G32_Float, 0),
         new InputElementDescription("TEXCOORD", 0, Format.R32G32_Float, 0),
         new InputElementDescription("COLOR", 0, Format.R8G8B8A8_UNorm, 0)
-        );
-    static readonly InputLayoutDescription inputLayoutParticle = new InputLayoutDescription(
-        new InputElementDescription("POSITION", 0, Format.R32G32B32_Float, 0),
-        new InputElementDescription("TEXCOORD", 0, Format.R32G32_Float, 0),
-        new InputElementDescription("COLOR", 0, Format.R8G8B8A8_UNorm, 0),
-        new InputElementDescription("SIZE", 0, Format.R32_Float, 0)
         );
     static readonly BlendDescription blendStateAdd = new BlendDescription(Blend.SourceAlpha, Blend.One);
     static readonly BlendDescription blendStateAlpha = new BlendDescription(Blend.SourceAlpha, Blend.InverseSourceAlpha, Blend.One, Blend.InverseSourceAlpha);
@@ -163,6 +156,10 @@ public class PSO : IDisposable
     public string Name;
     public GraphicsObjectStatus Status;
 
+    public ID3D12ShaderReflection vsReflection;
+    public ID3D12ShaderReflection gsReflection;
+    public ID3D12ShaderReflection psReflection;
+
     internal List<(_PSODesc1, ID3D12PipelineState)> m_pipelineStates = new List<(_PSODesc1, ID3D12PipelineState)>();
 
     public PSO()
@@ -170,20 +167,15 @@ public class PSO : IDisposable
 
     }
 
-    public PSO(byte[] vertexShader, byte[] geometryShader, byte[] pixelShader)
+    public PSO(byte[] vertexShader, byte[] geometryShader, byte[] pixelShader, ID3D12ShaderReflection vsr, ID3D12ShaderReflection gsr, ID3D12ShaderReflection psr)
     {
         this.vertexShader = vertexShader;
         this.geometryShader = geometryShader;
         this.pixelShader = pixelShader;
-    }
+        this.vsReflection = vsr;
+        this.gsReflection = gsr;
+        this.psReflection = psr;
 
-    public void Dispose()
-    {
-        foreach (var combine in m_pipelineStates)
-        {
-            combine.Item2.Release();
-        }
-        m_pipelineStates.Clear();
     }
 
     internal bool TryGetPipelineState(ID3D12Device device, ID3D12RootSignature rootSignature, PSODesc psoDesc, out ID3D12PipelineState pipelineState)
@@ -203,13 +195,16 @@ public class PSO : IDisposable
         GraphicsPipelineStateDescription desc = new GraphicsPipelineStateDescription();
 
         if (psoDesc.inputLayout == InputLayout.Default)
-            desc.InputLayout = inputLayoutDefault;
-        else if (psoDesc.inputLayout == InputLayout.NoInput)
-            desc.InputLayout = inputLayoutNoInput;
+        {
+            desc.InputLayout = GetInputElementDescriptions(vsReflection);
+            //desc.InputLayout = inputLayoutDefault;
+        }
         else if (psoDesc.inputLayout == InputLayout.Imgui)
             desc.InputLayout = inputLayoutImGui;
-        else if (psoDesc.inputLayout == InputLayout.Particle)
-            desc.InputLayout = inputLayoutParticle;
+        else if (psoDesc.inputLayout == InputLayout.Other)
+        {
+            desc.InputLayout = GetInputElementDescriptions(vsReflection);
+        }
 
         desc.RootSignature = rootSignature;
         if (vertexShader != null)
@@ -255,5 +250,92 @@ public class PSO : IDisposable
         m_pipelineStates.Add((_psoDesc1, pipelineState1));
         pipelineState = pipelineState1;
         return true;
+    }
+
+
+    static InputElementDescription[] GetInputElementDescriptions(ID3D12ShaderReflection reflection)
+    {
+        int count1 = 0;
+        foreach (var item in reflection.InputParameters)
+            if (item.SystemValueType == SystemValueType.Undefined)
+                count1++;
+        var descs = new InputElementDescription[count1];
+
+        int count = 0;
+        foreach (var item in reflection.InputParameters)
+        {
+            if (item.SystemValueType == SystemValueType.Undefined)
+            {
+                Format format = Format.Unknown;
+                if (item.ComponentType == RegisterComponentType.Float32)
+                {
+                    if (item.MinPrecision == MinPrecision.MinPrecisionFloat16)
+                    {
+                        if ((item.UsageMask & RegisterComponentMaskFlags.ComponentW) != 0)
+                            format = Format.R16G16B16A16_Float;
+                        else if ((item.UsageMask & RegisterComponentMaskFlags.ComponentZ) != 0)
+                            format = Format.R16G16B16A16_Float;
+                        else if ((item.UsageMask & RegisterComponentMaskFlags.ComponentY) != 0)
+                            format = Format.R16G16_Float;
+                        else if ((item.UsageMask & RegisterComponentMaskFlags.ComponentX) != 0)
+                            format = Format.R16_Float;
+                    }
+                    else
+                    {
+                        if ((item.UsageMask & RegisterComponentMaskFlags.ComponentW) != 0)
+                            format = Format.R32G32B32A32_Float;
+                        else if ((item.UsageMask & RegisterComponentMaskFlags.ComponentZ) != 0)
+                            format = Format.R32G32B32_Float;
+                        else if ((item.UsageMask & RegisterComponentMaskFlags.ComponentY) != 0)
+                            format = Format.R32G32_Float;
+                        else if ((item.UsageMask & RegisterComponentMaskFlags.ComponentX) != 0)
+                            format = Format.R32_Float;
+                    }
+                }
+                else if (item.ComponentType == RegisterComponentType.UInt32)
+                {
+                    if (item.MinPrecision == MinPrecision.MinPrecisionUInt16)
+                    {
+                        if ((item.UsageMask & RegisterComponentMaskFlags.ComponentW) != 0)
+                            format = Format.R16G16B16A16_UInt;
+                        else if ((item.UsageMask & RegisterComponentMaskFlags.ComponentZ) != 0)
+                            format = Format.R16G16B16A16_UInt;
+                        else if ((item.UsageMask & RegisterComponentMaskFlags.ComponentY) != 0)
+                            format = Format.R16G16_UInt;
+                        else if ((item.UsageMask & RegisterComponentMaskFlags.ComponentX) != 0)
+                            format = Format.R16_UInt;
+                    }
+                    else
+                    {
+                        if ((item.UsageMask & RegisterComponentMaskFlags.ComponentW) != 0)
+                            format = Format.R32G32B32A32_UInt;
+                        else if ((item.UsageMask & RegisterComponentMaskFlags.ComponentZ) != 0)
+                            format = Format.R32G32B32_UInt;
+                        else if ((item.UsageMask & RegisterComponentMaskFlags.ComponentY) != 0)
+                            format = Format.R32G32_UInt;
+                        else if ((item.UsageMask & RegisterComponentMaskFlags.ComponentX) != 0)
+                            format = Format.R32_UInt;
+                    }
+                }
+                descs[count] = new InputElementDescription(item.SemanticName, item.SemanticIndex, format, count);
+                count++;
+            }
+        }
+        return descs;
+    }
+
+    public void Dispose()
+    {
+        vsReflection?.Release();
+        vsReflection = null;
+        gsReflection?.Release();
+        gsReflection = null;
+        psReflection?.Release();
+        psReflection = null;
+        foreach (var combine in m_pipelineStates)
+        {
+            combine.Item2.Release();
+        }
+        m_pipelineStates.Clear();
     }
 }

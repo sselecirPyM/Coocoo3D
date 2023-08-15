@@ -36,6 +36,8 @@ internal sealed class CommandQueue : IDisposable
 
     EventWaitHandle fenceEvent;
 
+    internal List<(ID3D12Object, ulong)> m_recycleList = new List<(ID3D12Object, ulong)>();
+
     public void Initialize(ID3D12Device device, CommandListType commandListType)
     {
         this.device = device;
@@ -68,6 +70,9 @@ internal sealed class CommandQueue : IDisposable
         // 等待跨越围栏。
         fence.SetEventOnCompletion(currentFenceValue, fenceEvent);
         fenceEvent.WaitOne();
+
+        // 对当前帧递增围栏值。
+        currentFenceValue++;
     }
 
     /// <summary>
@@ -91,6 +96,7 @@ internal sealed class CommandQueue : IDisposable
         }
         commandAllocators[(int)executeIndex].allocator.Reset();
         currentFenceValue++;
+        Recycle();
     }
 
 
@@ -108,8 +114,30 @@ internal sealed class CommandQueue : IDisposable
         }
     }
 
+    internal void ResourceDelayRecycle(ID3D12Object resource)
+    {
+        if (resource != null)
+            m_recycleList.Add((resource, currentFenceValue));
+    }
+
+    internal void Recycle()
+    {
+        var fence = this.fence;
+        ulong completedFrame = fence.CompletedValue;
+        m_recycleList.RemoveAll(x =>
+        {
+            if (x.Item2 <= completedFrame)
+            {
+                x.Item1.Release();
+                return true;
+            }
+            return false;
+        });
+    }
+
     public void Dispose()
     {
+        Recycle();
         commandQueue?.Release();
         commandQueue = null;
         if (commandAllocators != null)

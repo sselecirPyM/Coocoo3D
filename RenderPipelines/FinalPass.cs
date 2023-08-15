@@ -17,7 +17,6 @@ public class FinalPass
             renderHelper.renderWrap.GetRenderTexture2D(renderTargets[0]).GetFormat() : Vortice.DXGI.Format.Unknown;
         desc.dsvFormat = Vortice.DXGI.Format.Unknown;
         desc.renderTargetCount = (renderTargets != null) ? renderTargets.Length : 0;
-        desc.inputLayout = InputLayout.Default;
 
         return desc;
     }

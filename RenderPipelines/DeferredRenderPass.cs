@@ -472,8 +472,8 @@ public class DeferredRenderPass
         if (directionalLight != null)
         {
             var dl = directionalLight;
-            ShadowMapVP = dl.GetLightingMatrix(InvertViewProjection, 0, 0.977f);
-            ShadowMapVP1 = dl.GetLightingMatrix(InvertViewProjection, 0.977f, 0.993f);
+            ShadowMapVP = dl.GetLightingMatrix(InvertViewProjection, 0, 0.95f);
+            ShadowMapVP1 = dl.GetLightingMatrix(InvertViewProjection, 0.95f, 0.993f);
             LightDir = dl.Direction;
             LightColor = dl.Color;
             finalPass.keywords.Add(("ENABLE_DIRECTIONAL_LIGHT", "1"));

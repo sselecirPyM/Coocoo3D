@@ -199,13 +199,14 @@ bool pointInLightRange(int index, float3 position)
 
 float4 shadowCmp(float2 uv, float z)
 {
-	float width;
-	float height;
-	ShadowMap.GetDimensions(width, height);
-	float2 XY = uv * float2(width, height);
-	float2 alignmentXY = round(XY);
-	float2 sampleUV = (alignmentXY + clamp((XY - alignmentXY) / fwidth(XY), -0.5f, 0.5f)) / float2(width, height);
-	return ShadowMap.SampleCmpLevelZero(sampleShadowMap, sampleUV, z);
+	return ShadowMap.SampleCmpLevelZero(sampleShadowMap, uv, z);
+	//float width;
+	//float height;
+	//ShadowMap.GetDimensions(width, height);
+	//float2 XY = uv * float2(width, height);
+	//float2 alignmentXY = round(XY);
+	//float2 sampleUV = (alignmentXY + clamp((XY - alignmentXY) / fwidth(XY), -0.5f, 0.5f)) / float2(width, height);
+	//return ShadowMap.SampleCmpLevelZero(sampleShadowMap, sampleUV, z);
 }
 
 float pointInLight(int index, float3 position)

@@ -15,11 +15,11 @@ struct SkinnedInfo
 struct VSSkinnedIn
 {
 	float3 Pos	: POSITION0;		//Position
-	float4 Weights : WEIGHTS;		//Bone weights
-	uint4  Bones : BONES;			//Bone indices
 	float3 Norm : NORMAL;			//Normal
 	float2 Tex	: TEXCOORD;		    //Texture coordinate
 	float4 Tan : TANGENT;		    //Normalized Tangent vector
+	min16uint4  Bones : BONES;			//Bone indices
+	float4 Weights : WEIGHTS;		//Bone weights
 };
 
 SkinnedInfo SkinVert(VSSkinnedIn Input, float4x4 transforms[MAX_BONE_MATRICES])

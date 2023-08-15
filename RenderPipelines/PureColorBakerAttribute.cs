@@ -18,7 +18,6 @@ public class PureColorBakerAttribute : RuntimeBakeAttribute, ITexture2DBaker
             blendState = BlendState.None,
             cullMode = CullMode.None,
             rtvFormat = texture.GetFormat(),
-            inputLayout = InputLayout.NoInput,
             renderTargetCount = 1,
         };
         renderWrap.Writer.Write(Color);

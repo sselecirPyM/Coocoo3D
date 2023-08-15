@@ -14,6 +14,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using Vortice.Direct3D12.Shader;
 using Vortice.Dxc;
 
 namespace Coocoo3D.RenderPipeline;
@@ -563,10 +564,13 @@ public class MainCaches : IDisposable
                         dxcDefines[i] = new DxcDefine() { Name = keywords[i].Item1, Value = keywords[i].Item2 };
                     }
                 }
-                byte[] vs = shaderReader.vertexShader != null ? LoadShader(DxcShaderStage.Vertex, source, shaderReader.vertexShader, path, dxcDefines) : null;
-                byte[] gs = shaderReader.geometryShader != null ? LoadShader(DxcShaderStage.Geometry, source, shaderReader.geometryShader, path, dxcDefines) : null;
-                byte[] ps = shaderReader.pixelShader != null ? LoadShader(DxcShaderStage.Pixel, source, shaderReader.pixelShader, path, dxcDefines) : null;
-                PSO pso = new PSO(vs, gs, ps);
+                ID3D12ShaderReflection vsr = null;
+                ID3D12ShaderReflection gsr = null;
+                ID3D12ShaderReflection psr = null;
+                byte[] vs = shaderReader.vertexShader != null ? LoadShader(DxcShaderStage.Vertex, source, shaderReader.vertexShader, path, dxcDefines, out vsr) : null;
+                byte[] gs = shaderReader.geometryShader != null ? LoadShader(DxcShaderStage.Geometry, source, shaderReader.geometryShader, path, dxcDefines, out gsr) : null;
+                byte[] ps = shaderReader.pixelShader != null ? LoadShader(DxcShaderStage.Pixel, source, shaderReader.pixelShader, path, dxcDefines, out psr) : null;
+                PSO pso = new PSO(vs, gs, ps, vsr, gsr, psr);
                 PSOEx psoEx = new PSOEx()
                 {
                     pso = pso,
@@ -581,6 +585,24 @@ public class MainCaches : IDisposable
                 return null;
             }
         });
+    }
+
+    static byte[] LoadShader(DxcShaderStage shaderStage, string shaderCode, string entryPoint, string fileName, DxcDefine[] dxcDefines, out ID3D12ShaderReflection reflection)
+    {
+        var shaderModel = shaderStage == DxcShaderStage.Library ? DxcShaderModel.Model6_3 : DxcShaderModel.Model6_0;
+        var options = new DxcCompilerOptions() { ShaderModel = shaderModel };
+        var result = DxcCompiler.Compile(shaderStage, shaderCode, entryPoint, options, fileName, dxcDefines, null);
+        if (result.GetStatus() != SharpGen.Runtime.Result.Ok)
+        {
+            string err = result.GetErrors();
+            result.Dispose();
+            throw new Exception(err);
+        }
+        byte[] resultData = result.GetResult().AsBytes();
+        reflection = DxcCompiler.Utils.CreateReflection<ID3D12ShaderReflection>(result.GetOutput(DxcOutKind.Reflection));
+
+        result.Dispose();
+        return resultData;
     }
 
     static byte[] LoadShader(DxcShaderStage shaderStage, string shaderCode, string entryPoint, string fileName, DxcDefine[] dxcDefines = null)

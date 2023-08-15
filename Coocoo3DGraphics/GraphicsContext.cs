@@ -1039,12 +1039,11 @@ public sealed class GraphicsContext
 
         foreach (var resource in referenceThisCommand)
         {
-            graphicsDevice.ResourceDelayRecycle(resource);
+            graphicsDevice.commandQueue.ResourceDelayRecycle(resource);
         }
         referenceThisCommand.Clear();
         // 提高帧索引。
         graphicsDevice.commandQueue.NextExecuteIndex();
-        graphicsDevice.Recycle();
     }
 
     void CreateBuffer(int bufferLength, ref ID3D12Resource resource, ResourceStates resourceStates = ResourceStates.CopyDest, HeapType heapType = HeapType.Default)
