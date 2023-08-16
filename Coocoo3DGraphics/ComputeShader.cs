@@ -9,7 +9,6 @@ namespace Coocoo3DGraphics;
 public class ComputeShader : IDisposable
 {
     public byte[] data;
-    public Dictionary<ID3D12RootSignature, ID3D12PipelineState> computeShaders = new Dictionary<ID3D12RootSignature, ID3D12PipelineState>();
     ID3D12ShaderReflection reflection;
 
     RootSignature rootSignature1;
@@ -21,29 +20,10 @@ public class ComputeShader : IDisposable
         this.reflection = reflection;
     }
 
-    internal bool TryGetPipelineState(ID3D12Device device, ID3D12RootSignature rootSignature, out ID3D12PipelineState pipelineState)
+    internal bool TryGetPipelineState1(ID3D12Device device, out RootSignature rootSignature, out ID3D12PipelineState pipelineState)
     {
-        if (!computeShaders.TryGetValue(rootSignature, out pipelineState))
-        {
-            var desc = new ComputePipelineStateDescription
-            {
-                ComputeShader = data,
-                RootSignature = rootSignature
-            };
-            if (device.CreateComputePipelineState(desc, out pipelineState).Failure)
-            {
-                return false;
-            }
-            computeShaders[rootSignature] = pipelineState;
-        }
-        return true;
-    }
-
-    internal bool TryGetPipelineState1(GraphicsDevice graphicsDevice, out RootSignature rootSignature, out ID3D12PipelineState pipelineState)
-    {
-        ID3D12Device device = graphicsDevice.device;
         CreateRootSignature();
-        var rootSignature2 = this.rootSignature1.GetRootSignature(graphicsDevice);
+        var rootSignature2 = this.rootSignature1.GetRootSignature(device);
         rootSignature = rootSignature1;
         if (computePipeline == null)
         {
@@ -76,6 +56,7 @@ public class ComputeShader : IDisposable
             switch (res.Type)
             {
                 case ShaderInputType.Texture:
+                case ShaderInputType.Structured:
                     parameters.Add(new RootParameter1(new RootDescriptorTable1(new DescriptorRange1(
                                     DescriptorRangeType.ShaderResourceView, 1, res.BindPoint, res.Space)), ShaderVisibility.All));
                     break;
@@ -102,14 +83,11 @@ public class ComputeShader : IDisposable
 
     public void Dispose()
     {
+        computePipeline?.Release();
+        computePipeline = null;
         rootSignature1.Dispose();
         rootSignature1 = null;
         reflection?.Release();
         reflection = null;
-        foreach (var shader in computeShaders)
-        {
-            shader.Value.Release();
-        }
-        computeShaders.Clear();
     }
 }

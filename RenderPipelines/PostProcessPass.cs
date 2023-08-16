@@ -27,7 +27,6 @@ public class PostProcessPass
     public DrawQuadPass postProcess = new DrawQuadPass()
     {
         shader = "PostProcessing.hlsl",
-        rs = "Css",
         renderTargets = new string[]
         {
             null

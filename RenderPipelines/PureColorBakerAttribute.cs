@@ -11,7 +11,6 @@ public class PureColorBakerAttribute : RuntimeBakeAttribute, ITexture2DBaker
     static ushort[] quad = new ushort[] { 0, 1, 2, 2, 1, 3 };
     public bool Bake(Texture2D texture, RenderWrap renderWrap, ref object tag)
     {
-        renderWrap.SetRootSignature("C");
         renderWrap.SetRenderTarget(texture, true);
         var psoDesc = new PSODesc()
         {

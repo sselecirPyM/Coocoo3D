@@ -2,7 +2,6 @@
 using Coocoo3D.Core;
 using Coocoo3D.Present;
 using Coocoo3DGraphics;
-using Coocoo3DGraphics.Management;
 using DefaultEcs;
 using System;
 using System.Collections.Generic;
@@ -18,8 +17,6 @@ public class RenderPipelineContext : IDisposable
 
     public GraphicsDevice graphicsDevice;
     public GraphicsContext graphicsContext = new();
-
-    public DX12ResourceManager DX12ResourceManager;
 
     public Wrap.GPUWriter gpuWriter = new();
 

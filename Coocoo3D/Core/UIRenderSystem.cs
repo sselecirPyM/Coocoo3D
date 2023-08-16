@@ -2,7 +2,6 @@
 using Coocoo3D.RenderPipeline.Wrap;
 using Coocoo3D.Utility;
 using Coocoo3DGraphics;
-using Coocoo3DGraphics.Management;
 using ImGuiNET;
 using System;
 using System.Buffers;
@@ -28,8 +27,6 @@ public sealed class UIRenderSystem : IDisposable
     public SwapChain swapChain;
     public MainCaches caches;
 
-    public DX12ResourceManager DX12ResourceManager;
-
     public const int uiTextureIndex = 200000000;
     public Texture2D uiTexture;
 
@@ -54,9 +51,9 @@ public sealed class UIRenderSystem : IDisposable
         Texture2D texLoading = caches.GetTextureLoaded(loadingTexturePath, graphicsContext);
         Texture2D texError = caches.GetTextureLoaded(errorTexturePath, graphicsContext);
 
-        var rs = DX12ResourceManager.GetRootSignature("Cs");
+        //var rs = DX12ResourceManager.GetRootSignature("Cs");
 
-        graphicsContext.SetRootSignature(rs);
+        //graphicsContext.SetRootSignature(rs);
 
         graphicsContext.SetRenderTargetSwapChain(swapChain, new Vector4(0, 0.3f, 0.3f, 0), true);
 

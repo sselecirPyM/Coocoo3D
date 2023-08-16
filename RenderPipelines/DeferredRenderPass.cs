@@ -20,7 +20,6 @@ public class DeferredRenderPass
     {
         shader = "ShadowMap.hlsl",
         depthStencil = "_ShadowMap",
-        rs = "CCs",
         psoDesc = new PSODesc()
         {
             blendState = BlendState.None,
@@ -46,7 +45,6 @@ public class DeferredRenderPass
             "gbuffer3",
         },
         depthStencil = null,
-        rs = "CCCssssssssss",
         psoDesc = new PSODesc()
         {
             blendState = BlendState.None,
@@ -171,7 +169,6 @@ public class DeferredRenderPass
         shader = "ForwardRender.hlsl",
         renderTargets = new string[1],
         depthStencil = null,
-        rs = "CCCssssssssss",
         psoDesc = new PSODesc()
         {
             blendState = BlendState.Alpha,

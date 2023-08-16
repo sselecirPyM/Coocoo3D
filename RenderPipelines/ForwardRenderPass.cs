@@ -18,7 +18,6 @@ public class ForwardRenderPass
 {
     public DrawQuadPass drawSkyBox = new DrawQuadPass()
     {
-        rs = "Cs",
         shader = "SkyBox.hlsl",
         renderTargets = new string[1],
         psoDesc = new PSODesc()
@@ -46,7 +45,6 @@ public class ForwardRenderPass
     {
         shader = "ShadowMap.hlsl",
         depthStencil = "_ShadowMap",
-        rs = "CCs",
         psoDesc = new PSODesc()
         {
             blendState = BlendState.None,
@@ -66,7 +64,6 @@ public class ForwardRenderPass
         shader = "ForwardRender.hlsl",
         renderTargets = new string[1],
         depthStencil = null,
-        rs = "CCCssssssssss",
         psoDesc = new PSODesc()
         {
             blendState = BlendState.None,

@@ -17,7 +17,7 @@ public sealed class GraphicsContext
     GraphicsDevice graphicsDevice;
     ID3D12GraphicsCommandList4 m_commandList;
     ID3D12GraphicsCommandList4 m_copyCommandList;
-    public RootSignature currentRootSignature;
+    internal RootSignature currentRootSignature;
     RootSignature _currentGraphicsRootSignature;
     RootSignature _currentComputeRootSignature;
 
@@ -25,7 +25,7 @@ public sealed class GraphicsContext
 
     public RTPSO currentRTPSO;
     public PSO currentPSO;
-    public PSODesc currentPSODesc;
+    //public PSODesc currentPSODesc;
     //public bool psoChange;
 
     public Dictionary<int, ulong> currentCBVs = new Dictionary<int, ulong>();
@@ -41,10 +41,11 @@ public sealed class GraphicsContext
 
     public bool SetPSO(ComputeShader computeShader)
     {
-        if (!computeShader.TryGetPipelineState1(graphicsDevice,out var rootSignature, out var pipelineState))
+        if (!computeShader.TryGetPipelineState1(graphicsDevice.device, out var rootSignature, out var pipelineState))
         {
             return false;
         }
+        m_commandList.SetComputeRootSignature(rootSignature.rootSignature);
         m_commandList.SetPipelineState(pipelineState);
         currentRootSignature = rootSignature;
         Reference(pipelineState);
@@ -54,15 +55,17 @@ public sealed class GraphicsContext
 
     public bool SetPSO(PSO pso, in PSODesc desc)
     {
-        var rootSignature = currentRootSignature.rootSignature;
-        if (!pso.TryGetPipelineState(graphicsDevice.device, rootSignature, desc, out var pipelineState))
+        if (!pso.TryGetPipelineState(graphicsDevice.device, desc, out var pipelineState, out var rootSignature))
         {
             return false;
         }
+        m_commandList.SetGraphicsRootSignature(rootSignature.rootSignature);
         m_commandList.SetPipelineState(pipelineState);
-        Reference(pipelineState);
+        currentRootSignature = rootSignature;
         currentPSO = pso;
-        currentPSODesc = desc;
+        //currentPSODesc = desc;
+        Reference(pipelineState);
+        Reference(rootSignature.rootSignature);
         //psoChange = true;
         return true;
     }
@@ -74,7 +77,7 @@ public sealed class GraphicsContext
 
         if (pso.so == null)
         {
-            if (!pso.InitializeSO(graphicsDevice))
+            if (!pso.InitializeSO(graphicsDevice.device))
                 return false;
         }
         SetRootSignature(pso.globalRootSignature);
@@ -860,7 +863,7 @@ public sealed class GraphicsContext
         Reference(texture.resource);
     }
 
-    public void SetRootSignature(RootSignature rootSignature)
+    internal void SetRootSignature(RootSignature rootSignature)
     {
         ClearState();
         this.currentRootSignature = rootSignature;

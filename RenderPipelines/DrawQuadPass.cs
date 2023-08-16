@@ -13,8 +13,6 @@ public class DrawQuadPass : Pass
 
     public PSODesc psoDesc;
 
-    public string rs;
-
     public object[][] cbvs;
 
     public bool clearRenderTarget = false;
@@ -29,7 +27,6 @@ public class DrawQuadPass : Pass
 
         AutoMapKeyword(renderHelper, _keywords, null);
 
-        renderWrap.SetRootSignature(rs);
         renderWrap.SetRenderTarget(renderTargets, depthStencil, clearRenderTarget, clearDepth);
         var desc = GetPSODesc(renderHelper, psoDesc);
         renderWrap.SetShader(shader, desc, _keywords);

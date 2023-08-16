@@ -365,14 +365,9 @@ public class RenderHelper
             }
         });
         Span<Vector3> dat0 = MemoryMarshal.Cast<byte, Vector3>(new Span<byte>(bigBuffer, 0, bigBuffer.Length / 12 * 12));
-        //graphicsContext.BeginUpdateMesh(mesh);
-        //graphicsContext.UpdateMesh(mesh, d3.Slice(0, model.vertexCount), 0);
-        //graphicsContext.UpdateMesh(mesh, d3.Slice(0, model.vertexCount), 1);
 
-        mesh.AddBuffer<Vector3>(dat0.Slice(0, model.vertexCount), 0);//for compatibility
-        mesh.AddBuffer<Vector3>(dat0.Slice(halfLength, model.vertexCount), 1);//for compatibility
-
-        //graphicsContext.EndUpdateMesh(mesh);
+        mesh.AddBuffer<Vector3>(dat0.Slice(0, model.vertexCount), 0);
+        mesh.AddBuffer<Vector3>(dat0.Slice(halfLength, model.vertexCount), 1);
     }
 
     public void DrawQuad(int instanceCount = 1)

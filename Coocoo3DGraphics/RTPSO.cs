@@ -14,11 +14,11 @@ public class RTPSO : IDisposable
     public ResourceAccessType[] shaderAccessTypes;
     public ResourceAccessType[] localShaderAccessTypes;
     public ID3D12StateObject so;
-    public RootSignature globalRootSignature;
-    public RootSignature localRootSignature;
+    internal RootSignature globalRootSignature;
+    internal RootSignature localRootSignature;
     public int localSize = 32;
 
-    internal bool InitializeSO(GraphicsDevice graphicsDevice)
+    internal bool InitializeSO(ID3D12Device5 device)
     {
         if (exports == null || exports.Length == 0)
             return false;
@@ -26,7 +26,7 @@ public class RTPSO : IDisposable
         globalRootSignature?.Dispose();
         globalRootSignature = new RootSignature();
         globalRootSignature.RayTracing(shaderAccessTypes);
-        globalRootSignature.Sign1(graphicsDevice);
+        globalRootSignature.Sign1(device);
 
         List<StateSubObject> stateSubObjects = new List<StateSubObject>();
 
@@ -45,7 +45,7 @@ public class RTPSO : IDisposable
             localRootSignature?.Dispose();
             localRootSignature = new RootSignature();
             localRootSignature.LocalRootSignature(localShaderAccessTypes);
-            localRootSignature.Sign1(graphicsDevice);
+            localRootSignature.Sign1(device);
             localSize += localShaderAccessTypes.Length * 8;
             stateSubObjects.Add(new StateSubObject(new LocalRootSignature(localRootSignature.rootSignature)));
             string[] hitGroups = new string[this.hitGroups.Length];
@@ -58,7 +58,7 @@ public class RTPSO : IDisposable
         stateSubObjects.Add(new StateSubObject(new SubObjectToExportsAssociation(stateSubObjects[stateSubObjects.Count - 1], exports)));
         stateSubObjects.Add(new StateSubObject(new RaytracingPipelineConfig(2)));
         stateSubObjects.Add(new StateSubObject(new GlobalRootSignature(globalRootSignature.rootSignature)));
-        var result = graphicsDevice.device.CreateStateObject(new StateObjectDescription(StateObjectType.RaytracingPipeline, stateSubObjects.ToArray()), out so);
+        var result = device.CreateStateObject(new StateObjectDescription(StateObjectType.RaytracingPipeline, stateSubObjects.ToArray()), out so);
         if (result.Failure)
             return false;
         return true;

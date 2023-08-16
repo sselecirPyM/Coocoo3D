@@ -13,7 +13,7 @@ public enum ResourceAccessType
     SRVTable,
     UAVTable,
 }
-public class RootSignature : IDisposable
+internal class RootSignature : IDisposable
 {
     internal ID3D12RootSignature rootSignature;
     public string Name;
@@ -23,19 +23,25 @@ public class RootSignature : IDisposable
     internal ID3D12RootSignature GetRootSignature(GraphicsDevice graphicsDevice)
     {
         if (rootSignature == null)
+            Sign1(graphicsDevice.device);
+        return rootSignature;
+    }
+    internal ID3D12RootSignature GetRootSignature(ID3D12Device graphicsDevice)
+    {
+        if (rootSignature == null)
             Sign1(graphicsDevice);
         return rootSignature;
     }
 
-    internal void Sign1(GraphicsDevice graphicsDevice)
+    internal void Sign1(ID3D12Device device)
     {
-        Sign2(graphicsDevice);
+        Sign2(device);
     }
 
-    void Sign2(GraphicsDevice graphicsDevice)
+    void Sign2(ID3D12Device device)
     {
         rootSignature?.Release();
-        rootSignature = graphicsDevice.device.CreateRootSignature<ID3D12RootSignature>(0, description1);
+        rootSignature = device.CreateRootSignature<ID3D12RootSignature>(0, description1);
     }
 
     void MakeDescs(RootSignatureFlags flags, IReadOnlyList<ResourceAccessType> descs, int registerSpace = 0)

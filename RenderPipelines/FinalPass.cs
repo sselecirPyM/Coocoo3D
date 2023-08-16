@@ -32,8 +32,6 @@ public class FinalPass
         cullMode = CullMode.None,
     };
 
-    public string rs = "CCCsssssssssss";
-
     public object[][] cbvs;
 
     public bool clearRenderTarget = true;
@@ -66,7 +64,6 @@ public class FinalPass
 
         //AutoMapKeyword(renderHelper, _keywords, null);
 
-        renderWrap.SetRootSignature(rs);
         renderWrap.SetRenderTarget(renderTargets, null, clearRenderTarget, clearDepth);
         var desc = GetPSODesc(renderHelper, psoDesc);
         renderWrap.SetShader(shader, desc, _keywords);

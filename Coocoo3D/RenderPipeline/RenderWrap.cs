@@ -158,8 +158,6 @@ public class RenderWrap
         return null;
     }
 
-    RootSignature rootSignature;
-
     public void SetShader(string path, PSODesc desc, IReadOnlyList<(string, string)> keywords = null)
     {
         var cache = rpc.mainCaches;
@@ -281,12 +279,6 @@ public class RenderWrap
         graphicsContext.SetCBVRSlot(cBuffer, slot);
     }
 
-    public void SetRootSignature(string rs)
-    {
-        rootSignature = rpc.DX12ResourceManager.GetRootSignature(rs);
-        graphicsContext.SetRootSignature(rootSignature);
-    }
-
     public void Dispatch(string computeShader, IReadOnlyList<(string, string)> keywords, int x = 1, int y = 1, int z = 1)
     {
         var shader = rpc.mainCaches.GetComputeShaderWithKeywords(keywords, Path.GetFullPath(computeShader, BasePath));
@@ -299,11 +291,6 @@ public class RenderWrap
         {
             Console.Write("Dispatch faild. " + computeShader);
         }
-    }
-
-    public void AfterRender()
-    {
-        rootSignature = null;
     }
 
     public GPUWriter Writer { get => rpc.gpuWriter; }

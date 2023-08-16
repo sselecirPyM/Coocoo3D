@@ -59,7 +59,6 @@ public class DrawParticlePass1 : Pass
 
         AutoMapKeyword(renderHelper, _keywords, null);
 
-        renderWrap.SetRootSignature(rs);
         renderWrap.SetRenderTarget(renderTargets, depthStencil, clearRenderTarget, clearDepth);
 
         foreach (var particle in Particles)

@@ -1,7 +1,6 @@
 ﻿using Coocoo3D.RenderPipeline;
 using Coocoo3D.Utility;
 using Coocoo3DGraphics;
-using Coocoo3DGraphics.Management;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -14,7 +13,6 @@ public class RenderSystem
     public GraphicsContext graphicsContext;
     public RenderPipelineContext renderPipelineContext;
     public MainCaches mainCaches;
-    public DX12ResourceManager DX12ResourceManager;
 
     public List<Type> RenderPipelineTypes = new();
 
@@ -98,7 +96,6 @@ public class RenderSystem
 
             renderPipelineView.renderPipeline.Render();
             renderPipelineView.renderPipeline.AfterRender();
-            renderPipelineView.renderWrap.AfterRender();
         }
         channels.Clear();
     }

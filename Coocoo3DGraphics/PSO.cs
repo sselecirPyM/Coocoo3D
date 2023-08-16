@@ -7,37 +7,6 @@ using Vortice.DXGI;
 
 namespace Coocoo3DGraphics;
 
-struct _PSODesc1 : IEquatable<_PSODesc1>
-{
-    public PSODesc desc;
-    public ID3D12RootSignature rootSignature;
-
-    public override bool Equals(object obj)
-    {
-        return obj is _PSODesc1 desc && Equals(desc);
-    }
-
-    public bool Equals(_PSODesc1 other)
-    {
-        return desc.Equals(other.desc) &&
-               EqualityComparer<ID3D12RootSignature>.Default.Equals(rootSignature, other.rootSignature);
-    }
-
-    public override int GetHashCode()
-    {
-        return HashCode.Combine(desc, rootSignature);
-    }
-
-    public static bool operator ==(_PSODesc1 left, _PSODesc1 right)
-    {
-        return left.Equals(right);
-    }
-
-    public static bool operator !=(_PSODesc1 left, _PSODesc1 right)
-    {
-        return !(left == right);
-    }
-}
 public enum BlendState
 {
     None = 0,
@@ -158,7 +127,10 @@ public class PSO : IDisposable
     public ID3D12ShaderReflection gsReflection;
     public ID3D12ShaderReflection psReflection;
 
-    internal List<(_PSODesc1, ID3D12PipelineState)> m_pipelineStates = new List<(_PSODesc1, ID3D12PipelineState)>();
+
+    RootSignature rootSignature1;
+
+    internal List<(PSODesc, ID3D12PipelineState)> m_pipelineStates = new List<(PSODesc, ID3D12PipelineState)>();
 
     public PSO()
     {
@@ -176,15 +148,16 @@ public class PSO : IDisposable
 
     }
 
-    internal bool TryGetPipelineState(ID3D12Device device, ID3D12RootSignature rootSignature, PSODesc psoDesc, out ID3D12PipelineState pipelineState)
+    internal bool TryGetPipelineState(ID3D12Device device, PSODesc psoDesc, out ID3D12PipelineState pipelineState, out RootSignature rs)
     {
-        _PSODesc1 _psoDesc1;
-        _psoDesc1.desc = psoDesc;
-        _psoDesc1.rootSignature = rootSignature;
+        CreateRootSignature();
+        rs = this.rootSignature1;
+
+
 
         for (int i = 0; i < m_pipelineStates.Count; i++)
         {
-            if (m_pipelineStates[i].Item1 == _psoDesc1)
+            if (m_pipelineStates[i].Item1 == psoDesc)
             {
                 pipelineState = m_pipelineStates[i].Item2;
                 return true;
@@ -200,7 +173,7 @@ public class PSO : IDisposable
         else if (psoDesc.inputLayout == InputLayout.Imgui)
             desc.InputLayout = inputLayoutImGui;
 
-        desc.RootSignature = rootSignature;
+        desc.RootSignature = this.rootSignature1.GetRootSignature(device);
         if (vertexShader != null)
             desc.VertexShader = vertexShader;
         if (geometryShader != null)
@@ -241,7 +214,7 @@ public class PSO : IDisposable
             pipelineState = null;
             return false;
         }
-        m_pipelineStates.Add((_psoDesc1, pipelineState1));
+        m_pipelineStates.Add((psoDesc, pipelineState1));
         pipelineState = pipelineState1;
         return true;
     }
@@ -318,8 +291,107 @@ public class PSO : IDisposable
         return descs;
     }
 
+
+    void CreateRootSignature()
+    {
+        if (rootSignature1 != null)
+            return;
+
+        StaticSamplerDescription[] samplerDescription = new StaticSamplerDescription[4];
+        samplerDescription[0] = new StaticSamplerDescription()
+        {
+            AddressU = TextureAddressMode.Clamp,
+            AddressV = TextureAddressMode.Clamp,
+            AddressW = TextureAddressMode.Clamp,
+            BorderColor = StaticBorderColor.OpaqueBlack,
+            ComparisonFunction = ComparisonFunction.Never,
+            Filter = Filter.MinMagMipLinear,
+            MipLODBias = 0,
+            MaxAnisotropy = 0,
+            MinLOD = 0,
+            MaxLOD = float.MaxValue,
+            ShaderVisibility = ShaderVisibility.All,
+            RegisterSpace = 0,
+            ShaderRegister = 0,
+        };
+        samplerDescription[1] = samplerDescription[0] with
+        {
+            ShaderRegister = 1,
+            AddressU = TextureAddressMode.Wrap,
+            AddressV = TextureAddressMode.Wrap,
+            AddressW = TextureAddressMode.Wrap,
+            MaxAnisotropy = 16,
+            Filter = Filter.Anisotropic
+        };
+
+        samplerDescription[2] = samplerDescription[0] with
+        {
+            ShaderRegister = 2,
+            ComparisonFunction = ComparisonFunction.Less,
+            Filter = Filter.ComparisonMinMagMipLinear,
+        };
+        samplerDescription[3] = samplerDescription[0] with
+        {
+            ShaderRegister = 3,
+            Filter = Filter.MinMagMipPoint
+        };
+
+
+        var parameters = new List<RootParameter1>();
+        //var samplers = new List<StaticSamplerDescription>();
+        var bindings = new List<InputBindingDescription>();
+        if (vsReflection != null)
+            bindings.AddRange(vsReflection.BoundResources);
+        if (gsReflection != null)
+            bindings.AddRange(gsReflection.BoundResources);
+        if (psReflection != null)
+            bindings.AddRange(psReflection.BoundResources);
+        HashSet<int> srvVisited = new HashSet<int>();
+        HashSet<int> cbvVisited = new HashSet<int>();
+        HashSet<int> uavVisited = new HashSet<int>();
+
+        foreach (var res in bindings)
+        {
+            switch (res.Type)
+            {
+                case ShaderInputType.Texture:
+                case ShaderInputType.Structured:
+                    if (!srvVisited.Add(res.BindPoint))
+                        continue;
+                    parameters.Add(new RootParameter1(new RootDescriptorTable1(new DescriptorRange1(
+                                    DescriptorRangeType.ShaderResourceView, 1, res.BindPoint, res.Space)), ShaderVisibility.All));
+                    break;
+                case ShaderInputType.ConstantBuffer:
+                    if (!cbvVisited.Add(res.BindPoint))
+                        continue;
+                    parameters.Add(new RootParameter1(RootParameterType.ConstantBufferView, new RootDescriptor1(res.BindPoint, res.Space), ShaderVisibility.All));
+                    break;
+                case ShaderInputType.Sampler:
+                    //samplers.Add(new StaticSamplerDescription(Filter.MinMagMipLinear, TextureAddressMode.Wrap, TextureAddressMode.Wrap, TextureAddressMode.Wrap,
+                    //        0, 16, ComparisonFunction.Never, StaticBorderColor.TransparentBlack, float.MinValue, float.MaxValue, res.BindPoint, 0));
+                    break;
+                case ShaderInputType.UnorderedAccessViewRWTyped:
+                case ShaderInputType.UnorderedAccessViewRWStructured:
+                    if (!uavVisited.Add(res.BindPoint))
+                        continue;
+                    parameters.Add(new RootParameter1(new RootDescriptorTable1(new DescriptorRange1(
+                            DescriptorRangeType.UnorderedAccessView, 1, res.BindPoint, res.Space)), ShaderVisibility.All));
+                    break;
+                default:
+                    break;
+            }
+        }
+        //var rootSignatureDescription1 = new RootSignatureDescription1(RootSignatureFlags.None, parameters.ToArray(), samplers.ToArray());
+        var rootSignatureDescription1 = new RootSignatureDescription1(RootSignatureFlags.AllowInputAssemblerInputLayout, parameters.ToArray(), samplerDescription);
+        rootSignature1 = new RootSignature();
+        rootSignature1.FromDesc(rootSignatureDescription1);
+    }
+
     public void Dispose()
     {
+        rootSignature1.Dispose();
+        rootSignature1 = null;
+
         vsReflection?.Release();
         vsReflection = null;
         gsReflection?.Release();

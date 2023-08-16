@@ -33,7 +33,6 @@ public class DrawDecalPass1 : Pass
     public override void Execute(RenderHelper renderHelper)
     {
         RenderWrap renderWrap = renderHelper.renderWrap;
-        renderWrap.SetRootSignature(rs);
         renderWrap.SetRenderTarget(renderTargets, depthStencil, clearRenderTarget, clearDepth);
         if (scissorViewport != null)
         {

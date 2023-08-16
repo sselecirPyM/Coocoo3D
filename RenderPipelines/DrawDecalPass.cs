@@ -20,8 +20,6 @@ public class DrawDecalPass : Pass
         cullMode = CullMode.Front,
     };
 
-    string rs = "CCCssss";
-
     public bool clearRenderTarget = false;
     public bool clearDepth = false;
 
@@ -38,7 +36,6 @@ public class DrawDecalPass : Pass
     public override void Execute(RenderHelper renderHelper)
     {
         RenderWrap renderWrap = renderHelper.renderWrap;
-        renderWrap.SetRootSignature(rs);
         renderWrap.SetRenderTarget(renderTargets, depthStencil, clearRenderTarget, clearDepth);
         if (scissorViewport != null)
         {
