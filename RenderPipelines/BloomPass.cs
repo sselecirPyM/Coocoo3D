@@ -6,8 +6,6 @@ public class BloomPass
 {
     string shader = "Bloom.hlsl";
 
-    string rs = "Csu";
-
     public object[][] cbvs;
 
     public string intermediaTexture;
@@ -28,7 +26,6 @@ public class BloomPass
         if (cbvs == null || cbvs.Length < 1 || string.IsNullOrEmpty(input))
             return;
         var renderWrap = renderHelper.renderWrap;
-        renderWrap.SetRootSignature(rs);
 
         var inputTexture = renderWrap.GetRenderTexture2D(input);
         var intermedia1 = renderWrap.GetRenderTexture2D(intermediaTexture);

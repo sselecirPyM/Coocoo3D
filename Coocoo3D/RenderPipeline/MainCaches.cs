@@ -384,7 +384,8 @@ public class MainCaches : IDisposable
         return GetT(ComputeShaders, path, file =>
         {
             ComputeShader computeShader = new ComputeShader();
-            computeShader.Initialize(LoadShader(DxcShaderStage.Compute, File.ReadAllText(path), "csmain", path));
+            var shaderCode = LoadShader(DxcShaderStage.Compute, File.ReadAllText(path), "csmain", path, null, out var reflection);
+            computeShader.Initialize(shaderCode, reflection);
             return computeShader;
         });
     }
@@ -422,7 +423,8 @@ public class MainCaches : IDisposable
                 }
             }
             ComputeShader computeShader = new ComputeShader();
-            computeShader.Initialize(LoadShader(DxcShaderStage.Compute, File.ReadAllText(path), "csmain", path, dxcDefines));
+            var shaderCode = LoadShader(DxcShaderStage.Compute, File.ReadAllText(path), "csmain", path, dxcDefines, out var reflection);
+            computeShader.Initialize(shaderCode, reflection);
             return computeShader;
         });
     }

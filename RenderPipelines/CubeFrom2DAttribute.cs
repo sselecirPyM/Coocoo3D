@@ -11,7 +11,7 @@ internal class CubeFrom2DAttribute : RuntimeBakeAttribute, ITexture2DBaker
         var tex = renderWrap.GetTex2D(Source);
         if (tex == null || tex.Status != GraphicsObjectStatus.loaded)
             return false;
-        renderWrap.SetRootSignature("Csu");
+
         int width = texture.width;
         int height = texture.height;
         var writer = renderWrap.Writer;

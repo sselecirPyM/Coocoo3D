@@ -15,7 +15,7 @@ public class HiZPass
         var outputTexture = renderWrap.GetTex2D(output);
         int width = inputTexture.width;
         int height = outputTexture.height;
-        renderWrap.SetRootSignature("Csu");
+
         renderWrap.SetSRV(inputTexture, 0);
         renderWrap.SetUAV(outputTexture, 0);
         renderWrap.Writer.Write(width);

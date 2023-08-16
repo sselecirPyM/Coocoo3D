@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using Vortice.Direct3D12;
 
 namespace Coocoo3DGraphics;
@@ -16,14 +15,10 @@ public enum ResourceAccessType
 }
 public class RootSignature : IDisposable
 {
-    public Dictionary<int, int> cbv = new Dictionary<int, int>();
-    public Dictionary<int, int> srv = new Dictionary<int, int>();
-    public Dictionary<int, int> uav = new Dictionary<int, int>();
     internal ID3D12RootSignature rootSignature;
     public string Name;
 
-    public RootSignatureFlags flags = RootSignatureFlags.None;
-    public ResourceAccessType[] descs;
+    internal RootSignatureDescription1 description1;
 
     internal ID3D12RootSignature GetRootSignature(GraphicsDevice graphicsDevice)
     {
@@ -32,9 +27,22 @@ public class RootSignature : IDisposable
         return rootSignature;
     }
 
-    internal void Sign1(GraphicsDevice graphicsDevice, int registerSpace = 0)
+    internal void Sign1(GraphicsDevice graphicsDevice)
     {
-        //static samplers
+        Sign2(graphicsDevice);
+    }
+
+    void Sign2(GraphicsDevice graphicsDevice)
+    {
+        rootSignature?.Release();
+        rootSignature = graphicsDevice.device.CreateRootSignature<ID3D12RootSignature>(0, description1);
+    }
+
+    void MakeDescs(RootSignatureFlags flags, IReadOnlyList<ResourceAccessType> descs, int registerSpace = 0)
+    {
+        Dictionary<int, int> cbv = new Dictionary<int, int>();
+        Dictionary<int, int> srv = new Dictionary<int, int>();
+        Dictionary<int, int> uav = new Dictionary<int, int>();
         StaticSamplerDescription[] samplerDescription = null;
         if (flags != RootSignatureFlags.LocalRootSignature)
         {
@@ -78,7 +86,7 @@ public class RootSignature : IDisposable
             };
         }
 
-        RootParameter1[] rootParameters = new RootParameter1[descs.Length];
+        RootParameter1[] rootParameters = new RootParameter1[descs.Count];
 
         int cbvCount = 0;
         int srvCount = 0;
@@ -87,7 +95,7 @@ public class RootSignature : IDisposable
         srv.Clear();
         uav.Clear();
 
-        for (int i = 0; i < descs.Length; i++)
+        for (int i = 0; i < descs.Count; i++)
         {
             ResourceAccessType t = descs[i];
             switch (t)
@@ -125,41 +133,29 @@ public class RootSignature : IDisposable
             }
         }
 
-        Sign2(graphicsDevice, samplerDescription, rootParameters);
-    }
-
-    internal void Sign2(GraphicsDevice graphicsDevice, StaticSamplerDescription[] staticSamplerDescriptions, RootParameter1[] rootParameters)
-    {
-        RootSignatureDescription1 rootSignatureDescription = new RootSignatureDescription1();
-        rootSignatureDescription.StaticSamplers = staticSamplerDescriptions;
-        rootSignatureDescription.Flags = flags;
-        rootSignatureDescription.Parameters = rootParameters;
-
-        rootSignature?.Release();
-        rootSignature = graphicsDevice.device.CreateRootSignature<ID3D12RootSignature>(0, rootSignatureDescription);
+        description1 = new RootSignatureDescription1(flags, rootParameters, samplerDescription);
     }
 
     public void Load(IReadOnlyList<ResourceAccessType> Descs)
     {
-        descs = Descs.ToArray();
-        flags = RootSignatureFlags.AllowInputAssemblerInputLayout;
+        var flags = RootSignatureFlags.AllowInputAssemblerInputLayout;
+        MakeDescs(flags, Descs);
     }
 
-    public void LoadCompute(IReadOnlyList<ResourceAccessType> Descs)
+    internal void LocalRootSignature(IReadOnlyList<ResourceAccessType> Descs)
     {
-        descs = Descs.ToArray();
-        flags = RootSignatureFlags.AllowInputAssemblerInputLayout;
+        var flags = RootSignatureFlags.LocalRootSignature;
+        MakeDescs(flags, Descs, 1);
     }
 
-    internal void ReloadLocalRootSignature(IReadOnlyList<ResourceAccessType> Descs)
+    internal void RayTracing(IReadOnlyList<ResourceAccessType> Descs)
     {
-        descs = Descs.ToArray();
-        flags = RootSignatureFlags.LocalRootSignature;
+        MakeDescs(RootSignatureFlags.None, Descs);
     }
 
-    internal void ReloadRayTracing(IReadOnlyList<ResourceAccessType> Descs)
+    internal void FromDesc(RootSignatureDescription1 description)
     {
-        descs = Descs.ToArray();
+        this.description1 = description;
     }
 
     public void Dispose()

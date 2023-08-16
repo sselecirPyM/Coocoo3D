@@ -41,13 +41,14 @@ public sealed class GraphicsContext
 
     public bool SetPSO(ComputeShader computeShader)
     {
-        var rootSignature = currentRootSignature.rootSignature;
-        if (!computeShader.TryGetPipelineState(graphicsDevice.device, rootSignature, out var pipelineState))
+        if (!computeShader.TryGetPipelineState1(graphicsDevice,out var rootSignature, out var pipelineState))
         {
             return false;
         }
         m_commandList.SetPipelineState(pipelineState);
+        currentRootSignature = rootSignature;
         Reference(pipelineState);
+        Reference(rootSignature.rootSignature);
         return true;
     }
 
@@ -904,47 +905,44 @@ public sealed class GraphicsContext
             _currentGraphicsRootSignature = null;
             m_commandList.SetComputeRootSignature(currentRootSignature.rootSignature);
         }
-        int cbvOffset = 0;
-        int srvOffset = 0;
-        int uavOffset = 0;
-        for (int i = 0; i < currentRootSignature.descs.Length; i++)
+        var description1 = currentRootSignature.description1.Parameters;
+        for (int i = 0; i < description1.Length; i++)
         {
-            ResourceAccessType d = currentRootSignature.descs[i];
-            if (d == ResourceAccessType.CBV)
+            var d = description1[i];
+            if (d.ParameterType == RootParameterType.ConstantBufferView)
             {
-                if (currentCBVs.TryGetValue(cbvOffset, out ulong addr))
+                if (currentCBVs.TryGetValue(d.Descriptor.ShaderRegister, out ulong addr))
                     m_commandList.SetComputeRootConstantBufferView(i, addr);
-                cbvOffset++;
             }
-            else if (d == ResourceAccessType.CBVTable)
+            else if (d.ParameterType == RootParameterType.ShaderResourceView)
             {
-                if (currentCBVs.TryGetValue(cbvOffset, out ulong addr))
-                    m_commandList.SetComputeRootDescriptorTable(i, new GpuDescriptorHandle() { Ptr = addr });
-                cbvOffset++;
-            }
-            else if (d == ResourceAccessType.SRV)
-            {
-                if (currentSRVs.TryGetValue(srvOffset, out ulong addr))
+                if (currentSRVs.TryGetValue(d.Descriptor.ShaderRegister, out ulong addr))
                     m_commandList.SetComputeRootShaderResourceView(i, addr);
-                srvOffset++;
             }
-            else if (d == ResourceAccessType.SRVTable)
+            else if (d.ParameterType == RootParameterType.UnorderedAccessView)
             {
-                if (currentSRVs.TryGetValue(srvOffset, out ulong addr))
-                    m_commandList.SetComputeRootDescriptorTable(i, new GpuDescriptorHandle() { Ptr = addr });
-                srvOffset++;
-            }
-            else if (d == ResourceAccessType.UAV)
-            {
-                if (currentUAVs.TryGetValue(uavOffset, out ulong addr))
+                if (currentUAVs.TryGetValue(d.Descriptor.ShaderRegister, out ulong addr))
                     m_commandList.SetComputeRootUnorderedAccessView(i, addr);
-                uavOffset++;
             }
-            else if (d == ResourceAccessType.UAVTable)
+            else
             {
-                if (currentUAVs.TryGetValue(uavOffset, out ulong addr))
-                    m_commandList.SetComputeRootDescriptorTable(i, new GpuDescriptorHandle() { Ptr = addr });
-                uavOffset++;
+                var rangeType = d.DescriptorTable.Ranges[0].RangeType;
+                int register = d.DescriptorTable.Ranges[0].BaseShaderRegister;
+                if (rangeType == DescriptorRangeType.ConstantBufferView)
+                {
+                    if (currentCBVs.TryGetValue(register, out ulong addr))
+                        m_commandList.SetComputeRootDescriptorTable(i, new GpuDescriptorHandle() { Ptr = addr });
+                }
+                else if (rangeType == DescriptorRangeType.ShaderResourceView)
+                {
+                    if (currentSRVs.TryGetValue(register, out ulong addr))
+                        m_commandList.SetComputeRootDescriptorTable(i, new GpuDescriptorHandle() { Ptr = addr });
+                }
+                else if (rangeType == DescriptorRangeType.UnorderedAccessView)
+                {
+                    if (currentUAVs.TryGetValue(register, out ulong addr))
+                        m_commandList.SetComputeRootDescriptorTable(i, new GpuDescriptorHandle() { Ptr = addr });
+                }
             }
         }
     }
@@ -957,49 +955,49 @@ public sealed class GraphicsContext
             _currentComputeRootSignature = null;
             m_commandList.SetGraphicsRootSignature(currentRootSignature.rootSignature);
         }
-        int cbvOffset = 0;
-        int srvOffset = 0;
-        int uavOffset = 0;
-        for (int i = 0; i < currentRootSignature.descs.Length; i++)
+
+
+        var description1 = currentRootSignature.description1.Parameters;
+        for (int i = 0; i < description1.Length; i++)
         {
-            ResourceAccessType d = currentRootSignature.descs[i];
-            if (d == ResourceAccessType.CBV)
+            var d = description1[i];
+            if (d.ParameterType == RootParameterType.ConstantBufferView)
             {
-                if (currentCBVs.TryGetValue(cbvOffset, out ulong addr))
+                if (currentCBVs.TryGetValue(d.Descriptor.ShaderRegister, out ulong addr))
                     m_commandList.SetGraphicsRootConstantBufferView(i, addr);
-                cbvOffset++;
             }
-            else if (d == ResourceAccessType.CBVTable)
+            else if (d.ParameterType == RootParameterType.ShaderResourceView)
             {
-                if (currentCBVs.TryGetValue(cbvOffset, out ulong addr))
-                    m_commandList.SetGraphicsRootDescriptorTable(i, new GpuDescriptorHandle() { Ptr = addr });
-                cbvOffset++;
-            }
-            else if (d == ResourceAccessType.SRV)
-            {
-                if (currentSRVs.TryGetValue(srvOffset, out ulong addr))
+                if (currentSRVs.TryGetValue(d.Descriptor.ShaderRegister, out ulong addr))
                     m_commandList.SetGraphicsRootShaderResourceView(i, addr);
-                srvOffset++;
             }
-            else if (d == ResourceAccessType.SRVTable)
+            else if (d.ParameterType == RootParameterType.UnorderedAccessView)
             {
-                if (currentSRVs.TryGetValue(srvOffset, out ulong addr))
-                    m_commandList.SetGraphicsRootDescriptorTable(i, new GpuDescriptorHandle() { Ptr = addr });
-                srvOffset++;
-            }
-            else if (d == ResourceAccessType.UAV)
-            {
-                if (currentUAVs.TryGetValue(uavOffset, out ulong addr))
+                if (currentUAVs.TryGetValue(d.Descriptor.ShaderRegister, out ulong addr))
                     m_commandList.SetGraphicsRootUnorderedAccessView(i, addr);
-                uavOffset++;
             }
-            else if (d == ResourceAccessType.UAVTable)
+            else
             {
-                if (currentUAVs.TryGetValue(uavOffset, out ulong addr))
-                    m_commandList.SetGraphicsRootDescriptorTable(i, new GpuDescriptorHandle() { Ptr = addr });
-                uavOffset++;
+                var rangeType = d.DescriptorTable.Ranges[0].RangeType;
+                int register = d.DescriptorTable.Ranges[0].BaseShaderRegister;
+                if (rangeType == DescriptorRangeType.ConstantBufferView)
+                {
+                    if (currentCBVs.TryGetValue(register, out ulong addr))
+                        m_commandList.SetGraphicsRootDescriptorTable(i, new GpuDescriptorHandle() { Ptr = addr });
+                }
+                else if (rangeType == DescriptorRangeType.ShaderResourceView)
+                {
+                    if (currentSRVs.TryGetValue(register, out ulong addr))
+                        m_commandList.SetGraphicsRootDescriptorTable(i, new GpuDescriptorHandle() { Ptr = addr });
+                }
+                else if (rangeType == DescriptorRangeType.UnorderedAccessView)
+                {
+                    if (currentUAVs.TryGetValue(register, out ulong addr))
+                        m_commandList.SetGraphicsRootDescriptorTable(i, new GpuDescriptorHandle() { Ptr = addr });
+                }
             }
         }
+
         //if (psoChange)
         //{
         //    psoChange = false;

@@ -51,8 +51,6 @@ public enum InputLayout
     //NoInput = 1,
     //skinned = 2,
     Imgui = 3,
-    //Particle = 4,
-    Other = 5,
 };
 
 public enum CullMode
@@ -201,10 +199,6 @@ public class PSO : IDisposable
         }
         else if (psoDesc.inputLayout == InputLayout.Imgui)
             desc.InputLayout = inputLayoutImGui;
-        else if (psoDesc.inputLayout == InputLayout.Other)
-        {
-            desc.InputLayout = GetInputElementDescriptions(vsReflection);
-        }
 
         desc.RootSignature = rootSignature;
         if (vertexShader != null)

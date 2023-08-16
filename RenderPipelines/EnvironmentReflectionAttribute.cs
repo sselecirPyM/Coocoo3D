@@ -19,7 +19,6 @@ public class EnvironmentReflectionAttribute : RuntimeBakeAttribute, ITexture2DBa
         else
             currentQuality = 0;
 
-        renderWrap.SetRootSignature("Csu");
         int width = texture.width;
         int height = texture.height;
         var writer = renderWrap.Writer;

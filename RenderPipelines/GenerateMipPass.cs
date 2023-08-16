@@ -6,8 +6,6 @@ public class GenerateMipPass
 {
     string shader = "GenerateMipMap.hlsl";
 
-    string rs = "Csu";
-
     public string input;
 
     public string output;
@@ -19,7 +17,6 @@ public class GenerateMipPass
         var texOutput = renderWrap.GetRenderTexture2D(output);
         int width = texInput.width;
         int height = texInput.height;
-        renderWrap.SetRootSignature(rs);
 
 
         renderWrap.SetSRV(texInput, 0);

@@ -55,7 +55,7 @@ public class TAAPass
     {
         cbv[8] = TAAFactor;
         var renderWrap = renderHelper.renderWrap;
-        renderWrap.SetRootSignature("Csssu");
+
         keywords.Clear();
         keywords.Add(("ENABLE_TAA", "1"));
         if (DebugRenderType == DebugRenderType.TAA)
