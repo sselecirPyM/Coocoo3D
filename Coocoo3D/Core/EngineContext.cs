@@ -8,6 +8,8 @@ public class EngineContext : IDisposable
     public List<object> systems = new();
     public Dictionary<Type, object> autoFills = new();
 
+    public List<Action> syncCalls = new();
+
     public EngineContext()
     {
         autoFills.Add(typeof(EngineContext), this);
@@ -62,6 +64,27 @@ public class EngineContext : IDisposable
             FillProperties(system);
             InitializeObject(system);
         }
+    }
+
+    public void SyncCall(Action action)
+    {
+        syncCalls.Add(action);
+    }
+
+    public void SyncCallStage()
+    {
+        foreach (var action in syncCalls)
+        {
+            try
+            {
+                action();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+            }
+        }
+        syncCalls.Clear();
     }
 
     public void Dispose()

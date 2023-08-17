@@ -32,6 +32,10 @@ public sealed class GraphicsContext
     public Dictionary<int, ulong> currentSRVs = new Dictionary<int, ulong>();
     public Dictionary<int, ulong> currentUAVs = new Dictionary<int, ulong>();
 
+    public Dictionary<string, VertexBufferView> currentMesh = new Dictionary<string, VertexBufferView>();
+
+    bool meshChanged;
+
     public int TriangleCount { get; private set; }
 
     public void Initialize(GraphicsDevice device)
@@ -88,6 +92,7 @@ public sealed class GraphicsContext
 
     void SetRTTopAccelerationStruct(RTTopLevelAcclerationStruct accelerationStruct)
     {
+        string POSITION = "POSITION0";
         if (accelerationStruct.initialized)
             return;
         accelerationStruct.initialized = true;
@@ -107,10 +112,10 @@ public sealed class GraphicsContext
                 continue;
 
             ulong pos;
-            if (meshOverride != null && meshOverride.vtBuffers.TryGetValue(0, out var v0))
+            if (meshOverride != null && meshOverride.vtBuffers.TryGetValue(POSITION, out var v0))
                 pos = v0.vertexBufferView.BufferLocation + (ulong)btas.vertexStart * 12;
             else
-                pos = mesh.vtBuffers[0].vertexBufferView.BufferLocation + (ulong)btas.vertexStart * 12;
+                pos = mesh.vtBuffers[POSITION].vertexBufferView.BufferLocation + (ulong)btas.vertexStart * 12;
             var inputs = new BuildRaytracingAccelerationStructureInputs();
             inputs.Type = RaytracingAccelerationStructureType.BottomLevel;
             inputs.Layout = ElementsLayout.Array;
@@ -124,7 +129,7 @@ public sealed class GraphicsContext
                 Format.R32_UInt,
                 btas.indexCount)),
             };
-            Reference(mesh.vtBuffers[0].vertex);
+            Reference(mesh.vtBuffers[POSITION].vertex);
             Reference(mesh.indexBuffer);
             inputs.DescriptorsCount = 1;
             var info = graphicsDevice.device.GetRaytracingAccelerationStructurePrebuildInfo(inputs);
@@ -198,7 +203,7 @@ public sealed class GraphicsContext
             RayGenerationShaderRecord = new GpuVirtualAddressRange(gpuaddr, (ulong)length1)
         };
         writer.Seek(0, SeekOrigin.Begin);
-
+        string[] nameIndex = new string[] { "POSITION0", "NORMAL0", "TEXCOORD0" };
         foreach (var inst in call.tpas.instances)
         {
             if (inst.hitGroupName != null)
@@ -211,12 +216,15 @@ public sealed class GraphicsContext
                 int vertexStart = inst.accelerationStruct.vertexStart;
                 for (int i = 0; i < 3; i++)
                 {
-                    if (meshOverride != null && meshOverride.vtBuffers.TryGetValue(i, out var meshX1))
+                    string name = nameIndex[i];
+                    if (meshOverride != null && meshOverride.vtBuffers.TryGetValue(name, out var meshX1))
                     {
                         writer.Write(meshX1.vertexBufferView.BufferLocation + (ulong)(meshX1.vertexBufferView.StrideInBytes * vertexStart));
                     }
                     else
-                        writer.Write(mesh.vtBuffers[i].vertexBufferView.BufferLocation + (ulong)(mesh.vtBuffers[i].vertexBufferView.StrideInBytes * vertexStart));
+                    {
+                        writer.Write(mesh.vtBuffers[name].vertexBufferView.BufferLocation + (ulong)(mesh.vtBuffers[name].vertexBufferView.StrideInBytes * vertexStart));
+                    }
                 }
 
                 WriteLocalHandles(inst, currentRTPSO, writer);
@@ -504,7 +512,7 @@ public sealed class GraphicsContext
         }
     }
 
-    public void UpdateMeshOneFrame<T>(Mesh mesh, ReadOnlySpan<T> data, int slot) where T : unmanaged
+    public void UpdateMeshOneFrame<T>(Mesh mesh, ReadOnlySpan<T> data, string slot) where T : unmanaged
     {
         int size1 = Marshal.SizeOf<T>();
         int sizeInBytes = data.Length * size1;
@@ -627,13 +635,22 @@ public sealed class GraphicsContext
         buffer.bufferReadBack.Name = "texture readback";
     }
 
+    void ClearMeshState()
+    {
+        currentMesh.Clear();
+        meshChanged = true;
+    }
+
     public void SetMesh(Mesh mesh)
     {
+        ClearMeshState();
         m_commandList.IASetPrimitiveTopology(PrimitiveTopology.TriangleList);
         foreach (var vtBuf in mesh.vtBuffers)
         {
-            m_commandList.IASetVertexBuffers(vtBuf.Key, vtBuf.Value.vertexBufferView);
-            Reference(vtBuf.Value.vertex);
+            currentMesh[vtBuf.Key] = vtBuf.Value.vertexBufferView;
+            //m_commandList.IASetVertexBuffers(vtBuf.Key, vtBuf.Value.vertexBufferView);
+            if (vtBuf.Value.vertex != null)
+                Reference(vtBuf.Value.vertex);
         }
         m_commandList.IASetIndexBuffer(mesh.indexBufferView);
         Reference(mesh.indexBuffer);
@@ -641,18 +658,20 @@ public sealed class GraphicsContext
 
     public void SetMesh(Mesh mesh, Mesh meshOverride)
     {
+        ClearMeshState();
         m_commandList.IASetPrimitiveTopology(PrimitiveTopology.TriangleList);
         foreach (var vtBuf in mesh.vtBuffers)
         {
             if (!meshOverride.vtBuffers.ContainsKey(vtBuf.Key))
             {
-                m_commandList.IASetVertexBuffers(vtBuf.Key, vtBuf.Value.vertexBufferView);
-                Reference(vtBuf.Value.vertex);
+                currentMesh[vtBuf.Key] = vtBuf.Value.vertexBufferView;
+                if (vtBuf.Value.vertex != null)
+                    Reference(vtBuf.Value.vertex);
             }
         }
         foreach (var vtBuf in meshOverride.vtBuffers)
         {
-            m_commandList.IASetVertexBuffers(vtBuf.Key, vtBuf.Value.vertexBufferView);
+            currentMesh[vtBuf.Key] = vtBuf.Value.vertexBufferView;
             if (vtBuf.Value.vertex != null)
                 Reference(vtBuf.Value.vertex);
         }
@@ -670,6 +689,7 @@ public sealed class GraphicsContext
 
     public void SetMesh(ReadOnlySpan<byte> vertexData, ReadOnlySpan<byte> indexData, int vertexCount, int indexCount)
     {
+        ClearMeshState();
         m_commandList.IASetPrimitiveTopology(PrimitiveTopology.TriangleList);
 
         if (vertexData != null)
@@ -744,6 +764,7 @@ public sealed class GraphicsContext
 
     public void ClearState()
     {
+        ClearMeshState();
         currentPSO = null;
         currentRTPSO = null;
         _currentGraphicsRootSignature = null;
@@ -958,7 +979,18 @@ public sealed class GraphicsContext
             _currentComputeRootSignature = null;
             m_commandList.SetGraphicsRootSignature(currentRootSignature.rootSignature);
         }
-
+        if (meshChanged)
+        {
+            for (int i = 0; i < currentPSO.inputLayoutDescription.Elements.Length; i++)
+            {
+                InputElementDescription element = currentPSO.inputLayoutDescription.Elements[i];
+                if (currentMesh.TryGetValue(element.SemanticName + element.SemanticIndex, out var mesh))
+                {
+                    m_commandList.IASetVertexBuffers(i, mesh);
+                }
+            }
+            meshChanged = false;
+        }
 
         var description1 = currentRootSignature.description1.Parameters;
         for (int i = 0; i < description1.Length; i++)

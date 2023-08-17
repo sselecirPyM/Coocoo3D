@@ -127,6 +127,7 @@ public class PSO : IDisposable
     public ID3D12ShaderReflection gsReflection;
     public ID3D12ShaderReflection psReflection;
 
+    internal InputLayoutDescription inputLayoutDescription;
 
     RootSignature rootSignature1;
 
@@ -146,6 +147,7 @@ public class PSO : IDisposable
         this.gsReflection = gsr;
         this.psReflection = psr;
 
+        inputLayoutDescription = GetInputElementDescriptions(vsReflection);
     }
 
     internal bool TryGetPipelineState(ID3D12Device device, PSODesc psoDesc, out ID3D12PipelineState pipelineState, out RootSignature rs)
@@ -167,7 +169,7 @@ public class PSO : IDisposable
 
         if (psoDesc.inputLayout == InputLayout.Default)
         {
-            desc.InputLayout = GetInputElementDescriptions(vsReflection);
+            desc.InputLayout = inputLayoutDescription;
             //desc.InputLayout = inputLayoutDefault;
         }
         else if (psoDesc.inputLayout == InputLayout.Imgui)

@@ -5,7 +5,6 @@ using System.Numerics;
 
 namespace Coocoo3D.Components;
 
-
 public class AnimationStateComponent
 {
     public string motionPath = "";
@@ -15,7 +14,7 @@ public class AnimationStateComponent
     public Dictionary<string, int> stringToMorphIndex = new();
     public List<BoneKeyFrame1> cachedBoneKeyFrames = new();
 
-    public float timeOffset;
+    public float Time;
 
     public AnimationStateComponent GetClone()
     {
@@ -71,7 +70,7 @@ public class AnimationStateComponent
     }
 
 
-    void SetBonePoseMotion(List<BoneEntity> bones, float time, MMDMotion motion)
+    void SetBonePoseMotion(List<BoneInstance> bones, float time, MMDMotion motion)
     {
         foreach (var bone in bones)
         {
@@ -82,7 +81,7 @@ public class AnimationStateComponent
             cachedBoneKeyFrames[bone.index] = keyframe;
         }
     }
-    void SetBonePoseDefault(List<BoneEntity> bones)
+    void SetBonePoseDefault(List<BoneInstance> bones)
     {
         foreach (var bone in bones)
         {
@@ -98,7 +97,7 @@ public class AnimationStateComponent
             cachedBoneKeyFrames[bone.index] = keyframe;
         }
     }
-    void SetPoseNoMotion(List<BoneEntity> bones)
+    void SetBoneDefaultPose(List<BoneInstance> bones)
     {
         for (int i = 0; i < bones.Count; i++)
         {
@@ -108,13 +107,12 @@ public class AnimationStateComponent
         }
     }
 
-    public void ComputeMotion(float time, MMDMotion motion, List<MorphDesc> morphs, List<BoneEntity> bones)
+    public void ComputeMotion(MMDMotion motion, List<MorphDesc> morphs, List<BoneInstance> bones)
     {
-        time += timeOffset;
         if (!LockMotion)
         {
             if (motion != null)
-                SetPose(motion, time);
+                SetPose(motion, Time);
             else
                 SetPoseDefault();
         }
@@ -124,13 +122,13 @@ public class AnimationStateComponent
         if (!LockMotion)
         {
             if (motion != null)
-                SetBonePoseMotion(bones, time, motion);
+                SetBonePoseMotion(bones, Time, motion);
             else
                 SetBonePoseDefault(bones);
         }
         else
         {
-            SetPoseNoMotion(bones);
+            SetBoneDefaultPose(bones);
         }
     }
 }

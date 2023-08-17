@@ -17,6 +17,13 @@ namespace Coocoo3D.ResourceWrap;
 
 public class ModelPack : IDisposable
 {
+    public const string POSITION = "POSITION0";
+    public const string NORMAL = "NORMAL0";
+    public const string TEXCOORD = "TEXCOORD0";
+    public const string TANGENT = "TANGENT0";
+    public const string WEIGHTS = "WEIGHTS0";
+    public const string BONES = "BONES0";
+
     public PMXFormat pmx;
 
     public string fullPath;
@@ -42,10 +49,10 @@ public class ModelPack : IDisposable
     public List<RigidBodyDesc> rigidBodyDescs;
     public List<JointDesc> jointDescs;
 
-    public List<BoneEntity> bones;
+    public List<BoneInstance> bones;
     public List<MorphDesc> morphs;
 
-    public static string whiteTextureReplace = ":whiteTexture";
+    public const string whiteTextureReplace = ":whiteTexture";
 
     public void LoadModel(string fileName)
     {
@@ -54,10 +61,7 @@ public class ModelPack : IDisposable
         byte[][] buffers = new byte[(int)deserializedFile.Buffers?.Length][];
         for (int i = 0; i < deserializedFile.Buffers?.Length; i++)
         {
-            var expectedLength = deserializedFile.Buffers[i].ByteLength;
-
-            var bufferBytes = deserializedFile.LoadBinaryBuffer(i, fileName);
-            buffers[i] = bufferBytes;
+            buffers[i] = deserializedFile.LoadBinaryBuffer(i, fileName);
         }
         textures = new List<string>();
         for (int i = 0; i < deserializedFile.Images?.Length; i++)
@@ -131,7 +135,7 @@ public class ModelPack : IDisposable
         if (deserializedFile.Nodes.Length == 1)
         {
             var scale1 = deserializedFile.Nodes[0].Scale;
-            scale = new Vector3(scale1[0], scale1[1], scale1[2]);
+            scale = new Vector3(scale1);
         }
 
         int vertexCount = 0;
@@ -193,15 +197,7 @@ public class ModelPack : IDisposable
                 primitive.Attributes.TryGetValue("NORMAL", out int norm1);
                 normalWriter.Write(GetBuffer<Vector3>(norm1));
 
-                Vector3 min;
-                Vector3 max;
-                min = bufferPos1[0];
-                max = min;
-                for (int k = 0; k < bufferPos1.Length; k++)
-                {
-                    min = Vector3.Min(min, bufferPos1[k]);
-                    max = Vector3.Max(max, bufferPos1[k]);
-                }
+                GetMinMax(bufferPos1, out Vector3 min, out Vector3 max);
                 submesh.boundingBox = new Vortice.Mathematics.BoundingBox(min, max);
 
                 primitive.Attributes.TryGetValue("TEXCOORD_0", out int uv1);
@@ -245,6 +241,17 @@ public class ModelPack : IDisposable
                 Materials.Add(material);
                 Submeshes.Add(submesh);
             }
+        }
+    }
+
+    static void GetMinMax(ReadOnlySpan<Vector3> vectors, out Vector3 min, out Vector3 max)
+    {
+        min = vectors[0];
+        max = min;
+        for (int k = 0; k < vectors.Length; k++)
+        {
+            min = Vector3.Min(min, vectors[k]);
+            max = Vector3.Max(max, vectors[k]);
         }
     }
 
@@ -382,18 +389,15 @@ public class ModelPack : IDisposable
             {
                 material.Parameters["_Albedo"] = whiteTextureReplace;
             }
-            if (pmx.Textures.Count > mmdMat.SecondaryTextureIndex && mmdMat.SecondaryTextureIndex >= 0)
+            if (mmdMat.SphereTextureIndex >= 0 && mmdMat.SphereTextureIndex < pmx.Textures.Count)
             {
-                string relativePath = pmx.Textures[mmdMat.SecondaryTextureIndex].TexturePath.Replace("//", "\\").Replace('/', '\\');
+                string relativePath = pmx.Textures[mmdMat.SphereTextureIndex].TexturePath.Replace("//", "\\").Replace('/', '\\');
                 texPath = Path.GetFullPath(relativePath, folder);
 
                 material.Parameters["_Spa"] = texPath;
                 material.Parameters["UseSpa"] = true;
             }
-            else
-            {
 
-            }
             material.Parameters["_Metallic"] = whiteTextureReplace;
             material.Parameters["_Roughness"] = whiteTextureReplace;
             if (texPath != null && Path.GetFileName(texPath).Contains("diffuse", StringComparison.CurrentCultureIgnoreCase))
@@ -458,7 +462,7 @@ public class ModelPack : IDisposable
         for (int i = 0; i < joints.Count; i++)
             jointDescs.Add(PMXFormatExtension.Translate(joints[i]));
 
-        bones = new List<BoneEntity>();
+        bones = new List<BoneInstance>();
         var _bones = pmx.Bones;
         for (int i = 0; i < _bones.Count; i++)
         {
@@ -538,15 +542,15 @@ public class ModelPack : IDisposable
         if (meshInstance == null)
         {
             meshInstance = new Mesh();
-            meshInstance.ReloadIndex<int>(vertexCount, indices);
-            meshInstance.AddBuffer<Vector3>(position, 0);
-            meshInstance.AddBuffer<Vector3>(normal, 1);
-            meshInstance.AddBuffer<Vector2>(uv, 2);
-            meshInstance.AddBuffer<Vector4>(tangent, 3);
+            meshInstance.LoadIndex<int>(vertexCount, indices);
+            meshInstance.AddBuffer<Vector3>(position, POSITION);
+            meshInstance.AddBuffer<Vector3>(normal, NORMAL);
+            meshInstance.AddBuffer<Vector2>(uv, TEXCOORD);
+            meshInstance.AddBuffer<Vector4>(tangent, TANGENT);
             if (boneId != null)
-                meshInstance.AddBuffer<ushort>(boneId, 4);
+                meshInstance.AddBuffer<ushort>(boneId, BONES);
             if (boneWeights != null)
-                meshInstance.AddBuffer<float>(boneWeights, 5);
+                meshInstance.AddBuffer<float>(boneWeights, WEIGHTS);
         }
         return meshInstance;
     }

@@ -41,52 +41,6 @@ public class RenderHelper
 
     public IEnumerable<MMDRendererComponent> MMDRenderers => renderWrap.rpc.renderers;
 
-    public IEnumerable<MeshRenderable1> GetRenderables(MMDRendererComponent renderer)
-    {
-        var model = renderer.model;
-        var mesh = model.GetMesh();
-        var meshOverride = meshOverrides[renderer];
-
-        for (int i = 0; i < renderer.Materials.Count; i++)
-        {
-            var material = renderer.Materials[i];
-            var submesh = model.Submeshes[i];
-            var renderable = new MeshRenderable1()
-            {
-                mesh = mesh,
-                meshOverride = meshOverride,
-                transform = renderer.LocalToWorld,
-                gpuSkinning = renderer.skinning && !CPUSkinning,
-            };
-            renderable.properties = new Dictionary<string, object>(material.Parameters);
-            renderable.boneBuffer = GetBoneBuffer(renderer);
-            WriteRenderable1(ref renderable, submesh);
-            yield return renderable;
-        }
-    }
-
-
-    public IEnumerable<MeshRenderable1> GetRenderables(MeshRendererComponent renderer)
-    {
-        var model = renderer.model;
-        var mesh = model.GetMesh();
-
-        for (int i = 0; i < renderer.Materials.Count; i++)
-        {
-            var material = renderer.Materials[i];
-            var submesh = model.Submeshes[i];
-            var renderable = new MeshRenderable1()
-            {
-                mesh = mesh,
-                meshOverride = null,
-                transform = renderer.transform.GetMatrix(),
-                gpuSkinning = false,
-            };
-            renderable.properties = new Dictionary<string, object>(material.Parameters);
-            WriteRenderable1(ref renderable, submesh);
-            yield return renderable;
-        }
-    }
 
     public IEnumerable<MeshRenderable> MeshRenderables(bool setMesh = true)
     {
@@ -142,28 +96,7 @@ public class RenderHelper
         }
     }
 
-    public void SetMesh(MeshRenderable1 mesh)
-    {
-        var graphicsContext = renderWrap.graphicsContext;
-        if (mesh.meshOverride != null)
-            graphicsContext.SetMesh(mesh.mesh, mesh.meshOverride);
-        else
-            graphicsContext.SetMesh(mesh.mesh);
-
-        if (mesh.boneBuffer != null)
-            graphicsContext.SetCBVRSlot(mesh.boneBuffer, 0);
-    }
-
     void WriteRenderable1(ref MeshRenderable renderable, Submesh submesh)
-    {
-        renderable.indexStart = submesh.indexOffset;
-        renderable.indexCount = submesh.indexCount;
-        renderable.vertexStart = submesh.vertexStart;
-        renderable.vertexCount = submesh.vertexCount;
-        renderable.drawDoubleFace = submesh.DrawDoubleFace;
-    }
-
-    void WriteRenderable1(ref MeshRenderable1 renderable, Submesh submesh)
     {
         renderable.indexStart = submesh.indexOffset;
         renderable.indexCount = submesh.indexCount;
@@ -175,8 +108,8 @@ public class RenderHelper
     void InitializeResources()
     {
         resourcesInitialized = true;
-        quadMesh.ReloadIndex<int>(4, new int[] { 0, 1, 2, 2, 1, 3 });
-        cubeMesh.ReloadIndex<int>(4, new int[]
+        quadMesh.LoadIndex<int>(4, new int[] { 0, 1, 2, 2, 1, 3 });
+        cubeMesh.LoadIndex<int>(4, new int[]
         {
             0,1,2,
             2,1,3,
@@ -263,12 +196,12 @@ public class RenderHelper
             var renderer = renderers[i];
             var model = renderer.model;
             var mesh = meshPool.Get(() => new Mesh());
-            mesh.ReloadIndex<int>(model.vertexCount, null);
+            mesh.LoadIndex<int>(model.vertexCount, null);
             meshOverrides[renderer] = mesh;
             if (!renderer.skinning)
                 continue;
 
-            graphicsContext.UpdateMeshOneFrame<Vector3>(mesh, renderer.MeshPosition, 0);
+            graphicsContext.UpdateMeshOneFrame<Vector3>(mesh, renderer.MeshPosition, MeshRenderable.POSITION);
             graphicsContext.EndUpdateMesh(mesh);
         }
     }
@@ -295,7 +228,7 @@ public class RenderHelper
             var renderer = renderers[i];
             var model = renderer.model;
             var mesh = meshPool.Get(() => new Mesh());
-            mesh.ReloadIndex<int>(model.vertexCount, null);
+            mesh.LoadIndex<int>(model.vertexCount, null);
             meshOverrides[renderer] = mesh;
             if (!renderer.skinning)
                 continue;
@@ -319,7 +252,7 @@ public class RenderHelper
             var renderer = renderers[i];
             var model = renderer.model;
             var mesh = meshPool.Get(() => new Mesh());
-            mesh.ReloadIndex<int>(model.vertexCount, null);
+            mesh.LoadIndex<int>(model.vertexCount, null);
             meshOverrides[renderer] = mesh;
             if (!renderer.skinning)
                 continue;
@@ -335,7 +268,8 @@ public class RenderHelper
         int halfLength = bigBuffer.Length / 12 / 2;
         Parallel.ForEach(rangePartitioner, (range, loopState) =>
         {
-            Span<Vector3> _d3 = MemoryMarshal.Cast<byte, Vector3>(new Span<byte>(bigBuffer, 0, bigBuffer.Length / 12 * 12));
+            Span<Vector3> _d3 = MemoryMarshal.Cast<byte, Vector3>(new Span<byte>(bigBuffer, 0, bigBuffer.Length / 12 * 12 / 2));
+            Span<Vector3> _d4 = MemoryMarshal.Cast<byte, Vector3>(new Span<byte>(bigBuffer, bigBuffer.Length / 12 * 12 / 2, bigBuffer.Length / 12 * 12 / 2));
             int from = range.Item1;
             int to = range.Item2;
             for (int j = from; j < to; j++)
@@ -359,15 +293,15 @@ public class RenderHelper
                 Vector3 norm0 = model.normal[j];
                 Vector3 norm1 = Vector3.TransformNormal(norm0, final);
                 if (k > 0)
-                    _d3[j + halfLength] = Vector3.Normalize(norm1);
+                    _d4[j] = Vector3.Normalize(norm1);
                 else
-                    _d3[j + halfLength] = Vector3.Normalize(norm0);
+                    _d4[j] = Vector3.Normalize(norm0);
             }
         });
         Span<Vector3> dat0 = MemoryMarshal.Cast<byte, Vector3>(new Span<byte>(bigBuffer, 0, bigBuffer.Length / 12 * 12));
 
-        mesh.AddBuffer<Vector3>(dat0.Slice(0, model.vertexCount), 0);
-        mesh.AddBuffer<Vector3>(dat0.Slice(halfLength, model.vertexCount), 1);
+        mesh.AddBuffer<Vector3>(dat0.Slice(0, model.vertexCount), MeshRenderable.POSITION);
+        mesh.AddBuffer<Vector3>(dat0.Slice(halfLength, model.vertexCount), MeshRenderable.NORMAL);
     }
 
     public void DrawQuad(int instanceCount = 1)
@@ -389,11 +323,6 @@ public class RenderHelper
     }
 
     public void Draw(MeshRenderable renderable)
-    {
-        renderWrap.graphicsContext.DrawIndexed(renderable.indexCount, renderable.indexStart, renderable.vertexStart);
-    }
-
-    public void Draw(MeshRenderable1 renderable)
     {
         renderWrap.graphicsContext.DrawIndexed(renderable.indexCount, renderable.indexStart, renderable.vertexStart);
     }

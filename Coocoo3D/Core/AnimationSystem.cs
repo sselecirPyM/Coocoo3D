@@ -35,16 +35,17 @@ public class AnimationSystem
         }
 
 
-        UpdateGameObjects(playTime);
+        UpdateGameObjects();
     }
 
-    void UpdateGameObjects(float playTime)
+    void UpdateGameObjects()
     {
         Parallel.For(0, animationRenderers.Count, i =>
         {
             var renderer = animationRenderers[i].Item1;
             var animationState = animationRenderers[i].Item2;
-            animationState.ComputeMotion(playTime, caches.GetMotion(animationState.motionPath), renderer.Morphs, renderer.bones);
+            animationState.Time = playTime;
+            animationState.ComputeMotion(caches.GetMotion(animationState.motionPath), renderer.Morphs, renderer.bones);
             for (int j = 0; j < renderer.Morphs.Count; j++)
             {
                 if (renderer.Morphs[j].Type == MorphType.Vertex && animationState.Weights.Computed[j] != renderer.Weights[j])

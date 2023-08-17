@@ -48,10 +48,10 @@ public class SceneHierachyWindow : IWindow
             CurrentScene.NewLighting();
         }
         ImGui.SameLine();
-        if (ImGui.Button("新粒子"))
-        {
-            NewParticle();
-        }
+        //if (ImGui.Button("新粒子"))
+        //{
+        //    NewParticle();
+        //}
         ImGui.SameLine();
         if (ImGui.Button("新贴花"))
         {

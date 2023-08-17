@@ -172,6 +172,7 @@ public class Coocoo3DMain : IDisposable
         {
             return false;
         }
+        EngineContext.SyncCallStage();
         timeManager.RealCounter("fps", 1, out statistics.FramePerSecond);
         Simulation();
         mainCaches.OnFrame();

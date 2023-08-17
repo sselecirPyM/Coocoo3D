@@ -377,19 +377,6 @@ public class MainCaches : IDisposable
         }
     }
 
-    public ComputeShader GetComputeShader(string path)
-    {
-        if (string.IsNullOrEmpty(path)) return null;
-        if (!Path.IsPathRooted(path)) path = Path.GetFullPath(path);
-        return GetT(ComputeShaders, path, file =>
-        {
-            ComputeShader computeShader = new ComputeShader();
-            var shaderCode = LoadShader(DxcShaderStage.Compute, File.ReadAllText(path), "csmain", path, null, out var reflection);
-            computeShader.Initialize(shaderCode, reflection);
-            return computeShader;
-        });
-    }
-
     public ComputeShader GetComputeShaderWithKeywords(IReadOnlyList<(string, string)> keywords, string path)
     {
         string xPath;

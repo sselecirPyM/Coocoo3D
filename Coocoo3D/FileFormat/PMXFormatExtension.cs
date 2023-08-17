@@ -33,7 +33,7 @@ public static class PMXFormatExtension
         return (renderer, animationState);
     }
 
-    static void Initialize(this MMDRendererComponent renderer, IList<BoneEntity> bones, IList<RigidBodyDesc> rigidBodyDescs, IList<JointDesc> jointDescs)
+    static void Initialize(this MMDRendererComponent renderer, IList<BoneInstance> bones, IList<RigidBodyDesc> rigidBodyDescs, IList<JointDesc> jointDescs)
     {
         renderer.bones.Clear();
         renderer.BoneMatricesData = new Matrix4x4[bones.Count];
@@ -53,7 +53,7 @@ public static class PMXFormatExtension
         }
         renderer.jointDescs.Clear();
         renderer.jointDescs.AddRange(jointDescs);
-        renderer.Bake();
+        renderer.Precompute();
     }
 
     static void LoadMesh(this MMDRendererComponent renderer, ModelPack modelPack)
@@ -174,48 +174,48 @@ public static class PMXFormatExtension
         };
     }
 
-    public static BoneEntity Translate(PMX_Bone _bone, int index, int boneCount)
+    public static BoneInstance Translate(PMX_Bone _bone, int index, int boneCount)
     {
-        BoneEntity boneEntity = new();
-        boneEntity.ParentIndex = (_bone.ParentIndex >= 0 && _bone.ParentIndex < boneCount) ? _bone.ParentIndex : -1;
-        boneEntity.staticPosition = _bone.Position * 0.1f;
-        boneEntity.rotation = Quaternion.Identity;
-        boneEntity.index = index;
-        boneEntity.inverseBindMatrix = Matrix4x4.CreateTranslation(-boneEntity.staticPosition);
+        BoneInstance boneInstance = new();
+        boneInstance.ParentIndex = (_bone.ParentIndex >= 0 && _bone.ParentIndex < boneCount) ? _bone.ParentIndex : -1;
+        boneInstance.staticPosition = _bone.Position * 0.1f;
+        boneInstance.rotation = Quaternion.Identity;
+        boneInstance.index = index;
+        boneInstance.inverseBindMatrix = Matrix4x4.CreateTranslation(-boneInstance.staticPosition);
 
-        boneEntity.Name = _bone.Name;
-        boneEntity.NameEN = _bone.NameEN;
-        boneEntity.Flags = (BoneFlags)_bone.Flags;
+        boneInstance.Name = _bone.Name;
+        boneInstance.NameEN = _bone.NameEN;
+        boneInstance.Flags = (BoneFlags)_bone.Flags;
 
-        if (boneEntity.Flags.HasFlag(BoneFlags.HasIK))
+        if (boneInstance.Flags.HasFlag(BoneFlags.HasIK))
         {
-            boneEntity.IKTargetIndex = _bone.boneIK.IKTargetIndex;
-            boneEntity.CCDIterateLimit = _bone.boneIK.CCDIterateLimit;
-            boneEntity.CCDAngleLimit = _bone.boneIK.CCDAngleLimit;
-            boneEntity.boneIKLinks = new BoneEntity.IKLink[_bone.boneIK.IKLinks.Length];
-            for (int j = 0; j < boneEntity.boneIKLinks.Length; j++)
+            boneInstance.IKTargetIndex = _bone.boneIK.IKTargetIndex;
+            boneInstance.CCDIterateLimit = _bone.boneIK.CCDIterateLimit;
+            boneInstance.CCDAngleLimit = _bone.boneIK.CCDAngleLimit;
+            boneInstance.boneIKLinks = new BoneInstance.IKLink[_bone.boneIK.IKLinks.Length];
+            for (int j = 0; j < boneInstance.boneIKLinks.Length; j++)
             {
-                boneEntity.boneIKLinks[j] = IKLink(_bone.boneIK.IKLinks[j]);
+                boneInstance.boneIKLinks[j] = IKLink(_bone.boneIK.IKLinks[j]);
             }
         }
         if (_bone.AppendBoneIndex >= 0 && _bone.AppendBoneIndex < boneCount)
         {
-            boneEntity.AppendParentIndex = _bone.AppendBoneIndex;
-            boneEntity.AppendRatio = _bone.AppendBoneRatio;
-            boneEntity.IsAppendRotation = boneEntity.Flags.HasFlag(BoneFlags.AcquireRotate);
-            boneEntity.IsAppendTranslation = boneEntity.Flags.HasFlag(BoneFlags.AcquireTranslate);
+            boneInstance.AppendParentIndex = _bone.AppendBoneIndex;
+            boneInstance.AppendRatio = _bone.AppendBoneRatio;
+            boneInstance.IsAppendRotation = boneInstance.Flags.HasFlag(BoneFlags.AcquireRotate);
+            boneInstance.IsAppendTranslation = boneInstance.Flags.HasFlag(BoneFlags.AcquireTranslate);
         }
         else
         {
-            boneEntity.AppendParentIndex = -1;
-            boneEntity.AppendRatio = 0;
-            boneEntity.IsAppendRotation = false;
-            boneEntity.IsAppendTranslation = false;
+            boneInstance.AppendParentIndex = -1;
+            boneInstance.AppendRatio = 0;
+            boneInstance.IsAppendRotation = false;
+            boneInstance.IsAppendTranslation = false;
         }
-        boneEntity.EnableIK = true;
-        return boneEntity;
+        boneInstance.EnableIK = true;
+        return boneInstance;
     }
-    static void LoadAnimationStates(this AnimationStateComponent component, IList<BoneEntity> bones, IList<MorphDesc> morphs)
+    static void LoadAnimationStates(this AnimationStateComponent component, IList<BoneInstance> bones, IList<MorphDesc> morphs)
     {
         component.cachedBoneKeyFrames.Clear();
         for (int i = 0; i < bones.Count; i++)
@@ -228,9 +228,9 @@ public static class PMXFormatExtension
             component.stringToMorphIndex[morphs[i].Name] = i;
     }
 
-    static BoneEntity.IKLink IKLink(in PMX_BoneIKLink ikLink1)
+    static BoneInstance.IKLink IKLink(in PMX_BoneIKLink ikLink1)
     {
-        var ikLink = new BoneEntity.IKLink();
+        var ikLink = new BoneInstance.IKLink();
 
         ikLink.HasLimit = ikLink1.HasLimit;
         ikLink.LimitMax = ikLink1.LimitMax;
@@ -248,40 +248,33 @@ public static class PMXFormatExtension
             ikLink.TransformOrder = IKTransformOrder.Xyz;
         else
             ikLink.TransformOrder = IKTransformOrder.Yzx;
-
         const float epsilon = 1e-6f;
         if (ikLink.HasLimit)
         {
+            uint a = 0;
             if (Math.Abs(ikLink.LimitMin.X) < epsilon &&
-                Math.Abs(ikLink.LimitMax.X) < epsilon &&
-                Math.Abs(ikLink.LimitMin.Y) < epsilon &&
-                Math.Abs(ikLink.LimitMax.Y) < epsilon &&
-                Math.Abs(ikLink.LimitMin.Z) < epsilon &&
-                Math.Abs(ikLink.LimitMax.Z) < epsilon)
+                    Math.Abs(ikLink.LimitMax.X) < epsilon)
             {
-                ikLink.FixTypes = AxisFixType.FixAll;
+                a |= 1;
             }
-            else if (Math.Abs(ikLink.LimitMin.Y) < epsilon &&
-                     Math.Abs(ikLink.LimitMax.Y) < epsilon &&
-                     Math.Abs(ikLink.LimitMin.Z) < epsilon &&
-                     Math.Abs(ikLink.LimitMax.Z) < epsilon)
+            if (Math.Abs(ikLink.LimitMin.Y) < epsilon &&
+                    Math.Abs(ikLink.LimitMax.Y) < epsilon)
             {
-                ikLink.FixTypes = AxisFixType.FixX;
+                a |= 2;
             }
-            else if (Math.Abs(ikLink.LimitMin.X) < epsilon &&
-                     Math.Abs(ikLink.LimitMax.X) < epsilon &&
-                     Math.Abs(ikLink.LimitMin.Z) < epsilon &&
-                     Math.Abs(ikLink.LimitMax.Z) < epsilon)
+            if (Math.Abs(ikLink.LimitMin.Z) < epsilon &&
+                    Math.Abs(ikLink.LimitMax.Z) < epsilon)
             {
-                ikLink.FixTypes = AxisFixType.FixY;
+                a |= 4;
             }
-            else if (Math.Abs(ikLink.LimitMin.X) < epsilon &&
-                     Math.Abs(ikLink.LimitMax.X) < epsilon &&
-                     Math.Abs(ikLink.LimitMin.Y) < epsilon &&
-                     Math.Abs(ikLink.LimitMax.Y) < epsilon)
+            ikLink.FixTypes = a switch
             {
-                ikLink.FixTypes = AxisFixType.FixZ;
-            }
+                7 => AxisFixType.FixAll,
+                6 => AxisFixType.FixX,
+                5 => AxisFixType.FixY,
+                3 => AxisFixType.FixZ,
+                _ => AxisFixType.FixNone
+            };
         }
         return ikLink;
     }
