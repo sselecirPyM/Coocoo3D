@@ -17,7 +17,6 @@ public class RTBottomLevelAccelerationStruct : IDisposable
     public int indexStart;
     public int indexCount;
     public Mesh mesh;
-    public Mesh meshOverride;
     public ID3D12Resource resource;
     internal int size;
 }

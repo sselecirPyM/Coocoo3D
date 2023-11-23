@@ -51,9 +51,10 @@ public class RenderHelper
             var model = renderer.model;
             var mesh = model.GetMesh();
             var meshOverride = meshOverrides[renderer];
+            meshOverride.baseMesh = mesh;
             if (setMesh)
             {
-                graphicsContext.SetMesh(mesh, meshOverride);
+                graphicsContext.SetMesh(meshOverride);
                 graphicsContext.SetCBVRSlot(GetBoneBuffer(renderer), 0);
             }
             for (int i = 0; i < renderer.Materials.Count; i++)
@@ -62,12 +63,11 @@ public class RenderHelper
                 var submesh = model.Submeshes[i];
                 var renderable = new MeshRenderable()
                 {
-                    mesh = mesh,
-                    meshOverride = meshOverride,
+                    mesh = meshOverride?? mesh,
                     transform = renderer.LocalToWorld,
                     gpuSkinning = renderer.skinning && !CPUSkinning,
+                    material = material,
                 };
-                renderable.material = material;
                 WriteRenderable1(ref renderable, submesh);
                 yield return renderable;
             }
@@ -85,11 +85,10 @@ public class RenderHelper
                 var renderable = new MeshRenderable()
                 {
                     mesh = mesh,
-                    meshOverride = null,
                     transform = renderer.transform.GetMatrix(),
                     gpuSkinning = false,
+                    material = material,
                 };
-                renderable.material = material;
                 WriteRenderable1(ref renderable, submesh);
                 yield return renderable;
             }

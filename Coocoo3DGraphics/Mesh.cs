@@ -10,6 +10,7 @@ public class _vertexBuffer : IDisposable
     public ID3D12Resource vertex;
     public VertexBufferView vertexBufferView;
     public int Capacity;
+    public int stride;
     public byte[] data;
 
     public void Dispose()
@@ -20,6 +21,7 @@ public class _vertexBuffer : IDisposable
 }
 public class Mesh : IDisposable
 {
+    public Mesh baseMesh;
     internal ID3D12Resource indexBuffer;
 
     internal Dictionary<string, _vertexBuffer> vtBuffers = new Dictionary<string, _vertexBuffer>();
@@ -37,9 +39,10 @@ public class Mesh : IDisposable
     {
         ReadOnlySpan<byte> dat = MemoryMarshal.Cast<T, byte>(verticeData);
 
-        var bufDef = new _vertexBuffer();
-        bufDef.data = dat.ToArray();
-        vtBuffers.Add(slot, bufDef);
+        var vertexBuffer = new _vertexBuffer();
+        vertexBuffer.data = dat.ToArray();
+        vertexBuffer.stride = vertexBuffer.data.Length / m_vertexCount;
+        vtBuffers.Add(slot, vertexBuffer);
     }
     internal _vertexBuffer AddBuffer(string slot)
     {
@@ -70,6 +73,20 @@ public class Mesh : IDisposable
     public int GetVertexCount()
     {
         return m_vertexCount;
+    }
+
+    internal ID3D12Resource GetIndexBuffer()
+    {
+        return indexBuffer ?? baseMesh?.GetIndexBuffer();
+    }
+
+    internal _vertexBuffer GetVertexBuffer(string name)
+    {
+        if (vtBuffers.TryGetValue(name, out var buf))
+        {
+            return buf;
+        }
+        return baseMesh?.GetVertexBuffer(name);
     }
 
     public void Dispose()

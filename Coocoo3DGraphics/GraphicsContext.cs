@@ -107,31 +107,32 @@ public sealed class GraphicsContext
             RTInstance instance = accelerationStruct.instances[i];
             var btas = instance.accelerationStruct;
             var mesh = btas.mesh;
-            var meshOverride = btas.meshOverride;
             if (btas.initialized)
                 continue;
 
-            ulong pos;
-            if (meshOverride != null && meshOverride.vtBuffers.TryGetValue(POSITION, out var v0))
-                pos = v0.vertexBufferView.BufferLocation + (ulong)btas.vertexStart * 12;
-            else
-                pos = mesh.vtBuffers[POSITION].vertexBufferView.BufferLocation + (ulong)btas.vertexStart * 12;
+            var indexBuffer = mesh.GetIndexBuffer();
+            var positionBuffer = mesh.GetVertexBuffer(POSITION);
+
+            ulong position = positionBuffer.vertexBufferView.BufferLocation + (ulong)btas.vertexStart * 12;
+
             var inputs = new BuildRaytracingAccelerationStructureInputs();
             inputs.Type = RaytracingAccelerationStructureType.BottomLevel;
             inputs.Layout = ElementsLayout.Array;
             inputs.GeometryDescriptions = new RaytracingGeometryDescription[]
             {
-                new RaytracingGeometryDescription(new RaytracingGeometryTrianglesDescription(new GpuVirtualAddressAndStride(pos, 12),
+                new RaytracingGeometryDescription(new RaytracingGeometryTrianglesDescription(new GpuVirtualAddressAndStride(position, 12),
                 Format.R32G32B32_Float,
                 btas.vertexCount,
                 0,
-                mesh.indexBuffer.GPUVirtualAddress + (ulong)btas.indexStart * 4,
+                indexBuffer.GPUVirtualAddress + (ulong)btas.indexStart * 4,
                 Format.R32_UInt,
                 btas.indexCount)),
             };
-            Reference(mesh.vtBuffers[POSITION].vertex);
-            Reference(mesh.indexBuffer);
             inputs.DescriptorsCount = 1;
+
+            if (positionBuffer.vertex != null)
+                Reference(positionBuffer.vertex);
+            Reference(indexBuffer);
             var info = graphicsDevice.device.GetRaytracingAccelerationStructurePrebuildInfo(inputs);
 
             CreateUAVBuffer((int)info.ResultDataMaxSizeInBytes, ref btas.resource, ResourceStates.RaytracingAccelerationStructure);
@@ -155,11 +156,13 @@ public sealed class GraphicsContext
             btas.initialized = true;
         }
         GetRingBuffer().DelayUpload<RaytracingInstanceDescription>(raytracingInstanceDescriptions, out ulong gpuAddr);
-        var tpInputs = new BuildRaytracingAccelerationStructureInputs();
-        tpInputs.Layout = ElementsLayout.Array;
-        tpInputs.Type = RaytracingAccelerationStructureType.TopLevel;
-        tpInputs.DescriptorsCount = accelerationStruct.instances.Count;
-        tpInputs.InstanceDescriptions = gpuAddr;
+        var tpInputs = new BuildRaytracingAccelerationStructureInputs
+        {
+            Layout = ElementsLayout.Array,
+            Type = RaytracingAccelerationStructureType.TopLevel,
+            DescriptorsCount = accelerationStruct.instances.Count,
+            InstanceDescriptions = gpuAddr
+        };
 
         var info1 = graphicsDevice.device.GetRaytracingAccelerationStructurePrebuildInfo(tpInputs);
         CreateUAVBuffer((int)info1.ResultDataMaxSizeInBytes, ref accelerationStruct.resource, ResourceStates.RaytracingAccelerationStructure);
@@ -208,23 +211,19 @@ public sealed class GraphicsContext
         {
             if (inst.hitGroupName != null)
             {
-                var mesh = inst.accelerationStruct.mesh;
-                var meshOverride = inst.accelerationStruct.meshOverride;
+                var blas = inst.accelerationStruct;
+                var mesh = blas.mesh;
+                var indexBuffer = mesh.GetIndexBuffer();
                 memcpy(data, pRtsoProps.GetShaderIdentifier(inst.hitGroupName).ToPointer(), D3D12ShaderIdentifierSizeInBytes);
                 writer.Write(data);
-                writer.Write(mesh.indexBuffer.GPUVirtualAddress + (ulong)inst.accelerationStruct.indexStart * 4);
-                int vertexStart = inst.accelerationStruct.vertexStart;
+                writer.Write(indexBuffer.GPUVirtualAddress + (ulong)blas.indexStart * 4);
+                int vertexStart = blas.vertexStart;
+
                 for (int i = 0; i < 3; i++)
                 {
                     string name = nameIndex[i];
-                    if (meshOverride != null && meshOverride.vtBuffers.TryGetValue(name, out var meshX1))
-                    {
-                        writer.Write(meshX1.vertexBufferView.BufferLocation + (ulong)(meshX1.vertexBufferView.StrideInBytes * vertexStart));
-                    }
-                    else
-                    {
-                        writer.Write(mesh.vtBuffers[name].vertexBufferView.BufferLocation + (ulong)(mesh.vtBuffers[name].vertexBufferView.StrideInBytes * vertexStart));
-                    }
+                    var buffer = mesh.GetVertexBuffer(name);
+                    writer.Write(buffer.vertexBufferView.BufferLocation + (ulong)(buffer.vertexBufferView.StrideInBytes * vertexStart));
                 }
 
                 WriteLocalHandles(inst, currentRTPSO, writer);
@@ -284,9 +283,7 @@ public sealed class GraphicsContext
                 if (call.SRVs != null && call.SRVs.TryGetValue(srvOffset, out object srv0))
                 {
                     if (srv0 is Texture2D tex2d)
-                    {
                         SetSRVTSlot(tex2d, srvOffset);
-                    }
                     else if (srv0 is GPUBuffer buffer)
                         SetSRVTSlot(buffer, srvOffset);
                 }
@@ -451,7 +448,7 @@ public sealed class GraphicsContext
             Reference(mesh1.vertex);
 
             mesh1.vertexBufferView.BufferLocation = mesh1.vertex.GPUVirtualAddress;
-            mesh1.vertexBufferView.StrideInBytes = dataLength / mesh.m_vertexCount;
+            mesh1.vertexBufferView.StrideInBytes = mesh1.stride;
             mesh1.vertexBufferView.SizeInBytes = dataLength;
         }
 
@@ -477,9 +474,12 @@ public sealed class GraphicsContext
                 GetRingBuffer().Upload<byte>(m_copyCommandList, new Span<byte>(mesh.m_indexData, 0, indexBufferLength), indexBuffer);
             }
             Reference(indexBuffer);
-            mesh.indexBufferView.BufferLocation = indexBuffer.GPUVirtualAddress;
-            mesh.indexBufferView.SizeInBytes = indexBufferLength;
-            mesh.indexBufferView.Format = Format.R32_UInt;
+            mesh.indexBufferView = new IndexBufferView
+            {
+                BufferLocation = indexBuffer.GPUVirtualAddress,
+                SizeInBytes = indexBufferLength,
+                Format = Format.R32_UInt
+            };
         }
     }
 
@@ -493,7 +493,7 @@ public sealed class GraphicsContext
             GetRingBuffer().DelayUpload<byte>(mesh1.data, out ulong addr);
 
             mesh1.vertexBufferView.BufferLocation = addr;
-            mesh1.vertexBufferView.StrideInBytes = dataLength / mesh.m_vertexCount;
+            mesh1.vertexBufferView.StrideInBytes = mesh1.stride;
             mesh1.vertexBufferView.SizeInBytes = dataLength;
         }
 
@@ -506,9 +506,12 @@ public sealed class GraphicsContext
             int indexBufferLength = mesh.m_indexCount * 4;
             GetRingBuffer().DelayUpload<byte>(new ReadOnlySpan<byte>(mesh.m_indexData, 0, indexBufferLength), out ulong addr);
 
-            mesh.indexBufferView.BufferLocation = addr;
-            mesh.indexBufferView.SizeInBytes = indexBufferLength;
-            mesh.indexBufferView.Format = Format.R32_UInt;
+            mesh.indexBufferView = new IndexBufferView
+            {
+                BufferLocation = addr,
+                SizeInBytes = indexBufferLength,
+                Format = Format.R32_UInt
+            };
         }
     }
 
@@ -645,42 +648,25 @@ public sealed class GraphicsContext
     {
         ClearMeshState();
         m_commandList.IASetPrimitiveTopology(PrimitiveTopology.TriangleList);
-        foreach (var vtBuf in mesh.vtBuffers)
-        {
-            currentMesh[vtBuf.Key] = vtBuf.Value.vertexBufferView;
-            //m_commandList.IASetVertexBuffers(vtBuf.Key, vtBuf.Value.vertexBufferView);
-            if (vtBuf.Value.vertex != null)
-                Reference(vtBuf.Value.vertex);
-        }
-        m_commandList.IASetIndexBuffer(mesh.indexBufferView);
-        Reference(mesh.indexBuffer);
+
+        SetMesh1(mesh);
     }
 
-    public void SetMesh(Mesh mesh, Mesh meshOverride)
+    void SetMesh1(Mesh mesh)
     {
-        ClearMeshState();
-        m_commandList.IASetPrimitiveTopology(PrimitiveTopology.TriangleList);
-        foreach (var vtBuf in mesh.vtBuffers)
+        if (mesh.baseMesh != null)
         {
-            if (!meshOverride.vtBuffers.ContainsKey(vtBuf.Key))
-            {
-                currentMesh[vtBuf.Key] = vtBuf.Value.vertexBufferView;
-                if (vtBuf.Value.vertex != null)
-                    Reference(vtBuf.Value.vertex);
-            }
+            SetMesh1(mesh.baseMesh);
         }
-        foreach (var vtBuf in meshOverride.vtBuffers)
+        foreach (var vtBuf in mesh.vtBuffers)
         {
             currentMesh[vtBuf.Key] = vtBuf.Value.vertexBufferView;
             if (vtBuf.Value.vertex != null)
+            {
                 Reference(vtBuf.Value.vertex);
+            }
         }
-        if (meshOverride.indexBuffer != null)
-        {
-            m_commandList.IASetIndexBuffer(meshOverride.indexBufferView);
-            Reference(meshOverride.indexBuffer);
-        }
-        else
+        if (mesh.indexBuffer != null)
         {
             m_commandList.IASetIndexBuffer(mesh.indexBufferView);
             Reference(mesh.indexBuffer);
@@ -705,10 +691,12 @@ public sealed class GraphicsContext
         if (indexData != null)
         {
             GetRingBuffer().DelayUpload(indexData, out ulong indexGpuAddress);
-            IndexBufferView indexBufferView;
-            indexBufferView.BufferLocation = indexGpuAddress;
-            indexBufferView.SizeInBytes = indexData.Length;
-            indexBufferView.Format = (indexData.Length / indexCount) == 2 ? Format.R16_UInt : Format.R32_UInt;
+            IndexBufferView indexBufferView = new IndexBufferView
+            {
+                BufferLocation = indexGpuAddress,
+                SizeInBytes = indexData.Length,
+                Format = (indexData.Length / indexCount) == 2 ? Format.R16_UInt : Format.R32_UInt
+            };
             m_commandList.IASetIndexBuffer(indexBufferView);
         }
     }

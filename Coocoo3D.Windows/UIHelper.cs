@@ -75,6 +75,7 @@ public class UIHelper
             {
                 case ".pmx":
                 case ".gltf":
+                case ".glb":
                     caches.modelLoadHandler.Add(new ModelLoadTask() { path = file.FullName, scene = scene });
                     break;
                 case ".vmd":

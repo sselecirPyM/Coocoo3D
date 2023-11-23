@@ -136,7 +136,7 @@ public class RayTracingPass
             var btas = new RTBottomLevelAccelerationStruct();
 
             btas.mesh = renderable.mesh;
-            btas.meshOverride = renderable.meshOverride;
+
             btas.indexStart = renderable.indexStart;
             btas.indexCount = renderable.indexCount;
             btas.vertexStart = renderable.vertexStart;
@@ -145,12 +145,12 @@ public class RayTracingPass
             inst.transform = renderable.transform;
             inst.hitGroupName = "rayHit";
             inst.SRVs = new();
+            inst.CBVs = new();
             for (int i = 0; i < localSrvs.Length; i++)
             {
                 inst.SRVs.Add(i + 4, renderWrap.GetTex2DFallBack(localSrvs[i], material));
             }
 
-            inst.CBVs = new();
             inst.CBVs.Add(0, cbvData1);
             tpas.instances.Add(inst);
         }
@@ -166,13 +166,15 @@ public class RayTracingPass
         RayTracingCall call = new RayTracingCall();
         call.tpas = tpas;
         call.UAVs = new();
+        call.SRVs = new();
+        call.CBVs = new();
+        call.missShaders = missShaders;
         for (int i = 0; i < uavs.Length; i++)
         {
             string uav = uavs[i];
             call.UAVs[i] = renderWrap.GetResourceFallBack(uav);
         }
 
-        call.SRVs = new();
         for (int i = 0; i < srvs.Length; i++)
         {
             string srv = srvs[i];
@@ -184,9 +186,7 @@ public class RayTracingPass
                 call.SRVs[i] = renderWrap.GetResourceFallBack(srv);
         }
 
-        call.CBVs = new();
         call.CBVs.Add(0, cbvData0);
-        call.missShaders = missShaders;
 
         if (RayTracingGI)
         {

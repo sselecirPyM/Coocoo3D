@@ -7,7 +7,6 @@ namespace RenderPipelines;
 public struct MeshRenderable
 {
     public Mesh mesh;
-    public Mesh meshOverride;
     public int indexStart;
     public int indexCount;
     public int vertexStart;
