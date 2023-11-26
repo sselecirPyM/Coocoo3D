@@ -107,8 +107,11 @@ public class AnimationStateComponent
         }
     }
 
-    public void ComputeMotion(MMDMotion motion, List<MorphDesc> morphs, List<BoneInstance> bones)
+    public void ComputeMotion(MMDMotion motion, MMDRendererComponent renderer)
     {
+        List<MorphDesc> morphs = renderer.Morphs;
+        List<BoneInstance> bones = renderer.bones;
+
         if (!LockMotion)
         {
             if (motion != null)
@@ -130,6 +133,17 @@ public class AnimationStateComponent
         {
             SetBoneDefaultPose(bones);
         }
+
+
+        for (int j = 0; j < renderer.Morphs.Count; j++)
+        {
+            if (renderer.Morphs[j].Type == MorphType.Vertex && Weights.Computed[j] != renderer.MorphWeights[j])
+            {
+                renderer.meshNeedUpdate = true;
+                break;
+            }
+        }
+        Weights.Computed.CopyTo(renderer.MorphWeights, 0);
     }
 }
 

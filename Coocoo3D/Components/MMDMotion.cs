@@ -44,18 +44,19 @@ public class MMDMotion
             else
                 left = mid;
         }
-        (Vector3, Quaternion) ComputeKeyFrame(in BoneKeyFrame _Left, in BoneKeyFrame _Right)
-        {
-            float t = (frame - _Left.Frame) / (_Right.Frame - _Left.Frame);
-            float amountR = GetAmount(_Right.rInterpolator, t);
-            float amountX = GetAmount(_Right.xInterpolator, t);
-            float amountY = GetAmount(_Right.yInterpolator, t);
-            float amountZ = GetAmount(_Right.zInterpolator, t);
-
-            return (Lerp(_Left.translation, _Right.translation, new Vector3(amountX, amountY, amountZ)), Quaternion.Slerp(_Left.rotation, _Right.rotation, amountR));
-        }
-        var value1 = ComputeKeyFrame(keyframeSet[left], keyframeSet[right]);
+        var value1 = ComputeKeyFrame(keyframeSet[left], keyframeSet[right], frame);
         return new BoneKeyFrame1(value1.Item1, value1.Item2, enableIK);
+    }
+
+    (Vector3, Quaternion) ComputeKeyFrame(in BoneKeyFrame _Left, in BoneKeyFrame _Right, float frame)
+    {
+        float t = (frame - _Left.Frame) / (_Right.Frame - _Left.Frame);
+        float amountR = GetAmount(_Right.rInterpolator, t);
+        float amountX = GetAmount(_Right.xInterpolator, t);
+        float amountY = GetAmount(_Right.yInterpolator, t);
+        float amountZ = GetAmount(_Right.zInterpolator, t);
+
+        return (Lerp(_Left.translation, _Right.translation, new Vector3(amountX, amountY, amountZ)), Quaternion.Slerp(_Left.rotation, _Right.rotation, amountR));
     }
 
     public float GetMorphWeight(string key, float time)
@@ -101,10 +102,7 @@ public class MMDMotion
     {
         return x * (1 - s) + y * s;
     }
-    static Vector3 Lerp(Vector3 x, Vector3 y, float s)
-    {
-        return Vector3.Lerp(x, y, s);
-    }
+
     static Vector3 Lerp(Vector3 x, Vector3 y, Vector3 s)
     {
         return x * (Vector3.One - s) + y * s;

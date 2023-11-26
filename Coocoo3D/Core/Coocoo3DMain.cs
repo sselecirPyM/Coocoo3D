@@ -157,7 +157,8 @@ public class Coocoo3DMain : IDisposable
 
         if (gdc.Playing || gdc.RefreshScene)
         {
-            animationSystem.playTime = (float)gdc.PlayTime;
+            //animationSystem.playTime = (float)gdc.PlayTime;
+            animationSystem.deltaTime = (float)gdc.DeltaTime;
             animationSystem.Update();
 
             sceneExtensions.Update();
@@ -175,7 +176,6 @@ public class Coocoo3DMain : IDisposable
         EngineContext.SyncCallStage();
         timeManager.RealCounter("fps", 1, out statistics.FramePerSecond);
         Simulation();
-        mainCaches.OnFrame();
 
         if ((swapChain.width, swapChain.height) != platformIO.windowSize)
         {
@@ -189,6 +189,7 @@ public class Coocoo3DMain : IDisposable
         RPContext.FrameBegin();
 
         graphicsContext.Begin();
+        mainCaches.OnFrame(graphicsContext);
 
         renderSystem.Update();
         uiRenderSystem.Update();

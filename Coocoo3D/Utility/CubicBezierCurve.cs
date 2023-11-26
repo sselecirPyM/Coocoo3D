@@ -64,14 +64,16 @@ public struct CubicBezierCurve
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     float SolveCurveX(float x, float epsilon)
     {
+        if (x <= 0.0f) return 0.0f;
+        if (x >= 1.0f) return 1.0f;
         float t0;
         float t1;
         float t2;
         float x2;
         float d2;
-        int i;
 
-        for (t2 = x, i = 0; i < 8; i++)
+        t2 = x;
+        for (int i = 0; i < 8; i++)
         {
             x2 = SampleCurveX(t2) - x;
             if (MathF.Abs(x2) < epsilon)
@@ -85,9 +87,6 @@ public struct CubicBezierCurve
         t0 = 0.0f;
         t1 = 1.0f;
         t2 = x;
-
-        if (t2 < t0) return t0;
-        if (t2 > t1) return t1;
 
         while (t0 < t1)
         {

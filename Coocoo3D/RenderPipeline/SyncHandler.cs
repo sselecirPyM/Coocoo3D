@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Coocoo3D.RenderPipeline;
 
-public class SyncHandler<T> : IHandler<T> where T : ISyncTask
+public class SyncHandler<T> where T : ISyncTask
 {
     public List<T> Output { get; } = new();
     public Queue<T> inputs = new();

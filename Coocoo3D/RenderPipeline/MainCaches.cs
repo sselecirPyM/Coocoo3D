@@ -37,7 +37,6 @@ public class MainCaches : IDisposable
 
     public ConcurrentQueue<Mesh> MeshReadyToUpload = new();
 
-    public DiskLoadHandler diskLoadHandler = new();
     public TextureDecodeHandler textureDecodeHandler = new();
     public CacheHandler cacheHandler = new();
     public SyncHandler<GpuUploadTask> uploadHandler = new();
@@ -47,10 +46,10 @@ public class MainCaches : IDisposable
 
     public GameDriverContext gameDriverContext;
 
+    string workDir = System.Environment.CurrentDirectory;
     public MainCaches()
     {
         textureDecodeHandler.LoadComplete = () => gameDriverContext.RequireRender(true);
-        diskLoadHandler.LoadComplete = () => gameDriverContext.RequireRender(true);
     }
 
 
@@ -64,7 +63,7 @@ public class MainCaches : IDisposable
     }
 
     Queue<string> textureLoadQueue = new();
-    public void OnFrame()
+    public void OnFrame(GraphicsContext graphicsContext)
     {
         if (ReloadShaders)
         {
@@ -94,9 +93,9 @@ public class MainCaches : IDisposable
         modelLoadHandler.state = this;
         modelLoadHandler.maxProcessingCount = 8;
 
-        HandlerUpdate(sceneLoadHandler);
-        HandlerUpdate(sceneSaveHandler);
-        HandlerUpdate(modelLoadHandler);
+        HandlerUpdate1(sceneLoadHandler);
+        HandlerUpdate1(sceneSaveHandler);
+        HandlerUpdate1(modelLoadHandler);
 
         foreach (var notLoad in TextureOnDemand)
         {
@@ -108,13 +107,12 @@ public class MainCaches : IDisposable
         {
             TextureOnDemand[key] = true;
             var tex1 = TextureCaches.GetOrCreate(key);
-            var task = new TextureLoadTask(tex1);
             tex1.fullPath = key;
+            var task = new TextureLoadTask(tex1);
             task.KnownFile = GetFileInfo(key);
             cacheHandler.Add(task);
         }
-        HandlerUpdate(cacheHandler);
-        HandlerUpdate(diskLoadHandler);
+        HandlerUpdate(cacheHandler, graphicsContext);
 
         textureDecodeHandler.Update();
 
@@ -123,16 +121,32 @@ public class MainCaches : IDisposable
             if (uploadHandler.inputs.Count > 3)
                 return false;
             var task = (TextureLoadTask)task1;
-            if (task.texture != null && task.Uploader == null)
-                task.texture.Status = task.TexturePack.Status;
+
             if (task.Uploader != null)
-                uploadHandler.Add(new GpuUploadTask(task.Texture, task.Uploader));
+            {
+                //task.TexturePack.texture2D = task.TexturePack.loadedTexture;
+                uploadHandler.Add(new GpuUploadTask(task.TexturePack.texture2D, task.Uploader));
+            }
+            else
+            {
+                //task.TexturePack.texture2D = GetTextureLoaded1("Assets/Textures/error.png", graphicsContext);
+                task.TexturePack.texture2D.Status = task.TexturePack.Status;
+            }
             TextureOnDemand.Remove(task.TexturePack.fullPath);
             return true;
         });
+
+
+        while (MeshReadyToUpload.TryDequeue(out var mesh))
+            graphicsContext.UploadMesh(mesh);
+
+        uploadHandler.maxProcessingCount = 10;
+        uploadHandler.state = graphicsContext;
+        uploadHandler.Update();
+        uploadHandler.Output.Clear();
     }
 
-    void HandlerUpdate<T>(IHandler<T> handler)
+    void HandlerUpdate(CacheHandler handler, GraphicsContext graphicsContext)
     {
         handler.Update();
         if (handler.Output.Count > 0)
@@ -140,47 +154,30 @@ public class MainCaches : IDisposable
 
         foreach (var task in handler.Output)
         {
-            if (task is TextureLoadTask navigableTask)
+            if (task.Next == null)
             {
-                PipelineNavigation(navigableTask);
+                task.OnLeavePipeline();
+
+                //task.TexturePack.texture2D = GetTextureLoaded1("Assets/Textures/error.png", graphicsContext);
+                TextureOnDemand.Remove(task.TexturePack.fullPath);
+            }
+            else if (task.Next == "ITextureDecodeTask")
+            {
+                //task.TexturePack.texture2D = GetTextureLoaded1("Assets/Textures/loading.png", graphicsContext);
+                textureDecodeHandler.Add(task);
             }
         }
 
         handler.Output.Clear();
     }
 
-    void PipelineNavigation(TextureLoadTask navigableTask)
+    void HandlerUpdate1<T>(SyncHandler<T> handler) where T : ISyncTask
     {
-        if (navigableTask.Next == null)
-        {
-            navigableTask.OnLeavePipeline();
-            if (navigableTask is TextureLoadTask textureLoadTask)
-            {
-                TextureOnDemand.Remove(textureLoadTask.TexturePack.fullPath);
-            }
-        }
-        else if (navigableTask.Next == "IDiskLoadTask")
-            AddTask(diskLoadHandler, navigableTask, "IDiskLoadTask");
-        else if (navigableTask.Next == "ITextureDecodeTask")
-            AddTask(textureDecodeHandler, navigableTask, "ITextureDecodeTask");
-    }
+        handler.Update();
+        if (handler.Output.Count > 0)
+            gameDriverContext.RequireRender(true);
 
-    bool AddTask(IHandler<TextureLoadTask> handler, TextureLoadTask task, string type)
-    {
-        bool r = handler.Add(task);
-        if (r)
-        {
-            switch (type)
-            {
-                case "IDiskLoadTask":
-                    task.Next = "ITextureDecodeTask";
-                    break;
-                default:
-                    task.Next = null;
-                    break;
-            }
-        }
-        return r;
+        handler.Output.Clear();
     }
 
     public KnownFile GetFileInfo(string path)
@@ -237,22 +234,30 @@ public class MainCaches : IDisposable
         }
         return file;
     }
+    Texture2D GetTextureLoaded1(string path, GraphicsContext graphicsContext)
+    {
+        return GetTextureLoaded(Path.GetFullPath(path, workDir), graphicsContext);
+    }
+
 
     public Texture2D GetTextureLoaded(string path, GraphicsContext graphicsContext)
     {
-        if (string.IsNullOrEmpty(path)) return null;
-        return GetT(TextureCaches, path, file =>
+        if (string.IsNullOrEmpty(path))
+            return null;
+        var a = GetT(TextureCaches, path, file =>
         {
             var texturePack1 = new Texture2DPack();
             texturePack1.fullPath = path;
             Uploader uploader = new Uploader();
             using var stream = file.OpenRead();
-            texturePack1.LoadTexture(file.FullName, stream, uploader);
+            Texture2DPack.LoadTexture(file.FullName, stream, uploader);
+            //texturePack1.texture2D = texturePack1.loadedTexture;
             graphicsContext.UploadTexture(texturePack1.texture2D, uploader);
             texturePack1.Status = GraphicsObjectStatus.loaded;
             texturePack1.texture2D.Status = GraphicsObjectStatus.loaded;
             return texturePack1;
-        }).texture2D;
+        });
+        return a.texture2D;
     }
 
     public ModelPack GetModel(string path)

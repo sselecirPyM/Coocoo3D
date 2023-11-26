@@ -25,13 +25,6 @@ public class RenderSystem
     public void Update()
     {
         var context = renderPipelineContext;
-        while (mainCaches.MeshReadyToUpload.TryDequeue(out var mesh))
-            graphicsContext.UploadMesh(mesh);
-
-        mainCaches.uploadHandler.maxProcessingCount = 10;
-        mainCaches.uploadHandler.state = graphicsContext;
-        mainCaches.uploadHandler.Update();
-        mainCaches.uploadHandler.Output.Clear();
 
         foreach (var channel in windowSystem.visualChannels.Values)
         {

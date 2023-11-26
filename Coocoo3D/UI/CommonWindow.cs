@@ -1,5 +1,7 @@
-﻿using Coocoo3D.Core;
+﻿using Coocoo3D.Components;
+using Coocoo3D.Core;
 using Coocoo3D.RenderPipeline;
+using DefaultEcs;
 using ImGuiNET;
 using System;
 using System.Numerics;
@@ -21,6 +23,8 @@ public class CommonWindow : IWindow
     public UIImGui uiImGui;
 
     public EditorContext editorContext;
+
+    public World world;
 
     public void OnGui()
     {
@@ -120,7 +124,8 @@ public class CommonWindow : IWindow
         if (ImGui.Button("向前5秒"))
         {
             gameDriver.ToPlayMode();
-            gameDriverContext.PlayTime -= 5;
+            //gameDriverContext.PlayTime -= 5;
+            MoveTime(-5);
             gameDriverContext.RequireRender(true);
         }
         foreach (var input in mainCaches.textureDecodeHandler.inputs)
@@ -153,7 +158,8 @@ public class CommonWindow : IWindow
     {
         gameDriver.ToPlayMode();
         gameDriverContext.Playing = false;
-        gameDriverContext.PlayTime = 0;
+        //gameDriverContext.PlayTime = 0;
+        ResetTime(0);
         gameDriverContext.RequireRender(true);
     }
     public void Rewind()
@@ -171,13 +177,30 @@ public class CommonWindow : IWindow
     public void Front()
     {
         gameDriver.ToPlayMode();
-        gameDriverContext.PlayTime = 0;
+        //gameDriverContext.PlayTime = 0;
+        ResetTime(0);
         gameDriverContext.RequireRender(true);
     }
     public void Rear()
     {
         gameDriver.ToPlayMode();
-        gameDriverContext.PlayTime = 9999;
+        //gameDriverContext.PlayTime = 9999;
+        ResetTime(9999);
         gameDriverContext.RequireRender(true);
+    }
+
+    void ResetTime(float time)
+    {
+        foreach (var obj in world.GetEntities().With<AnimationStateComponent>().AsEnumerable())
+        {
+            obj.Get<AnimationStateComponent>().Time = time;
+        }
+    }
+    void MoveTime(float time)
+    {
+        foreach (var obj in world.GetEntities().With<AnimationStateComponent>().AsEnumerable())
+        {
+            obj.Get<AnimationStateComponent>().Time += time;
+        }
     }
 }

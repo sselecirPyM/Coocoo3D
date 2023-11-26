@@ -19,6 +19,7 @@ public class TextureDecodeHandler : IHandler<TextureLoadTask>
     public bool Add(TextureLoadTask task)
     {
         inputs.Enqueue(task);
+        task.Next = null;
         return true;
     }
 
@@ -27,6 +28,7 @@ public class TextureDecodeHandler : IHandler<TextureLoadTask>
         while (Processing.Count + Output.Count < 6 && inputs.TryDequeue(out var input))
         {
             Processing.Add(input);
+            input.OnEnterPipeline();
         }
 
         Processing.RemoveAll(task =>
@@ -49,13 +51,12 @@ public class TextureDecodeHandler : IHandler<TextureLoadTask>
 
     void _Task(object a)
     {
-        var taskParam = (TextureLoadTask)a;
-        var texturePack = taskParam.TexturePack;
-        var datas = taskParam.GetDatas();
-        using var stream = new MemoryStream(datas);
-        LoadTexture(texturePack, taskParam.GetFileName(), stream, out var uploader);
+        var loadTask = (TextureLoadTask)a;
+        var texturePack = loadTask.TexturePack;
+        using var stream = File.OpenRead(loadTask.KnownFile.fullPath);
+        LoadTexture(texturePack, loadTask.GetFileName(), stream, out var uploader);
 
-        taskParam.Uploader = uploader;
+        loadTask.Uploader = uploader;
 
         LoadComplete?.Invoke();
     }
@@ -66,7 +67,7 @@ public class TextureDecodeHandler : IHandler<TextureLoadTask>
         try
         {
             Uploader uploader1 = new Uploader();
-            if (texturePack.LoadTexture(fileName, stream, uploader1))
+            if (Texture2DPack.LoadTexture(fileName, stream, uploader1))
             {
                 uploader = uploader1;
                 texturePack.Status = GraphicsObjectStatus.loaded;

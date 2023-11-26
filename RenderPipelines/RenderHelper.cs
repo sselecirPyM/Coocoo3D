@@ -326,44 +326,6 @@ public class RenderHelper
         renderWrap.graphicsContext.DrawIndexed(renderable.indexCount, renderable.indexStart, renderable.vertexStart);
     }
 
-    public T GetObject<T>(IDictionary<string, object> dictionary, T baseObject) where T : ICloneable
-    {
-        var clone = baseObject.Clone();
-        var members = baseObject.GetType().GetMembers();
-        foreach (var member in members)
-        {
-            if (member is FieldInfo || member is PropertyInfo)
-            {
-                var type = member.GetGetterType();
-                if (dictionary.TryGetValue(member.Name, out var val))
-                {
-                    var objType = val.GetType();
-                    if (objType == type)
-                    {
-                        member.SetValue(clone, val);
-                    }
-                    else if (type == typeof(Texture2D))
-                    {
-                        member.SetValue(clone, renderWrap.GetTex2DByNameFallBack(val as string));
-                    }
-                    else if (type.IsEnum && objType == typeof(string))
-                    {
-                        if (Enum.TryParse(type, (string)val, out var val2))
-                        {
-                            member.SetValue(clone, val2);
-                        }
-                    }
-                }
-                else if (type == typeof(Texture2D))
-                {
-                    member.SetValue(clone, renderWrap.TextureStatusSelect(member.GetValue<Texture2D>(clone)));
-                }
-            }
-        }
-        return (T)clone;
-    }
-
-
     #region write object
     public object GetIndexableValue(string key)
     {

@@ -13,11 +13,12 @@ namespace Coocoo3D.ResourceWrap;
 public class Texture2DPack : IDisposable
 {
     public Texture2D texture2D = new Texture2D();
+    //public readonly Texture2D loadedTexture = new Texture2D();
     public string fullPath;
 
     public GraphicsObjectStatus Status;
 
-    public bool LoadTexture(string fileName, Stream stream, Uploader uploader)
+    public static bool LoadTexture(string fileName, Stream stream, Uploader uploader)
     {
         try
         {
@@ -44,7 +45,6 @@ public class Texture2DPack : IDisposable
                     break;
             }
 
-            Status = GraphicsObjectStatus.loaded;
             return true;
         }
         catch (Exception e)
@@ -174,7 +174,7 @@ public class Texture2DPack : IDisposable
         //Test whether the image is a normal map.
         if (bitPerPixel == 8 * 4)
         {
-            if(DetectNormalMap(data, width, height, bitPerPixel))
+            if (DetectNormalMap(data, width, height, bitPerPixel))
             {
                 format = Format.R8G8B8A8_UNorm;
             }
@@ -225,5 +225,6 @@ public class Texture2DPack : IDisposable
     public void Dispose()
     {
         texture2D.Dispose();
+        //loadedTexture?.Dispose();
     }
 }

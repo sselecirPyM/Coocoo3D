@@ -35,11 +35,6 @@ internal class RootSignature : IDisposable
 
     internal void Sign1(ID3D12Device device)
     {
-        Sign2(device);
-    }
-
-    void Sign2(ID3D12Device device)
-    {
         rootSignature?.Release();
         rootSignature = device.CreateRootSignature<ID3D12RootSignature>(0, description1);
     }

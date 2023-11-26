@@ -63,7 +63,7 @@ public static class PMXFormatExtension
         {
             renderer.Materials.Add(v.GetClone());
         }
-        renderer.Weights = new float[modelPack.morphs.Count];
+        renderer.MorphWeights = new float[modelPack.morphs.Count];
 
         var mesh = modelPack.GetMesh();
         renderer.meshPath = modelPack.fullPath;

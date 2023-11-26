@@ -17,7 +17,7 @@ public class MMDRendererComponent
 
     public Vector3[] MeshPosition;
 
-    public float[] Weights;
+    public float[] MorphWeights;
     public List<MorphDesc> Morphs = new();
 
     internal bool meshNeedUpdate;
@@ -36,7 +36,7 @@ public class MMDRendererComponent
                 continue;
             MorphVertexDesc[] morphVertices = Morphs[i].MorphVertexs;
 
-            float computedWeight = Weights[i];
+            float computedWeight = MorphWeights[i];
             if (computedWeight != 0)
                 for (int j = 0; j < morphVertices.Length; j++)
                 {
@@ -59,7 +59,7 @@ public class MMDRendererComponent
     public Matrix4x4 LocalToWorld = Matrix4x4.Identity;
     public Matrix4x4 WorldToLocal = Matrix4x4.Identity;
 
-    public List<int> AppendUpdateMatIndexs = new();
+    public List<int> AppendUpdateMatIndices = new();
     public List<int> PhysicsUpdateMatrixIndexs = new();
 
     public void SetTransform(Transform transform)
@@ -80,7 +80,7 @@ public class MMDRendererComponent
             if (Morphs[i].Type != MorphType.Bone)
                 continue;
             MorphBoneDesc[] morphBoneStructs = Morphs[i].MorphBones;
-            float computedWeight = Weights[i];
+            float computedWeight = MorphWeights[i];
             for (int j = 0; j < morphBoneStructs.Length; j++)
             {
                 var morphBoneStruct = morphBoneStructs[j];
@@ -111,7 +111,7 @@ public class MMDRendererComponent
                 bone.appendRotation = Quaternion.Slerp(Quaternion.Identity, bones[bone.AppendParentIndex].rotation, bone.AppendRatio);
             }
         }
-        UpdateMatrices(AppendUpdateMatIndexs);
+        UpdateMatrices(AppendUpdateMatIndices);
     }
 
     void IK(BoneInstance sourceBone)
@@ -216,7 +216,7 @@ public class MMDRendererComponent
         bool[] bonesTest = new bool[bones.Count];
 
         Array.Clear(bonesTest, 0, bones.Count);
-        AppendUpdateMatIndexs.Clear();
+        AppendUpdateMatIndices.Clear();
         for (int i = 0; i < bones.Count; i++)
         {
             var bone = bones[i];
@@ -227,7 +227,7 @@ public class MMDRendererComponent
                 bonesTest[i] = false;
             if (bonesTest[i])
             {
-                AppendUpdateMatIndexs.Add(i);
+                AppendUpdateMatIndices.Add(i);
             }
         }
         Array.Clear(bonesTest, 0, bones.Count);
@@ -336,7 +336,7 @@ public class MMDRendererComponent
         rendererComponent.Materials = Materials.Select(u => u.GetClone()).ToList();
         rendererComponent.bones = bones.Select(u => u.GetClone()).ToList();
         rendererComponent.BoneMatricesData = (Matrix4x4[])BoneMatricesData.Clone();
-        rendererComponent.Weights = (float[])Weights.Clone();
+        rendererComponent.MorphWeights = (float[])MorphWeights.Clone();
         return rendererComponent;
     }
 }
