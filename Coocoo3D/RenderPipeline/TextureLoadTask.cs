@@ -28,14 +28,14 @@ public class TextureLoadTask
 
     public void OnEnterPipeline()
     {
-        //if (texture != null)
-        //    texture.Status = GraphicsObjectStatus.loading;
+        if (TexturePack != null)
+            TexturePack.texture2D.Status = GraphicsObjectStatus.loading;
     }
 
     public void OnLeavePipeline()
     {
-        //if (TexturePack != null)
-        //    texture.Status = TexturePack.Status;
+        if (TexturePack != null)
+            TexturePack.texture2D.Status = TexturePack.Status;
     }
     public void OnError(Exception exception)
     {

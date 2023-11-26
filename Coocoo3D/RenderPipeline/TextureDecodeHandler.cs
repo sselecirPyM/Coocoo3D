@@ -28,7 +28,6 @@ public class TextureDecodeHandler : IHandler<TextureLoadTask>
         while (Processing.Count + Output.Count < 6 && inputs.TryDequeue(out var input))
         {
             Processing.Add(input);
-            input.OnEnterPipeline();
         }
 
         Processing.RemoveAll(task =>

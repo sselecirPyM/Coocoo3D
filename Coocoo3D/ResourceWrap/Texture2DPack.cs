@@ -13,7 +13,6 @@ namespace Coocoo3D.ResourceWrap;
 public class Texture2DPack : IDisposable
 {
     public Texture2D texture2D = new Texture2D();
-    //public readonly Texture2D loadedTexture = new Texture2D();
     public string fullPath;
 
     public GraphicsObjectStatus Status;
@@ -225,6 +224,5 @@ public class Texture2DPack : IDisposable
     public void Dispose()
     {
         texture2D.Dispose();
-        //loadedTexture?.Dispose();
     }
 }

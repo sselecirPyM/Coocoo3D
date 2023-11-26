@@ -215,7 +215,6 @@ public class ForwardRenderPipeline : RenderPipeline, IDisposable
         renderWrap.SetSize("HalfOutput", (outputWidth + 1) / 2, (outputHeight + 1) / 2);
         renderWrap.SetSize("QuarterOutput", (outputWidth + 3) / 4, (outputHeight + 3) / 4);
         renderWrap.SetSize("BloomSize", outputWidth * 256 / outputHeight, 256);
-        renderWrap.texLoading = renderWrap.GetTex2DLoaded("loading.png");
         renderWrap.texError = renderWrap.GetTex2DLoaded("error.png");
         renderHelper.PushParameters(this);
     }

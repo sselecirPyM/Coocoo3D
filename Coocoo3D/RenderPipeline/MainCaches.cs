@@ -106,9 +106,11 @@ public class MainCaches : IDisposable
         while (textureLoadQueue.TryDequeue(out var key))
         {
             TextureOnDemand[key] = true;
-            var tex1 = TextureCaches.GetOrCreate(key);
-            tex1.fullPath = key;
-            var task = new TextureLoadTask(tex1);
+            var texturePack = TextureCaches.GetOrCreate(key);
+            texturePack.fullPath = key;
+
+            TextureReplace(texturePack.texture2D, graphicsContext);
+            var task = new TextureLoadTask(texturePack);
             task.KnownFile = GetFileInfo(key);
             cacheHandler.Add(task);
         }
@@ -124,13 +126,12 @@ public class MainCaches : IDisposable
 
             if (task.Uploader != null)
             {
-                //task.TexturePack.texture2D = task.TexturePack.loadedTexture;
                 uploadHandler.Add(new GpuUploadTask(task.TexturePack.texture2D, task.Uploader));
             }
             else
             {
-                //task.TexturePack.texture2D = GetTextureLoaded1("Assets/Textures/error.png", graphicsContext);
                 task.TexturePack.texture2D.Status = task.TexturePack.Status;
+                TextureReplace(task.TexturePack.texture2D, graphicsContext);
             }
             TextureOnDemand.Remove(task.TexturePack.fullPath);
             return true;
@@ -158,12 +159,13 @@ public class MainCaches : IDisposable
             {
                 task.OnLeavePipeline();
 
-                //task.TexturePack.texture2D = GetTextureLoaded1("Assets/Textures/error.png", graphicsContext);
+                TextureReplace(task.TexturePack.texture2D, graphicsContext);
                 TextureOnDemand.Remove(task.TexturePack.fullPath);
             }
             else if (task.Next == "ITextureDecodeTask")
             {
-                //task.TexturePack.texture2D = GetTextureLoaded1("Assets/Textures/loading.png", graphicsContext);
+                task.OnEnterPipeline();
+                TextureReplace(task.TexturePack.texture2D, graphicsContext);
                 textureDecodeHandler.Add(task);
             }
         }
@@ -178,6 +180,14 @@ public class MainCaches : IDisposable
             gameDriverContext.RequireRender(true);
 
         handler.Output.Clear();
+    }
+
+    void TextureReplace(Texture2D texture, GraphicsContext graphicsContext)
+    {
+        if (texture.Status == GraphicsObjectStatus.loading)
+            GetTextureLoaded1("Assets/Textures/loading.png", graphicsContext).RefCopyTo(texture);
+        else if (texture.Status != GraphicsObjectStatus.loaded)
+            GetTextureLoaded1("Assets/Textures/error.png", graphicsContext).RefCopyTo(texture);
     }
 
     public KnownFile GetFileInfo(string path)
@@ -251,7 +261,6 @@ public class MainCaches : IDisposable
             Uploader uploader = new Uploader();
             using var stream = file.OpenRead();
             Texture2DPack.LoadTexture(file.FullName, stream, uploader);
-            //texturePack1.texture2D = texturePack1.loadedTexture;
             graphicsContext.UploadTexture(texturePack1.texture2D, uploader);
             texturePack1.Status = GraphicsObjectStatus.loaded;
             texturePack1.texture2D.Status = GraphicsObjectStatus.loaded;

@@ -16,16 +16,33 @@ public class Texture2D : IDisposable
     public Format dsvFormat;
     public Format uavFormat;
     private ResourceStates[] resourceStates;
-    public GraphicsObjectStatus Status;
     public int arraySize = 1;
 
     public bool isCube;
 
+    public GraphicsObjectStatus Status;
+
+    public void RefCopyTo(Texture2D target)
+    {
+        resource?.AddRef();
+        target.resource?.Release();
+        target.resource = resource;
+        target.width = width;
+        target.height = height;
+        target.mipLevels = mipLevels;
+        target.format = format;
+        target.rtvFormat = rtvFormat;
+        target.dsvFormat = dsvFormat;
+        target.uavFormat = uavFormat;
+        target.resourceStates = resourceStates;
+        target.arraySize = arraySize;
+        target.isCube = isCube;
+    }
+
     public void InitResourceState(ResourceStates rs)
     {
         int arrayLenght = mipLevels * arraySize;
-        if (resourceStates == null || resourceStates.Length != arrayLenght)
-            resourceStates = new ResourceStates[arrayLenght];
+        resourceStates = new ResourceStates[arrayLenght];
         Array.Fill(resourceStates, rs);
     }
 

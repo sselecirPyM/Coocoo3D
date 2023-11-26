@@ -562,7 +562,7 @@ public sealed class GraphicsContext
         texture.Status = GraphicsObjectStatus.loaded;
     }
 
-    public void UploadTexture(Texture2D texture, byte[] data)
+    void UploadTexture(Texture2D texture, byte[] data)
     {
         int bitsPerPixel = (int)BitsPerPixel(texture.format);
         int width = texture.width;

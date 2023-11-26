@@ -276,7 +276,6 @@ public class DeferredRenderPipeline : RenderPipeline, IDisposable
         renderWrap.SetSize("QuarterOutput", (outputWidth + 3) / 4, (outputHeight + 3) / 4);
         renderWrap.SetSize("BloomSize", outputWidth * 256 / outputHeight, 256);
         renderWrap.SetSize("GIBufferSize", 589824, 1);
-        renderWrap.texLoading = renderWrap.GetTex2DLoaded("loading.png");
         renderWrap.texError = renderWrap.GetTex2DLoaded("error.png");
         renderHelper.PushParameters(this);
     }

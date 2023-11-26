@@ -17,7 +17,6 @@ public sealed class UIRenderSystem : IDisposable
     string workDir = System.Environment.CurrentDirectory;
     string imguiShaderPath;
 
-    string loadingTexturePath;
     string errorTexturePath;
 
     int ptrCount = 100000000;
@@ -33,7 +32,6 @@ public sealed class UIRenderSystem : IDisposable
     public UIRenderSystem()
     {
         imguiShaderPath = System.IO.Path.GetFullPath("Shaders/ImGui.hlsl", workDir);
-        loadingTexturePath = System.IO.Path.GetFullPath("Assets/Textures/loading.png", workDir);
         errorTexturePath = System.IO.Path.GetFullPath("Assets/Textures/error.png", workDir);
     }
 
@@ -48,12 +46,7 @@ public sealed class UIRenderSystem : IDisposable
     public void Update()
     {
         viewTextures[new IntPtr(uiTextureIndex)] = uiTexture;
-        Texture2D texLoading = caches.GetTextureLoaded(loadingTexturePath, graphicsContext);
         Texture2D texError = caches.GetTextureLoaded(errorTexturePath, graphicsContext);
-
-        //var rs = DX12ResourceManager.GetRootSignature("Cs");
-
-        //graphicsContext.SetRootSignature(rs);
 
         graphicsContext.SetRenderTargetSwapChain(swapChain, new Vector4(0, 0.3f, 0.3f, 0), true);
 
@@ -67,16 +60,18 @@ public sealed class UIRenderSystem : IDisposable
         Vector2 displayPosition = data.DisplayPos;
 
 
-        PSODesc desc;
-        desc.blendState = BlendState.Alpha;
-        desc.cullMode = CullMode.None;
-        desc.depthBias = 0;
-        desc.slopeScaledDepthBias = 0;
-        desc.dsvFormat = Format.Unknown;
-        desc.rtvFormat = swapChain.format;
-        desc.renderTargetCount = 1;
-        desc.wireFrame = false;
-        desc.inputLayout = InputLayout.Imgui;
+        PSODesc desc = new PSODesc
+        {
+            blendState = BlendState.Alpha,
+            cullMode = CullMode.None,
+            depthBias = 0,
+            slopeScaledDepthBias = 0,
+            dsvFormat = Format.Unknown,
+            rtvFormat = swapChain.format,
+            renderTargetCount = 1,
+            wireFrame = false,
+            inputLayout = InputLayout.Imgui
+        };
         var pso = caches.GetPSO(null, imguiShaderPath);
         graphicsContext.SetPSO(pso.pso, desc);
 
@@ -121,7 +116,7 @@ public sealed class UIRenderSystem : IDisposable
 
                 }
 
-                tex = TextureStatusSelect(tex, texLoading, texError, texError);
+                tex = TextureStatusSelect(tex, texError);
 
                 graphicsContext.SetSRVTSlotLinear(tex, 0);//srgb to srgb
                 var rect = cmd.ClipRect;
@@ -135,18 +130,13 @@ public sealed class UIRenderSystem : IDisposable
         ptrCount = 100000000;
     }
 
-    static Texture2D TextureStatusSelect(Texture2D texture, Texture2D loading, Texture2D unload, Texture2D error)
+    static Texture2D TextureStatusSelect(Texture2D texture, Texture2D error)
     {
-        if (texture == null)
+        if (texture?.resource == null)
             return error;
-        return texture.Status switch
-        {
-            GraphicsObjectStatus.loaded => texture,
-            GraphicsObjectStatus.loading => loading,
-            GraphicsObjectStatus.unload => unload,
-            _ => error
-        };
+        return texture;
     }
+
     public void Dispose()
     {
         uiTexture?.Dispose();

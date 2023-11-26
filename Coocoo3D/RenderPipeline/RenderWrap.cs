@@ -149,7 +149,7 @@ public class RenderWrap
         return rpc.mainCaches.GetTextureLoaded(Path.GetFullPath(name, BasePath), graphicsContext);
     }
 
-    public Texture2D GetTex2DByName(string name)
+    private Texture2D GetTex2DByName(string name)
     {
         if (string.IsNullOrEmpty(name))
             return null;
@@ -182,7 +182,6 @@ public class RenderWrap
     }
 
 
-    public Texture2D texLoading;
     public Texture2D texError;
 
     public object GetResourceFallBack(string name, RenderMaterial material = null)
@@ -212,22 +211,14 @@ public class RenderWrap
 
     public Texture2D TextureStatusSelect(Texture2D texture)
     {
-        return TextureStatusSelect(texture, texLoading, texError, texError);
-    }
-
-    public static Texture2D TextureStatusSelect(Texture2D texture, Texture2D loading, Texture2D unload, Texture2D error)
-    {
         if (texture == null)
-            return error;
-        return texture.Status switch
         {
-            GraphicsObjectStatus.loaded => texture,
-            GraphicsObjectStatus.loading => loading,
-            GraphicsObjectStatus.unload => unload,
-            _ => error
-        };
-    }
+            texError.Status = GraphicsObjectStatus.error;
+            return texError;
+        }
 
+        return texture;
+    }
     public void SetRenderTarget(Texture2D texture2D, bool clear)
     {
         graphicsContext.SetRTV(texture2D, Vector4.Zero, clear);
