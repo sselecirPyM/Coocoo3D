@@ -18,8 +18,6 @@ public class RenderPipelineContext : IDisposable
     public GraphicsDevice graphicsDevice;
     public GraphicsContext graphicsContext = new();
 
-    public Wrap.GPUWriter gpuWriter = new();
-
     public bool recording = false;
 
     public double Time;

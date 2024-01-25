@@ -92,7 +92,6 @@ public sealed class GraphicsContext
 
     void SetRTTopAccelerationStruct(RTTopLevelAcclerationStruct accelerationStruct)
     {
-        string POSITION = "POSITION0";
         if (accelerationStruct.initialized)
             return;
         accelerationStruct.initialized = true;
@@ -104,58 +103,12 @@ public sealed class GraphicsContext
         Span<RaytracingInstanceDescription> raytracingInstanceDescriptions = stackalloc RaytracingInstanceDescription[instanceCount];
         for (int i = 0; i < instanceCount; i++)
         {
-            RTInstance instance = accelerationStruct.instances[i];
-            var btas = instance.accelerationStruct;
-            var mesh = btas.mesh;
-            if (btas.initialized)
-                continue;
-
-            var indexBuffer = mesh.GetIndexBuffer();
-            var positionBuffer = mesh.GetVertexBuffer(POSITION);
-
-            ulong position = positionBuffer.vertexBufferView.BufferLocation + (ulong)btas.vertexStart * 12;
-
-            var inputs = new BuildRaytracingAccelerationStructureInputs();
-            inputs.Type = RaytracingAccelerationStructureType.BottomLevel;
-            inputs.Layout = ElementsLayout.Array;
-            inputs.GeometryDescriptions = new RaytracingGeometryDescription[]
+            if (BuildBTAS(accelerationStruct.instances[i], i, out var raytracingInstanceDescription))
             {
-                new RaytracingGeometryDescription(new RaytracingGeometryTrianglesDescription(new GpuVirtualAddressAndStride(position, 12),
-                Format.R32G32B32_Float,
-                btas.vertexCount,
-                0,
-                indexBuffer.GPUVirtualAddress + (ulong)btas.indexStart * 4,
-                Format.R32_UInt,
-                btas.indexCount)),
-            };
-            inputs.DescriptorsCount = 1;
-
-            if (positionBuffer.vertex != null)
-                Reference(positionBuffer.vertex);
-            Reference(indexBuffer);
-            var info = graphicsDevice.device.GetRaytracingAccelerationStructurePrebuildInfo(inputs);
-
-            CreateUAVBuffer((int)info.ResultDataMaxSizeInBytes, ref btas.resource, ResourceStates.RaytracingAccelerationStructure);
-            var brtas = new BuildRaytracingAccelerationStructureDescription();
-            brtas.Inputs = inputs;
-            brtas.ScratchAccelerationStructureData = graphicsDevice.scratchResource.GPUVirtualAddress;
-            brtas.DestinationAccelerationStructureData = btas.resource.GPUVirtualAddress;
-
-            m_commandList.BuildRaytracingAccelerationStructure(brtas);
-            m_commandList.ResourceBarrierUnorderedAccessView(btas.resource);
-            Reference(btas.resource);
-            var raytracingInstanceDescription = new RaytracingInstanceDescription
-            {
-                AccelerationStructure = btas.resource.GPUVirtualAddress,
-                InstanceContributionToHitGroupIndex = (Vortice.UInt24)(uint)i,
-                InstanceID = (Vortice.UInt24)(uint)i,
-                InstanceMask = instance.instanceMask,
-                Transform = GetMatrix3X4(Matrix4x4.Transpose(instance.transform))
-            };
-            raytracingInstanceDescriptions[i] = raytracingInstanceDescription;
-            btas.initialized = true;
+                raytracingInstanceDescriptions[i] = raytracingInstanceDescription;
+            }
         }
-        GetRingBuffer().DelayUpload<RaytracingInstanceDescription>(raytracingInstanceDescriptions, out ulong gpuAddr);
+        GetRingBuffer().UploadBuffer<RaytracingInstanceDescription>(raytracingInstanceDescriptions, out ulong gpuAddr);
         var tpInputs = new BuildRaytracingAccelerationStructureInputs
         {
             Layout = ElementsLayout.Array,
@@ -176,35 +129,93 @@ public sealed class GraphicsContext
         m_commandList.BuildRaytracingAccelerationStructure(trtas);
     }
 
-    public unsafe void DispatchRays(int width, int height, int depth, RayTracingCall call)
+    bool BuildBTAS(RTInstance instance, int instantID, out RaytracingInstanceDescription raytracingInstanceDescription)
+    {
+        string POSITION = "POSITION0";
+        var btas = instance.accelerationStruct;
+        var mesh = btas.mesh;
+        if (btas.initialized)
+        {
+            raytracingInstanceDescription = default;
+            return false;
+        }
+
+        var indexBuffer = mesh.GetIndexBuffer();
+        var positionBuffer = mesh.GetVertexBuffer(POSITION);
+
+        ulong position = positionBuffer.vertexBufferView.BufferLocation + (ulong)btas.vertexStart * 12;
+
+        var inputs = new BuildRaytracingAccelerationStructureInputs
+        {
+            Type = RaytracingAccelerationStructureType.BottomLevel,
+            Layout = ElementsLayout.Array,
+            GeometryDescriptions = new RaytracingGeometryDescription[]
+            {
+                new RaytracingGeometryDescription(new RaytracingGeometryTrianglesDescription(new GpuVirtualAddressAndStride(position, 12),
+                Format.R32G32B32_Float,
+                btas.vertexCount,
+                0,
+                indexBuffer.GPUVirtualAddress + (ulong)btas.indexStart * 4,
+                Format.R32_UInt,
+                btas.indexCount)),
+            },
+            DescriptorsCount = 1
+        };
+
+        if (positionBuffer.vertex != null)
+            Reference(positionBuffer.vertex);
+        Reference(indexBuffer);
+        var info = graphicsDevice.device.GetRaytracingAccelerationStructurePrebuildInfo(inputs);
+
+        CreateUAVBuffer((int)info.ResultDataMaxSizeInBytes, ref btas.resource, ResourceStates.RaytracingAccelerationStructure);
+        var brtas = new BuildRaytracingAccelerationStructureDescription
+        {
+            Inputs = inputs,
+            ScratchAccelerationStructureData = graphicsDevice.scratchResource.GPUVirtualAddress,
+            DestinationAccelerationStructureData = btas.resource.GPUVirtualAddress
+        };
+
+        m_commandList.BuildRaytracingAccelerationStructure(brtas);
+        m_commandList.ResourceBarrierUnorderedAccessView(btas.resource);
+        Reference(btas.resource);
+        raytracingInstanceDescription = new RaytracingInstanceDescription
+        {
+            AccelerationStructure = btas.resource.GPUVirtualAddress,
+            InstanceContributionToHitGroupIndex = (Vortice.UInt24)(uint)instantID,
+            InstanceID = (Vortice.UInt24)(uint)instantID,
+            InstanceMask = instance.instanceMask,
+            Transform = GetMatrix3X4(Matrix4x4.Transpose(instance.transform))
+        };
+        btas.initialized = true;
+        return true;
+    }
+    const int D3D12ShaderIdentifierSizeInBytes = 32;
+
+    public void DispatchRays(int width, int height, int depth, RayTracingCall call)
     {
         SetRTTopAccelerationStruct(call.tpas);
-        const int D3D12ShaderIdentifierSizeInBytes = 32;
         var pRtsoProps = currentRTPSO.so.QueryInterface<ID3D12StateObjectProperties>();
         Reference(currentRTPSO.so);
 
         currentRootSignature = currentRTPSO.globalRootSignature;
-        SetSRVRSlot(call.tpas.resource.GPUVirtualAddress, 0);
+        SetSRVRSlot(0, call.tpas.resource.GPUVirtualAddress);
 
         WriteGlobalHandles(call);
 
-        Span<byte> data = stackalloc byte[32];
-        MemoryStream memoryStream = new MemoryStream();
-        BinaryWriter writer = new BinaryWriter(memoryStream);
-        memcpy(data, pRtsoProps.GetShaderIdentifier(call.rayGenShader).ToPointer(), D3D12ShaderIdentifierSizeInBytes);
-        writer.Write(data);
-        ulong gpuaddr;
-        int length1 = (int)memoryStream.Position;
-        GetRingBuffer().DelayUpload(new ReadOnlySpan<byte>(memoryStream.GetBuffer(), 0, length1), out gpuaddr);
         var dispatchRaysDescription = new DispatchRaysDescription
         {
             Width = width,
             Height = height,
             Depth = depth,
-            HitGroupTable = new GpuVirtualAddressRangeAndStride(),
-            MissShaderTable = new GpuVirtualAddressRangeAndStride(),
-            RayGenerationShaderRecord = new GpuVirtualAddressRange(gpuaddr, (ulong)length1)
         };
+
+        {
+            GetRingBuffer().UploadBuffer(GetShaderIdentifier(pRtsoProps, call.rayGenShader), out var gpuaddr);
+            dispatchRaysDescription.RayGenerationShaderRecord = new GpuVirtualAddressRange(gpuaddr, (ulong)D3D12ShaderIdentifierSizeInBytes);
+        }
+
+        MemoryStream memoryStream = new MemoryStream();
+        BinaryWriter writer = new BinaryWriter(memoryStream);
         writer.Seek(0, SeekOrigin.Begin);
         string[] nameIndex = new string[] { "POSITION0", "NORMAL0", "TEXCOORD0" };
         foreach (var inst in call.tpas.instances)
@@ -214,12 +225,11 @@ public sealed class GraphicsContext
                 var blas = inst.accelerationStruct;
                 var mesh = blas.mesh;
                 var indexBuffer = mesh.GetIndexBuffer();
-                memcpy(data, pRtsoProps.GetShaderIdentifier(inst.hitGroupName).ToPointer(), D3D12ShaderIdentifierSizeInBytes);
-                writer.Write(data);
+                writer.Write(GetShaderIdentifier(pRtsoProps, inst.hitGroupName));
                 writer.Write(indexBuffer.GPUVirtualAddress + (ulong)blas.indexStart * 4);
                 int vertexStart = blas.vertexStart;
 
-                for (int i = 0; i < 3; i++)
+                for (int i = 0; i < nameIndex.Length; i++)
                 {
                     string name = nameIndex[i];
                     var buffer = mesh.GetVertexBuffer(name);
@@ -231,8 +241,7 @@ public sealed class GraphicsContext
             }
             else
             {
-                memcpy(data, pRtsoProps.GetShaderIdentifier("emptyhitgroup").ToPointer(), D3D12ShaderIdentifierSizeInBytes);
-                writer.Write(data);
+                writer.Write(GetShaderIdentifier(pRtsoProps, "emptyhitgroup"));
                 for (int i = 0; i < currentRTPSO.localSize - D3D12ShaderIdentifierSizeInBytes; i++)
                 {
                     writer.Write((byte)0);
@@ -242,29 +251,33 @@ public sealed class GraphicsContext
         }
         if (memoryStream.Position > 0)
         {
-            length1 = (int)memoryStream.Position;
-            GetRingBuffer().DelayUpload(new ReadOnlySpan<byte>(memoryStream.GetBuffer(), 0, length1), out gpuaddr);
+            int length1 = (int)memoryStream.Position;
+            GetRingBuffer().UploadBuffer(new ReadOnlySpan<byte>(memoryStream.GetBuffer(), 0, length1), out var gpuaddr);
             dispatchRaysDescription.HitGroupTable = new GpuVirtualAddressRangeAndStride(gpuaddr, (ulong)length1, (ulong)(length1 / call.tpas.instances.Count));
         }
-        writer.Seek(0, SeekOrigin.Begin);
 
+        writer.Seek(0, SeekOrigin.Begin);
         if (call.missShaders != null && call.missShaders.Length > 0)
         {
             foreach (var missShader in call.missShaders)
             {
-                memcpy(data, pRtsoProps.GetShaderIdentifier(missShader).ToPointer(), D3D12ShaderIdentifierSizeInBytes);
-                writer.Write(data);
+                writer.Write(GetShaderIdentifier(pRtsoProps, missShader));
             }
 
-            length1 = (int)memoryStream.Position;
-            GetRingBuffer().DelayUpload(new ReadOnlySpan<byte>(memoryStream.GetBuffer(), 0, length1), out gpuaddr);
-            dispatchRaysDescription.MissShaderTable = new GpuVirtualAddressRangeAndStride(gpuaddr, (ulong)length1, (ulong)(length1 / call.missShaders.Length));
+            int length1 = (int)memoryStream.Position;
+            GetRingBuffer().UploadBuffer(new ReadOnlySpan<byte>(memoryStream.GetBuffer(), 0, length1), out var gpuaddr);
+            dispatchRaysDescription.MissShaderTable = new GpuVirtualAddressRangeAndStride(gpuaddr, (ulong)length1, D3D12ShaderIdentifierSizeInBytes);
         }
-        writer.Seek(0, SeekOrigin.Begin);
 
+        writer.Seek(0, SeekOrigin.Begin);
         pRtsoProps.Dispose();
         PipelineBindingCompute();
         m_commandList.DispatchRays(dispatchRaysDescription);
+    }
+
+    static unsafe ReadOnlySpan<byte> GetShaderIdentifier(ID3D12StateObjectProperties pRtsoProps, string shader)
+    {
+        return new ReadOnlySpan<byte>(pRtsoProps.GetShaderIdentifier(shader).ToPointer(), D3D12ShaderIdentifierSizeInBytes);
     }
 
     void WriteGlobalHandles(RayTracingCall call)
@@ -282,10 +295,8 @@ public sealed class GraphicsContext
             {
                 if (call.SRVs != null && call.SRVs.TryGetValue(srvOffset, out object srv0))
                 {
-                    if (srv0 is Texture2D tex2d)
-                        SetSRVTSlot(tex2d, srvOffset);
-                    else if (srv0 is GPUBuffer buffer)
-                        SetSRVTSlot(buffer, srvOffset);
+                    if (srv0 is IGPUResource gpuResource)
+                        SetSRVTSlot(srvOffset, gpuResource);
                 }
                 srvOffset++;
             }
@@ -294,11 +305,11 @@ public sealed class GraphicsContext
                 if (call.CBVs != null && call.CBVs.TryGetValue(cbvOffset, out object cbv0))
                 {
                     if (cbv0 is byte[] cbvData)
-                        SetCBVRSlot<byte>(cbvData, cbvOffset);
+                        SetCBVRSlot<byte>(cbvOffset, cbvData);
                     else if (cbv0 is Matrix4x4[] cbvDataM)
-                        SetCBVRSlot<Matrix4x4>(cbvDataM, cbvOffset);
+                        SetCBVRSlot<Matrix4x4>(cbvOffset, cbvDataM);
                     else if (cbv0 is Vector4[] cbvDataF4)
-                        SetCBVRSlot<Vector4>(cbvDataF4, cbvOffset);
+                        SetCBVRSlot<Vector4>(cbvOffset, cbvDataF4);
                 }
                 cbvOffset++;
             }
@@ -307,9 +318,9 @@ public sealed class GraphicsContext
                 if (call.UAVs != null && call.UAVs.TryGetValue(uavOffset, out object uav0))
                 {
                     if (uav0 is Texture2D tex2d)
-                        SetRTSlot(tex2d, uavOffset);
+                        SetRTSlot(uavOffset, tex2d);
                     else if (uav0 is GPUBuffer buffer)
-                        SetUAVTSlot(buffer, uavOffset);
+                        SetUAVTSlot(uavOffset, buffer);
                 }
                 uavOffset++;
             }
@@ -372,29 +383,48 @@ public sealed class GraphicsContext
         }
     }
 
-    public void SetSRVTSlotLinear(Texture2D texture, int slot) => currentSRVs[slot] = GetSRVHandle(texture, true).Ptr;
+    public void SetSRVTSlotLinear(int slot, Texture2D texture) => currentSRVs[slot] = GetSRVHandle(texture, true).Ptr;
 
-    public void SetSRVTSlot(Texture2D texture, int slot) => currentSRVs[slot] = GetSRVHandle(texture).Ptr;
-
-    public void SetSRVTSlot(GPUBuffer buffer, int slot) => currentSRVs[slot] = GetSRVHandle(buffer).Ptr;
-
-    public void SetSRVTLim(Texture2D texture, int mips, int slot) => currentSRVs[slot] = GetSRVHandleWithMip(texture, mips).Ptr;
-
-    void SetSRVRSlot(ulong gpuAddr, int slot) => currentSRVs[slot] = gpuAddr;
-
-    public void SetCBVRSlot(CBuffer buffer, int slot) => currentCBVs[slot] = buffer.GetCurrentVirtualAddress();
-
-    public void SetCBVRSlot<T>(ReadOnlySpan<T> data, int slot) where T : unmanaged
+    public void SetSRVTSlot(int slot, IGPUResource resource)
     {
-        GetRingBuffer().DelayUpload(data, out ulong addr);
+        switch (resource)
+        {
+            case GPUBuffer buffer:
+                currentSRVs[slot] = GetSRVHandle(buffer).Ptr;
+                break;
+            case Texture2D texture:
+                currentSRVs[slot] = GetSRVHandle(texture).Ptr;
+                break;
+        }
+    }
+    public void SetSRVTLim(int slot, Texture2D texture, int mips) => currentSRVs[slot] = GetSRVHandleWithMip(texture, mips).Ptr;
+
+    void SetSRVRSlot(int slot, ulong gpuAddr) => currentSRVs[slot] = gpuAddr;
+
+    public void SetCBVRSlot(int slot, CBuffer buffer) => currentCBVs[slot] = buffer.GetCurrentVirtualAddress();
+
+    public void SetCBVRSlot<T>(int slot, ReadOnlySpan<T> data) where T : unmanaged
+    {
+        GetRingBuffer().UploadBuffer(data, out ulong addr);
         currentCBVs[slot] = addr;
     }
 
-    public void SetRTSlot(Texture2D texture2D, int slot) => currentUAVs[slot] = GetUAVHandle(texture2D, ResourceStates.NonPixelShaderResource).Ptr;
-    public void SetUAVTSlot(Texture2D texture2D, int slot) => currentUAVs[slot] = GetUAVHandle(texture2D).Ptr;
-    public void SetUAVTSlot(GPUBuffer buffer, int slot) => currentUAVs[slot] = GetUAVHandle(buffer).Ptr;
+    public void SetRTSlot(int slot, Texture2D texture2D) => currentUAVs[slot] = GetUAVHandle(texture2D, ResourceStates.NonPixelShaderResource).Ptr;
 
-    public void SetUAVTSlot(Texture2D texture, int mipIndex, int slot)
+    public void SetUAVTSlot(int slot, IGPUResource resource)
+    {
+        switch (resource)
+        {
+            case GPUBuffer buffer:
+                currentUAVs[slot] = GetUAVHandle(buffer).Ptr;
+                break;
+            case Texture2D texture:
+                currentUAVs[slot] = GetUAVHandle(texture).Ptr;
+                break;
+        }
+    }
+
+    public void SetUAVTSlot(int slot, Texture2D texture, int mipIndex)
     {
         texture.SetPartResourceState(m_commandList, ResourceStates.UnorderedAccess, mipIndex, 1);
         if (!(mipIndex < texture.mipLevels))
@@ -431,7 +461,7 @@ public sealed class GraphicsContext
                 mesh1.vertex = mesh.vtBuffersDisposed[index1].vertex;
                 mesh1.Capacity = mesh.vtBuffersDisposed[index1].Capacity;
                 m_commandList.ResourceBarrierTransition(mesh1.vertex, ResourceStates.Common, ResourceStates.CopyDest);
-                GetRingBuffer().Upload<byte>(m_commandList, mesh1.data, mesh1.vertex);
+                GetRingBuffer().UploadTo<byte>(m_commandList, mesh1.data, mesh1.vertex);
                 m_commandList.ResourceBarrierTransition(mesh1.vertex, ResourceStates.CopyDest, ResourceStates.Common);
 
                 mesh.vtBuffersDisposed.RemoveAt(index1);
@@ -440,7 +470,7 @@ public sealed class GraphicsContext
             {
                 mesh1.Capacity = dataLength + 256;
                 CreateBuffer(mesh1.Capacity, ref mesh1.vertex, ResourceStates.Common);
-                GetRingBuffer().Upload<byte>(m_copyCommandList, mesh1.data, mesh1.vertex);
+                GetRingBuffer().UploadTo<byte>(m_copyCommandList, mesh1.data, mesh1.vertex);
             }
 
             mesh1.vertex.Name = "vertex buffer" + vtBuf.Key;
@@ -463,7 +493,7 @@ public sealed class GraphicsContext
             if (mesh.indexBufferCapacity >= indexBufferLength)
             {
                 m_commandList.ResourceBarrierTransition(indexBuffer, ResourceStates.Common, ResourceStates.CopyDest);
-                GetRingBuffer().Upload<byte>(m_commandList, new Span<byte>(mesh.m_indexData, 0, indexBufferLength), indexBuffer);
+                GetRingBuffer().UploadTo<byte>(m_commandList, new Span<byte>(mesh.m_indexData, 0, indexBufferLength), indexBuffer);
                 m_commandList.ResourceBarrierTransition(indexBuffer, ResourceStates.CopyDest, ResourceStates.Common);
             }
             else
@@ -471,7 +501,7 @@ public sealed class GraphicsContext
                 CreateBuffer(indexBufferLength, ref indexBuffer, ResourceStates.Common);
                 mesh.indexBufferCapacity = indexBufferLength;
                 indexBuffer.Name = "index buffer";
-                GetRingBuffer().Upload<byte>(m_copyCommandList, new Span<byte>(mesh.m_indexData, 0, indexBufferLength), indexBuffer);
+                GetRingBuffer().UploadTo<byte>(m_copyCommandList, new Span<byte>(mesh.m_indexData, 0, indexBufferLength), indexBuffer);
             }
             Reference(indexBuffer);
             mesh.indexBufferView = new IndexBufferView
@@ -490,7 +520,7 @@ public sealed class GraphicsContext
             var mesh1 = vtBuf.Value;
             int dataLength = mesh1.data.Length;
 
-            GetRingBuffer().DelayUpload<byte>(mesh1.data, out ulong addr);
+            GetRingBuffer().UploadBuffer<byte>(mesh1.data, out ulong addr);
 
             mesh1.vertexBufferView.BufferLocation = addr;
             mesh1.vertexBufferView.StrideInBytes = mesh1.stride;
@@ -504,7 +534,7 @@ public sealed class GraphicsContext
         if (mesh.m_indexCount > 0)
         {
             int indexBufferLength = mesh.m_indexCount * 4;
-            GetRingBuffer().DelayUpload<byte>(new ReadOnlySpan<byte>(mesh.m_indexData, 0, indexBufferLength), out ulong addr);
+            GetRingBuffer().UploadBuffer<byte>(new ReadOnlySpan<byte>(mesh.m_indexData, 0, indexBufferLength), out ulong addr);
 
             mesh.indexBufferView = new IndexBufferView
             {
@@ -524,7 +554,7 @@ public sealed class GraphicsContext
         {
             vtBuf = mesh.AddBuffer(slot);
         }
-        GetRingBuffer().DelayUpload(data, out ulong addr);
+        GetRingBuffer().UploadBuffer(data, out ulong addr);
 
         vtBuf.vertexBufferView.BufferLocation = addr;
         vtBuf.vertexBufferView.StrideInBytes = sizeInBytes / mesh.m_vertexCount;
@@ -541,7 +571,13 @@ public sealed class GraphicsContext
     public void UpdateResource<T>(CBuffer buffer, ReadOnlySpan<T> data) where T : unmanaged
     {
         buffer.size = Marshal.SizeOf<T>() * data.Length;
-        GetRingBuffer().DelayUpload(data, out buffer.gpuRefAddress);
+        GetRingBuffer().UploadBuffer(data, out buffer.gpuRefAddress);
+    }
+
+    public void UpdateResource<T>(GPUBuffer buffer, ReadOnlySpan<T> data) where T : unmanaged
+    {
+        buffer.size = Marshal.SizeOf<T>() * data.Length;
+        GetRingBuffer().UploadTo(m_commandList, data, buffer.resource);
     }
 
     public void UploadTexture(Texture2D texture, Uploader uploader)
@@ -680,7 +716,7 @@ public sealed class GraphicsContext
 
         if (vertexData != null)
         {
-            GetRingBuffer().DelayUpload(vertexData, out ulong vertexGpuAddress);
+            GetRingBuffer().UploadBuffer(vertexData, out ulong vertexGpuAddress);
             VertexBufferView vertexBufferView;
             vertexBufferView.BufferLocation = vertexGpuAddress;
             vertexBufferView.SizeInBytes = vertexData.Length;
@@ -690,7 +726,7 @@ public sealed class GraphicsContext
 
         if (indexData != null)
         {
-            GetRingBuffer().DelayUpload(indexData, out ulong indexGpuAddress);
+            GetRingBuffer().UploadBuffer(indexData, out ulong indexGpuAddress);
             IndexBufferView indexBufferView = new IndexBufferView
             {
                 BufferLocation = indexGpuAddress,
@@ -768,6 +804,20 @@ public sealed class GraphicsContext
         var handle1 = graphicsDevice.GetRenderTargetView(swapChain.GetResource(m_commandList));
         m_commandList.ClearRenderTargetView(handle1, new Vortice.Mathematics.Color(color));
         presents.Add(swapChain);
+    }
+
+    public void ClearDSV(Texture2D texture)
+    {
+        Reference(texture.resource);
+        var dsv = graphicsDevice.GetDepthStencilView(texture.resource);
+        m_commandList.ClearDepthStencilView(dsv, ClearFlags.Depth | ClearFlags.Stencil, 1.0f, 0);
+    }
+
+    public void ClearRTV(Texture2D texture, Vector4 color)
+    {
+        Reference(texture.resource);
+        var rtv = graphicsDevice.GetRenderTargetView(texture.resource);
+        m_commandList.ClearRenderTargetView(rtv, new Vortice.Mathematics.Color4(color));
     }
 
     public void SetRTV(Texture2D RTV, Vector4 color, bool clear) => SetRTVDSV(RTV, null, color, clear, false);
@@ -890,6 +940,12 @@ public sealed class GraphicsContext
         presents.Add(swapChain);
     }
 
+    public void _DrawIndexedInstanced(int indexCountPerInstance, int instanceCount, int startIndexLocation, int baseVertexLocation, int startInstanceLocation)
+    {
+        m_commandList.DrawIndexedInstanced(indexCountPerInstance, instanceCount, startIndexLocation, baseVertexLocation, startInstanceLocation);
+        TriangleCount += indexCountPerInstance / 3 * instanceCount;
+    }
+
     public void Draw(int vertexCount, int startVertexLocation)
     {
         PipelineBinding();
@@ -969,9 +1025,10 @@ public sealed class GraphicsContext
         }
         if (meshChanged)
         {
-            for (int i = 0; i < currentPSO.inputLayoutDescription.Elements.Length; i++)
+            var elements = currentPSO.inputLayoutDescription.Elements;
+            for (int i = 0; i < elements.Length; i++)
             {
-                InputElementDescription element = currentPSO.inputLayoutDescription.Elements[i];
+                InputElementDescription element = elements[i];
                 if (currentMesh.TryGetValue(element.SemanticName + element.SemanticIndex, out var mesh))
                 {
                     m_commandList.IASetVertexBuffers(i, mesh);
@@ -1048,11 +1105,11 @@ public sealed class GraphicsContext
         }
         presents.Clear();
 
-        m_commandList.Close();
         graphicsDevice.superRingBuffer.DelayCommands(m_copyCommandList);
         m_copyCommandList.Close();
         graphicsDevice.copyCommandQueue.ExecuteCommandList(m_copyCommandList);
         graphicsDevice.copyCommandQueue.NextExecuteIndex();
+        m_commandList.Close();
         graphicsDevice.commandQueue.WaitFor(graphicsDevice.copyCommandQueue);
 
         graphicsDevice.commandQueue.ExecuteCommandList(m_commandList);
@@ -1105,7 +1162,7 @@ public sealed class GraphicsContext
 
     void _RTWriteGpuAddr<T>(ReadOnlySpan<T> data, BinaryWriter writer) where T : unmanaged
     {
-        GetRingBuffer().DelayUpload(data, out ulong addr);
+        GetRingBuffer().UploadBuffer(data, out ulong addr);
         writer.Write(addr);
     }
 

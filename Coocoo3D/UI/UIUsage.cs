@@ -37,16 +37,21 @@ public class UIUsage
         else
         {
             uiUsage = new List<UIUsage>();
-            var members = type.GetMembers();
-            foreach (var member in members)
-            {
-                if (member.MemberType == MemberTypes.Field || member.MemberType == MemberTypes.Property)
-                {
-                    _Member(member, uiUsage);
-                }
-            }
+            _GetUsage(uiUsage, type);
             UIUsages[type] = uiUsage;
             return uiUsage;
+        }
+    }
+
+    static void _GetUsage(List<UIUsage> usages, Type type)
+    {
+        var members = type.GetMembers();
+        foreach (var member in members)
+        {
+            if (member.MemberType == MemberTypes.Field || member.MemberType == MemberTypes.Property)
+            {
+                _Member(member, usages);
+            }
         }
     }
 
@@ -54,6 +59,7 @@ public class UIUsage
     {
         var uiShowAttribute = member.GetCustomAttribute<UIShowAttribute>();
         var uiDescriptionAttribute = member.GetCustomAttribute<UIDescriptionAttribute>();
+        var uiTreeAttribute = member.GetCustomAttribute<UITreeAttribute>();
         if (uiShowAttribute != null)
         {
             var usage = new UIUsage()
@@ -74,5 +80,17 @@ public class UIUsage
             }
             usage.Name ??= member.Name;
         }
+        //if (uiTreeAttribute != null)
+        //{
+        //    switch (member)
+        //    {
+        //        case FieldInfo fieldInfo:
+        //            _GetUsage(usages, fieldInfo.FieldType);
+        //            break;
+        //        case PropertyInfo propertyInfo:
+        //            _GetUsage(usages, propertyInfo.PropertyType);
+        //            break;
+        //    }
+        //}
     }
 }

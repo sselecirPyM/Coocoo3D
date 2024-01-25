@@ -10,8 +10,6 @@ namespace RenderPipelines;
 
 public class RayTracingPass
 {
-    string RayTracingShader = "RayTracing.json";
-
     public CameraData camera;
 
     public bool RayTracing;
@@ -20,9 +18,7 @@ public class RayTracingPass
 
     public bool UseGI;
 
-    //public bool volumeLighting;
-
-    public string RenderTarget;
+    public Texture2D renderTarget;
 
     Random random = new Random(0);
 
@@ -58,7 +54,7 @@ public class RayTracingPass
 
     public string[] srvs;
 
-    string[] uavs = { null, "GIBufferWrite" };
+    object[] uavs = { null, null };
 
     [Indexable]
     public Matrix4x4 ViewProjection;
@@ -73,6 +69,8 @@ public class RayTracingPass
 
     [Indexable]
     public int RandomI;
+
+    RayTracingShader rayTracingShader;
 
     static readonly string[] missShaders = new[] { "miss" };
 
@@ -98,12 +96,10 @@ public class RayTracingPass
 
     public void Execute(RenderHelper renderHelper, DirectionalLightData directionalLight)
     {
+        if (rayTracingShader == null)
+            Initialize(renderHelper);
         RenderWrap renderWrap = renderHelper.renderWrap;
         var graphicsContext = renderWrap.graphicsContext;
-        var mainCaches = renderWrap.rpc.mainCaches;
-
-        var path1 = Path.GetFullPath(RayTracingShader, renderWrap.BasePath);
-        var rayTracingShader = mainCaches.GetRayTracingShader(path1);
 
         renderHelper.PushParameters(this);
         RandomI = random.Next();
@@ -112,13 +108,13 @@ public class RayTracingPass
         if (directionalLight != null)
         {
             keywords1.Add(new("ENABLE_DIRECTIONAL_LIGHT", "1"));
-            //if (volumeLighting)
-            //    keywords1.Add(new("ENABLE_VOLUME_LIGHTING", "1"));
         }
         if (UseGI)
+        {
             keywords1.Add(new("ENABLE_GI", "1"));
-        var rtpso = mainCaches.GetRTPSO(keywords1, rayTracingShader,
-        Path.GetFullPath(rayTracingShader.hlslFile, Path.GetDirectoryName(path1)));
+        }
+        var rtpso = renderHelper.GetRTPSO(keywords1, rayTracingShader,
+            Path.GetFullPath(rayTracingShader.hlslFile, renderWrap.BasePath));
 
         if (!graphicsContext.SetPSO(rtpso))
             return;
@@ -154,10 +150,11 @@ public class RayTracingPass
             inst.CBVs.Add(0, cbvData1);
             tpas.instances.Add(inst);
         }
-        uavs[0] = RenderTarget;
-        Texture2D renderTarget = renderWrap.GetRenderTexture2D(RenderTarget);
+
         int width = renderTarget.width;
         int height = renderTarget.height;
+        uavs[0] = renderTarget;
+        uavs[1] = renderWrap.GetResourceFallBack("GIBufferWrite");
 
         renderHelper.Write(cbv0, writer);
         var cbvData0 = writer.GetData();
@@ -171,8 +168,7 @@ public class RayTracingPass
         call.missShaders = missShaders;
         for (int i = 0; i < uavs.Length; i++)
         {
-            string uav = uavs[i];
-            call.UAVs[i] = renderWrap.GetResourceFallBack(uav);
+            call.UAVs[i] = uavs[i];
         }
 
         for (int i = 0; i < srvs.Length; i++)
@@ -180,10 +176,7 @@ public class RayTracingPass
             string srv = srvs[i];
             if (srv == null)
                 continue;
-            if (i == 1)
-                call.SRVs[i] = renderWrap.GetTex2D(srv);
-            else
-                call.SRVs[i] = renderWrap.GetResourceFallBack(srv);
+            call.SRVs[i] = renderWrap.GetResourceFallBack(srv);
         }
 
         call.CBVs.Add(0, cbvData0);
@@ -204,5 +197,12 @@ public class RayTracingPass
             inst.accelerationStruct.Dispose();
         tpas.Dispose();
         renderHelper.PopParameters();
+    }
+
+    void Initialize(RenderHelper renderHelper)
+    {
+        var path1 = Path.GetFullPath("RayTracing.json", renderHelper.renderWrap.BasePath);
+        using var filestream = File.OpenRead(path1);
+        rayTracingShader = RenderHelper.ReadJsonStream<RayTracingShader>(filestream);
     }
 }

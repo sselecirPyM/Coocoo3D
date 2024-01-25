@@ -64,6 +64,7 @@ public class DeferredRenderPipeline : RenderPipeline, IDisposable
     public Texture2D intermedia1;//used by bloom
     [Size("BloomSize")]
     [Format(ResourceFormat.R16G16B16A16_Float)]
+    [AutoClear]
     public Texture2D intermedia2;//used by bloom
     [Size(2048, 2048, 9)]
     [Format(ResourceFormat.R16G16B16A16_Float)]
@@ -232,29 +233,19 @@ public class DeferredRenderPipeline : RenderPipeline, IDisposable
     [UITree]
     public DeferredRenderPass deferredRenderPass = new DeferredRenderPass()
     {
-        renderTarget = nameof(noPostProcess),
         depthStencil = nameof(depth),
     };
 
     [UITree]
-    public PostProcessPass postProcess = new PostProcessPass()
-    {
-        inputColor = nameof(noPostProcess),
-        inputDepth = nameof(depth),
-        output = nameof(output),
-    };
+    public PostProcessPass postProcess = new PostProcessPass();
 
     [UITree]
-    public TAAPass taaPass = new TAAPass()
-    {
-        target = nameof(noPostProcess),
-        depth = nameof(depth),
-        history = nameof(noPostProcess2),
-        historyDepth = nameof(depth2),
-    };
+    public TAAPass taaPass = new TAAPass();
 
     public override void BeforeRender()
     {
+        if (disposed)
+            return;
         if (renderHelper == null)
         {
             renderHelper = new RenderHelper();
@@ -293,16 +284,32 @@ public class DeferredRenderPipeline : RenderPipeline, IDisposable
         deferredRenderPass.DebugRenderType = DebugRenderType;
         //deferredRenderPass.Particles = Particles;
 
+        deferredRenderPass.shadowMap = _ShadowMap;
+        deferredRenderPass.renderTarget = noPostProcess;
+        deferredRenderPass.gbuffer0 = gbuffer0;
+        deferredRenderPass.gbuffer1 = gbuffer1;
+        deferredRenderPass.gbuffer2 = gbuffer2;
+        deferredRenderPass.gbuffer3 = gbuffer3;
         deferredRenderPass.SetCamera(camera);
         deferredRenderPass.Execute(renderHelper);
 
         if (taaPass.EnableTAA)
         {
             taaPass.DebugRenderType = DebugRenderType;
+            taaPass.target = noPostProcess;
+            taaPass.depth = depth;
+            taaPass.history = noPostProcess2;
+            taaPass.historyDepth = depth2;
             taaPass.SetCamera(historyCamera, this.camera);
-            taaPass.SetProperties(outputWidth, outputHeight);
             taaPass.Execute(renderHelper);
         }
+        postProcess.inputDepth = depth;
+        postProcess.inputColor = noPostProcess;
+        postProcess.output = output;
+
+        postProcess.intermedia1 = intermedia1;
+        postProcess.intermedia2 = intermedia2;
+        postProcess.intermedia3 = intermedia3;
         postProcess.Execute(renderHelper);
 
         renderWrap.Swap(nameof(noPostProcess), nameof(noPostProcess2));
@@ -315,9 +322,14 @@ public class DeferredRenderPipeline : RenderPipeline, IDisposable
     {
     }
 
+    bool disposed = false;
+
     public void Dispose()
     {
+        disposed = true;
         renderHelper?.Dispose();
         renderHelper = null;
+        postProcess?.Dispose();
+        postProcess = null;
     }
 }

@@ -1,12 +1,11 @@
 ﻿using Coocoo3D.Present;
-using Coocoo3D.RenderPipeline.Wrap;
 using Coocoo3DGraphics;
 using System;
-using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Numerics;
+using System.Runtime.InteropServices;
 
 namespace Coocoo3D.RenderPipeline;
 
@@ -67,44 +66,52 @@ public class RenderWrap
             {
                 if (usage.fieldInfo.FieldType == typeof(Texture2D))
                 {
-                    graphicsContext.SetSRVTSlot(GetTex2DFallBack(texture, material), i);
+                    graphicsContext.SetSRVTSlot(i, GetTex2DFallBack(texture, material));
                 }
                 else if (usage.fieldInfo.FieldType == typeof(GPUBuffer))
                 {
-                    graphicsContext.SetSRVTSlot(usage.gpuBuffer, i);
+                    graphicsContext.SetSRVTSlot(i, usage.gpuBuffer);
                 }
             }
         }
     }
 
-    public void SetUAV(Texture2D texture2D, int slot)
+    public void SetSRVs(params Texture2D[] textures)
     {
-        graphicsContext.SetUAVTSlot(texture2D, slot);
+        for (int i = 0; i < textures.Length; i++)
+        {
+            graphicsContext.SetSRVTSlot(i, textures[i]);
+        }
     }
 
-    public void SetUAV(GPUBuffer buffer, int slot)
+    public void SetUAV(int slot, Texture2D texture2D)
     {
-        graphicsContext.SetUAVTSlot(buffer, slot);
+        graphicsContext.SetUAVTSlot(slot, texture2D);
     }
 
-    public void SetUAV(Texture2D texture2D, int mipIndex, int slot)
+    public void SetUAV(int slot, GPUBuffer buffer)
     {
-        graphicsContext.SetUAVTSlot(texture2D, mipIndex, slot);
+        graphicsContext.SetUAVTSlot(slot, buffer);
     }
 
-    public void SetSRV(Texture2D texture, int slot)
+    public void SetUAV(int slot, Texture2D texture2D, int mipIndex)
     {
-        graphicsContext.SetSRVTSlot(texture, slot);
+        graphicsContext.SetUAVTSlot(slot, texture2D, mipIndex);
     }
 
-    public void SetSRV(GPUBuffer buffer, int slot)
+    public void SetSRV(int slot, Texture2D texture)
     {
-        graphicsContext.SetSRVTSlot(buffer, slot);
+        graphicsContext.SetSRVTSlot(slot, texture);
     }
 
-    public void SetSRVLim(Texture2D texture, int mip, int slot)
+    public void SetSRV(int slot, GPUBuffer buffer)
     {
-        graphicsContext.SetSRVTLim(texture, mip, slot);
+        graphicsContext.SetSRVTSlot(slot, buffer);
+    }
+
+    public void SetSRVLim(int slot, Texture2D texture, int mip)
+    {
+        graphicsContext.SetSRVTLim(slot, texture, mip);
     }
 
     public Texture2D GetTex2D(string name, RenderMaterial material = null)
@@ -165,23 +172,21 @@ public class RenderWrap
         var shaderPath = Path.GetFullPath(path, this.BasePath);
         var pso = cache.GetPSO(keywords, shaderPath);
 
-        switch (pso.blend?.ToLower())
-        {
-            case "add":
-                desc.blendState = BlendState.Add;
-                break;
-            case "alpha":
-                desc.blendState = BlendState.Alpha;
-                break;
-        }
-
         if (pso != null)
-            graphicsContext.SetPSO(pso.pso, desc);
+            graphicsContext.SetPSO(pso, desc);
         else
             Console.WriteLine("shader compilation error");
     }
 
+    public void SetPSO(PSO pso, PSODesc desc)
+    {
+        graphicsContext.SetPSO(pso, desc);
+    }
 
+    public void SetPSO(ComputeShader computeShader)
+    {
+        graphicsContext.SetPSO(computeShader);
+    }
     public Texture2D texError;
 
     public object GetResourceFallBack(string name, RenderMaterial material = null)
@@ -211,7 +216,7 @@ public class RenderWrap
 
     public Texture2D TextureStatusSelect(Texture2D texture)
     {
-        if (texture == null)
+        if (texture == null || texture.Status == GraphicsObjectStatus.unload)
         {
             texError.Status = GraphicsObjectStatus.error;
             return texError;
@@ -219,18 +224,38 @@ public class RenderWrap
 
         return texture;
     }
+
+    public IReadOnlyList<Texture2D> RenderTargets => _renderTargets;
+    List<Texture2D> _renderTargets = new List<Texture2D>();
+    public Texture2D depthStencil = null;
+
     public void SetRenderTarget(Texture2D texture2D, bool clear)
     {
+        _renderTargets.Clear();
+        _renderTargets.Add(texture2D);
+        depthStencil = null;
         graphicsContext.SetRTV(texture2D, Vector4.Zero, clear);
     }
 
     public void SetRenderTarget(Texture2D target, Texture2D depth, bool clearRT, bool clearDepth)
     {
+        _renderTargets.Clear();
+        _renderTargets.Add(target);
+        depthStencil = depth;
+        graphicsContext.SetRTVDSV(target, depth, Vector4.Zero, clearRT, clearDepth);
+    }
+
+    public void SetRenderTarget(Texture2D[] target, Texture2D depth, bool clearRT, bool clearDepth)
+    {
+        _renderTargets.Clear();
+        _renderTargets.AddRange(target);
+        depthStencil = depth;
         graphicsContext.SetRTVDSV(target, depth, Vector4.Zero, clearRT, clearDepth);
     }
     public void SetRenderTarget(IReadOnlyList<string> rts, string depthStencil1, bool clearRT, bool clearDepth)
     {
-        Texture2D depthStencil = GetTex2D(depthStencil1);
+        _renderTargets.Clear();
+        depthStencil = GetTex2D(depthStencil1);
 
 
         if (rts == null || rts.Count == 0)
@@ -240,14 +265,18 @@ public class RenderWrap
         }
         else
         {
-            Texture2D[] renderTargets = ArrayPool<Texture2D>.Shared.Rent(rts.Count);
             for (int i = 0; i < rts.Count; i++)
             {
-                renderTargets[i] = GetTex2D(rts[i]);
+                _renderTargets.Add(GetTex2D(rts[i]));
             }
-            graphicsContext.SetRTVDSV(new ReadOnlySpan<Texture2D>(renderTargets, 0, rts.Count), depthStencil, Vector4.Zero, clearRT, clearDepth);
-            ArrayPool<Texture2D>.Shared.Return(renderTargets);
+            graphicsContext.SetRTVDSV(CollectionsMarshal.AsSpan(_renderTargets), depthStencil, Vector4.Zero, clearRT, clearDepth);
         }
+    }
+    public void SetRenderTargetDepth(Texture2D depth, bool clearDepth)
+    {
+        _renderTargets.Clear();
+        depthStencil = depth;
+        graphicsContext.SetDSV(depth, clearDepth);
     }
 
     public void ClearTexture(Texture2D texture)
@@ -267,7 +296,7 @@ public class RenderWrap
 
     public void SetCBV(CBuffer cBuffer, int slot)
     {
-        graphicsContext.SetCBVRSlot(cBuffer, slot);
+        graphicsContext.SetCBVRSlot(slot, cBuffer);
     }
 
     public void Dispatch(string computeShader, IReadOnlyList<(string, string)> keywords, int x = 1, int y = 1, int z = 1)
@@ -284,7 +313,10 @@ public class RenderWrap
         }
     }
 
-    public GPUWriter Writer { get => rpc.gpuWriter; }
+    public void Dispatch(int x = 1, int y = 1, int z = 1)
+    {
+        graphicsContext.Dispatch(x, y, z);
+    }
 
     public void Swap(string renderTexture1, string renderTexture2)
     {

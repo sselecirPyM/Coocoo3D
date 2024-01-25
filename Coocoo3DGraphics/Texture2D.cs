@@ -4,7 +4,7 @@ using Vortice.DXGI;
 
 namespace Coocoo3DGraphics;
 
-public class Texture2D : IDisposable
+public class Texture2D : IGPUResource, IDisposable
 {
     public ID3D12Resource resource;
     public string Name;

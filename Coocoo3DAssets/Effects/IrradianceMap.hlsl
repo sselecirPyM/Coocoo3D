@@ -74,7 +74,7 @@ namespace RNG
 
 	float3 UniformSampleHemisphere(float2 Xi)
 	{
-		float phi = 2 * RNG::RANDOM_NUMBER_PI * Xi.x;
+		float phi = 2 * RANDOM_NUMBER_PI * Xi.x;
 
 		float cosTheta = Xi.y;
 		float sinTheta = sqrt(1 - cosTheta * cosTheta);

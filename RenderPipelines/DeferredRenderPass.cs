@@ -19,7 +19,6 @@ public class DeferredRenderPass
     public DrawObjectPass drawShadowMap = new DrawObjectPass()
     {
         shader = "ShadowMap.hlsl",
-        depthStencil = "_ShadowMap",
         psoDesc = new PSODesc()
         {
             blendState = BlendState.None,
@@ -37,14 +36,6 @@ public class DeferredRenderPass
     public DrawObjectPass drawGBuffer = new DrawObjectPass()
     {
         shader = "DeferredGBuffer.hlsl",
-        renderTargets = new string[]
-        {
-            "gbuffer0",
-            "gbuffer1",
-            "gbuffer2",
-            "gbuffer3",
-        },
-        depthStencil = null,
         psoDesc = new PSODesc()
         {
             blendState = BlendState.None,
@@ -80,11 +71,6 @@ public class DeferredRenderPass
     };
     public DrawDecalPass decalPass = new DrawDecalPass()
     {
-        renderTargets = new string[]
-        {
-            "gbuffer0",
-            "gbuffer2",
-        },
         srvs = new string[]
         {
             null,
@@ -105,7 +91,6 @@ public class DeferredRenderPass
     };
     public FinalPass finalPass = new FinalPass()
     {
-        renderTargets = new string[1],
         srvs = new string[]
         {
             "gbuffer0",
@@ -167,8 +152,6 @@ public class DeferredRenderPass
     public DrawObjectPass drawObjectTransparent = new DrawObjectPass()
     {
         shader = "ForwardRender.hlsl",
-        renderTargets = new string[1],
-        depthStencil = null,
         psoDesc = new PSODesc()
         {
             blendState = BlendState.Alpha,
@@ -249,10 +232,7 @@ public class DeferredRenderPass
         },
     };
 
-    public HiZPass HiZPass = new HiZPass()
-    {
-        output = "_HiZBuffer"
-    };
+    public HiZPass HiZPass = new HiZPass();
 
     public Random random = new Random(0);
 
@@ -370,7 +350,14 @@ public class DeferredRenderPass
     [Indexable]
     public int RandomI;
 
-    public string renderTarget;
+
+    public Texture2D shadowMap;
+    public Texture2D gbuffer0;
+    public Texture2D gbuffer1;
+    public Texture2D gbuffer2;
+    public Texture2D gbuffer3;
+
+    public Texture2D renderTarget;
     public string depthStencil;
 
     [Indexable]
@@ -403,25 +390,17 @@ public class DeferredRenderPass
         CameraBack = Vector3.Transform(-Vector3.UnitZ, rotateMatrix);
     }
 
-    public void SetRenderTarget(string renderTarget, string depthStencil)
-    {
-        this.renderTarget = renderTarget;
-        this.depthStencil = depthStencil;
-    }
-
     public void Execute(RenderHelper renderHelper)
     {
         RenderWrap renderWrap = renderHelper.renderWrap;
-        drawGBuffer.depthStencil = depthStencil;
-        HiZPass.input = depthStencil;
-        drawObjectTransparent.depthStencil = depthStencil;
-        drawObjectTransparent.renderTargets[0] = renderTarget;
+        var depth = renderWrap.GetRenderTexture2D(depthStencil);
+        HiZPass.input = depth;
+        HiZPass.output = renderWrap.GetRenderTexture2D("_HiZBuffer");
         decalPass.srvs[0] = depthStencil;
         decalPass.Visuals = Visuals;
-        finalPass.renderTargets[0] = renderTarget;
         finalPass.srvs[5] = depthStencil;
 
-        rayTracingPass.RenderTarget = "gbuffer2";
+        rayTracingPass.renderTarget = gbuffer2;
         rayTracingPass.srvs[3] = depthStencil;
 
         RandomI = random.Next();
@@ -469,8 +448,8 @@ public class DeferredRenderPass
         if (directionalLight != null)
         {
             var dl = directionalLight;
-            ShadowMapVP = dl.GetLightingMatrix(InvertViewProjection, 0, 0.95f);
-            ShadowMapVP1 = dl.GetLightingMatrix(InvertViewProjection, 0.95f, 0.993f);
+            ShadowMapVP = dl.GetLightingMatrix(InvertViewProjection, 0, 0.93f);
+            ShadowMapVP1 = dl.GetLightingMatrix(InvertViewProjection, 0.93f, 0.991f);
             LightDir = dl.Direction;
             LightColor = dl.Color;
             finalPass.keywords.Add(("ENABLE_DIRECTIONAL_LIGHT", "1"));
@@ -497,25 +476,25 @@ public class DeferredRenderPass
             drawObjectTransparent.keywords.Add((debugKeyword, "1"));
         }
 
-        var outputTex = renderWrap.GetRenderTexture2D(renderTarget);
-        OutputSize = (outputTex.width, outputTex.height);
+        OutputSize = (renderTarget.width, renderTarget.height);
 
         renderHelper.PushParameters(this);
         if (directionalLight != null)
         {
-            renderWrap.SetRenderTarget(null, "_ShadowMap", false, true);
-            var shadowMap = renderWrap.GetRenderTexture2D("_ShadowMap");
+            renderWrap.SetRenderTargetDepth(shadowMap, false);
             int width = shadowMap.width;
             int height = shadowMap.height;
+
             drawShadowMap.CBVPerObject[1] = ShadowMapVP;
-            drawShadowMap.scissorViewport = new Rectangle(0, 0, width / 2, height / 2);
+            SetScissorViewportRect(renderWrap, 0, 0, width / 2, height / 2);
             drawShadowMap.Execute(renderHelper);
+
             drawShadowMap.CBVPerObject[1] = ShadowMapVP1;
-            drawShadowMap.scissorViewport = new Rectangle(width / 2, 0, width / 2, height / 2);
+            SetScissorViewportRect(renderWrap, width / 2, 0, width / 2, height / 2);
             drawShadowMap.Execute(renderHelper);
         }
 
-        Split = SplitTest(pointLightCount * 6);
+        Split = ShadowSize(pointLightCount * 6);
         if (pointLightCount > 0)
         {
             var pointLightDatas = MemoryMarshal.Cast<byte, PointLightData>(pointLightData).Slice(0, pointLightCount);
@@ -529,10 +508,15 @@ public class DeferredRenderPass
             drawObjectTransparent.keywords.Add(("ENABLE_POINT_LIGHT", "1"));
             drawObjectTransparent.keywords.Add(("POINT_LIGHT_COUNT", pointLightCount.ToString()));
         }
+        renderWrap.SetRenderTarget([gbuffer0, gbuffer1, gbuffer2, gbuffer3], depth, false, false);
         drawGBuffer.Execute(renderHelper);
+        renderWrap.SetRenderTarget([gbuffer0, gbuffer2], null, false, false);
         decalPass.Execute(renderHelper);
         if (EnableSSR)
+        {
             HiZPass.Execute(renderHelper);
+        }
+
 
         if (EnableRayTracing || UpdateGI)
         {
@@ -546,7 +530,9 @@ public class DeferredRenderPass
         finalPass.EnableFog = EnableFog;
         finalPass.UseGI = UseGI;
         finalPass.NoBackGround = NoBackGround;
+        renderWrap.SetRenderTarget(renderTarget, null, false, false);
         finalPass.Execute(renderHelper);
+        renderWrap.SetRenderTarget(renderTarget, depth, false, false);
         drawObjectTransparent.Execute(renderHelper);
 
         renderHelper.PopParameters();
@@ -560,6 +546,12 @@ public class DeferredRenderPass
         drawGBuffer.keywords.Clear();
         drawObjectTransparent.keywords.Clear();
         finalPass.keywords.Clear();
+    }
+
+    static void SetScissorViewportRect(RenderWrap renderWrap, int x, int y, int width, int height)
+    {
+        var rect = new Rectangle(x, y, width, height);
+        renderWrap.SetScissorRectAndViewport(rect.Left, rect.Top, rect.Right, rect.Bottom);
     }
 
     static Matrix4x4 GetShadowMapMatrix(Vector3 pos, Vector3 dir, Vector3 up, float near, float far)
@@ -595,9 +587,9 @@ public class DeferredRenderPass
     {
         RenderWrap renderWrap = renderHelper.renderWrap;
         int index = 0;
-        var shadowMap = renderWrap.GetRenderTexture2D("_ShadowMap");
         int width = shadowMap.width;
         int height = shadowMap.height;
+        renderWrap.SetRenderTargetDepth(shadowMap, false);
         foreach (var pl in pointLightDatas)
         {
             var lightRange = pl.Range;
@@ -607,14 +599,15 @@ public class DeferredRenderPass
             foreach (var val in table)
             {
                 drawShadowMap.CBVPerObject[1] = GetShadowMapMatrix(pl.Position, val.Item1, val.Item2, near, far);
-                drawShadowMap.scissorViewport = GetRectangle(index, Split, width, height);
+                var rect = GetRectangle(index, Split, width, height); ;
+                renderWrap.SetScissorRectAndViewport(rect.Left, rect.Top, rect.Right, rect.Bottom);
                 drawShadowMap.Execute(renderHelper);
                 index++;
             }
         }
     }
 
-    static int SplitTest(int v)
+    static int ShadowSize(int v)
     {
         v *= 2;
         int pointLightSplit = 2;
@@ -624,7 +617,7 @@ public class DeferredRenderPass
         return pointLightSplit;
     }
 
-    static Dictionary<DebugRenderType, string> debugKeywords = new Dictionary<DebugRenderType, string>()
+    static readonly Dictionary<DebugRenderType, string> debugKeywords = new Dictionary<DebugRenderType, string>()
     {
         { DebugRenderType.Albedo,"DEBUG_ALBEDO"},
         { DebugRenderType.AO,"DEBUG_AO"},
@@ -643,18 +636,18 @@ public class DeferredRenderPass
         { DebugRenderType.UV,"DEBUG_UV"},
     };
 
-    static bool FilterOpaque(RenderHelper renderHelper, MeshRenderable renderable, List<(string, string)> keywords)
+    static bool FilterOpaque(MeshRenderable renderable)
     {
-        if (true.Equals(renderHelper.GetIndexableValue("IsTransparent", renderable.material)))
+        if (true.Equals(renderable.material.GetObject("IsTransparent")))
         {
             return false;
         }
         return true;
     }
 
-    static bool FilterTransparent(RenderHelper renderHelper, MeshRenderable renderable, List<(string, string)> keywords)
+    static bool FilterTransparent(MeshRenderable renderable)
     {
-        if (true.Equals(renderHelper.GetIndexableValue("IsTransparent", renderable.material)))
+        if (true.Equals(renderable.material.GetObject("IsTransparent")))
         {
             return true;
         }

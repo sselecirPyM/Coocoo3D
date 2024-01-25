@@ -70,8 +70,6 @@ public class RenderSystem
                 }
             }
         }
-        context.gpuWriter.graphicsContext = graphicsContext;
-        context.gpuWriter.Clear();
 
         foreach (var visualChannel in channels)
         {

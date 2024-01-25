@@ -30,9 +30,7 @@ public class MainCaches : IDisposable
     public VersionedDictionary<string, MMDMotion> Motions = new();
     public VersionedDictionary<string, ComputeShader> ComputeShaders = new();
 
-    public VersionedDictionary<string, RayTracingShader> RayTracingShaders = new();
-    public VersionedDictionary<string, PSOEx> PipelineStateObjects = new();
-    public VersionedDictionary<string, RTPSO> RTPSOs = new();
+    public VersionedDictionary<string, PSO> PipelineStateObjects = new();
     public VersionedDictionary<string, Assembly> Assemblies = new();
 
     public ConcurrentQueue<Mesh> MeshReadyToUpload = new();
@@ -423,117 +421,13 @@ public class MainCaches : IDisposable
                     dxcDefines[i] = new DxcDefine() { Name = keywords[i].Item1, Value = keywords[i].Item2 };
                 }
             }
-            ComputeShader computeShader = new ComputeShader();
             var shaderCode = LoadShader(DxcShaderStage.Compute, File.ReadAllText(path), "csmain", path, dxcDefines, out var reflection);
-            computeShader.Initialize(shaderCode, reflection);
+            ComputeShader computeShader = new ComputeShader(shaderCode, reflection);
             return computeShader;
         });
     }
 
-    public RayTracingShader GetRayTracingShader(string path)
-    {
-        if (!Path.IsPathRooted(path)) path = Path.GetFullPath(path);
-        var rayTracingShader = GetT(RayTracingShaders, path, file =>
-        {
-            return ReadJsonStream<RayTracingShader>(file.OpenRead());
-        });
-        return rayTracingShader;
-    }
-
-    public RTPSO GetRTPSO(IReadOnlyList<(string, string)> keywords, RayTracingShader shader, string path)
-    {
-        string xPath;
-        if (keywords != null)
-        {
-            //keywords.Sort((x, y) => x.CompareTo(y));
-            StringBuilder stringBuilder = new StringBuilder();
-            stringBuilder.Append(path);
-            foreach (var keyword in keywords)
-            {
-                stringBuilder.Append(keyword.Item1);
-                stringBuilder.Append(keyword.Item2);
-            }
-            xPath = stringBuilder.ToString();
-        }
-        else
-        {
-            xPath = path;
-        }
-        return GetT(RTPSOs, xPath, path, file =>
-        {
-            try
-            {
-                string source = File.ReadAllText(file.FullName);
-                DxcDefine[] dxcDefines = null;
-                if (keywords != null)
-                {
-                    dxcDefines = new DxcDefine[keywords.Count];
-                    for (int i = 0; i < keywords.Count; i++)
-                    {
-                        dxcDefines[i] = new DxcDefine() { Name = keywords[i].Item1, Value = keywords[i].Item2 };
-                    }
-                }
-                byte[] result = LoadShader(DxcShaderStage.Library, source, "", path, dxcDefines);
-
-                if (shader.hitGroups != null)
-                {
-                    foreach (var pair in shader.hitGroups)
-                        pair.Value.name = pair.Key;
-                }
-
-                RTPSO rtpso = new RTPSO();
-                rtpso.datas = result;
-                if (shader.rayGenShaders != null)
-                    rtpso.rayGenShaders = shader.rayGenShaders.Values.ToArray();
-                else
-                    rtpso.rayGenShaders = new RayTracingShaderDescription[0];
-                if (shader.hitGroups != null)
-                    rtpso.hitGroups = shader.hitGroups.Values.ToArray();
-                else
-                    rtpso.hitGroups = new RayTracingShaderDescription[0];
-
-                if (shader.missShaders != null)
-                    rtpso.missShaders = shader.missShaders.Values.ToArray();
-                else
-                    rtpso.missShaders = new RayTracingShaderDescription[0];
-
-                rtpso.exports = shader.GetExports();
-                List<ResourceAccessType> ShaderAccessTypes = new();
-                ShaderAccessTypes.Add(ResourceAccessType.SRV);
-                if (shader.CBVs != null)
-                    for (int i = 0; i < shader.CBVs.Count; i++)
-                        ShaderAccessTypes.Add(ResourceAccessType.CBV);
-                if (shader.SRVs != null)
-                    for (int i = 0; i < shader.SRVs.Count; i++)
-                        ShaderAccessTypes.Add(ResourceAccessType.SRVTable);
-                if (shader.UAVs != null)
-                    for (int i = 0; i < shader.UAVs.Count; i++)
-                        ShaderAccessTypes.Add(ResourceAccessType.UAVTable);
-                rtpso.shaderAccessTypes = ShaderAccessTypes.ToArray();
-                ShaderAccessTypes.Clear();
-                ShaderAccessTypes.Add(ResourceAccessType.SRV);
-                ShaderAccessTypes.Add(ResourceAccessType.SRV);
-                ShaderAccessTypes.Add(ResourceAccessType.SRV);
-                ShaderAccessTypes.Add(ResourceAccessType.SRV);
-                if (shader.localCBVs != null)
-                    foreach (var cbv in shader.localCBVs)
-                        ShaderAccessTypes.Add(ResourceAccessType.CBV);
-                if (shader.localSRVs != null)
-                    foreach (var srv in shader.localSRVs)
-                        ShaderAccessTypes.Add(ResourceAccessType.SRVTable);
-                rtpso.localShaderAccessTypes = ShaderAccessTypes.ToArray();
-                return rtpso;
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(path);
-                Console.WriteLine(e);
-                return null;
-            }
-        });
-    }
-
-    public PSOEx GetPSO(IReadOnlyList<(string, string)> keywords, string path)
+    public PSO GetPSO(IReadOnlyList<(string, string)> keywords, string path)
     {
         string xPath;
         if (keywords != null)
@@ -574,12 +468,7 @@ public class MainCaches : IDisposable
                 byte[] gs = shaderReader.geometryShader != null ? LoadShader(DxcShaderStage.Geometry, source, shaderReader.geometryShader, path, dxcDefines, out gsr) : null;
                 byte[] ps = shaderReader.pixelShader != null ? LoadShader(DxcShaderStage.Pixel, source, shaderReader.pixelShader, path, dxcDefines, out psr) : null;
                 PSO pso = new PSO(vs, gs, ps, vsr, gsr, psr);
-                PSOEx psoEx = new PSOEx()
-                {
-                    pso = pso,
-                    blend = shaderReader.blend,
-                };
-                return psoEx;
+                return pso;
             }
             catch (Exception e)
             {
@@ -658,14 +547,6 @@ public class MainCaches : IDisposable
         return tex1.texture2D;
     }
 
-    public static T ReadJsonStream<T>(Stream stream)
-    {
-        JsonSerializer jsonSerializer = new JsonSerializer();
-        jsonSerializer.NullValueHandling = NullValueHandling.Ignore;
-        using StreamReader reader1 = new StreamReader(stream);
-        return jsonSerializer.Deserialize<T>(new JsonTextReader(reader1));
-    }
-
     public void Dispose()
     {
         foreach (var m in ModelPackCaches)
@@ -685,13 +566,8 @@ public class MainCaches : IDisposable
         ComputeShaders.Clear();
         foreach (var t in PipelineStateObjects)
         {
-            t.Value?.pso.Dispose();
+            t.Value?.Dispose();
         }
         PipelineStateObjects.Clear();
-        foreach (var rtc in RTPSOs)
-        {
-            rtc.Value?.Dispose();
-        }
-        RTPSOs.Clear();
     }
 }

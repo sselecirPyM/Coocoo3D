@@ -2,7 +2,6 @@
 using Coocoo3DGraphics;
 using System;
 using System.Collections.Generic;
-using System.Drawing;
 
 namespace RenderPipelines;
 
@@ -15,27 +14,16 @@ public class DrawObjectPass : Pass
 
     public PSODesc psoDesc;
 
-    public bool clearRenderTarget = false;
-    public bool clearDepth = false;
-
-    public Rectangle? scissorViewport;
-
     public object[] CBVPerObject;
 
     public object[] CBVPerPass;
 
-    public Func<RenderHelper, MeshRenderable, List<(string, string)>, bool> filter;
+    public Func<MeshRenderable, bool> filter;
 
     public override void Execute(RenderHelper renderHelper)
     {
         RenderWrap renderWrap = renderHelper.renderWrap;
 
-        renderWrap.SetRenderTarget(renderTargets, depthStencil, clearRenderTarget, clearDepth);
-        if (scissorViewport != null)
-        {
-            var rect = scissorViewport.Value;
-            renderWrap.SetScissorRectAndViewport(rect.Left, rect.Top, rect.Right, rect.Bottom);
-        }
         var desc = GetPSODesc(renderHelper, psoDesc);
 
         var writer = renderHelper.Writer;
@@ -49,10 +37,10 @@ public class DrawObjectPass : Pass
         keywords2.Clear();
         foreach (var renderable in renderHelper.MeshRenderables())
         {
-            if (filter != null && !filter.Invoke(renderHelper, renderable, keywords2))
+            if (filter != null && !filter.Invoke(renderable))
                 continue;
             keywords2.AddRange(this.keywords);
-            AutoMapKeyword(renderHelper, keywords2, renderable.material.Parameters);
+            AutoMapKeyword(renderHelper, keywords2, renderable.material);
             if (renderable.gpuSkinning)
             {
                 keywords2.Add(new("SKINNING", "1"));

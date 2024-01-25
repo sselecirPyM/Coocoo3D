@@ -290,6 +290,13 @@ public class RenderPipelineView : IDisposable
         {
             rt.Value.gpuBuffer?.Dispose();
         }
+        foreach(var bake in bakes)
+        {
+            if(bake is IDisposable disposable1)
+            {
+                disposable1.Dispose();
+            }
+        }
         if (renderPipeline is IDisposable disposable)
             disposable.Dispose();
         RenderTextures = null;

@@ -8,20 +8,16 @@ public class FinalPass
 {
     public string[] srvs;
 
-    public string[] renderTargets;
-
-
-    PSODesc GetPSODesc(RenderHelper renderHelper, PSODesc desc)
+    PSODesc GetPSODesc(RenderWrap renderWrap, PSODesc desc)
     {
-        desc.rtvFormat = (renderTargets != null && renderTargets.Length > 0) ?
-            renderHelper.renderWrap.GetRenderTexture2D(renderTargets[0]).GetFormat() : Vortice.DXGI.Format.Unknown;
-        desc.dsvFormat = Vortice.DXGI.Format.Unknown;
-        desc.renderTargetCount = (renderTargets != null) ? renderTargets.Length : 0;
+        var rtvs = renderWrap.RenderTargets;
+        desc.rtvFormat = rtvs[0].GetFormat();
+        desc.renderTargetCount = rtvs.Count;
 
         return desc;
     }
 
-    public string shader = "DeferredFinal.hlsl";
+    string shader = "DeferredFinal.hlsl";
 
     public List<(string, string)> keywords = new();
     List<(string, string)> _keywords = new();
@@ -30,13 +26,10 @@ public class FinalPass
     {
         blendState = BlendState.None,
         cullMode = CullMode.None,
+        dsvFormat= Vortice.DXGI.Format.Unknown,
     };
 
     public object[][] cbvs;
-
-    public bool clearRenderTarget = true;
-    public bool clearDepth = false;
-
 
     public bool EnableFog;
     public bool EnableSSAO;
@@ -46,7 +39,6 @@ public class FinalPass
 
     public void Execute(RenderHelper renderHelper)
     {
-
         RenderWrap renderWrap = renderHelper.renderWrap;
         _keywords.Clear();
         _keywords.AddRange(this.keywords);
@@ -62,10 +54,7 @@ public class FinalPass
         if (NoBackGround)
             _keywords.Add(("DISABLE_BACKGROUND", "1"));
 
-        //AutoMapKeyword(renderHelper, _keywords, null);
-
-        renderWrap.SetRenderTarget(renderTargets, null, clearRenderTarget, clearDepth);
-        var desc = GetPSODesc(renderHelper, psoDesc);
+        var desc = GetPSODesc(renderWrap, psoDesc);
         renderWrap.SetShader(shader, desc, _keywords);
         renderWrap.SetSRVs(srvs);
 

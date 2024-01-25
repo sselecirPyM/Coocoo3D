@@ -1,5 +1,4 @@
 ﻿using Coocoo3D.RenderPipeline;
-using Coocoo3D.RenderPipeline.Wrap;
 using Coocoo3D.Utility;
 using Coocoo3DGraphics;
 using ImGuiNET;
@@ -7,13 +6,13 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Numerics;
+using System.Runtime.InteropServices;
 using Vortice.DXGI;
 
 namespace Coocoo3D.Core;
 
 public sealed class UIRenderSystem : IDisposable
 {
-    GPUWriter GPUWriter = new GPUWriter();
     string workDir = System.Environment.CurrentDirectory;
     string imguiShaderPath;
 
@@ -73,12 +72,11 @@ public sealed class UIRenderSystem : IDisposable
             inputLayout = InputLayout.Imgui
         };
         var pso = caches.GetPSO(null, imguiShaderPath);
-        graphicsContext.SetPSO(pso.pso, desc);
+        graphicsContext.SetPSO(pso, desc);
 
-        Vector4 scaleTrans = new Vector4(2.0f / (R - L), 2.0f / (T - B), (R + L) / (L - R), (T + B) / (B - T));
-        GPUWriter.graphicsContext = graphicsContext;
-        GPUWriter.Write(scaleTrans);
-        GPUWriter.SetCBV(0);
+        ReadOnlySpan<float> imguiCbv = stackalloc float[4] { 2.0f / (R - L), 2.0f / (T - B), (R + L) / (L - R), (T + B) / (B - T) };
+        graphicsContext.SetCBVRSlot(0, MemoryMarshal.AsBytes(imguiCbv));
+
         unsafe
         {
             int vertexSize = data.TotalVtxCount * sizeof(ImDrawVert);
@@ -118,7 +116,7 @@ public sealed class UIRenderSystem : IDisposable
 
                 tex = TextureStatusSelect(tex, texError);
 
-                graphicsContext.SetSRVTSlotLinear(tex, 0);//srgb to srgb
+                graphicsContext.SetSRVTSlotLinear(0, tex);//srgb to srgb
                 var rect = cmd.ClipRect;
                 graphicsContext.RSSetScissorRect((int)(rect.X - displayPosition.X), (int)(rect.Y - displayPosition.Y), (int)(rect.Z - displayPosition.X), (int)(rect.W - displayPosition.Y));
                 graphicsContext.DrawIndexed((int)cmd.ElemCount, (int)(cmd.IdxOffset) + idxOfs, (int)(cmd.VtxOffset) + vtxOfs);

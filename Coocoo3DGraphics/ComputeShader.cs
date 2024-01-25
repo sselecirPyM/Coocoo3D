@@ -14,7 +14,7 @@ public class ComputeShader : IDisposable
     RootSignature rootSignature1;
     ID3D12PipelineState computePipeline;
 
-    public void Initialize(byte[] data, ID3D12ShaderReflection reflection)
+    public ComputeShader(byte[] data, ID3D12ShaderReflection reflection)
     {
         this.data = data.AsSpan().ToArray();
         this.reflection = reflection;
