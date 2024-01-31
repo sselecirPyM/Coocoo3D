@@ -197,7 +197,7 @@ void csmain(uint3 dtid : SV_DispatchThreadID, uint groupIndex : SV_GroupIndex)
         renderWrap.graphicsContext.SetCBVRSlot<float>(0, cbv1);
 
 
-        renderWrap.SetSRVLim(0, input, mipLevel);
+        renderWrap.SetSRVMip(0, input, mipLevel);
         renderWrap.SetUAV(0, intermediaTexture);
         renderWrap.SetPSO(shader_bloom.Get(Keyword_Bloom.BLOOM_1));
         renderWrap.Dispatch((intermediaTexture.width + 63) / 64, intermediaTexture.height);

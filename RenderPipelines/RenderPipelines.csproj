@@ -2,11 +2,26 @@
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
-	  <AppendTargetFrameworkToOutputPath>output</AppendTargetFrameworkToOutputPath>
+    <AppendTargetFrameworkToOutputPath>output</AppendTargetFrameworkToOutputPath>
+    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Coocoo3D\Coocoo3D.csproj" />
+    <None Remove="vxmls\GenerateMip.vxml" />
+    <None Remove="vxmls\HiZ.vxml" />
+    <None Remove="vxmls\Skinning.vxml" />
+    <None Remove="vxmls\SRGBConvert.vxml" />
   </ItemGroup>
 
+  <ItemGroup>
+    <AdditionalFiles Include="vxmls\GenerateMip.vxml" />
+    <AdditionalFiles Include="vxmls\HiZ.vxml" />
+    <AdditionalFiles Include="vxmls\Skinning.vxml" />
+    <AdditionalFiles Include="vxmls\SRGBConvert.vxml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Coocoo3D\Coocoo3D.csproj" />
+    <ProjectReference Include="..\RenderPipelines.SourceGenertor\RenderPipelines.SourceGenertor.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
 </Project>

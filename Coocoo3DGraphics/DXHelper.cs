@@ -9,6 +9,7 @@ namespace Coocoo3DGraphics;
 
 public static class DXHelper
 {
+    public const int D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING = 5768;
     public const int c_frameCount = 3;
 
     public static void ThrowIfFailed(SharpGen.Runtime.Result hr)

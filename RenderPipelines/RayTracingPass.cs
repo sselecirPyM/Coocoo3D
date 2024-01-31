@@ -72,6 +72,8 @@ public class RayTracingPass
 
     RayTracingShader rayTracingShader;
 
+    public DirectionalLightData directionalLight;
+
     static readonly string[] missShaders = new[] { "miss" };
 
     string[] localSrvs = new string[]
@@ -94,7 +96,7 @@ public class RayTracingPass
         CameraPosition = camera.Position;
     }
 
-    public void Execute(RenderHelper renderHelper, DirectionalLightData directionalLight)
+    public void Execute(RenderHelper renderHelper)
     {
         if (rayTracingShader == null)
             Initialize(renderHelper);
@@ -181,6 +183,7 @@ public class RayTracingPass
 
         call.CBVs.Add(0, cbvData0);
 
+        graphicsContext.BuildAccelerationStruct(tpas);
         if (RayTracingGI)
         {
             call.rayGenShader = "rayGenGI";

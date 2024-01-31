@@ -39,7 +39,8 @@ public class PostProcessPass : IDisposable
         {
             generateMipPass.input = inputColor;
             generateMipPass.output = intermedia3;
-            generateMipPass.Execute(renderHelper);
+            generateMipPass.context = renderHelper;
+            generateMipPass.Execute();
 
             int r = 0;
             uint n = (uint)(inputColor.height / 1024);
@@ -63,7 +64,7 @@ public class PostProcessPass : IDisposable
         srgbConvert.inputColor1 = intermedia2;//srgbConvert.srvs[1] = "intermedia2";
 
         renderWrap.SetRenderTarget(output, false);
-        srgbConvert.renderHelper = renderHelper;
+        srgbConvert.context = renderHelper;
         srgbConvert.Execute();
     }
 

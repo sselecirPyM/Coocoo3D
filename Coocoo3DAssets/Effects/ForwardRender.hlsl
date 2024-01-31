@@ -1,6 +1,3 @@
-#ifdef SKINNING
-#define MAX_BONE_MATRICES 1024
-#endif
 
 #include "Skinning.hlsli"
 #include "PBR.hlsli"
@@ -41,9 +38,7 @@ struct PointLightInfo
 cbuffer cb1 : register(b1)
 {
 	float4x4 g_mWorld;
-#if ENABLE_POINT_LIGHT
-	PointLightInfo PointLights[POINT_LIGHT_COUNT];
-#endif
+	
 	float _Metallic;
 	float _Roughness;
 	float _Emissive;
@@ -87,6 +82,7 @@ Texture2D BRDFLut : register(t6);
 Texture2D NormalMap : register(t7);
 Texture2D Spa : register(t8);
 StructuredBuffer<SH9C> giBuffer : register(t9);
+StructuredBuffer<PointLightInfo> PointLights : register(t11);
 cbuffer cbAnimMatrices : register(b0)
 {
 	float4x4 g_mConstBoneWorld[MAX_BONE_MATRICES];

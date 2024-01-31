@@ -109,9 +109,9 @@ public class RenderWrap
         graphicsContext.SetSRVTSlot(slot, buffer);
     }
 
-    public void SetSRVLim(int slot, Texture2D texture, int mip)
+    public void SetSRVMip(int slot, Texture2D texture, int mip)
     {
-        graphicsContext.SetSRVTLim(slot, texture, mip);
+        graphicsContext.SetSRVTMip(slot, texture, mip);
     }
 
     public Texture2D GetTex2D(string name, RenderMaterial material = null)

@@ -96,7 +96,7 @@ public sealed class UIRenderSystem : IDisposable
                 vertexWriter.Write(new Span<byte>(cmdList.VtxBuffer.Data.ToPointer(), vertBytes));
                 indexWriter.Write(new Span<byte>(cmdList.IdxBuffer.Data.ToPointer(), indexBytes));
             }
-            graphicsContext.SetMesh(vertexDatas, indexDatas, data.TotalVtxCount, data.TotalIdxCount);
+            graphicsContext.SetSimpleMesh2(vertexDatas, indexDatas, data.TotalVtxCount, data.TotalIdxCount);
             pool.Return(buffer);
         }
         int vtxOfs = 0;

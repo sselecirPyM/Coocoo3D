@@ -7,7 +7,6 @@ using Coocoo3DGraphics;
 using Newtonsoft.Json;
 using RenderPipelines.Utility;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -15,7 +14,6 @@ using System.Numerics;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Threading.Tasks;
 using Vortice.Direct3D12.Shader;
 using Vortice.Dxc;
 
@@ -24,25 +22,17 @@ namespace RenderPipelines;
 public class RenderHelper
 {
     LinearPool<Mesh> meshPool = new();
-    public byte[] bigBuffer = new byte[0];
 
     public Mesh quadMesh = new Mesh();
     public Mesh cubeMesh = new Mesh();
 
-    Dictionary<MMDRendererComponent, int> findRenderer = new();
-    public List<CBuffer> boneMatrice = new();
     public Dictionary<MMDRendererComponent, Mesh> meshOverrides = new();
 
     public RenderWrap renderWrap;
 
-    public bool CPUSkinning;
+    GraphicsContext graphicsContext => renderWrap.graphicsContext;
 
     bool resourcesInitialized;
-
-    CBuffer GetBoneBuffer(MMDRendererComponent rendererComponent)
-    {
-        return boneMatrice[findRenderer[rendererComponent]];
-    }
 
     public IEnumerable<MMDRendererComponent> MMDRenderers => renderWrap.rpc.renderers;
 
@@ -56,11 +46,9 @@ public class RenderHelper
             var model = renderer.model;
             var mesh = model.GetMesh();
             var meshOverride = meshOverrides[renderer];
-            meshOverride.baseMesh = mesh;
             if (setMesh)
             {
                 graphicsContext.SetMesh(meshOverride);
-                graphicsContext.SetCBVRSlot(0, GetBoneBuffer(renderer));
             }
             for (int i = 0; i < renderer.Materials.Count; i++)
             {
@@ -70,7 +58,7 @@ public class RenderHelper
                 {
                     mesh = meshOverride ?? mesh,
                     transform = renderer.LocalToWorld,
-                    gpuSkinning = renderer.skinning && !CPUSkinning,
+                    gpuSkinning = renderer.skinning,
                     material = material,
                 };
                 WriteRenderable1(ref renderable, submesh);
@@ -131,6 +119,7 @@ public class RenderHelper
         var graphicsContext = renderWrap.graphicsContext;
         graphicsContext.UploadMesh(quadMesh);
         graphicsContext.UploadMesh(cubeMesh);
+        _BasePath = renderWrap.BasePath;
     }
 
     public void UpdateGPUResource()
@@ -140,55 +129,22 @@ public class RenderHelper
         if (!resourcesInitialized)
             InitializeResources();
         UpdateBoneMatrice();
-        if (!CPUSkinning)
-            Morph();
-        else
-            SkinAndMorph();
+
+        Morph();
     }
 
     void UpdateBoneMatrice()
     {
         RenderPipelineContext rpc = renderWrap.rpc;
         var renderers = rpc.renderers;
-        var graphicsContext = rpc.graphicsContext;
 
         for (int i = 0; i < renderers.Count; i++)
         {
             renderers[i].WriteMatriticesData();
         }
-        findRenderer.Clear();
-        while (boneMatrice.Count < renderers.Count)
-        {
-            boneMatrice.Add(new CBuffer());
-        }
-        Span<Matrix4x4> matrice = stackalloc Matrix4x4[1024];
-        for (int i = 0; i < renderers.Count; i++)
-        {
-            var renderer = renderers[i];
-            var matrices = renderer.BoneMatricesData;
-            int l = Math.Min(matrices.Length, 1024);
-            for (int k = 0; k < l; k++)
-                matrice[k] = Matrix4x4.Transpose(matrices[k]);
-            graphicsContext.UpdateResource<Matrix4x4>(boneMatrice[i], matrice.Slice(0, l));
-            findRenderer[renderer] = i;
-        }
     }
 
-    void CheckBigBuffer()
-    {
-        RenderPipelineContext rpc = renderWrap.rpc;
-        var renderers = rpc.renderers;
-        int bufferSize = 0;
-        foreach (var renderer in renderers)
-        {
-            if (renderer.skinning)
-                bufferSize = Math.Max(renderer.model.vertexCount, bufferSize);
-        }
-        bufferSize *= 24;
-        if (bufferSize > bigBuffer.Length)
-            bigBuffer = new byte[bufferSize];
-    }
-
+    SkinningCompute skinningCompute = new SkinningCompute();
     void Morph()
     {
         RenderPipelineContext rpc = renderWrap.rpc;
@@ -203,111 +159,32 @@ public class RenderHelper
             var model = renderer.model;
             var mesh = meshPool.Get(() => new Mesh());
             mesh.LoadIndex<int>(model.vertexCount, null);
+            mesh.baseMesh = model.GetMesh();
             meshOverrides[renderer] = mesh;
             if (!renderer.skinning)
                 continue;
 
             graphicsContext.UpdateMeshOneFrame<Vector3>(mesh, renderer.MeshPosition, MeshRenderable.POSITION);
+            graphicsContext.CopyBaseMesh(mesh, MeshRenderable.NORMAL);
+            graphicsContext.CopyBaseMesh(mesh, MeshRenderable.TANGENT);
             graphicsContext.EndUpdateMesh(mesh);
         }
-    }
-
-    public void CPUOnlySkinning()
-    {
-        if (!resourcesInitialized)
-            InitializeResources();
-        RenderPipelineContext rpc = renderWrap.rpc;
-        var renderers = rpc.renderers;
-        var graphicsContext = rpc.graphicsContext;
-        meshPool.Reset();
-        meshOverrides.Clear();
-
-        for (int i = 0; i < renderers.Count; i++)
-        {
-            renderers[i].WriteMatriticesData();
-        }
-
-        CheckBigBuffer();
+        skinningCompute.context = this;
 
         for (int i = 0; i < renderers.Count; i++)
         {
             var renderer = renderers[i];
-            var model = renderer.model;
-            var mesh = meshPool.Get(() => new Mesh());
-            mesh.LoadIndex<int>(model.vertexCount, null);
-            meshOverrides[renderer] = mesh;
             if (!renderer.skinning)
                 continue;
-
-            Skinning(model, renderer, mesh);
-        }
-    }
-
-    void SkinAndMorph()
-    {
-        RenderPipelineContext rpc = renderWrap.rpc;
-        var renderers = rpc.renderers;
-        var graphicsContext = rpc.graphicsContext;
-        meshPool.Reset();
-        meshOverrides.Clear();
-
-        CheckBigBuffer();
-
-        for (int i = 0; i < renderers.Count; i++)
-        {
-            var renderer = renderers[i];
-            var model = renderer.model;
-            var mesh = meshPool.Get(() => new Mesh());
-            mesh.LoadIndex<int>(model.vertexCount, null);
-            meshOverrides[renderer] = mesh;
-            if (!renderer.skinning)
-                continue;
-
-            Skinning(model, renderer, mesh);
-            graphicsContext.UpdateMeshOneFrame(mesh);
-        }
-    }
-
-    void Skinning(ModelPack model, MMDRendererComponent renderer, Mesh mesh)
-    {
-        var rangePartitioner = Partitioner.Create(0, model.vertexCount);
-        int halfLength = bigBuffer.Length / 12 / 2;
-        Parallel.ForEach(rangePartitioner, (range, loopState) =>
-        {
-            Span<Vector3> _d3 = MemoryMarshal.Cast<byte, Vector3>(new Span<byte>(bigBuffer, 0, bigBuffer.Length / 12 * 12 / 2));
-            Span<Vector3> _d4 = MemoryMarshal.Cast<byte, Vector3>(new Span<byte>(bigBuffer, bigBuffer.Length / 12 * 12 / 2, bigBuffer.Length / 12 * 12 / 2));
-            int from = range.Item1;
-            int to = range.Item2;
-            for (int j = from; j < to; j++)
+            var mesh = meshOverrides[renderer];
+            Matrix4x4[] matrices = new Matrix4x4[renderer.BoneMatricesData.Length];
+            for (int j = 0; j < renderer.BoneMatricesData.Length; j++)
             {
-                int k;
-                Matrix4x4 final = new Matrix4x4();
-                for (k = 0; k < 4; k++)
-                {
-                    int boneId = model.boneId[j * 4 + k];
-                    if (boneId >= renderer.bones.Count)
-                        break;
-                    float weight = model.boneWeights[j * 4 + k];
-                    final += renderer.BoneMatricesData[boneId] * weight;
-                }
-                Vector3 pos0 = renderer.MeshPosition[j];
-                Vector3 pos1 = Vector3.Transform(pos0, final);
-                if (k > 0)
-                    _d3[j] = pos1;
-                else
-                    _d3[j] = pos0;
-                Vector3 norm0 = model.normal[j];
-                Vector3 norm1 = Vector3.TransformNormal(norm0, final);
-                if (k > 0)
-                    _d4[j] = Vector3.Normalize(norm1);
-                else
-                    _d4[j] = Vector3.Normalize(norm0);
+                matrices[j] = Matrix4x4.Transpose(renderer.BoneMatricesData[j]);
             }
-        });
-        Span<Vector3> dat0 = MemoryMarshal.Cast<byte, Vector3>(new Span<byte>(bigBuffer, 0, bigBuffer.Length / 12 * 12));
-
-        mesh.AddBuffer<Vector3>(dat0.Slice(0, model.vertexCount), MeshRenderable.POSITION);
-        mesh.AddBuffer<Vector3>(dat0.Slice(halfLength, model.vertexCount), MeshRenderable.NORMAL);
+            skinningCompute._matrice = matrices;
+            skinningCompute.Execute(mesh);
+        }
     }
 
     public void DrawQuad(int instanceCount = 1)
@@ -331,6 +208,16 @@ public class RenderHelper
     public void Draw(MeshRenderable renderable)
     {
         renderWrap.graphicsContext.DrawIndexed(renderable.indexCount, renderable.indexStart, renderable.vertexStart);
+    }
+
+    public void DrawIndexedInstanced(int indexCountPerInstance, int instanceCount, int startIndexLocation, int baseVertexLocation, int startInstanceLocation)
+    {
+        graphicsContext.DrawIndexedInstanced(indexCountPerInstance, instanceCount, startIndexLocation, baseVertexLocation, startInstanceLocation);
+    }
+
+    public void Dispatch(int x = 1, int y = 1, int z = 1)
+    {
+        graphicsContext.Dispatch(x, y, z);
     }
 
     #region write object
@@ -456,11 +343,7 @@ public class RenderHelper
         }
     }
 
-    void SetCBV(GPUWriter writer, int slot)
-    {
-        renderWrap.graphicsContext.SetCBVRSlot(slot, new ReadOnlySpan<byte>(writer.memoryStream.GetBuffer(), 0, (int)writer.memoryStream.Position));
-        writer.Seek(0, SeekOrigin.Begin);
-    }
+    public static string _BasePath;
 
     static byte[] LoadShader(DxcShaderStage shaderStage, string shaderCode, string entryPoint, string fileName, DxcDefine[] dxcDefines, out ID3D12ShaderReflection reflection)
     {
@@ -511,6 +394,11 @@ public class RenderHelper
 
     public static PSO CreatePipeline(string source, string vsEntry, string gsEntry, string psEntry, string fileName = null)
     {
+        if (fileName != null)
+        {
+            fileName = Path.Combine(_BasePath, fileName);
+        }
+
         ID3D12ShaderReflection vsr = null;
         ID3D12ShaderReflection gsr = null;
         ID3D12ShaderReflection psr = null;
@@ -523,6 +411,11 @@ public class RenderHelper
 
     public static PSO CreatePipeline<T>(string source, string vsEntry, string gsEntry, string psEntry, T e, string fileName = null) where T : struct, Enum
     {
+        if (fileName != null)
+        {
+            fileName = Path.Combine(_BasePath, fileName);
+        }
+
         ID3D12ShaderReflection vsr = null;
         ID3D12ShaderReflection gsr = null;
         ID3D12ShaderReflection psr = null;
@@ -551,18 +444,6 @@ public class RenderHelper
         return defs.ToArray();
     }
 
-    //public static void TestEnum<T>(T e) where T : struct, Enum
-    //{
-    //    var arr = Enum.GetValues<T>();
-    //    foreach (var a in arr)
-    //    {
-    //        if (Convert.ToInt32(a) == 0)
-    //            continue;
-    //        if (e.HasFlag(a))
-    //            Console.WriteLine($"has {a}.");
-    //        Console.WriteLine($"{a}, {Convert.ToInt32(a)}");
-    //    }
-    //}
     #endregion
 
     #region RenderResource
@@ -691,9 +572,97 @@ public class RenderHelper
     }
 
     #endregion
+
+    #region
+
+    public void SetPSO(PSO pso, PSODesc desc)
+    {
+        var renderTargets = renderWrap.RenderTargets;
+        if (pso.pixelShader != null && renderTargets.Count > 0)
+            desc.rtvFormat = renderTargets[0].GetFormat();
+        desc.renderTargetCount = renderTargets.Count;
+        graphicsContext.SetPSO(pso, desc);
+    }
+
+    public void SetPSO(ComputeShader computeShader)
+    {
+        graphicsContext.SetPSO(computeShader);
+    }
+
+
+    public void SetSRVs(params Texture2D[] textures)
+    {
+        for (int i = 0; i < textures.Length; i++)
+        {
+            graphicsContext.SetSRVTSlot(i, textures[i]);
+        }
+    }
+
+    public void SetUAV(int slot, Texture2D texture2D)
+    {
+        graphicsContext.SetUAVTSlot(slot, texture2D);
+    }
+
+    public void SetUAV(int slot, GPUBuffer buffer)
+    {
+        graphicsContext.SetUAVTSlot(slot, buffer);
+    }
+
+    public void SetUAV(int slot, Texture2D texture2D, int mipIndex)
+    {
+        graphicsContext.SetUAVTSlot(slot, texture2D, mipIndex);
+    }
+    public void SetUAV(int slot, Mesh mesh, string bufferName)
+    {
+        graphicsContext.SetUAVTSlot(slot, mesh, bufferName);
+    }
+
+    public void SetSRV(int slot, Texture2D texture)
+    {
+        graphicsContext.SetSRVTSlot(slot, texture);
+    }
+    public void SetSRV<T>(int slot, T[] values) where T : unmanaged
+    {
+        SetSRV(slot, (ReadOnlySpan<T>)values);
+    }
+    public void SetSRV<T>(int slot, ReadOnlySpan<T> values) where T : unmanaged
+    {
+        graphicsContext.SetSRVTSlot(slot, values);
+    }
+    public void SetSRV(int slot, Mesh mesh, string bufferName)
+    {
+        graphicsContext.SetSRVTSlot(slot, mesh, bufferName);
+    }
+    public void SetSRV(int slot, GPUBuffer buffer)
+    {
+        graphicsContext.SetSRVTSlot(slot, buffer);
+    }
+
+    public void SetSRV(int slot, Texture2D texture, int mip)
+    {
+        graphicsContext.SetSRVTMip(slot, texture, mip);
+    }
+
+    public void SetCBV<T>(int slot, ReadOnlySpan<T> data) where T : unmanaged
+    {
+        graphicsContext.SetCBVRSlot<T>(slot, data);
+    }
+    public void SetSimpleMesh(ReadOnlySpan<byte> vertexData, ReadOnlySpan<byte> indexData, int vertexStride, int indexStride)
+    {
+        graphicsContext.SetSimpleMesh(vertexData, indexData, vertexStride, indexStride);
+    }
+    public void SetSimpleMesh(ReadOnlySpan<byte> vertexData, ReadOnlySpan<ushort> indexData, int vertexStride)
+    {
+        graphicsContext.SetSimpleMesh(vertexData, MemoryMarshal.AsBytes(indexData), vertexStride, 2);
+    }
+    public void SetSimpleMesh(ReadOnlySpan<byte> vertexData, ReadOnlySpan<uint> indexData, int vertexStride)
+    {
+        graphicsContext.SetSimpleMesh(vertexData, MemoryMarshal.AsBytes(indexData), vertexStride, 4);
+    }
+
+    #endregion
     public void Dispose()
     {
-        findRenderer.Clear();
         meshOverrides.Clear();
         quadMesh?.Dispose();
         cubeMesh?.Dispose();
@@ -706,5 +675,6 @@ public class RenderHelper
             rtc.Value?.Dispose();
         }
         RTPSOs.Clear();
+        skinningCompute?.Dispose();
     }
 }

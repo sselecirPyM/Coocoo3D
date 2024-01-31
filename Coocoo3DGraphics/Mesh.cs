@@ -7,16 +7,19 @@ namespace Coocoo3DGraphics;
 
 public class _vertexBuffer : IDisposable
 {
-    public ID3D12Resource vertex;
+    public ID3D12Resource resource;
     public VertexBufferView vertexBufferView;
     public int Capacity;
     public int stride;
     public byte[] data;
 
+    internal BufferTracking baseBuffer;
+    internal int baseBufferOffset;
+
     public void Dispose()
     {
-        vertex?.Release();
-        vertex = null;
+        resource?.Release();
+        resource = null;
     }
 }
 public class Mesh : IDisposable
@@ -53,7 +56,11 @@ public class Mesh : IDisposable
 
     public void LoadIndex<T>(int vertexCount, ReadOnlySpan<T> indexData) where T : unmanaged
     {
-        vtBuffersDisposed.AddRange(vtBuffers.Values);
+        foreach (var buf in vtBuffers.Values)
+        {
+            if (buf.resource != null)
+                vtBuffersDisposed.Add(buf);
+        }
         vtBuffers.Clear();
         this.m_vertexCount = vertexCount;
         if (indexData != null)

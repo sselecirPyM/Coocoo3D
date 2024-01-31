@@ -11,44 +11,6 @@ struct SkinnedInfo
 	float3 Tan;
 };
 
-#if MAX_BONE_MATRICES > 0
-struct VSSkinnedIn
-{
-	float3 Pos	: POSITION0;		//Position
-	float3 Norm : NORMAL;			//Normal
-	float2 Tex	: TEXCOORD;		    //Texture coordinate
-	float4 Tan : TANGENT;		    //Normalized Tangent vector
-	min16uint4  Bones : BONES;			//Bone indices
-	float4 Weights : WEIGHTS;		//Bone weights
-};
-
-SkinnedInfo SkinVert(VSSkinnedIn Input, float4x4 transforms[MAX_BONE_MATRICES])
-{
-	SkinnedInfo Output = (SkinnedInfo)0;
-
-	float4 Pos = float4(Input.Pos, 1);
-	float3 Norm = Input.Norm;
-	float3 Tan = Input.Tan;
-	matrix mx = {
-		0,0,0,0,
-		0,0,0,0,
-		0,0,0,0,
-		0,0,0,0 };
-	for (int i = 0; i < 4; i++)
-	{
-		uint iBone = iBone = Input.Bones[i];
-		float fWeight = fWeight = Input.Weights[i];
-		if (iBone < MAX_BONE_MATRICES)
-		{
-			mx += fWeight * transforms[iBone];
-		}
-	}
-	Output.Pos =  mul(Pos, mx);
-	Output.Norm =  mul(float4(Norm, 0), mx).xyz;
-	Output.Tan =  mul(float4(Tan, 0), mx).xyz;
-	return Output;
-}
-#else
 struct VSSkinnedIn
 {
 	float3 Pos	: POSITION0;		//Position
@@ -65,4 +27,3 @@ SkinnedInfo SkinVert(VSSkinnedIn Input, float4x4 transforms[0])
 	Output.Tan = Input.Tan;
 	return Output;
 }
-#endif

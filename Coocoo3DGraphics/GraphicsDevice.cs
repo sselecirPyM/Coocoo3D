@@ -18,6 +18,8 @@ public sealed class GraphicsDevice : IDisposable
     internal DescriptorHeapX dsvHeap;
 
     internal RingBuffer superRingBuffer = new RingBuffer();
+    internal FastBufferAllocator fastBufferAllocator;
+    internal FastBufferAllocator fastBufferAllocatorUAV;
 
     internal ID3D12Resource scratchResource;
 
@@ -67,6 +69,7 @@ public sealed class GraphicsDevice : IDisposable
         m_deviceVideoMem = (ulong)(long)adapter.Description.DedicatedVideoMemory;
         m_isRayTracingSupport = CheckRayTracingSupport(device);
 
+
         commandQueue = new CommandQueue();
         commandQueue.Initialize(device, CommandListType.Direct);
         copyCommandQueue = new CommandQueue();
@@ -93,7 +96,9 @@ public sealed class GraphicsDevice : IDisposable
         dsvHeap = new DescriptorHeapX();
         dsvHeap.Initialize(device, descriptorHeapDescription);
 
-        superRingBuffer.Initialize(this.device, 134217728, 33554432);
+        superRingBuffer.Initialize(this.device, 134217728, 1048576);
+        fastBufferAllocator = new FastBufferAllocator(superRingBuffer, cbvsrvuavHeap, ResourceFlags.None);
+        fastBufferAllocatorUAV = new FastBufferAllocator(superRingBuffer, cbvsrvuavHeap, ResourceFlags.AllowUnorderedAccess);
     }
 
     public void WaitForGpu()
@@ -177,12 +182,21 @@ public sealed class GraphicsDevice : IDisposable
     {
         commandQueue?.Dispose();
         copyCommandQueue?.Dispose();
+        fastBufferAllocatorUAV?.Dispose();
+        fastBufferAllocator?.Dispose();
         superRingBuffer?.Dispose();
+        scratchResource?.Release();
         cbvsrvuavHeap?.Dispose();
         rtvHeap?.Dispose();
         dsvHeap?.Dispose();
-        adapter?.Release();
+
+#if DEBUG
+        var debugDevice = device.QueryInterface<ID3D12DebugDevice1>();
+        debugDevice.ReportLiveDeviceObjects(ReportLiveDeviceObjectFlags.Detail);
+        debugDevice.Release();
+#endif
+
         device?.Release();
-        scratchResource?.Release();
+        adapter?.Release();
     }
 }

@@ -12,8 +12,6 @@ namespace Coocoo3DGraphics;
 
 public sealed class GraphicsContext
 {
-    const int D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING = 5768;
-
     GraphicsDevice graphicsDevice;
     ID3D12GraphicsCommandList4 m_commandList;
     ID3D12GraphicsCommandList4 m_copyCommandList;
@@ -90,7 +88,7 @@ public sealed class GraphicsContext
         return true;
     }
 
-    void SetRTTopAccelerationStruct(RTTopLevelAcclerationStruct accelerationStruct)
+    public void BuildAccelerationStruct(RTTopLevelAcclerationStruct accelerationStruct)
     {
         if (accelerationStruct.initialized)
             return;
@@ -99,21 +97,35 @@ public sealed class GraphicsContext
         {
             CreateUAVBuffer(134217728, ref graphicsDevice.scratchResource, ResourceStates.UnorderedAccess);
         }
-        int instanceCount = accelerationStruct.instances.Count;
-        Span<RaytracingInstanceDescription> raytracingInstanceDescriptions = stackalloc RaytracingInstanceDescription[instanceCount];
-        for (int i = 0; i < instanceCount; i++)
+        var instances = accelerationStruct.instances;
+
+        foreach (var instance in instances)
         {
-            if (BuildBTAS(accelerationStruct.instances[i], i, out var raytracingInstanceDescription))
+            if (!instance.accelerationStruct.initialized)
+                BuildBTAS(instance);
+        }
+
+        Span<RaytracingInstanceDescription> raytracingInstanceDescriptions = stackalloc RaytracingInstanceDescription[instances.Count];
+        for (int i = 0; i < instances.Count; i++)
+        {
+            var instance = instances[i];
+            var btas = instance.accelerationStruct;
+            int instantID = i;
+            raytracingInstanceDescriptions[i] = new RaytracingInstanceDescription
             {
-                raytracingInstanceDescriptions[i] = raytracingInstanceDescription;
-            }
+                AccelerationStructure = btas.resource.GPUVirtualAddress,
+                InstanceContributionToHitGroupIndex = (Vortice.UInt24)(uint)instantID,
+                InstanceID = (Vortice.UInt24)(uint)instantID,
+                InstanceMask = instance.instanceMask,
+                Transform = GetMatrix3X4(Matrix4x4.Transpose(instance.transform))
+            };
         }
         GetRingBuffer().UploadBuffer<RaytracingInstanceDescription>(raytracingInstanceDescriptions, out ulong gpuAddr);
         var tpInputs = new BuildRaytracingAccelerationStructureInputs
         {
-            Layout = ElementsLayout.Array,
             Type = RaytracingAccelerationStructureType.TopLevel,
-            DescriptorsCount = accelerationStruct.instances.Count,
+            Layout = ElementsLayout.Array,
+            DescriptorsCount = instances.Count,
             InstanceDescriptions = gpuAddr
         };
 
@@ -129,16 +141,12 @@ public sealed class GraphicsContext
         m_commandList.BuildRaytracingAccelerationStructure(trtas);
     }
 
-    bool BuildBTAS(RTInstance instance, int instantID, out RaytracingInstanceDescription raytracingInstanceDescription)
+    void BuildBTAS(RTInstance instance)
     {
         string POSITION = "POSITION0";
         var btas = instance.accelerationStruct;
+        btas.initialized = true;
         var mesh = btas.mesh;
-        if (btas.initialized)
-        {
-            raytracingInstanceDescription = default;
-            return false;
-        }
 
         var indexBuffer = mesh.GetIndexBuffer();
         var positionBuffer = mesh.GetVertexBuffer(POSITION);
@@ -149,21 +157,22 @@ public sealed class GraphicsContext
         {
             Type = RaytracingAccelerationStructureType.BottomLevel,
             Layout = ElementsLayout.Array,
+            DescriptorsCount = 1,
             GeometryDescriptions = new RaytracingGeometryDescription[]
             {
-                new RaytracingGeometryDescription(new RaytracingGeometryTrianglesDescription(new GpuVirtualAddressAndStride(position, 12),
-                Format.R32G32B32_Float,
-                btas.vertexCount,
-                0,
-                indexBuffer.GPUVirtualAddress + (ulong)btas.indexStart * 4,
-                Format.R32_UInt,
-                btas.indexCount)),
-            },
-            DescriptorsCount = 1
+                new RaytracingGeometryDescription(new RaytracingGeometryTrianglesDescription(
+                    new GpuVirtualAddressAndStride(position, 12),
+                    Format.R32G32B32_Float,
+                    btas.vertexCount,
+                    0,
+                    indexBuffer.GPUVirtualAddress + (ulong)btas.indexStart * 4,
+                    Format.R32_UInt,
+                    btas.indexCount)),
+            }
         };
 
-        if (positionBuffer.vertex != null)
-            Reference(positionBuffer.vertex);
+        if (positionBuffer.resource != null)
+            Reference(positionBuffer.resource);
         Reference(indexBuffer);
         var info = graphicsDevice.device.GetRaytracingAccelerationStructurePrebuildInfo(inputs);
 
@@ -178,22 +187,11 @@ public sealed class GraphicsContext
         m_commandList.BuildRaytracingAccelerationStructure(brtas);
         m_commandList.ResourceBarrierUnorderedAccessView(btas.resource);
         Reference(btas.resource);
-        raytracingInstanceDescription = new RaytracingInstanceDescription
-        {
-            AccelerationStructure = btas.resource.GPUVirtualAddress,
-            InstanceContributionToHitGroupIndex = (Vortice.UInt24)(uint)instantID,
-            InstanceID = (Vortice.UInt24)(uint)instantID,
-            InstanceMask = instance.instanceMask,
-            Transform = GetMatrix3X4(Matrix4x4.Transpose(instance.transform))
-        };
-        btas.initialized = true;
-        return true;
     }
     const int D3D12ShaderIdentifierSizeInBytes = 32;
 
     public void DispatchRays(int width, int height, int depth, RayTracingCall call)
     {
-        SetRTTopAccelerationStruct(call.tpas);
         var pRtsoProps = currentRTPSO.so.QueryInterface<ID3D12StateObjectProperties>();
         Reference(currentRTPSO.so);
 
@@ -397,7 +395,62 @@ public sealed class GraphicsContext
                 break;
         }
     }
-    public void SetSRVTLim(int slot, Texture2D texture, int mips) => currentSRVs[slot] = GetSRVHandleWithMip(texture, mips).Ptr;
+
+    public void SetSRVTSlot<T>(int slot, ReadOnlySpan<T> data) where T : unmanaged
+    {
+        if (data.Length == 0)
+        {
+            //currentSRVs[slot] = 0uL;
+            currentSRVs.Remove(slot);
+        }
+        else
+        {
+            var handle = graphicsDevice.fastBufferAllocator.GetSRV(MemoryMarshal.AsBytes(data));
+            currentSRVs[slot] = handle;
+        }
+    }
+
+    public void SetSRVTSlot(int slot, Mesh mesh, string bufferName)
+    {
+        var buffer = mesh.GetVertexBuffer(bufferName);
+
+        if (buffer.baseBuffer != null)
+        {
+            buffer.baseBuffer.ToState(m_commandList, ResourceStates.Common);
+
+            var handle = CreateSRV(buffer.baseBuffer.resource, new ShaderResourceViewDescription()
+            {
+                Format = Format.R32_Typeless,
+                ViewDimension = Vortice.Direct3D12.ShaderResourceViewDimension.Buffer,
+                Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
+                Buffer = new BufferShaderResourceView
+                {
+                    FirstElement = (ulong)buffer.baseBufferOffset / 4,
+                    NumElements = buffer.vertexBufferView.SizeInBytes / 4,
+                    Flags = BufferShaderResourceViewFlags.Raw,
+                }
+            });
+            currentSRVs[slot] = handle;
+        }
+        else
+        {
+            var handle = CreateSRV(buffer.resource, new ShaderResourceViewDescription()
+            {
+                Format = Format.R32_Typeless,
+                ViewDimension = Vortice.Direct3D12.ShaderResourceViewDimension.Buffer,
+                Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
+                Buffer = new BufferShaderResourceView
+                {
+                    FirstElement = 0,
+                    NumElements = buffer.vertexBufferView.SizeInBytes / 4,
+                    Flags = BufferShaderResourceViewFlags.Raw,
+                }
+            });
+            currentSRVs[slot] = handle;
+        }
+    }
+
+    public void SetSRVTMip(int slot, Texture2D texture, int mips) => currentSRVs[slot] = GetSRVHandleWithMip(texture, mips).Ptr;
 
     void SetSRVRSlot(int slot, ulong gpuAddr) => currentSRVs[slot] = gpuAddr;
 
@@ -422,6 +475,25 @@ public sealed class GraphicsContext
                 currentUAVs[slot] = GetUAVHandle(texture).Ptr;
                 break;
         }
+    }
+
+    public void SetUAVTSlot(int slot, Mesh mesh, string bufferName)
+    {
+        var buffer = mesh.GetVertexBuffer(bufferName);
+        buffer.baseBuffer.ToState(m_commandList, ResourceStates.UnorderedAccess);
+
+        var handle = CreateUAV(buffer.baseBuffer.resource, new UnorderedAccessViewDescription()
+        {
+            Format = Format.R32_Typeless,
+            ViewDimension = UnorderedAccessViewDimension.Buffer,
+            Buffer = new BufferUnorderedAccessView
+            {
+                FirstElement = (ulong)buffer.baseBufferOffset / 4,
+                NumElements = buffer.vertexBufferView.SizeInBytes / 4,
+                Flags = BufferUnorderedAccessViewFlags.Raw,
+            }
+        });
+        currentUAVs[slot] = handle;
     }
 
     public void SetUAVTSlot(int slot, Texture2D texture, int mipIndex)
@@ -453,37 +525,24 @@ public sealed class GraphicsContext
     {
         foreach (var vtBuf in mesh.vtBuffers)
         {
-            var mesh1 = vtBuf.Value;
-            int dataLength = mesh1.data.Length;
-            int index1 = mesh.vtBuffersDisposed.FindIndex(u => u.Capacity >= dataLength && u.Capacity <= dataLength * 2 + 256);
-            if (index1 != -1)
-            {
-                mesh1.vertex = mesh.vtBuffersDisposed[index1].vertex;
-                mesh1.Capacity = mesh.vtBuffersDisposed[index1].Capacity;
-                m_commandList.ResourceBarrierTransition(mesh1.vertex, ResourceStates.Common, ResourceStates.CopyDest);
-                GetRingBuffer().UploadTo<byte>(m_commandList, mesh1.data, mesh1.vertex);
-                m_commandList.ResourceBarrierTransition(mesh1.vertex, ResourceStates.CopyDest, ResourceStates.Common);
+            var vertexBuffer = vtBuf.Value;
+            int dataLength = vertexBuffer.data.Length;
 
-                mesh.vtBuffersDisposed.RemoveAt(index1);
-            }
-            else
-            {
-                mesh1.Capacity = dataLength + 256;
-                CreateBuffer(mesh1.Capacity, ref mesh1.vertex, ResourceStates.Common);
-                GetRingBuffer().UploadTo<byte>(m_copyCommandList, mesh1.data, mesh1.vertex);
-            }
+            vertexBuffer.Capacity = dataLength + 256;
+            CreateBuffer(vertexBuffer.Capacity, ref vertexBuffer.resource, ResourceStates.Common);
+            GetRingBuffer().UploadTo(m_copyCommandList, vertexBuffer.data, vertexBuffer.resource);
 
-            mesh1.vertex.Name = "vertex buffer" + vtBuf.Key;
+            vertexBuffer.resource.Name = "vertex buffer" + vtBuf.Key;
 
-            Reference(mesh1.vertex);
+            Reference(vertexBuffer.resource);
 
-            mesh1.vertexBufferView.BufferLocation = mesh1.vertex.GPUVirtualAddress;
-            mesh1.vertexBufferView.StrideInBytes = mesh1.stride;
-            mesh1.vertexBufferView.SizeInBytes = dataLength;
+            vertexBuffer.vertexBufferView.BufferLocation = vertexBuffer.resource.GPUVirtualAddress;
+            vertexBuffer.vertexBufferView.StrideInBytes = vertexBuffer.stride;
+            vertexBuffer.vertexBufferView.SizeInBytes = dataLength;
         }
 
         foreach (var vtBuf in mesh.vtBuffersDisposed)
-            vtBuf.vertex?.Release();
+            vtBuf.resource?.Release();
         mesh.vtBuffersDisposed.Clear();
 
         if (mesh.m_indexCount > 0)
@@ -493,7 +552,7 @@ public sealed class GraphicsContext
             if (mesh.indexBufferCapacity >= indexBufferLength)
             {
                 m_commandList.ResourceBarrierTransition(indexBuffer, ResourceStates.Common, ResourceStates.CopyDest);
-                GetRingBuffer().UploadTo<byte>(m_commandList, new Span<byte>(mesh.m_indexData, 0, indexBufferLength), indexBuffer);
+                GetRingBuffer().UploadTo(m_commandList, new Span<byte>(mesh.m_indexData, 0, indexBufferLength), indexBuffer);
                 m_commandList.ResourceBarrierTransition(indexBuffer, ResourceStates.CopyDest, ResourceStates.Common);
             }
             else
@@ -501,7 +560,7 @@ public sealed class GraphicsContext
                 CreateBuffer(indexBufferLength, ref indexBuffer, ResourceStates.Common);
                 mesh.indexBufferCapacity = indexBufferLength;
                 indexBuffer.Name = "index buffer";
-                GetRingBuffer().UploadTo<byte>(m_copyCommandList, new Span<byte>(mesh.m_indexData, 0, indexBufferLength), indexBuffer);
+                GetRingBuffer().UploadTo(m_copyCommandList, new Span<byte>(mesh.m_indexData, 0, indexBufferLength), indexBuffer);
             }
             Reference(indexBuffer);
             mesh.indexBufferView = new IndexBufferView
@@ -513,58 +572,44 @@ public sealed class GraphicsContext
         }
     }
 
-    public void UpdateMeshOneFrame(Mesh mesh)
-    {
-        foreach (var vtBuf in mesh.vtBuffers)
-        {
-            var mesh1 = vtBuf.Value;
-            int dataLength = mesh1.data.Length;
-
-            GetRingBuffer().UploadBuffer<byte>(mesh1.data, out ulong addr);
-
-            mesh1.vertexBufferView.BufferLocation = addr;
-            mesh1.vertexBufferView.StrideInBytes = mesh1.stride;
-            mesh1.vertexBufferView.SizeInBytes = dataLength;
-        }
-
-        foreach (var vtBuf in mesh.vtBuffersDisposed)
-            vtBuf.vertex?.Release();
-        mesh.vtBuffersDisposed.Clear();
-
-        if (mesh.m_indexCount > 0)
-        {
-            int indexBufferLength = mesh.m_indexCount * 4;
-            GetRingBuffer().UploadBuffer<byte>(new ReadOnlySpan<byte>(mesh.m_indexData, 0, indexBufferLength), out ulong addr);
-
-            mesh.indexBufferView = new IndexBufferView
-            {
-                BufferLocation = addr,
-                SizeInBytes = indexBufferLength,
-                Format = Format.R32_UInt
-            };
-        }
-    }
-
     public void UpdateMeshOneFrame<T>(Mesh mesh, ReadOnlySpan<T> data, string slot) where T : unmanaged
     {
-        int size1 = Marshal.SizeOf<T>();
-        int sizeInBytes = data.Length * size1;
+        var data1 = MemoryMarshal.AsBytes(data);
 
         if (!mesh.vtBuffers.TryGetValue(slot, out var vtBuf))
         {
             vtBuf = mesh.AddBuffer(slot);
         }
-        GetRingBuffer().UploadBuffer(data, out ulong addr);
+        graphicsDevice.fastBufferAllocatorUAV.Upload(data1, out var addr, out vtBuf.baseBuffer, out vtBuf.baseBufferOffset);
 
         vtBuf.vertexBufferView.BufferLocation = addr;
-        vtBuf.vertexBufferView.StrideInBytes = sizeInBytes / mesh.m_vertexCount;
-        vtBuf.vertexBufferView.SizeInBytes = sizeInBytes;
+        vtBuf.vertexBufferView.StrideInBytes = data1.Length / mesh.m_vertexCount;
+        vtBuf.vertexBufferView.SizeInBytes = data1.Length;
+    }
+
+    public void CopyBaseMesh(Mesh mesh, string bufferName)
+    {
+        if (!mesh.vtBuffers.TryGetValue(bufferName, out var vtBuf))
+        {
+            vtBuf = mesh.AddBuffer(bufferName);
+        }
+        if (mesh.baseMesh.vtBuffers.TryGetValue(bufferName, out var baseBuffer1))
+        {
+
+        }
+
+        graphicsDevice.fastBufferAllocatorUAV.GetCopy(m_commandList, baseBuffer1.resource, 0, baseBuffer1.vertexBufferView.SizeInBytes,
+            out var addr, out vtBuf.baseBuffer, out vtBuf.baseBufferOffset);
+
+        vtBuf.vertexBufferView.BufferLocation = addr;
+        vtBuf.vertexBufferView.StrideInBytes = baseBuffer1.vertexBufferView.StrideInBytes;
+        vtBuf.vertexBufferView.SizeInBytes = baseBuffer1.vertexBufferView.SizeInBytes;
     }
 
     public void EndUpdateMesh(Mesh mesh)
     {
         foreach (var vtBuf in mesh.vtBuffersDisposed)
-            vtBuf.vertex?.Release();
+            vtBuf.resource?.Release();
         mesh.vtBuffersDisposed.Clear();
     }
 
@@ -576,8 +621,9 @@ public sealed class GraphicsContext
 
     public void UpdateResource<T>(GPUBuffer buffer, ReadOnlySpan<T> data) where T : unmanaged
     {
-        buffer.size = Marshal.SizeOf<T>() * data.Length;
-        GetRingBuffer().UploadTo(m_commandList, data, buffer.resource);
+        var data1 = MemoryMarshal.AsBytes(data);
+        buffer.size = data1.Length;
+        GetRingBuffer().UploadTo(m_commandList, data1, buffer.resource);
     }
 
     public void UploadTexture(Texture2D texture, Uploader uploader)
@@ -697,9 +743,14 @@ public sealed class GraphicsContext
         foreach (var vtBuf in mesh.vtBuffers)
         {
             currentMesh[vtBuf.Key] = vtBuf.Value.vertexBufferView;
-            if (vtBuf.Value.vertex != null)
+            if (vtBuf.Value.resource != null)
             {
-                Reference(vtBuf.Value.vertex);
+                Reference(vtBuf.Value.resource);
+            }
+            var baseBuffer = vtBuf.Value.baseBuffer;
+            if (baseBuffer != null)
+            {
+                baseBuffer.ToState(m_commandList, ResourceStates.Common);
             }
         }
         if (mesh.indexBuffer != null)
@@ -709,7 +760,22 @@ public sealed class GraphicsContext
         }
     }
 
-    public void SetMesh(ReadOnlySpan<byte> vertexData, ReadOnlySpan<byte> indexData, int vertexCount, int indexCount)
+    public void SetSimpleMesh2(ReadOnlySpan<byte> vertexData, ReadOnlySpan<byte> indexData, int vertexCount, int indexCount)
+    {
+        int vertexStride = 0;
+        int indexStride = 0;
+        if (vertexData != null)
+        {
+            vertexStride = vertexData.Length / vertexCount;
+        }
+        if (indexData != null)
+        {
+            indexStride = indexData.Length / indexCount;
+        }
+        SetSimpleMesh(vertexData, indexData, vertexStride, indexStride);
+    }
+
+    public void SetSimpleMesh(ReadOnlySpan<byte> vertexData, ReadOnlySpan<byte> indexData, int vertexStride, int indexStride)
     {
         ClearMeshState();
         m_commandList.IASetPrimitiveTopology(PrimitiveTopology.TriangleList);
@@ -720,7 +786,7 @@ public sealed class GraphicsContext
             VertexBufferView vertexBufferView;
             vertexBufferView.BufferLocation = vertexGpuAddress;
             vertexBufferView.SizeInBytes = vertexData.Length;
-            vertexBufferView.StrideInBytes = vertexData.Length / vertexCount;
+            vertexBufferView.StrideInBytes = vertexStride;
             m_commandList.IASetVertexBuffers(0, vertexBufferView);
         }
 
@@ -731,7 +797,7 @@ public sealed class GraphicsContext
             {
                 BufferLocation = indexGpuAddress,
                 SizeInBytes = indexData.Length,
-                Format = (indexData.Length / indexCount) == 2 ? Format.R16_UInt : Format.R32_UInt
+                Format = (indexStride) == 2 ? Format.R16_UInt : Format.R32_UInt
             };
             m_commandList.IASetIndexBuffer(indexBufferView);
         }
@@ -1105,23 +1171,27 @@ public sealed class GraphicsContext
         }
         presents.Clear();
 
-        graphicsDevice.superRingBuffer.DelayCommands(m_copyCommandList);
+        var commandQueue = graphicsDevice.commandQueue;
+        var copyCommandQueue = graphicsDevice.copyCommandQueue;
+        graphicsDevice.superRingBuffer.DelayCommands(m_copyCommandList, commandQueue);
+        graphicsDevice.fastBufferAllocator.FrameEnd();
+        graphicsDevice.fastBufferAllocatorUAV.FrameEnd();
         m_copyCommandList.Close();
-        graphicsDevice.copyCommandQueue.ExecuteCommandList(m_copyCommandList);
-        graphicsDevice.copyCommandQueue.NextExecuteIndex();
+        copyCommandQueue.ExecuteCommandList(m_copyCommandList);
+        copyCommandQueue.NextExecuteIndex();
         m_commandList.Close();
-        graphicsDevice.commandQueue.WaitFor(graphicsDevice.copyCommandQueue);
+        commandQueue.WaitFor(copyCommandQueue);
 
-        graphicsDevice.commandQueue.ExecuteCommandList(m_commandList);
+        commandQueue.ExecuteCommandList(m_commandList);
         m_commandList = null;
 
         foreach (var resource in referenceThisCommand)
         {
-            graphicsDevice.commandQueue.ResourceDelayRecycle(resource);
+            commandQueue.ResourceDelayRecycle(resource);
         }
         referenceThisCommand.Clear();
         // 提高帧索引。
-        graphicsDevice.commandQueue.NextExecuteIndex();
+        commandQueue.NextExecuteIndex();
     }
 
     void CreateBuffer(int bufferLength, ref ID3D12Resource resource, ResourceStates resourceStates = ResourceStates.CopyDest, HeapType heapType = HeapType.Default)

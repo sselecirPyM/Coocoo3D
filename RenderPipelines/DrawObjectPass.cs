@@ -18,6 +18,8 @@ public class DrawObjectPass : Pass
 
     public object[] CBVPerPass;
 
+    public Dictionary<int, object> additionalSRV = new Dictionary<int, object>();
+
     public Func<MeshRenderable, bool> filter;
 
     public override void Execute(RenderHelper renderHelper)
@@ -35,16 +37,20 @@ public class DrawObjectPass : Pass
         }
 
         keywords2.Clear();
+        foreach (var srv in additionalSRV)
+        {
+            if (srv.Value is byte[] data)
+            {
+                renderHelper.SetSRV(srv.Key, data);
+            }
+        }
         foreach (var renderable in renderHelper.MeshRenderables())
         {
             if (filter != null && !filter.Invoke(renderable))
                 continue;
             keywords2.AddRange(this.keywords);
             AutoMapKeyword(renderHelper, keywords2, renderable.material);
-            if (renderable.gpuSkinning)
-            {
-                keywords2.Add(new("SKINNING", "1"));
-            }
+
             if (renderable.drawDoubleFace)
                 desc.cullMode = CullMode.None;
             else

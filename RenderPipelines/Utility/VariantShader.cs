@@ -47,24 +47,26 @@ namespace RenderPipelines.Utility
     {
         public PSO Get()
         {
-            pso??= RenderHelper.CreatePipeline(source, vsEntry, gsEntry, psEntry);
+            pso ??= RenderHelper.CreatePipeline(source, vsEntry, gsEntry, psEntry, fileName);
             return pso;
         }
 
         public static implicit operator PSO(VariantShader d) => d.Get();
 
-        public VariantShader(string source, string vsEntry, string gsEntry = null, string psEntry = null)
+        public VariantShader(string source, string vsEntry, string gsEntry = null, string psEntry = null, string fileName = null)
         {
             this.source = source;
             this.vsEntry = vsEntry;
             this.gsEntry = gsEntry;
             this.psEntry = psEntry;
+            this.fileName = fileName;
         }
 
         public readonly string source;
         public readonly string vsEntry;
         public readonly string gsEntry;
         public readonly string psEntry;
+        public string fileName;
 
         public void Dispose()
         {

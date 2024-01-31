@@ -1,6 +1,7 @@
 ﻿using Caprice.Attributes;
 using Coocoo3D.RenderPipeline;
 using Coocoo3DGraphics;
+using RenderPipelines.Utility;
 using System;
 
 namespace RenderPipelines;
@@ -24,7 +25,7 @@ internal class CubeFrom2DAttribute : RuntimeBakeAttribute, ITexture2DBaker
         for (int i = 1; i < texture.mipLevels; i++)
         {
             int mipPow = 1 << i;
-            renderWrap.SetSRVLim(0, texture, i - 1);
+            renderWrap.SetSRVMip(0, texture, i - 1);
             renderWrap.SetUAV(0, texture, i);
 
             ReadOnlySpan<int> cbvData1 = [(width / mipPow), (height / mipPow), (i - 1)];
@@ -38,5 +39,11 @@ internal class CubeFrom2DAttribute : RuntimeBakeAttribute, ITexture2DBaker
     {
         Source = source;
     }
+
+    public VariantComputeShader shader_ConvertToCube = new VariantComputeShader(
+"""
+
+""","csmain");
+
     public string Source { get; }
 }

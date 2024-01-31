@@ -2,9 +2,7 @@
 using Caprice.Display;
 using Coocoo3D.RenderPipeline;
 using Coocoo3DGraphics;
-using RenderPipelines.Utility;
 using System;
-using System.Buffers;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Numerics;
@@ -155,6 +153,8 @@ public partial class ForwardRenderPipeline
     [Indexable]
     public int Split;
 
+    public List<PointLightData> pointLights = new List<PointLightData>();
+
     public void SetCamera(CameraData camera)
     {
         Far = camera.far;
@@ -180,10 +180,9 @@ public partial class ForwardRenderPipeline
 
         BoundingFrustum frustum = new BoundingFrustum(ViewProjection);
 
-        int pointLightCount = 0;
-        byte[] pointLightData = ArrayPool<byte>.Shared.Rent(64 * 32);
+        pointLights.Clear();
+
         DirectionalLightData directionalLight = null;
-        var pointLightWriter = SpanWriter.New<PointLightData>(pointLightData);
         foreach (var visual in Visuals)
         {
             var material = visual.material;
@@ -203,19 +202,19 @@ public partial class ForwardRenderPipeline
             }
             else if (lightType == LightType.Point)
             {
-                if (pointLightCount >= 64)
-                    continue;
-                float range = (float)renderHelper.GetIndexableValue("LightRange", material);
-                if (frustum.Intersects(new BoundingSphere(visual.transform.position, range)))
+                if (pointLights.Count >= 4)
                 {
-                    pointLightWriter.Write(new PointLightData()
-                    {
-                        Color = (Vector3)renderHelper.GetIndexableValue("LightColor", material),
-                        Position = visual.transform.position,
-                        Range = range,
-                    });
-                    pointLightCount++;
+                    continue;
                 }
+                float range = (float)renderHelper.GetIndexableValue("LightRange", material);
+                if (!frustum.Intersects(new BoundingSphere(visual.transform.position, range)))
+                    continue;
+                pointLights.Add(new PointLightData()
+                {
+                    Color = (Vector3)renderHelper.GetIndexableValue("LightColor", material),
+                    Position = visual.transform.position,
+                    Range = range,
+                });
             }
         }
 
@@ -253,16 +252,18 @@ public partial class ForwardRenderPipeline
 
             drawShadowMap.Execute(renderHelper);
         }
-        Split = ShadowSize(pointLightCount * 6);
+        Split = ShadowSize(pointLights.Count * 6);
 
-        if (pointLightCount > 0)
+        if (pointLights.Count > 0)
         {
-            var pointLightDatas = MemoryMarshal.Cast<byte, PointLightData>(pointLightData).Slice(0, pointLightCount);
+            var pointLightDatas = CollectionsMarshal.AsSpan(pointLights);
+            var rawData = MemoryMarshal.AsBytes(pointLightDatas).ToArray();
             DrawPointShadow(renderHelper, pointLightDatas);
 
-            drawObject.CBVPerObject[1] = (pointLightData, pointLightCount * 32);
+            //drawObject.CBVPerObject[1] = (rawData, pointLights.Count * 32);
+            drawObject.additionalSRV[11] = rawData;
             drawObject.keywords.Add(("ENABLE_POINT_LIGHT", "1"));
-            drawObject.keywords.Add(("POINT_LIGHT_COUNT", pointLightCount.ToString()));
+            drawObject.keywords.Add(("POINT_LIGHT_COUNT", pointLights.Count.ToString()));
         }
 
         if (debugKeywords.TryGetValue(DebugRenderType, out string debugKeyword))
@@ -286,8 +287,6 @@ public partial class ForwardRenderPipeline
         drawObject.Execute(renderHelper);
 
         //renderHelper.PopParameters();
-
-        ArrayPool<byte>.Shared.Return(pointLightData);
 
         drawObject.keywords.Clear();
     }

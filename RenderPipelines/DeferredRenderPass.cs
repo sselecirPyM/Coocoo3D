@@ -3,9 +3,7 @@ using Caprice.Display;
 using Coocoo3D.Components;
 using Coocoo3D.RenderPipeline;
 using Coocoo3DGraphics;
-using RenderPipelines.Utility;
 using System;
-using System.Buffers;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Numerics;
@@ -367,6 +365,8 @@ public class DeferredRenderPass
 
     public IEnumerable<VisualComponent> Visuals;
 
+    public List<PointLightData> pointLights = new List<PointLightData>();
+
     public void SetCamera(CameraData camera)
     {
         Far = camera.far;
@@ -407,10 +407,9 @@ public class DeferredRenderPass
 
         BoundingFrustum frustum = new BoundingFrustum(ViewProjection);
 
-        int pointLightCount = 0;
-        byte[] pointLightData = ArrayPool<byte>.Shared.Rent(64 * 32);
+        pointLights.Clear();
+
         DirectionalLightData directionalLight = null;
-        var pointLightWriter = SpanWriter.New<PointLightData>(pointLightData);
         foreach (var visual in Visuals)
         {
             var material = visual.material;
@@ -430,18 +429,19 @@ public class DeferredRenderPass
             }
             else if (lightType == LightType.Point)
             {
-                if (pointLightCount >= 64)
+                if (pointLights.Count >= 4)
+                {
                     continue;
+                }
                 float range = (float)renderHelper.GetIndexableValue("LightRange", material);
                 if (!frustum.Intersects(new BoundingSphere(visual.transform.position, range)))
                     continue;
-                pointLightWriter.Write(new PointLightData()
+                pointLights.Add(new PointLightData()
                 {
                     Color = (Vector3)renderHelper.GetIndexableValue("LightColor", material),
                     Position = visual.transform.position,
                     Range = range,
                 });
-                pointLightCount++;
             }
         }
 
@@ -494,19 +494,24 @@ public class DeferredRenderPass
             drawShadowMap.Execute(renderHelper);
         }
 
-        Split = ShadowSize(pointLightCount * 6);
-        if (pointLightCount > 0)
+
+        Split = ShadowSize(pointLights.Count * 6);
+        if (pointLights.Count > 0)
         {
-            var pointLightDatas = MemoryMarshal.Cast<byte, PointLightData>(pointLightData).Slice(0, pointLightCount);
+            var pointLightDatas = CollectionsMarshal.AsSpan(pointLights);
+            var rawData = MemoryMarshal.AsBytes(pointLightDatas).ToArray();
             DrawPointShadow(renderHelper, pointLightDatas);
 
-            finalPass.cbvs[1][0] = (pointLightData, pointLightCount * 32);
+            //finalPass.cbvs[1][0] = (rawData, pointLights.Count * 32);
             finalPass.keywords.Add(("ENABLE_POINT_LIGHT", "1"));
-            finalPass.keywords.Add(("POINT_LIGHT_COUNT", pointLightCount.ToString()));
+            finalPass.keywords.Add(("POINT_LIGHT_COUNT", pointLights.Count.ToString()));
 
-            drawObjectTransparent.CBVPerObject[1] = (pointLightData, pointLightCount * 32);
+            finalPass.pointLightDatas.Clear();
+            finalPass.pointLightDatas.AddRange(pointLightDatas);
+
+            drawObjectTransparent.additionalSRV[11] = rawData;
             drawObjectTransparent.keywords.Add(("ENABLE_POINT_LIGHT", "1"));
-            drawObjectTransparent.keywords.Add(("POINT_LIGHT_COUNT", pointLightCount.ToString()));
+            drawObjectTransparent.keywords.Add(("POINT_LIGHT_COUNT", pointLights.Count.ToString()));
         }
         renderWrap.SetRenderTarget([gbuffer0, gbuffer1, gbuffer2, gbuffer3], depth, false, false);
         drawGBuffer.Execute(renderHelper);
@@ -514,7 +519,8 @@ public class DeferredRenderPass
         decalPass.Execute(renderHelper);
         if (EnableSSR)
         {
-            HiZPass.Execute(renderHelper);
+            HiZPass.context = renderHelper;
+            HiZPass.Execute();
         }
 
 
@@ -523,7 +529,8 @@ public class DeferredRenderPass
             rayTracingPass.RayTracing = EnableRayTracing;
             rayTracingPass.RayTracingGI = UpdateGI;
             rayTracingPass.UseGI = UseGI;
-            rayTracingPass.Execute(renderHelper, directionalLight);
+            rayTracingPass.directionalLight = directionalLight;
+            rayTracingPass.Execute(renderHelper);
         }
         finalPass.EnableSSR = EnableSSR;
         finalPass.EnableSSAO = EnableSSAO;
@@ -539,9 +546,6 @@ public class DeferredRenderPass
 
         finalPass.cbvs[1][0] = null;
         drawObjectTransparent.CBVPerObject[1] = null;
-
-        ArrayPool<byte>.Shared.Return(pointLightData);
-
 
         drawGBuffer.keywords.Clear();
         drawObjectTransparent.keywords.Clear();
@@ -583,7 +587,7 @@ public class DeferredRenderPass
         (new Vector3(0, 0, 1), new Vector3(-1, 0, 0)),
         (new Vector3(0, 0, -1), new Vector3(1, 0, 0))
     };
-    void DrawPointShadow(RenderHelper renderHelper, Span<PointLightData> pointLightDatas)
+    void DrawPointShadow(RenderHelper renderHelper, ReadOnlySpan<PointLightData> pointLightDatas)
     {
         RenderWrap renderWrap = renderHelper.renderWrap;
         int index = 0;
@@ -652,5 +656,10 @@ public class DeferredRenderPass
             return true;
         }
         return false;
+    }
+
+    public void Dispose()
+    {
+        HiZPass?.Dispose();
     }
 }

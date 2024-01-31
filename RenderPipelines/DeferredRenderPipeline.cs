@@ -255,7 +255,6 @@ public class DeferredRenderPipeline : RenderPipeline, IDisposable
 
 
         renderHelper.renderWrap = renderWrap;
-        renderHelper.CPUSkinning = deferredRenderPass.EnableRayTracing || deferredRenderPass.UpdateGI;
         renderHelper.UpdateGPUResource();
 
         renderWrap.GetOutputSize(out outputWidth, out outputHeight);
@@ -331,5 +330,9 @@ public class DeferredRenderPipeline : RenderPipeline, IDisposable
         renderHelper = null;
         postProcess?.Dispose();
         postProcess = null;
+        taaPass?.Dispose();
+        taaPass = null;
+        deferredRenderPass?.Dispose();
+        deferredRenderPass = null;
     }
 }

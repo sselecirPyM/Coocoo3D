@@ -93,12 +93,7 @@ cbuffer cb0 : register(b0)
 	int g_RandomI;
 	int g_lightMapSplit;
 };
-cbuffer cb1 : register(b1)
-{
-#if ENABLE_POINT_LIGHT
-	PointLightInfo PointLights[POINT_LIGHT_COUNT];
-#endif
-}
+
 Texture2D gbuffer0 :register(t0);
 Texture2D gbuffer1 :register(t1);
 Texture2D gbuffer2 :register(t2);
@@ -110,6 +105,8 @@ TextureCube SkyBox : register (t7);
 Texture2D BRDFLut : register(t8);
 Texture2D HiZ : register(t9);
 StructuredBuffer<SH9C> giBuffer : register(t10);
+StructuredBuffer<PointLightInfo> PointLights : register(t11);
+
 SamplerState s0 : register(s0);
 SamplerComparisonState sampleShadowMap : register(s2);
 SamplerState s3 : register(s3);

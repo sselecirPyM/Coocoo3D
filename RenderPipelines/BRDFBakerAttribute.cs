@@ -1,8 +1,8 @@
 ﻿using Caprice.Attributes;
 using Coocoo3D.RenderPipeline;
 using Coocoo3DGraphics;
+using RenderPipelines.Utility;
 using System;
-using System.IO;
 using System.Runtime.InteropServices;
 
 namespace RenderPipelines;
@@ -13,8 +13,7 @@ public class BRDFBakerAttribute : RuntimeBakeAttribute, ITexture2DBaker, IDispos
     public bool Bake(Texture2D texture, RenderWrap renderWrap, ref object tag)
     {
         this.renderWrap = renderWrap;
-        if (shader_BRDFLUT == null)
-            Initialize();
+
         renderWrap.SetRenderTarget(texture, true);
         var psoDesc = new PSODesc()
         {
@@ -25,26 +24,19 @@ public class BRDFBakerAttribute : RuntimeBakeAttribute, ITexture2DBaker, IDispos
             renderTargetCount = 1,
         };
         renderWrap.SetPSO(shader_BRDFLUT, psoDesc);
-        renderWrap.graphicsContext.SetMesh(null, MemoryMarshal.Cast<ushort, byte>(quad), 0, 6);
+        renderWrap.graphicsContext.SetSimpleMesh(null, MemoryMarshal.Cast<ushort, byte>(quad), 0, 2);
         renderWrap.Draw(6, 0, 0);
         return true;
     }
     RenderWrap renderWrap;
 
-    void Initialize()
-    {
-        shader_BRDFLUT = RenderHelper.CreatePipeline(source_shader_BRDFLUT, "vsmain", null, "psmain", Path.Combine(this.renderWrap.BasePath, "BRDFLUT.hlsl"));
-    }
-
     public void Dispose()
     {
         shader_BRDFLUT?.Dispose();
-		shader_BRDFLUT = null;
+        shader_BRDFLUT = null;
     }
 
-    PSO shader_BRDFLUT;
-
-    string source_shader_BRDFLUT =
+    VariantShader shader_BRDFLUT = new VariantShader(
 """
 //ref: https://learnopengl.com/PBR/IBL/Specular-IBL
 #include "Random.hlsli"
@@ -171,5 +163,5 @@ float4 psmain(PSIn input) : SV_TARGET
 	uv.y = 1 - uv.y;
 	return float4(IntegrateBRDF(uv.x, uv.y), 0, 1);
 }
-""";
+""", "vsmain", null, "psmain", "BRDFLUT.hlsl");
 }

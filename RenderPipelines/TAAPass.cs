@@ -175,6 +175,11 @@ void csmain(uint3 dtid : SV_DispatchThreadID)
 }
 """, "csmain");
 
+    public void Dispose()
+    {
+        shader_TAA?.Dispose();
+    }
+
     [Flags]
     enum Keyword_shader_TAA
     {

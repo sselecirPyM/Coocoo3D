@@ -1,6 +1,7 @@
 ﻿using Coocoo3DGraphics;
 using System;
 using System.Collections.Generic;
+using Vortice.Win32;
 
 namespace RenderPipelines.Utility
 {
@@ -12,7 +13,7 @@ namespace RenderPipelines.Utility
             {
                 return _shader;
             }
-            _shader = RenderHelper.CreateComputeShader(source, entryPoint, keywords);
+            _shader = RenderHelper.CreateComputeShader(source, entryPoint, keywords, fileName);
             variants[keywords] = _shader;
             return _shader;
         }
@@ -25,10 +26,11 @@ namespace RenderPipelines.Utility
 
         public readonly string source;
         public readonly string entryPoint;
+        public string fileName;
 
         public void Dispose()
         {
-            foreach(var shader in variants.Values)
+            foreach (var shader in variants.Values)
             {
                 shader.Dispose();
             }
@@ -36,5 +38,34 @@ namespace RenderPipelines.Utility
         }
 
         Dictionary<T, ComputeShader> variants = new Dictionary<T, ComputeShader>();
+    }
+
+    public class VariantComputeShader : IDisposable
+    {
+        public ComputeShader Get()
+        {
+            pso ??= RenderHelper.CreateComputeShader(source, entryPoint, fileName);
+            return pso;
+        }
+
+        public static implicit operator ComputeShader(VariantComputeShader d) => d.Get();
+
+        public VariantComputeShader(string source, string entryPoint)
+        {
+            this.source = source;
+            this.entryPoint = entryPoint;
+        }
+
+        public readonly string source;
+        public readonly string entryPoint;
+        public string fileName;
+
+        public void Dispose()
+        {
+            pso?.Dispose();
+            pso = null;
+        }
+
+        ComputeShader pso;
     }
 }

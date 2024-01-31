@@ -292,7 +292,7 @@ public class RenderPipelineView : IDisposable
         }
         foreach(var bake in bakes)
         {
-            if(bake is IDisposable disposable1)
+            if(bake.runtimeBakeAttribute is IDisposable disposable1)
             {
                 disposable1.Dispose();
             }

@@ -28,7 +28,7 @@ public class PureColorBakerAttribute : RuntimeBakeAttribute, ITexture2DBaker, ID
         renderWrap.graphicsContext.SetCBVRSlot<float>(0, cbvData);
 
         renderWrap.SetPSO(shader_pureColor, psoDesc);
-        renderWrap.graphicsContext.SetMesh(null, MemoryMarshal.Cast<ushort, byte>(quad), 0, 6);
+        renderWrap.graphicsContext.SetSimpleMesh(null, MemoryMarshal.AsBytes<ushort>(quad), 0, 2);
         renderWrap.Draw(6, 0, 0);
         return true;
     }

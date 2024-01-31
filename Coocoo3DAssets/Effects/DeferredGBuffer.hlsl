@@ -1,6 +1,3 @@
-#ifdef SKINNING
-#define MAX_BONE_MATRICES 1024
-#endif
 
 #include "Skinning.hlsli"
 #include "GBufferDefine.hlsli"

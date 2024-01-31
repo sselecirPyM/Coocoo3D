@@ -187,7 +187,6 @@ public partial class ForwardRenderPipeline : RenderPipeline, IDisposable
     {
         renderHelper ??= new RenderHelper();
         renderHelper.renderWrap = renderWrap;
-        renderHelper.CPUSkinning = false;
         renderHelper.UpdateGPUResource();
 
         renderWrap.GetOutputSize(out outputWidth, out outputHeight);
@@ -251,5 +250,7 @@ public partial class ForwardRenderPipeline : RenderPipeline, IDisposable
         postProcess = null;
         drawSkyBox?.Dispose();
         drawSkyBox = null;
+        taaPass?.Dispose();
+        taaPass = null;
     }
 }

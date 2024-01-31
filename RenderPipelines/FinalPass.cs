@@ -1,6 +1,7 @@
 ﻿using Coocoo3D.RenderPipeline;
 using Coocoo3DGraphics;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 
 namespace RenderPipelines;
 
@@ -26,10 +27,11 @@ public class FinalPass
     {
         blendState = BlendState.None,
         cullMode = CullMode.None,
-        dsvFormat= Vortice.DXGI.Format.Unknown,
+        dsvFormat = Vortice.DXGI.Format.Unknown,
     };
 
     public object[][] cbvs;
+    public List<PointLightData> pointLightDatas = new List<PointLightData>();
 
     public bool EnableFog;
     public bool EnableSSAO;
@@ -57,6 +59,8 @@ public class FinalPass
         var desc = GetPSODesc(renderWrap, psoDesc);
         renderWrap.SetShader(shader, desc, _keywords);
         renderWrap.SetSRVs(srvs);
+
+        renderWrap.graphicsContext.SetSRVTSlot<PointLightData>(11, CollectionsMarshal.AsSpan(pointLightDatas));
 
         var writer = renderHelper.Writer;
         if (cbvs != null)
