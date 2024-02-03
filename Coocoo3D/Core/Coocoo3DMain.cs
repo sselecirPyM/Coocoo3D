@@ -1,248 +1,224 @@
 ﻿using Coocoo3D.Common;
 using Coocoo3D.RenderPipeline;
+using Coocoo3D.UI;
 using Coocoo3DGraphics;
+using Coocoo3DGraphics.Management;
 using DefaultEcs.Command;
+using Newtonsoft.Json;
 using System;
-using System.Collections.Generic;
+using System.IO;
 using System.Threading;
 
-namespace Coocoo3D.Core
+namespace Coocoo3D.Core;
+
+public class Coocoo3DMain : IDisposable
 {
-    public class Coocoo3DMain : IDisposable
+    DefaultEcs.World world;
+    public EntityCommandRecorder recorder;
+    public Statistics statistics;
+
+    public DX12ResourceManager manager;
+    GraphicsDevice graphicsDevice;
+    SwapChain swapChain;
+    public MainCaches mainCaches;
+    public RenderPipelineContext RPContext;
+    public GameDriverContext GameDriverContext;
+
+    public Scene CurrentScene;
+    public EditorContext EditorContext;
+    public AnimationSystem animationSystem;
+
+    public SceneExtensionsSystem sceneExtensions;
+
+    public WindowSystem windowSystem;
+    public RenderSystem renderSystem;
+    public RecordSystem recordSystem;
+    public UIRenderSystem uiRenderSystem;
+
+    public GameDriver GameDriver;
+
+    public PlatformIO platformIO;
+    public UI.UIImGui UIImGui;
+
+    GraphicsContext graphicsContext { get => RPContext.graphicsContext; }
+
+    public EngineContext EngineContext = new EngineContext();
+
+    public TimeManager timeManagerUpdate = new TimeManager();
+    public TimeManager timeManager = new TimeManager();
+
+    public Config config;
+
+    Thread renderWorkThread;
+    CancellationTokenSource cancelRenderThread;
+
+    public Coocoo3DMain(LaunchOption launchOption)
     {
-        DefaultEcs.World world;
-        public EntityCommandRecorder recorder;
-        public Statistics statistics;
-
-        GraphicsDevice graphicsDevice;
-        SwapChain swapChain;
-        public MainCaches mainCaches;
-        public RenderPipelineContext RPContext;
-        public GameDriverContext GameDriverContext;
-
-        public Scene CurrentScene;
-        public AnimationSystem animationSystem;
-        public ParticleSystem particleSystem;
-
-        public SceneExtensionsSystem sceneExtensions;
-
-        public WindowSystem windowSystem;
-        public RenderSystem renderSystem;
-        public RecordSystem recordSystem;
-        public UIRenderSystem uiRenderSystem;
-
-        public GameDriver GameDriver;
-
-        public PlatformIO platformIO;
-        public UI.UIImGui UIImGui;
-
-        public List<object> systems = new();
-        public Dictionary<Type, object> systems1 = new();
-
-        GraphicsContext graphicsContext { get => RPContext.graphicsContext; }
-
-        T AddSystem<T>() where T : class, new()
+        Launch();
+        if (launchOption.openFile != null)
         {
-            var system = new T();
-            systems.Add(system);
-            systems1[typeof(T)] = system;
-            return system;
+            UI.UIImGui.openRequest = new FileInfo(launchOption.openFile);
+        }
+        if (launchOption.AddLight)
+            CurrentScene.NewLighting();
+    }
+
+    void Launch()
+    {
+        var e = EngineContext;
+        world = e.AddSystem<DefaultEcs.World>();
+        recorder = e.AddSystem<EntityCommandRecorder>();
+
+        statistics = e.AddSystem<Statistics>();
+
+        config = e.AddSystem<Config>();
+
+        graphicsDevice = e.AddSystem<GraphicsDevice>();
+
+        manager = new DX12ResourceManager();
+        manager.DX12Resource = JsonConvert.DeserializeObject<DX12Resource>(File.ReadAllText("Assets/DX12Launch.json"),
+            new JsonSerializerSettings { PreserveReferencesHandling = PreserveReferencesHandling.All });
+        e.AddSystem(manager);
+
+        swapChain = e.AddSystem<SwapChain>();
+
+        mainCaches = e.AddSystem<MainCaches>();
+
+        EditorContext = e.AddSystem<EditorContext>();
+
+        RPContext = e.AddSystem<RenderPipelineContext>();
+        e.AddSystem(RPContext.graphicsContext);
+
+        GameDriverContext = e.AddSystem<GameDriverContext>();
+
+        CurrentScene = e.AddSystem<Scene>();
+
+        animationSystem = e.AddSystem<AnimationSystem>();
+
+        windowSystem = e.AddSystem<WindowSystem>();
+
+        sceneExtensions = e.AddSystem<SceneExtensionsSystem>();
+
+        renderSystem = e.AddSystem<RenderSystem>();
+
+        recordSystem = e.AddSystem<RecordSystem>();
+
+        uiRenderSystem = e.AddSystem<UIRenderSystem>();
+
+        GameDriver = e.AddSystem<GameDriver>();
+
+        platformIO = e.AddSystem<PlatformIO>();
+        UIImGui = e.AddSystem<UI.UIImGui>();
+
+        e.InitializeSystems();
+
+        statistics.DeviceDescription = graphicsDevice.GetDeviceDescription();
+
+        GameDriverContext.timeManager = timeManager;
+        GameDriverContext.FrameInterval = 1 / 240.0f;
+
+        cancelRenderThread = new CancellationTokenSource();
+        renderWorkThread = new Thread(RenderTask);
+        renderWorkThread.IsBackground = true;
+        renderWorkThread.Start();
+    }
+
+    void RenderTask()
+    {
+        var token = cancelRenderThread.Token;
+        while (!token.IsCancellationRequested)
+        {
+            long time = stopwatch1.ElapsedTicks;
+            timeManagerUpdate.AbsoluteTimeInput(time);
+            if (timeManagerUpdate.RealTimerCorrect("render", GameDriverContext.FrameInterval, out _))
+                continue;
+            timeManager.AbsoluteTimeInput(time);
+
+            bool rendered = RenderFrame();
+            if (config.SaveCpuPower && !RPContext.recording && !(config.VSync && rendered))
+                Thread.Sleep(1);
+        }
+    }
+
+    #region Rendering
+
+    public void RequireRender(bool updateEntities = false)
+    {
+        GameDriverContext.RequireRender(updateEntities);
+    }
+
+    public System.Diagnostics.Stopwatch stopwatch1 = System.Diagnostics.Stopwatch.StartNew();
+
+    private void Simulation()
+    {
+        var gdc = GameDriverContext;
+
+        CurrentScene.OnFrame();
+
+        if (gdc.Playing || gdc.RefreshScene)
+        {
+            //animationSystem.playTime = (float)gdc.PlayTime;
+            animationSystem.deltaTime = (float)gdc.DeltaTime;
+            animationSystem.Update();
+
+            sceneExtensions.Update();
+
+            gdc.RefreshScene = false;
+        }
+    }
+
+    private bool RenderFrame()
+    {
+        if (!GameDriver.Next())
+        {
+            return false;
+        }
+        EngineContext.SyncCallStage();
+        timeManager.RealCounter("fps", 1, out statistics.FramePerSecond);
+        Simulation();
+
+        if ((swapChain.width, swapChain.height) != platformIO.windowSize)
+        {
+            (int x, int y) = platformIO.windowSize;
+            swapChain.Resize(x, y);
         }
 
-        T AddSystem<T>(T system) where T : class
-        {
-            systems.Add(system);
-            systems1[typeof(T)] = system;
-            return system;
-        }
+        platformIO.Update();
+        windowSystem.Update();
+        UIImGui.GUI();
+        RPContext.FrameBegin();
 
-        void InitializeSystems()
-        {
-            foreach (var system in systems)
-            {
-                var type = system.GetType();
-                var fields = type.GetFields();
-                foreach (var field in fields)
-                {
-                    if (systems1.TryGetValue(field.FieldType, out var system1))
-                    {
-                        field.SetValue(system, system1);
-                    }
-                }
-                var menthods = type.GetMethods();
-                foreach (var method in menthods)
-                {
-                    if (method.Name == "Initialize" && method.GetParameters().Length == 0)
-                    {
-                        method.Invoke(system, null);
-                        break;
-                    }
-                }
-            }
-        }
+        graphicsContext.Begin();
+        mainCaches.OnFrame(graphicsContext);
 
-        public TimeManager timeManagerUpdate = new TimeManager();
-        public TimeManager timeManager = new TimeManager();
+        renderSystem.Update();
+        uiRenderSystem.Update();
+        recordSystem.Update();
 
-        public Config config;
+        graphicsContext.Execute();
 
-        Thread renderWorkThread;
-        CancellationTokenSource cancelRenderThread;
+        statistics.DrawTriangleCount = graphicsContext.TriangleCount;
+        swapChain.Present(config.VSync);
 
-        public Coocoo3DMain()
-        {
-            world = AddSystem<DefaultEcs.World>();
-            recorder = AddSystem<EntityCommandRecorder>();
+        return true;
+    }
 
-            statistics = AddSystem<Statistics>();
+    #endregion
 
-            config = AddSystem<Config>();
+    public void Dispose()
+    {
+        cancelRenderThread.Cancel();
+        renderWorkThread.Join();
 
-            graphicsDevice = AddSystem<GraphicsDevice>();
+        graphicsDevice.WaitForGpu();
 
-            swapChain = AddSystem<SwapChain>();
+        EngineContext.Dispose();
+    }
 
-            mainCaches = AddSystem<MainCaches>();
-
-            RPContext = AddSystem<RenderPipelineContext>();
-            AddSystem(RPContext.graphicsContext);
-
-            GameDriverContext = AddSystem<GameDriverContext>();
-
-            CurrentScene = AddSystem<Scene>();
-
-            animationSystem = AddSystem<AnimationSystem>();
-
-            windowSystem = AddSystem<WindowSystem>();
-
-            particleSystem = AddSystem<ParticleSystem>();
-
-            sceneExtensions = AddSystem<SceneExtensionsSystem>();
-
-            renderSystem = AddSystem<RenderSystem>();
-
-            recordSystem = AddSystem<RecordSystem>();
-
-            uiRenderSystem = AddSystem<UIRenderSystem>();
-
-            GameDriver = AddSystem<GameDriver>();
-
-            platformIO = AddSystem<PlatformIO>();
-            UIImGui = AddSystem<UI.UIImGui>();
-
-            InitializeSystems();
-            statistics.DeviceDescription = graphicsDevice.GetDeviceDescription();
-
-            GameDriverContext.timeManager = timeManager;
-            GameDriverContext.FrameInterval = 1 / 240.0f;
-
-            cancelRenderThread = new CancellationTokenSource();
-            renderWorkThread = new Thread(() =>
-            {
-                var token = cancelRenderThread.Token;
-                while (!token.IsCancellationRequested)
-                {
-                    long time = stopwatch1.ElapsedTicks;
-                    timeManagerUpdate.AbsoluteTimeInput(time);
-                    if (timeManagerUpdate.RealTimerCorrect("render", GameDriverContext.FrameInterval, out _))
-                        continue;
-                    timeManager.AbsoluteTimeInput(time);
-
-                    bool rendered = RenderFrame();
-                    if (config.SaveCpuPower && !RPContext.recording && !(config.VSync && rendered))
-                        Thread.Sleep(1);
-                }
-            });
-            renderWorkThread.IsBackground = true;
-            renderWorkThread.Start();
-
-            RequireRender();
-        }
-        #region Rendering
-
-        public void RequireRender(bool updateEntities = false)
-        {
-            GameDriverContext.RequireRender(updateEntities);
-        }
-
-        public System.Diagnostics.Stopwatch stopwatch1 = System.Diagnostics.Stopwatch.StartNew();
-
-        private void Simulation()
-        {
-            var gdc = GameDriverContext;
-
-            CurrentScene.OnFrame();
-
-            if (gdc.Playing || gdc.RequireResetPhysics)
-            {
-                animationSystem.playTime = (float)gdc.PlayTime;
-                animationSystem.Update();
-
-                particleSystem.Update();
-                sceneExtensions.Update();
-
-                gdc.RequireResetPhysics = false;
-            }
-        }
-
-        private bool RenderFrame()
-        {
-            if (!GameDriver.Next())
-            {
-                return false;
-            }
-            timeManager.RealCounter("fps", 1, out statistics.FramePerSecond);
-            Simulation();
-            mainCaches.OnFrame();
-
-            if ((swapChain.width, swapChain.height) != platformIO.windowSize)
-            {
-                (int x, int y) = platformIO.windowSize;
-                swapChain.Resize(x, y);
-            }
-
-            platformIO.Update();
-            windowSystem.Update();
-            UIImGui.GUI();
-            RPContext.FrameBegin();
-
-            graphicsContext.Begin();
-
-            renderSystem.Update(null);
-            recordSystem.Update(null);
-            uiRenderSystem.Update(null);
-
-            graphicsContext.Execute();
-
-            statistics.DrawTriangleCount = graphicsContext.TriangleCount;
-            swapChain.Present(config.VSync);
-
-            return true;
-        }
-
-        #endregion
-
-        public void Dispose()
-        {
-            cancelRenderThread.Cancel();
-            renderWorkThread.Join();
-
-            graphicsDevice.WaitForGpu();
-
-            for (int i = systems.Count - 1; i >= 0; i--)
-            {
-                object system = systems[i];
-                if (system is IDisposable disposable)
-                {
-                    disposable.Dispose();
-                }
-            }
-        }
-
-        public void SetWindow(IntPtr hwnd, int width, int height)
-        {
-            swapChain.Initialize(graphicsDevice, hwnd, width, height);
-            platformIO.windowSize = (width, height);
-        }
+    public void SetWindow(IntPtr hwnd, int width, int height)
+    {
+        //swapChain.Initialize(graphicsDevice, hwnd, width, height);
+        manager.InitializeSwapChain(swapChain, hwnd, width, height);
+        platformIO.windowSize = (width, height);
     }
 }

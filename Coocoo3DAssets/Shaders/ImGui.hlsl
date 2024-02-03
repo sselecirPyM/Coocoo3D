@@ -1,3 +1,5 @@
+#pragma VertexShader vsmain
+#pragma PixelShader psmain
 cbuffer cbufferVertex
 {
 	float2 scale;

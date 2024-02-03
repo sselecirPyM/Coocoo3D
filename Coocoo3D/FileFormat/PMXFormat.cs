@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Numerics;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace Coocoo3D.FileFormat
 {
@@ -56,8 +54,8 @@ namespace Coocoo3D.FileFormat
         public Vector4 EdgeColor;
         public float EdgeScale;
         public int TextureIndex;
-        public int SecondaryTextureIndex;
-        public byte SecondaryTextureType;
+        public int SphereTextureIndex;
+        public byte SphereTextureType;
         public bool UseToon;
         public int ToonIndex;
         public string Meta;
@@ -452,8 +450,8 @@ namespace Coocoo3D.FileFormat
                 material.EdgeScale = reader.ReadSingle();
 
                 material.TextureIndex = ReadIndex(reader, textureIndexSize);
-                material.SecondaryTextureIndex = ReadIndex(reader, textureIndexSize);
-                material.SecondaryTextureType = reader.ReadByte();
+                material.SphereTextureIndex = ReadIndex(reader, textureIndexSize);
+                material.SphereTextureType = reader.ReadByte();
                 material.UseToon = reader.ReadByte() != 0;
                 if (material.UseToon) material.ToonIndex = reader.ReadByte();
                 else material.ToonIndex = ReadIndex(reader, textureIndexSize);
@@ -696,6 +694,7 @@ namespace Coocoo3D.FileFormat
                 Joints.Add(joint);
             }
             //Optimise();
+
         }
 
         private void Optimise()

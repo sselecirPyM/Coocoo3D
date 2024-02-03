@@ -8,10 +8,6 @@ public abstract class Pass
 {
     public string[] srvs;
 
-    public string[] renderTargets;
-
-    public string depthStencil;
-
     public abstract void Execute(RenderHelper renderHelper);
 
     public List<(string, string)> AutoKeyMap = new();
@@ -27,12 +23,11 @@ public abstract class Pass
 
     public PSODesc GetPSODesc(RenderHelper renderHelper, PSODesc desc)
     {
-        desc.rtvFormat = (renderTargets != null && renderTargets.Length > 0) ?
-            renderHelper.renderWrap.GetRenderTexture2D(renderTargets[0]).GetFormat() : Vortice.DXGI.Format.Unknown;
-        var dsv = renderHelper.renderWrap.GetRenderTexture2D(depthStencil);
+        var rtvs = renderHelper.renderWrap.RenderTargets;
+        var dsv = renderHelper.renderWrap.depthStencil;
+        desc.rtvFormat = rtvs.Count > 0 ? rtvs[0].GetFormat() : Vortice.DXGI.Format.Unknown;
         desc.dsvFormat = dsv == null ? Vortice.DXGI.Format.Unknown : dsv.GetFormat();
-        desc.renderTargetCount = (renderTargets != null) ? renderTargets.Length : 0;
-        desc.inputLayout = InputLayout.Default;
+        desc.renderTargetCount = rtvs.Count;
 
         return desc;
     }

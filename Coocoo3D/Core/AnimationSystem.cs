@@ -4,63 +4,50 @@ using DefaultEcs;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace Coocoo3D.Core
+namespace Coocoo3D.Core;
+
+public class AnimationSystem
 {
-    public class AnimationSystem
+    public World world;
+
+    //public float playTime;
+    public float deltaTime;
+
+    public MainCaches caches;
+
+    EntitySet set;
+
+    List<(MMDRendererComponent, AnimationStateComponent)> animationRenderers = new();
+
+    public void Initialize()
     {
-        public World world;
-        public Scene scene;
+        set = world.GetEntities().With<MMDRendererComponent>().With<AnimationStateComponent>().AsSet();
+    }
 
-        public float playTime;
-
-        public MainCaches caches;
-
-        EntitySet set;
-
-        List<(MMDRendererComponent, AnimationStateComponent)> animationRenderers = new();
-
-        public void Initialize()
+    public void Update()
+    {
+        animationRenderers.Clear();
+        foreach (var gameObject in set.GetEntities())
         {
-            set = world.GetEntities().With<MMDRendererComponent>().With<AnimationStateComponent>().AsSet();
+            var render = gameObject.Get<MMDRendererComponent>();
+            var animation = gameObject.Get<AnimationStateComponent>();
+            animationRenderers.Add((render, animation));
         }
 
-        public void Update()
+
+        Parallel.For(0, animationRenderers.Count, i =>
         {
-            animationRenderers.Clear();
-            foreach (var gameObject in set.GetEntities())
-            {
-                var render = gameObject.Get<MMDRendererComponent>();
-                var animation = gameObject.Get<AnimationStateComponent>();
-                animationRenderers.Add((render, animation));
-            }
-
-
-            UpdateGameObjects(playTime);
-        }
-
-        void UpdateGameObjects(float playTime)
+            var renderer = animationRenderers[i].Item1;
+            var animationState = animationRenderers[i].Item2;
+            //animationState.Time = playTime;
+            animationState.Time += deltaTime;
+            animationState.ComputeMotion(caches.GetMotion(animationState.motionPath), renderer);
+            renderer.ComputeMotion();
+        });
+        Parallel.For(0, animationRenderers.Count, i =>
         {
-            Parallel.For(0, animationRenderers.Count, i =>
-            {
-                var renderer = animationRenderers[i].Item1;
-                var animationState = animationRenderers[i].Item2;
-                animationState.ComputeMotion(playTime, caches.GetMotion(animationState.motionPath), renderer.Morphs, renderer.bones);
-                for (int j = 0; j < renderer.Morphs.Count; j++)
-                {
-                    if (renderer.Morphs[j].Type == MorphType.Vertex && animationState.Weights.Computed[j] != renderer.Weights[j])
-                    {
-                        renderer.meshNeedUpdate = true;
-                        break;
-                    }
-                }
-                animationState.Weights.Computed.CopyTo(renderer.Weights, 0);
-                renderer.ComputeMotion();
-            });
-            Parallel.For(0, animationRenderers.Count, i =>
-            {
-                var renderer = animationRenderers[i].Item1;
-                renderer.ComputeVertexMorph(caches.GetModel(renderer.meshPath).position);
-            });
-        }
+            var renderer = animationRenderers[i].Item1;
+            renderer.ComputeVertexMorph(renderer.model.position);
+        });
     }
 }

@@ -4,8 +4,8 @@ namespace RenderPipelines;
 
 public enum BlendMode
 {
-    [UIShow(name:"正常")]
+    [Text(text: "正常")]
     Alpha,
-    [UIShow(name:"添加")]
+    [Text(text: "添加")]
     Add,
 }

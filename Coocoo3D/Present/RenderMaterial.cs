@@ -1,27 +1,44 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
 
-namespace Coocoo3D.Present
+namespace Coocoo3D.Present;
+
+public class RenderMaterial
 {
-    public class RenderMaterial
+    public string Name;
+
+    public RenderMaterial baseMaterial;
+
+    public object GetObject(string key)
     {
-        public string Name;
+        if (Parameters.TryGetValue(key, out object obj))
+            return obj;
+        return baseMaterial?.GetObject(key);
+    }
 
-        public Dictionary<string, object> Parameters = new Dictionary<string, object>();
-
-        public RenderMaterial GetClone()
+    public T GetObject<T>(string key)
+    {
+        if (Parameters.TryGetValue(key, out object obj) && obj is T res)
         {
-            var mat = (RenderMaterial)MemberwiseClone();
-            mat.Parameters = new Dictionary<string, object>(Parameters);
-            return mat;
+            return res;
         }
-
-        public override string ToString()
+        if (baseMaterial == null)
         {
-            return Name;
+            return default;
         }
+        return baseMaterial.GetObject<T>(key);
+    }
+
+    public Dictionary<string, object> Parameters = new Dictionary<string, object>();
+
+    public RenderMaterial GetClone()
+    {
+        var mat = (RenderMaterial)MemberwiseClone();
+        mat.Parameters = new Dictionary<string, object>(Parameters);
+        return mat;
+    }
+
+    public override string ToString()
+    {
+        return Name;
     }
 }

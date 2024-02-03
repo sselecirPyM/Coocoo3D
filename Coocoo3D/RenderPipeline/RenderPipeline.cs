@@ -1,17 +1,21 @@
-﻿using System;
+﻿using Caprice.Display;
+using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace Coocoo3D.RenderPipeline
+namespace Coocoo3D.RenderPipeline;
+
+public abstract class RenderPipeline
 {
-    public abstract class RenderPipeline
-    {
-        public RenderWrap renderWrap;
+    public RenderWrap renderWrap;
 
-        public abstract void BeforeRender();
-        public abstract void Render();
-        public abstract void AfterRender();
+    public abstract void BeforeRender();
+    public abstract void Render();
+    public abstract void AfterRender();
+
+    public abstract IDictionary<UIShowType, ICloneable> materialTypes { get; }
+
+    public virtual void OnResourceInvald(string name)
+    {
+
     }
 }

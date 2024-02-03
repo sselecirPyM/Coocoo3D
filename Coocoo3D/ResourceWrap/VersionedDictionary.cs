@@ -1,94 +1,89 @@
-﻿using System;
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace Coocoo3D.ResourceWrap
+namespace Coocoo3D.ResourceWrap;
+
+public class VersionedDictionary<TKey, TValue> : IDictionary<TKey, TValue>
 {
-    public class VersionedDictionary<TKey, TValue> : IDictionary<TKey, TValue>
+    Dictionary<TKey, TValue> internalDictionary = new Dictionary<TKey, TValue>();
+
+    Dictionary<TKey, int> version = new Dictionary<TKey, int>();
+
+    public void SetVersion(TKey key,int index1)
     {
-        Dictionary<TKey, TValue> internalDictionary = new Dictionary<TKey, TValue>();
+        version[key] = index1;
+    }
 
-        Dictionary<TKey, int> version = new Dictionary<TKey, int>();
+    public int GetVersion(TKey key)
+    {
+        version.TryGetValue(key, out int v);
+        return v;
+    }
 
-        public void SetVersion(TKey key,int index1)
-        {
-            version[key] = index1;
-        }
+    public TValue this[TKey key] { get => ((IDictionary<TKey, TValue>)internalDictionary)[key]; set => ((IDictionary<TKey, TValue>)internalDictionary)[key] = value; }
 
-        public int GetVersion(TKey key)
-        {
-            version.TryGetValue(key, out int v);
-            return v;
-        }
+    public ICollection<TKey> Keys => ((IDictionary<TKey, TValue>)internalDictionary).Keys;
 
-        public TValue this[TKey key] { get => ((IDictionary<TKey, TValue>)internalDictionary)[key]; set => ((IDictionary<TKey, TValue>)internalDictionary)[key] = value; }
+    public ICollection<TValue> Values => ((IDictionary<TKey, TValue>)internalDictionary).Values;
 
-        public ICollection<TKey> Keys => ((IDictionary<TKey, TValue>)internalDictionary).Keys;
+    public int Count => ((ICollection<KeyValuePair<TKey, TValue>>)internalDictionary).Count;
 
-        public ICollection<TValue> Values => ((IDictionary<TKey, TValue>)internalDictionary).Values;
+    public bool IsReadOnly => ((ICollection<KeyValuePair<TKey, TValue>>)internalDictionary).IsReadOnly;
 
-        public int Count => ((ICollection<KeyValuePair<TKey, TValue>>)internalDictionary).Count;
+    public void Add(TKey key, TValue value)
+    {
+        ((IDictionary<TKey, TValue>)internalDictionary).Add(key, value);
+    }
 
-        public bool IsReadOnly => ((ICollection<KeyValuePair<TKey, TValue>>)internalDictionary).IsReadOnly;
+    public void Add(KeyValuePair<TKey, TValue> item)
+    {
+        ((ICollection<KeyValuePair<TKey, TValue>>)internalDictionary).Add(item);
+    }
 
-        public void Add(TKey key, TValue value)
-        {
-            ((IDictionary<TKey, TValue>)internalDictionary).Add(key, value);
-        }
+    public void Clear()
+    {
+        ((ICollection<KeyValuePair<TKey, TValue>>)internalDictionary).Clear();
+        ((ICollection<KeyValuePair<TKey, int>>)version).Clear();
+    }
 
-        public void Add(KeyValuePair<TKey, TValue> item)
-        {
-            ((ICollection<KeyValuePair<TKey, TValue>>)internalDictionary).Add(item);
-        }
+    public bool Contains(KeyValuePair<TKey, TValue> item)
+    {
+        return ((ICollection<KeyValuePair<TKey, TValue>>)internalDictionary).Contains(item);
+    }
 
-        public void Clear()
-        {
-            ((ICollection<KeyValuePair<TKey, TValue>>)internalDictionary).Clear();
-            ((ICollection<KeyValuePair<TKey, int>>)version).Clear();
-        }
+    public bool ContainsKey(TKey key)
+    {
+        return ((IDictionary<TKey, TValue>)internalDictionary).ContainsKey(key);
+    }
 
-        public bool Contains(KeyValuePair<TKey, TValue> item)
-        {
-            return ((ICollection<KeyValuePair<TKey, TValue>>)internalDictionary).Contains(item);
-        }
+    public void CopyTo(KeyValuePair<TKey, TValue>[] array, int arrayIndex)
+    {
+        ((ICollection<KeyValuePair<TKey, TValue>>)internalDictionary).CopyTo(array, arrayIndex);
+    }
 
-        public bool ContainsKey(TKey key)
-        {
-            return ((IDictionary<TKey, TValue>)internalDictionary).ContainsKey(key);
-        }
+    public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator()
+    {
+        return ((IEnumerable<KeyValuePair<TKey, TValue>>)internalDictionary).GetEnumerator();
+    }
 
-        public void CopyTo(KeyValuePair<TKey, TValue>[] array, int arrayIndex)
-        {
-            ((ICollection<KeyValuePair<TKey, TValue>>)internalDictionary).CopyTo(array, arrayIndex);
-        }
+    public bool Remove(TKey key)
+    {
+        return ((IDictionary<TKey, TValue>)internalDictionary).Remove(key);
+    }
 
-        public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator()
-        {
-            return ((IEnumerable<KeyValuePair<TKey, TValue>>)internalDictionary).GetEnumerator();
-        }
+    public bool Remove(KeyValuePair<TKey, TValue> item)
+    {
+        return ((ICollection<KeyValuePair<TKey, TValue>>)internalDictionary).Remove(item);
+    }
 
-        public bool Remove(TKey key)
-        {
-            return ((IDictionary<TKey, TValue>)internalDictionary).Remove(key);
-        }
+    public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value)
+    {
+        return ((IDictionary<TKey, TValue>)internalDictionary).TryGetValue(key, out value);
+    }
 
-        public bool Remove(KeyValuePair<TKey, TValue> item)
-        {
-            return ((ICollection<KeyValuePair<TKey, TValue>>)internalDictionary).Remove(item);
-        }
-
-        public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value)
-        {
-            return ((IDictionary<TKey, TValue>)internalDictionary).TryGetValue(key, out value);
-        }
-
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return ((IEnumerable)internalDictionary).GetEnumerator();
-        }
+    IEnumerator IEnumerable.GetEnumerator()
+    {
+        return ((IEnumerable)internalDictionary).GetEnumerator();
     }
 }

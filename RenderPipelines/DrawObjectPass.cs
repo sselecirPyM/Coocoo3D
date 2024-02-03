@@ -2,7 +2,6 @@
 using Coocoo3DGraphics;
 using System;
 using System.Collections.Generic;
-using System.Drawing;
 
 namespace RenderPipelines;
 
@@ -15,33 +14,18 @@ public class DrawObjectPass : Pass
 
     public PSODesc psoDesc;
 
-    public bool enableVS = true;
-    public bool enablePS = true;
-    public bool enableGS = false;
-
-    public string rs;
-
-    public bool clearRenderTarget = false;
-    public bool clearDepth = false;
-
-    public Rectangle? scissorViewport;
-
     public object[] CBVPerObject;
 
     public object[] CBVPerPass;
 
-    public Func<RenderHelper, MeshRenderable, List<(string, string)>, bool> filter;
+    public Dictionary<int, object> additionalSRV = new Dictionary<int, object>();
+
+    public Func<MeshRenderable, bool> filter;
 
     public override void Execute(RenderHelper renderHelper)
     {
         RenderWrap renderWrap = renderHelper.renderWrap;
-        renderWrap.SetRootSignature(rs);
-        renderWrap.SetRenderTarget(renderTargets, depthStencil, clearRenderTarget, clearDepth);
-        if (scissorViewport != null)
-        {
-            var rect = scissorViewport.Value;
-            renderWrap.SetScissorRectAndViewport(rect.Left, rect.Top, rect.Right, rect.Bottom);
-        }
+
         var desc = GetPSODesc(renderHelper, psoDesc);
 
         var writer = renderHelper.Writer;
@@ -53,21 +37,25 @@ public class DrawObjectPass : Pass
         }
 
         keywords2.Clear();
+        foreach (var srv in additionalSRV)
+        {
+            if (srv.Value is byte[] data)
+            {
+                renderHelper.SetSRV(srv.Key, data);
+            }
+        }
         foreach (var renderable in renderHelper.MeshRenderables())
         {
-            if (filter != null && !filter.Invoke(renderHelper, renderable, keywords2))
+            if (filter != null && !filter.Invoke(renderable))
                 continue;
             keywords2.AddRange(this.keywords);
             AutoMapKeyword(renderHelper, keywords2, renderable.material);
-            if (renderable.gpuSkinning)
-            {
-                keywords2.Add(new("SKINNING", "1"));
-            }
+
             if (renderable.drawDoubleFace)
                 desc.cullMode = CullMode.None;
             else
                 desc.cullMode = CullMode.Back;
-            renderWrap.SetShader(shader, desc, keywords2, enableVS, enablePS, enableGS);
+            renderWrap.SetShader(shader, desc, keywords2);
 
             CBVPerObject[0] = renderable.transform;
 

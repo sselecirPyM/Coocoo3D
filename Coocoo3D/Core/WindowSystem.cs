@@ -1,84 +1,68 @@
 ﻿using Coocoo3D.RenderPipeline;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace Coocoo3D.Core
+namespace Coocoo3D.Core;
+
+public class WindowSystem : IDisposable
 {
-    public class WindowSystem : IDisposable
+    public Dictionary<string, VisualChannel> visualChannels = new();
+
+    public MainCaches MainCaches;
+
+    Queue<string> delayAddVisualChannel = new();
+    Queue<string> delayRemoveVisualChannel = new();
+
+    public void UpdateChannels()
     {
-        public Dictionary<string, VisualChannel> visualChannels = new();
-
-        public VisualChannel currentChannel;
-
-        Queue<string> delayAddVisualChannel = new();
-        Queue<string> delayRemoveVisualChannel = new();
-
-        public void Initialize()
+        foreach (var visualChannel1 in visualChannels)
         {
-            currentChannel = AddVisualChannel("main");
+            var visualChannel = visualChannel1.Value;
+            visualChannel.UpdateSize();
         }
+    }
 
-        public void UpdateChannels()
+    public void DelayAddVisualChannel(string name)
+    {
+        delayAddVisualChannel.Enqueue(name);
+    }
+    public void DelayRemoveVisualChannel(string name)
+    {
+        delayRemoveVisualChannel.Enqueue(name);
+    }
+
+    public void Update()
+    {
+        while (delayAddVisualChannel.TryDequeue(out var vcName))
+            AddVisualChannel(vcName);
+        while (delayRemoveVisualChannel.TryDequeue(out var vcName))
+            RemoveVisualChannel(vcName);
+    }
+
+    public void Dispose()
+    {
+        foreach (var vc in visualChannels)
         {
-            foreach (var visualChannel1 in visualChannels)
-            {
-                var visualChannel = visualChannel1.Value;
-                if (visualChannel.resolusionSizeSource == ResolusionSizeSource.Custom)
-                    continue;
-                visualChannel.outputSize = visualChannel.sceneViewSize;
-                (float x, float y) = visualChannel.outputSize;
-                visualChannel.camera.AspectRatio = x / y;
-            }
+            vc.Value.Dispose();
         }
+        visualChannels.Clear();
+    }
 
-        public MainCaches mainCaches = new MainCaches();
+    public VisualChannel AddVisualChannel(string name)
+    {
+        var visualChannel = new VisualChannel();
+        visualChannels[name] = visualChannel;
+        visualChannel.Name = name;
+        visualChannel.MainCaches = MainCaches;
 
-        public void DelayAddVisualChannel(string name)
+        return visualChannel;
+    }
+
+    void RemoveVisualChannel(string name)
+    {
+        if (visualChannels.Remove(name, out var vc))
         {
-            delayAddVisualChannel.Enqueue(name);
-        }
-        public void DelayRemoveVisualChannel(string name)
-        {
-            delayRemoveVisualChannel.Enqueue(name);
-        }
-
-        public void Update()
-        {
-            while (delayAddVisualChannel.TryDequeue(out var vcName))
-                AddVisualChannel(vcName);
-            while (delayRemoveVisualChannel.TryDequeue(out var vcName))
-                RemoveVisualChannel(vcName);
-        }
-
-        public void Dispose()
-        {
-            foreach (var vc in visualChannels)
-            {
-                vc.Value.Dispose();
-            }
-            visualChannels.Clear();
-        }
-
-        VisualChannel AddVisualChannel(string name)
-        {
-            var visualChannel = new VisualChannel();
-            visualChannels[name] = visualChannel;
-            visualChannel.Name = name;
-
-            return visualChannel;
-        }
-
-        void RemoveVisualChannel(string name)
-        {
-            if (visualChannels.Remove(name, out var vc))
-            {
-                if (vc == currentChannel)
-                    currentChannel = visualChannels.FirstOrDefault().Value;
-                vc.Dispose();
-            }
+            vc.Dispose();
         }
     }
 }

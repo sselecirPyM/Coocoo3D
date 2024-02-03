@@ -1,6 +1,7 @@
 ﻿using Caprice.Attributes;
 using Coocoo3D.RenderPipeline;
 using Coocoo3DGraphics;
+using RenderPipelines.Utility;
 using System;
 
 namespace RenderPipelines;
@@ -19,10 +20,10 @@ public class EnvironmentReflectionAttribute : RuntimeBakeAttribute, ITexture2DBa
         else
             currentQuality = 0;
 
-        renderWrap.SetRootSignature("Csu");
         int width = texture.width;
         int height = texture.height;
-        var writer = renderWrap.Writer;
+        var writer = new GPUWriter();
+        writer.graphicsContext = renderWrap.graphicsContext;
 
         int roughnessLevel = 5;
 
@@ -37,12 +38,12 @@ public class EnvironmentReflectionAttribute : RuntimeBakeAttribute, ITexture2DBa
             writer.Write(height / pow2a);
             writer.Write(quality);
             writer.Write(quality);
-            writer.Write(Math.Max(mipLevel * mipLevel / (4.0f * 4.0f), 1e-3f));
+            writer.Write(Math.Max(mipLevel * mipLevel / (4.0f * 4.0f), 5e-3f));
             writer.Write(face);
             writer.SetCBV(0);
 
-            renderWrap.SetSRV(tex, 0);
-            renderWrap.SetUAV(texture, mipLevel, 0);
+            renderWrap.SetSRV(0, tex);
+            renderWrap.SetUAV(0, texture, mipLevel);
 
             if (mipLevel != roughnessLevel)
                 renderWrap.Dispatch("PreFilterEnv.hlsl", null, width / 8 / pow2a, height / 8 / pow2a, 6);
@@ -52,7 +53,7 @@ public class EnvironmentReflectionAttribute : RuntimeBakeAttribute, ITexture2DBa
             currentQuality++;
         }
         tag = currentQuality;
-        if (currentQuality < 256)
+        if (currentQuality < 512)
             return false;
         else
             return true;

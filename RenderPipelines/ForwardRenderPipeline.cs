@@ -9,9 +9,12 @@ using System.Numerics;
 
 namespace RenderPipelines;
 
-[UIShow(name: "前向渲染")]
-public class ForwardRenderPipeline : RenderPipeline, IDisposable
+[Text(text: "前向渲染")]
+public partial class ForwardRenderPipeline : RenderPipeline, IDisposable
 {
+    public override IDictionary<UIShowType, ICloneable> materialTypes { get; } =
+        new Dictionary<UIShowType, ICloneable> { };
+
     [AOV(AOVType.Color)]
     [Size("UnscaledOutput")]
     [Format(ResourceFormat.R8G8B8A8_UNorm)]
@@ -32,6 +35,7 @@ public class ForwardRenderPipeline : RenderPipeline, IDisposable
     public Texture2D intermedia1;//used by bloom
     [Size("BloomSize")]
     [Format(ResourceFormat.R16G16B16A16_Float)]
+    [AutoClear]
     public Texture2D intermedia2;//used by bloom
     [Size(2048, 2048, 9)]
     [Format(ResourceFormat.R16G16B16A16_Float)]
@@ -172,28 +176,10 @@ public class ForwardRenderPipeline : RenderPipeline, IDisposable
     CameraData historyCamera;
 
     [UITree]
-    public ForwardRenderPass forwordRenderPass = new ForwardRenderPass()
-    {
-        renderTarget = nameof(noPostProcess),
-        depthStencil = nameof(depth),
-    };
+    public PostProcessPass postProcess = new PostProcessPass();
 
     [UITree]
-    public PostProcessPass postProcess = new PostProcessPass()
-    {
-        inputColor = nameof(noPostProcess),
-        inputDepth = nameof(depth),
-        output = nameof(output),
-    };
-
-    [UITree]
-    public TAAPass taaPass = new TAAPass()
-    {
-        target = nameof(noPostProcess),
-        depth = nameof(depth),
-        history = nameof(noPostProcess2),
-        historyDepth = nameof(depth2),
-    };
+    public TAAPass taaPass = new TAAPass();
 
     RenderHelper renderHelper;
 
@@ -201,7 +187,6 @@ public class ForwardRenderPipeline : RenderPipeline, IDisposable
     {
         renderHelper ??= new RenderHelper();
         renderHelper.renderWrap = renderWrap;
-        renderHelper.CPUSkinning = false;
         renderHelper.UpdateGPUResource();
 
         renderWrap.GetOutputSize(out outputWidth, out outputHeight);
@@ -212,7 +197,6 @@ public class ForwardRenderPipeline : RenderPipeline, IDisposable
         renderWrap.SetSize("HalfOutput", (outputWidth + 1) / 2, (outputHeight + 1) / 2);
         renderWrap.SetSize("QuarterOutput", (outputWidth + 3) / 4, (outputHeight + 3) / 4);
         renderWrap.SetSize("BloomSize", outputWidth * 256 / outputHeight, 256);
-        renderWrap.texLoading = renderWrap.GetTex2DLoaded("loading.png");
         renderWrap.texError = renderWrap.GetTex2DLoaded("error.png");
         renderHelper.PushParameters(this);
     }
@@ -226,19 +210,26 @@ public class ForwardRenderPipeline : RenderPipeline, IDisposable
             camera = camera.GetJitter(jitterVector);
         }
 
-        forwordRenderPass.Visuals = Visuals;
-        forwordRenderPass.DebugRenderType = DebugRenderType;
-
-        forwordRenderPass.SetCamera(camera);
-        forwordRenderPass.Execute(renderHelper);
+        this.SetCamera(camera);
+        this.Execute(renderHelper);
 
         if (taaPass.EnableTAA)
         {
             taaPass.DebugRenderType = DebugRenderType;
+            taaPass.target = noPostProcess;
+            taaPass.depth = depth;
+            taaPass.history = noPostProcess2;
+            taaPass.historyDepth = depth2;
             taaPass.SetCamera(historyCamera, this.camera);
-            taaPass.SetProperties(outputWidth, outputHeight);
             taaPass.Execute(renderHelper);
         }
+        postProcess.inputDepth = depth;
+        postProcess.inputColor = noPostProcess;
+        postProcess.output = output;
+
+        postProcess.intermedia1 = intermedia1;
+        postProcess.intermedia2 = intermedia2;
+        postProcess.intermedia3 = intermedia3;
         postProcess.Execute(renderHelper);
 
         renderWrap.Swap(nameof(noPostProcess), nameof(noPostProcess2));
@@ -255,5 +246,11 @@ public class ForwardRenderPipeline : RenderPipeline, IDisposable
     {
         renderHelper?.Dispose();
         renderHelper = null;
+        postProcess?.Dispose();
+        postProcess = null;
+        drawSkyBox?.Dispose();
+        drawSkyBox = null;
+        taaPass?.Dispose();
+        taaPass = null;
     }
 }

@@ -1,113 +1,78 @@
-﻿using Caprice.Attributes;
-using Caprice.Display;
+﻿using Caprice.Display;
 using Coocoo3D.RenderPipeline;
 using Coocoo3DGraphics;
+using System;
 
 namespace RenderPipelines;
 
-public class PostProcessPass
+public class PostProcessPass : IDisposable
 {
-    public BloomPass bloomPass = new BloomPass()
-    {
-        intermediaTexture = "intermedia1",
-        cbvs = new object[][]
-        {
-            new object[]
-            {
-                null,
-                null,
-                nameof(BloomThreshold),
-                nameof(BloomIntensity),
-                null,
-                null,
-            }
-        }
-    };
+    BloomPass bloomPass = new BloomPass();
 
-    public DrawQuadPass postProcess = new DrawQuadPass()
-    {
-        shader = "PostProcessing.hlsl",
-        rs = "Css",
-        renderTargets = new string[]
-        {
-            null
-        },
-        //depthStencil = null,
-        psoDesc = new PSODesc()
-        {
-            blendState = BlendState.None,
-            cullMode = CullMode.None,
-        },
-        srvs = new string[]
-        {
-            null,
-            "intermedia2",
-        },
-        cbvs = new object[][]
-        {
-            new object []
-            {
+    SRGBConvertPass srgbConvert = new SRGBConvertPass();
 
-            }
-        }
-    };
+    GenerateMipPass generateMipPass = new GenerateMipPass();
 
-    public GenerateMipPass generateMipPass = new GenerateMipPass();
+    public Texture2D inputColor;
 
-    public string inputColor;
+    public Texture2D inputDepth;
 
-    public string inputDepth;
+    public Texture2D intermedia1;
+    public Texture2D intermedia2;
+    public Texture2D intermedia3;
 
     [UIShow(name: "启用泛光")]
     public bool EnableBloom;
 
     [UIDragFloat(0.01f, name: "泛光阈值")]
-    [Indexable]
     public float BloomThreshold = 1.05f;
     [UIDragFloat(0.01f, name: "泛光强度")]
-    [Indexable]
     public float BloomIntensity = 0.1f;
 
-    public string output;
+    public Texture2D output;
 
     public void Execute(RenderHelper renderHelper)
     {
-        renderHelper.PushParameters(this);
         RenderWrap renderWrap = renderHelper.renderWrap;
-        var outputTexture = renderWrap.GetRenderTexture2D("intermedia2");
-        renderWrap.ClearTexture(outputTexture);
+
         if (EnableBloom)
         {
             generateMipPass.input = inputColor;
-            generateMipPass.output = "intermedia3";
-            generateMipPass.Execute(renderWrap);
-            var inputTexture = renderWrap.GetRenderTexture2D(inputColor);
+            generateMipPass.output = intermedia3;
+            generateMipPass.context = renderHelper;
+            generateMipPass.Execute();
 
             int r = 0;
-            uint n = (uint)(inputTexture.height / 1024);
+            uint n = (uint)(inputColor.height / 1024);
             while (n > 0)
             {
                 r++;
                 n >>= 1;
             }
+            bloomPass.intermediaTexture = intermedia1;
             bloomPass.mipLevel = r;
-            bloomPass.inputSize = (inputTexture.width / 2, inputTexture.height / 2);
+            bloomPass.inputSize = (inputColor.width / 2, inputColor.height / 2);
 
-            //bloomPass.input = inputColor;
-            bloomPass.input = "intermedia3";
-            bloomPass.output = "intermedia2";
+            bloomPass.input = intermedia3;
+            bloomPass.output = intermedia2;
+            bloomPass.BloomThreshold = BloomThreshold;
+            bloomPass.BloomIntensity = BloomIntensity;
             bloomPass.Execute(renderHelper);
-            postProcess.srvs[0] = inputColor;
-            postProcess.srvs[1] = "intermedia2";
-        }
-        else
-        {
-            postProcess.srvs[0] = inputColor;
-            postProcess.srvs[1] = "intermedia2";
         }
 
-        postProcess.renderTargets[0] = output;
-        postProcess.Execute(renderHelper);
-        renderHelper.PopParameters();
+        srgbConvert.inputColor = inputColor;//srgbConvert.srvs[0] = inputColor;
+        srgbConvert.inputColor1 = intermedia2;//srgbConvert.srvs[1] = "intermedia2";
+
+        renderWrap.SetRenderTarget(output, false);
+        srgbConvert.context = renderHelper;
+        srgbConvert.Execute();
+    }
+
+    public void Dispose()
+    {
+        srgbConvert?.Dispose();
+        srgbConvert = null;
+        generateMipPass?.Dispose();
+        generateMipPass = null;
     }
 }

@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup>
@@ -10,6 +10,6 @@
 
 
 	<Target Name="PostBuild" AfterTargets="PostBuildEvent">
-		<Exec Command="xcopy &quot;$(TargetDir)\Coocoo3D.Extensions.dll&quot; &quot;$(SolutionDir)\Coocoo3D.Windows\bin\$(Configuration)\net6.0\Extension\&quot; /y" />
+		<Exec Command="xcopy &quot;$(TargetDir)\Coocoo3D.Extensions.dll&quot; &quot;$(SolutionDir)\Coocoo3D.Windows\bin\$(Configuration)\net8.0\Extension\&quot; /y" />
 	</Target>
 </Project>

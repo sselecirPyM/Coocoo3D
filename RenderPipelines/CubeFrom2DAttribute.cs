@@ -1,6 +1,8 @@
 ﻿using Caprice.Attributes;
 using Coocoo3D.RenderPipeline;
 using Coocoo3DGraphics;
+using RenderPipelines.Utility;
+using System;
 
 namespace RenderPipelines;
 
@@ -11,25 +13,23 @@ internal class CubeFrom2DAttribute : RuntimeBakeAttribute, ITexture2DBaker
         var tex = renderWrap.GetTex2D(Source);
         if (tex == null || tex.Status != GraphicsObjectStatus.loaded)
             return false;
-        renderWrap.SetRootSignature("Csu");
+
         int width = texture.width;
         int height = texture.height;
-        var writer = renderWrap.Writer;
-        writer.Write(width);
-        writer.Write(height);
-        writer.SetCBV(0);
+
+        renderWrap.graphicsContext.SetCBVRSlot<int>(0, [width, height]);
+
         renderWrap.SetSRVs(new string[] { Source });
-        renderWrap.SetUAV(texture, 0, 0);
+        renderWrap.SetUAV(0, texture, 0);
         renderWrap.Dispatch("ConvertToCube.hlsl", null, width / 8, height / 8, 6);
         for (int i = 1; i < texture.mipLevels; i++)
         {
             int mipPow = 1 << i;
-            renderWrap.SetSRVLim(texture, i - 1, 0);
-            renderWrap.SetUAV(texture, i, 0);
-            writer.Write(width / mipPow);
-            writer.Write(height / mipPow);
-            writer.Write(i - 1);
-            writer.SetCBV(0);
+            renderWrap.SetSRVMip(0, texture, i - 1);
+            renderWrap.SetUAV(0, texture, i);
+
+            ReadOnlySpan<int> cbvData1 = [(width / mipPow), (height / mipPow), (i - 1)];
+            renderWrap.graphicsContext.SetCBVRSlot<int>(0, cbvData1);
             renderWrap.Dispatch("GenerateCubeMipMap.hlsl", null, width / mipPow / 8, height / mipPow / 8, 6);
         }
         return true;
@@ -39,5 +39,11 @@ internal class CubeFrom2DAttribute : RuntimeBakeAttribute, ITexture2DBaker
     {
         Source = source;
     }
+
+    public VariantComputeShader shader_ConvertToCube = new VariantComputeShader(
+"""
+
+""","csmain");
+
     public string Source { get; }
 }

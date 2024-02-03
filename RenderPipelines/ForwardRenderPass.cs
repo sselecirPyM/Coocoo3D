@@ -1,11 +1,8 @@
 ﻿using Caprice.Attributes;
 using Caprice.Display;
-using Coocoo3D.Components;
 using Coocoo3D.RenderPipeline;
-using Coocoo3D.Utility;
 using Coocoo3DGraphics;
 using System;
-using System.Buffers;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Numerics;
@@ -14,39 +11,13 @@ using Vortice.Mathematics;
 
 namespace RenderPipelines;
 
-public class ForwardRenderPass
+public partial class ForwardRenderPipeline
 {
-    public DrawQuadPass drawSkyBox = new DrawQuadPass()
-    {
-        rs = "Cs",
-        shader = "SkyBox.hlsl",
-        renderTargets = new string[1],
-        psoDesc = new PSODesc()
-        {
-            blendState = BlendState.None,
-            cullMode = CullMode.None,
-        },
-        srvs = new string[]
-        {
-            "_SkyBox",
-        },
-        cbvs = new object[][]
-        {
-            new object []
-            {
-                nameof(InvertViewProjection),
-                nameof(CameraPosition),
-                nameof(SkyLightMultiple),
-                nameof(Brightness),
-            }
-        }
-    };
+    public DrawSkyBoxPass drawSkyBox = new DrawSkyBoxPass();
 
     public DrawObjectPass drawShadowMap = new DrawObjectPass()
     {
         shader = "ShadowMap.hlsl",
-        depthStencil = "_ShadowMap",
-        rs = "CCs",
         psoDesc = new PSODesc()
         {
             blendState = BlendState.None,
@@ -54,20 +25,16 @@ public class ForwardRenderPass
             depthBias = 2000,
             slopeScaledDepthBias = 1.5f,
         },
-        enablePS = false,
         CBVPerObject = new object[]
         {
             null,
-            "ShadowMapVP",
+            nameof(ShadowMapVP),
         },
     };
 
     public DrawObjectPass drawObject = new DrawObjectPass()
     {
         shader = "ForwardRender.hlsl",
-        renderTargets = new string[1],
-        depthStencil = null,
-        rs = "CCCssssssssss",
         psoDesc = new PSODesc()
         {
             blendState = BlendState.None,
@@ -75,24 +42,24 @@ public class ForwardRenderPass
         },
         srvs = new string[]
         {
-            "_Albedo",
-            "_Metallic",
-            "_Roughness",
-            "_Emissive",
-            "_ShadowMap",
-            "_Environment",
-            "_BRDFLUT",
-            "_Normal",
-            "_Spa",
+            nameof(_Albedo),
+            nameof(_Metallic),
+            nameof(_Roughness),
+            nameof(_Emissive),
+            nameof(_ShadowMap),
+            nameof(_Environment),
+            nameof(_BRDFLUT),
+            nameof(_Normal),
+            nameof(_Spa),
         },
         CBVPerObject = new object[]
         {
             null,
             null,
-            "Metallic",
-            "Roughness",
-            "Emissive",
-            "Specular",
+            nameof(Metallic),
+            nameof(Roughness),
+            nameof(Emissive),
+            nameof(Specular),
         },
         CBVPerPass = new object[]
         {
@@ -108,7 +75,7 @@ public class ForwardRenderPass
             nameof(ShadowMapVP1),
             nameof(LightDir),
             0,
-            nameof(LightColor),
+            nameof(LightColor2),
             0,
             nameof(SkyLightMultiple),
             nameof(FogColor),
@@ -122,8 +89,8 @@ public class ForwardRenderPass
         AutoKeyMap =
         {
             (nameof(EnableFog),"ENABLE_FOG"),
-            ("UseNormalMap","USE_NORMAL_MAP"),
-            ("UseSpa","USE_SPA"),
+            (nameof(UseNormalMap),"USE_NORMAL_MAP"),
+            (nameof(UseSpa),"USE_SPA"),
         }
     };
 
@@ -145,25 +112,19 @@ public class ForwardRenderPass
     public Vector3 CameraBack;
 
 
-    [UIDragFloat(0.01f, 0, name: "亮度")]
-    [Indexable]
+    [UIDragFloat(0.01f, 0, name: "亮度"), Indexable]
     public float Brightness = 1;
 
-    [UIDragFloat(0.01f, 0, name: "天空盒亮度")]
-    [Indexable]
+    [UIDragFloat(0.01f, 0, name: "天空盒亮度"), Indexable]
     public float SkyLightMultiple = 3;
 
-    [UIShow(name: "启用雾")]
-    [Indexable]
+    [UIShow(name: "启用雾"), Indexable]
     public bool EnableFog;
-    [UIColor(name: "雾颜色")]
-    [Indexable]
+    [UIColor(name: "雾颜色"), Indexable]
     public Vector3 FogColor = new Vector3(0.4f, 0.4f, 0.6f);
-    [UIDragFloat(0.001f, 0, name: "雾密度")]
-    [Indexable]
+    [UIDragFloat(0.001f, 0, name: "雾密度"), Indexable]
     public float FogDensity = 0.005f;
-    [UIDragFloat(0.1f, 0, name: "雾开始距离")]
-    [Indexable]
+    [UIDragFloat(0.1f, 0, name: "雾开始距离"), Indexable]
     public float FogStartDistance = 5;
     //[UIDragFloat(0.1f, 0, name: "雾结束距离")]
     [Indexable]
@@ -187,17 +148,12 @@ public class ForwardRenderPass
     [Indexable]
     public Vector3 LightDir;
     [Indexable]
-    public Vector3 LightColor;
-
-    public string renderTarget;
-    public string depthStencil;
+    public Vector3 LightColor2;
 
     [Indexable]
     public int Split;
 
-    public IEnumerable<VisualComponent> Visuals;
-
-    public DebugRenderType DebugRenderType;
+    public List<PointLightData> pointLights = new List<PointLightData>();
 
     public void SetCamera(CameraData camera)
     {
@@ -218,29 +174,19 @@ public class ForwardRenderPass
         CameraBack = Vector3.Transform(-Vector3.UnitZ, rotateMatrix);
     }
 
-    public void SetRenderTarget(string renderTarget, string depthStencil)
-    {
-        this.renderTarget = renderTarget;
-        this.depthStencil = depthStencil;
-    }
-
     public void Execute(RenderHelper renderHelper)
     {
         RenderWrap renderWrap = renderHelper.renderWrap;
-        drawSkyBox.renderTargets[0] = renderTarget;
-        drawObject.renderTargets[0] = renderTarget;
-        drawObject.depthStencil = depthStencil;
 
         BoundingFrustum frustum = new BoundingFrustum(ViewProjection);
 
-        int pointLightCount = 0;
-        byte[] pointLightData = ArrayPool<byte>.Shared.Rent(64 * 32);
-        DirectionalLightData? directionalLight = null;
-        var pointLightWriter = new SpanWriter<PointLightData>(MemoryMarshal.Cast<byte, PointLightData>(pointLightData));
+        pointLights.Clear();
+
+        DirectionalLightData directionalLight = null;
         foreach (var visual in Visuals)
         {
             var material = visual.material;
-            if (visual.UIShowType != Caprice.Display.UIShowType.Light)
+            if (visual.UIShowType != UIShowType.Light)
                 continue;
             var lightType = (LightType)renderHelper.GetIndexableValue("LightType", material);
             if (lightType == LightType.Directional)
@@ -256,29 +202,29 @@ public class ForwardRenderPass
             }
             else if (lightType == LightType.Point)
             {
-                if (pointLightCount >= 64)
-                    continue;
-                float range = (float)renderHelper.GetIndexableValue("LightRange", material);
-                if (frustum.Intersects(new BoundingSphere(visual.transform.position, range)))
+                if (pointLights.Count >= 4)
                 {
-                    pointLightWriter.Write(new PointLightData()
-                    {
-                        Color = (Vector3)renderHelper.GetIndexableValue("LightColor", material),
-                        Position = visual.transform.position,
-                        Range = range,
-                    });
-                    pointLightCount++;
+                    continue;
                 }
+                float range = (float)renderHelper.GetIndexableValue("LightRange", material);
+                if (!frustum.Intersects(new BoundingSphere(visual.transform.position, range)))
+                    continue;
+                pointLights.Add(new PointLightData()
+                {
+                    Color = (Vector3)renderHelper.GetIndexableValue("LightColor", material),
+                    Position = visual.transform.position,
+                    Range = range,
+                });
             }
         }
 
         if (directionalLight != null)
         {
-            var dl = directionalLight.Value;
-            ShadowMapVP = dl.GetLightingMatrix(InvertViewProjection, 0, 0.977f);
-            ShadowMapVP1 = dl.GetLightingMatrix(InvertViewProjection, 0.977f, 0.993f);
+            var dl = directionalLight;
+            ShadowMapVP = dl.GetLightingMatrix(InvertViewProjection, 0, 0.93f);
+            ShadowMapVP1 = dl.GetLightingMatrix(InvertViewProjection, 0.93f, 0.991f);
             LightDir = dl.Direction;
-            LightColor = dl.Color;
+            LightColor2 = dl.Color;
             drawObject.keywords.Add(("ENABLE_DIRECTIONAL_LIGHT", "1"));
         }
         else
@@ -286,40 +232,52 @@ public class ForwardRenderPass
             ShadowMapVP = Matrix4x4.Identity;
             ShadowMapVP1 = Matrix4x4.Identity;
             LightDir = Vector3.UnitZ;
-            LightColor = Vector3.Zero;
+            LightColor2 = Vector3.Zero;
         }
 
-        renderHelper.PushParameters(this);
+        //renderHelper.PushParameters(this);
         if (directionalLight != null)
         {
             renderWrap.ClearTexture("_ShadowMap");
-            var shadowMap = renderWrap.GetRenderTexture2D("_ShadowMap");
+            var shadowMap = _ShadowMap;
             drawShadowMap.CBVPerObject[1] = ShadowMapVP;
-            drawShadowMap.scissorViewport = new Rectangle(0, 0, shadowMap.width / 2, shadowMap.height / 2);
+            var rect = new Rectangle(0, 0, shadowMap.width / 2, shadowMap.height / 2);
+            renderWrap.SetRenderTargetDepth(shadowMap, false);
+            renderWrap.SetScissorRectAndViewport(rect.Left, rect.Top, rect.Right, rect.Bottom);
+
             drawShadowMap.Execute(renderHelper);
             drawShadowMap.CBVPerObject[1] = ShadowMapVP1;
-            drawShadowMap.scissorViewport = new Rectangle(shadowMap.width / 2, 0, shadowMap.width / 2, shadowMap.height / 2);
+            rect = new Rectangle(shadowMap.width / 2, 0, shadowMap.width / 2, shadowMap.height / 2);
+            renderWrap.SetScissorRectAndViewport(rect.Left, rect.Top, rect.Right, rect.Bottom);
+
             drawShadowMap.Execute(renderHelper);
         }
-        Split = SplitTest(pointLightCount * 6);
+        Split = ShadowSize(pointLights.Count * 6);
 
-        if (pointLightCount > 0)
+        if (pointLights.Count > 0)
         {
-            var pointLightDatas = MemoryMarshal.Cast<byte, PointLightData>(pointLightData).Slice(0, pointLightCount);
+            var pointLightDatas = CollectionsMarshal.AsSpan(pointLights);
+            var rawData = MemoryMarshal.AsBytes(pointLightDatas).ToArray();
             DrawPointShadow(renderHelper, pointLightDatas);
 
-            drawObject.CBVPerObject[1] = (pointLightData, pointLightCount * 32);
+            //drawObject.CBVPerObject[1] = (rawData, pointLights.Count * 32);
+            drawObject.additionalSRV[11] = rawData;
             drawObject.keywords.Add(("ENABLE_POINT_LIGHT", "1"));
-            drawObject.keywords.Add(("POINT_LIGHT_COUNT", pointLightCount.ToString()));
+            drawObject.keywords.Add(("POINT_LIGHT_COUNT", pointLights.Count.ToString()));
         }
 
         if (debugKeywords.TryGetValue(DebugRenderType, out string debugKeyword))
         {
             drawObject.keywords.Add((debugKeyword, "1"));
         }
-
+        renderWrap.SetRenderTarget(noPostProcess, false);
+        drawSkyBox.InvertViewProjection = InvertViewProjection;
+        drawSkyBox.CameraPosition = CameraPosition;
+        drawSkyBox.SkyLightMultiple = SkyLightMultiple * Brightness;
+        drawSkyBox.skybox = _SkyBox;
         drawSkyBox.Execute(renderHelper);
 
+        renderWrap.SetRenderTarget(noPostProcess, depth, false, false);
         drawObject.psoDesc.blendState = BlendState.None;
         drawObject.filter = FilterOpaque;
         drawObject.Execute(renderHelper);
@@ -328,9 +286,7 @@ public class ForwardRenderPass
         drawObject.filter = FilterTransparent;
         drawObject.Execute(renderHelper);
 
-        renderHelper.PopParameters();
-
-        ArrayPool<byte>.Shared.Return(pointLightData);
+        //renderHelper.PopParameters();
 
         drawObject.keywords.Clear();
     }
@@ -341,7 +297,7 @@ public class ForwardRenderPass
          * Matrix4x4.CreatePerspectiveFieldOfView(1.57079632679f, 1, near, far);
     }
 
-    static Rectangle GetRectangle(int index, int split, int width, int height)
+    static void SetViewportScissorRectangle(RenderWrap renderWrap, int index, int split, int width, int height)
     {
         float xOffset = (float)(index % split) / split;
         float yOffset = (float)(index / split) / split;
@@ -352,14 +308,25 @@ public class ForwardRenderPass
         int sizeX1 = (int)(width * size);
         int sizeY1 = (int)(height * size);
 
-        return new Rectangle(x, y, sizeX1, sizeY1);
+        var rect = new Rectangle(x, y, sizeX1, sizeY1);
+        renderWrap.SetScissorRectAndViewport(rect.Left, rect.Top, rect.Right, rect.Bottom);
     }
 
+    static readonly (Vector3, Vector3)[] table =
+    {
+        (new Vector3(1, 0, 0), new Vector3(0, -1, 0)),
+        (new Vector3(-1, 0, 0), new Vector3(0, 1, 0)),
+        (new Vector3(0, 1, 0), new Vector3(0, 0, -1)),
+        (new Vector3(0, -1, 0), new Vector3(0, 0, 1)),
+        (new Vector3(0, 0, 1), new Vector3(-1, 0, 0)),
+        (new Vector3(0, 0, -1), new Vector3(1, 0, 0))
+    };
     void DrawPointShadow(RenderHelper renderHelper, Span<PointLightData> pointLightDatas)
     {
         RenderWrap renderWrap = renderHelper.renderWrap;
         int index = 0;
-        var shadowMap = renderWrap.GetRenderTexture2D("_ShadowMap");
+        var shadowMap = _ShadowMap;
+        renderWrap.SetRenderTargetDepth(shadowMap, false);
         int width = shadowMap.width;
         int height = shadowMap.height;
         foreach (var pl in pointLightDatas)
@@ -368,39 +335,17 @@ public class ForwardRenderPass
             float near = lightRange * 0.001f;
             float far = lightRange;
 
-            drawShadowMap.CBVPerObject[1] = GetShadowMapMatrix(pl.Position, new Vector3(1, 0, 0), new Vector3(0, -1, 0), near, far);
-            drawShadowMap.scissorViewport = GetRectangle(index, Split, width, height);
-            drawShadowMap.Execute(renderHelper);
-            index++;
-
-            drawShadowMap.CBVPerObject[1] = GetShadowMapMatrix(pl.Position, new Vector3(-1, 0, 0), new Vector3(0, 1, 0), near, far);
-            drawShadowMap.scissorViewport = GetRectangle(index, Split, width, height);
-            drawShadowMap.Execute(renderHelper);
-            index++;
-
-            drawShadowMap.CBVPerObject[1] = GetShadowMapMatrix(pl.Position, new Vector3(0, 1, 0), new Vector3(0, 0, -1), near, far);
-            drawShadowMap.scissorViewport = GetRectangle(index, Split, width, height);
-            drawShadowMap.Execute(renderHelper);
-            index++;
-
-            drawShadowMap.CBVPerObject[1] = GetShadowMapMatrix(pl.Position, new Vector3(0, -1, 0), new Vector3(0, 0, 1), near, far);
-            drawShadowMap.scissorViewport = GetRectangle(index, Split, width, height);
-            drawShadowMap.Execute(renderHelper);
-            index++;
-
-            drawShadowMap.CBVPerObject[1] = GetShadowMapMatrix(pl.Position, new Vector3(0, 0, 1), new Vector3(-1, 0, 0), near, far);
-            drawShadowMap.scissorViewport = GetRectangle(index, Split, width, height);
-            drawShadowMap.Execute(renderHelper);
-            index++;
-
-            drawShadowMap.CBVPerObject[1] = GetShadowMapMatrix(pl.Position, new Vector3(0, 0, -1), new Vector3(1, 0, 0), near, far);
-            drawShadowMap.scissorViewport = GetRectangle(index, Split, width, height);
-            drawShadowMap.Execute(renderHelper);
-            index++;
+            foreach (var val in table)
+            {
+                drawShadowMap.CBVPerObject[1] = GetShadowMapMatrix(pl.Position, val.Item1, val.Item2, near, far);
+                SetViewportScissorRectangle(renderWrap, index, Split, width, height);
+                drawShadowMap.Execute(renderHelper);
+                index++;
+            }
         }
     }
 
-    static int SplitTest(int v)
+    static int ShadowSize(int v)
     {
         v *= 2;
         int pointLightSplit = 2;
@@ -410,18 +355,18 @@ public class ForwardRenderPass
         return pointLightSplit;
     }
 
-    static bool FilterOpaque(RenderHelper renderHelper, MeshRenderable renderable, List<(string, string)> keywords)
+    static bool FilterOpaque(MeshRenderable renderable)
     {
-        if (true.Equals(renderHelper.GetIndexableValue("IsTransparent", renderable.material)))
+        if (true.Equals(renderable.material.GetObject("IsTransparent")))
         {
             return false;
         }
         return true;
     }
 
-    static bool FilterTransparent(RenderHelper renderHelper, MeshRenderable renderable, List<(string, string)> keywords)
+    static bool FilterTransparent(MeshRenderable renderable)
     {
-        if (true.Equals(renderHelper.GetIndexableValue("IsTransparent", renderable.material)))
+        if (true.Equals(renderable.material.GetObject("IsTransparent")))
         {
             return true;
         }
