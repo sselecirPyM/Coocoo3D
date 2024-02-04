@@ -33,24 +33,21 @@ public class TAAPass
         null,//nameof(cameraNear),
         null,//nameof(TAAFactor),
     };
-
+    public RenderHelper context;
     public DebugRenderType DebugRenderType;
 
-    public void SetCamera(CameraData historyCamera, CameraData camera)
+
+    public void Execute(CameraData historyCamera, CameraData camera)
     {
+        Keyword_shader_TAA flags = new Keyword_shader_TAA();
         cbv[0] = camera.vpMatrix;
         cbv[1] = camera.pvMatrix;
         cbv[2] = historyCamera.vpMatrix;
         cbv[3] = historyCamera.pvMatrix;
-        cbv[6] = camera.far;
-        cbv[7] = camera.near;
-    }
-
-    public void Execute(RenderHelper renderHelper)
-    {
-        Keyword_shader_TAA flags = new Keyword_shader_TAA();
         cbv[4] = target.width;
         cbv[5] = target.height;
+        cbv[6] = camera.far;
+        cbv[7] = camera.near;
         cbv[8] = TAAFactor;
 
 
@@ -58,15 +55,14 @@ public class TAAPass
             flags |= Keyword_shader_TAA.DEBUG_TAA;
 
 
-        var writer = renderHelper.Writer;
-        renderHelper.Write(cbv, writer);
+        var writer = context.Writer;
+        context.Write(cbv, writer);
         writer.SetCBV(0);
 
-        var renderWrap = renderHelper.renderWrap;
-        renderWrap.SetSRVs(depth, history, historyDepth);
-        renderWrap.SetUAV(0, target);
-        renderWrap.SetPSO(shader_TAA.Get(flags));
-        renderWrap.Dispatch((target.width + 7) / 8, (target.height + 7) / 8);
+        context.SetSRVs(depth, history, historyDepth);
+        context.SetUAV(0, target);
+        context.SetPSO(shader_TAA.Get(flags));
+        context.Dispatch((target.width + 7) / 8, (target.height + 7) / 8);
     }
 
     VariantComputeShader<Keyword_shader_TAA> shader_TAA = new VariantComputeShader<Keyword_shader_TAA>(
@@ -178,6 +174,7 @@ void csmain(uint3 dtid : SV_DispatchThreadID)
     public void Dispose()
     {
         shader_TAA?.Dispose();
+        shader_TAA = null;
     }
 
     [Flags]

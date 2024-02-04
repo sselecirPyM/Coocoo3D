@@ -1,7 +1,7 @@
 ﻿using Coocoo3DGraphics;
 using System.Collections.Generic;
 
-namespace Coocoo3D.RenderPipeline;
+namespace RenderPipelines.Utility;
 
 public class RayTracingShader
 {

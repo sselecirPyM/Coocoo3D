@@ -11,6 +11,8 @@ namespace RenderPipelines.SourceGenertor
 
         Dictionary<string, HlslProgram> hlsls = new Dictionary<string, HlslProgram>();
 
+        BindingsMap propertyBindings = new BindingsMap();
+
         public string GenerateCode()
         {
             foreach (var component in components)
@@ -34,6 +36,17 @@ namespace RenderPipelines.SourceGenertor
                 foreach (var componentUsing in component.usings)
                 {
                     sb.AppendLine($"using {componentUsing.value};");
+                }
+                foreach (var passLike in component.children)
+                {
+                    if (passLike is PassPlaceHolder placeHolder)
+                    {
+                        foreach (var binding in placeHolder.bindings)
+                        {
+                            propertyBindings.Add(binding.Value, $"{passLike.name}.{binding.Key} = value;");
+                            //propertyBindings.Add(passLike.name, $"if(value != null)value.{binding.Key} = {binding.Value};");
+                        }
+                    }
                 }
             }
             sb.AppendLine($"namespace {codeNamespace}");
@@ -74,19 +87,26 @@ namespace RenderPipelines.SourceGenertor
                         GenerateRender(render, sb);
                     else if (passLike is Script script)
                         ComponentScriptChild(script, sb);
+                    else if (passLike is TextureProperty textureProperty)
+                        ProcessTextureProperty(textureProperty, sb);
+                    else if (passLike is PassPlaceHolder passPlaceHolder)
+                        ProcessPlaceHolder(passPlaceHolder, sb);
                 }
 
                 foreach (var hlsl in component.hlslPrograms)
                 {
                     ProcessHlslBindCode(hlsl, sb);
                 }
-                sb.AppendLine("public void Dispose()");
-                sb.Open("{");
-                foreach (var hlsl in component.hlslPrograms)
+                if (component.generateDispose)
                 {
-                    sb.AppendLine($"{hlsl.name}?.Dispose();");
+                    sb.AppendLine("public void Dispose()");
+                    sb.Open("{");
+                    foreach (var hlsl in component.hlslPrograms)
+                    {
+                        sb.AppendLine($"{hlsl.name}?.Dispose();");
+                    }
+                    sb.Close("}");
                 }
-                sb.Close("}");
 
                 foreach (var hlsl in component.hlslPrograms)
                 {
@@ -103,7 +123,7 @@ namespace RenderPipelines.SourceGenertor
                     {
                         sb.AppendLine($"VariantComputeShader {hlsl.name} = new VariantComputeShader(\"\"\"");
                         sb.Append(result.code);
-                        sb.Append($"\"\"\", {hlsl.compute});");
+                        sb.Append($"\"\"\", {hlsl.compute}, {hlsl.fileName ?? "null"});");
                         sb.AppendLine();
                     }
                 }
@@ -122,18 +142,70 @@ namespace RenderPipelines.SourceGenertor
         static void ComponentScriptChild(Script script, FormatStringBuilder sb)
         {
             sb.AppendLine(script.source);
-            foreach (var passLike in script.children)
+            foreach (var passLike in script.x_children)
             {
                 if (passLike is Script script2)
                     ComponentScriptChild(script2, sb);
             }
         }
 
+        void ProcessTextureProperty(TextureProperty textureProperty, FormatStringBuilder sb)
+        {
+            if (textureProperty.aov != null)
+                sb.AppendLine($"[AOV(AOVType.{textureProperty.aov})]");
+            if (textureProperty.size != null)
+                sb.AppendLine($"[Size({textureProperty.size})]");
+            if (textureProperty.format != null)
+                sb.AppendLine($"[Format(ResourceFormat.{textureProperty.format})]");
+            if (textureProperty.autoClear)
+                sb.AppendLine($"[AutoClear]");
+
+            WritePorpertyBinding("Texture2D", textureProperty.name, textureProperty.x_attributes, sb, false);
+        }
+
+        void ProcessPlaceHolder(PassPlaceHolder placeHolder, FormatStringBuilder sb)
+        {
+            if (!placeHolder.generateCode)
+            {
+                return;
+            }
+
+            WritePorpertyBinding(placeHolder.placeHolderType, placeHolder.name, placeHolder.x_attributes, sb, true);
+        }
+
+        void WritePorpertyBinding(string type, string name, IEnumerable<KeyValuePair<string, string>> attributes, FormatStringBuilder sb, bool construct)
+        {
+            foreach (var attr in attributes)
+            {
+                sb.AppendLine($"[{attr.Key}({attr.Value})]");
+            }
+            sb.AppendLine($"public {type} {name}");
+            sb.Open("{");
+            sb.AppendLine($"get => x_{name};");
+            sb.AppendLine($"set");
+            sb.Open("{");
+            sb.AppendLine($"x_{name} = value;");
+            if (propertyBindings.TryGetValue(name, out var list))
+            {
+                foreach (var binding in list)
+                {
+                    sb.AppendLine($"{binding}");
+                }
+            }
+            sb.Close("}");
+            sb.Close("}");
+            if (construct)
+                sb.AppendLine($"{type} x_{name} = new();");
+            else
+                sb.AppendLine($"{type} x_{name};");
+            sb.AppendLine();
+        }
+
         static void GenerateRender(Render render, FormatStringBuilder sb)
         {
             sb.AppendLine($"public void {render.name}({render.parameter})");
             sb.Open("{");
-            foreach (var passLike in render.children)
+            foreach (var passLike in render.x_children)
             {
                 ProcessPassLikeFunction(passLike, sb);
             }
@@ -194,7 +266,7 @@ namespace RenderPipelines.SourceGenertor
                     sb.AppendLine($"_bind_{shader.source}();");
                     break;
             }
-            foreach (var child in passLike.children)
+            foreach (var child in passLike.x_children)
             {
                 ProcessPassLikeFunction(child, sb);
             }

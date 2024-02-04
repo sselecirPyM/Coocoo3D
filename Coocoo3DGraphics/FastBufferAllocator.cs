@@ -12,11 +12,12 @@ class BufferTracking
     public int offset;
     public ResourceStates resourceStates;
 
-    public bool Allocate(int _size, out int _offset, out ulong address)
+    public bool Allocate(int _size, int align, out int _offset, out ulong address)
     {
+        offset = (offset + align - 1) & ~(align - 1);
         address = resource.GPUVirtualAddress + (uint)offset;
         _offset = offset;
-        offset += (_size + 15) & ~15;
+        offset += _size;
         if (offset > size)
         {
             return false;
@@ -71,7 +72,7 @@ class FastBufferAllocator : IDisposable
     public GpuDescriptorHandle GetSRV(ReadOnlySpan<byte> data)
     {
         var buffer = buffers[frameIndex];
-        Allocate(buffer, data.Length, out var dstOffset, out var gpuAddress);
+        Allocate(buffer, data.Length, 16, out var dstOffset, out var gpuAddress);
 
         ringBuffer.DelayUploadTo(data, buffer.resource, dstOffset);
 
@@ -94,7 +95,7 @@ class FastBufferAllocator : IDisposable
     public GpuDescriptorHandle GetUAV(ReadOnlySpan<byte> data, out ulong gpuAddress)
     {
         var buffer = buffers[frameIndex];
-        Allocate(buffer, data.Length, out var dstOffset, out gpuAddress);
+        Allocate(buffer, data.Length, 16, out var dstOffset, out gpuAddress);
 
         ringBuffer.DelayUploadTo(data, buffer.resource, dstOffset);
 
@@ -116,17 +117,32 @@ class FastBufferAllocator : IDisposable
     internal void Upload(ReadOnlySpan<byte> data, out ulong gpuAddress, out BufferTracking buffer, out int _offset)
     {
         buffer = buffers[frameIndex];
-        Allocate(buffer, data.Length, out var dstOffset, out gpuAddress);
-        //buffer.ToState(commandList, ResourceStates.CopyDest);
+        Allocate(buffer, data.Length, 4, out var dstOffset, out gpuAddress);
 
         ringBuffer.DelayUploadTo(data, buffer.resource, dstOffset);
         _offset = dstOffset;
     }
 
+    internal void Upload(ReadOnlySpan<byte> data, out ulong gpuAddress)
+    {
+        var buffer = buffers[frameIndex];
+        Allocate(buffer, data.Length, 16, out var dstOffset, out gpuAddress);
+
+        ringBuffer.DelayUploadTo(data, buffer.resource, dstOffset);
+    }
+
+    internal void Upload(ReadOnlySpan<byte> data, int align, out ulong gpuAddress)
+    {
+        var buffer = buffers[frameIndex];
+        Allocate(buffer, data.Length, align, out var dstOffset, out gpuAddress);
+
+        ringBuffer.DelayUploadTo(data, buffer.resource, dstOffset);
+    }
+
     internal void GetCopy(ID3D12GraphicsCommandList commandList, ID3D12Resource src, int srcOffset, int size, out ulong gpuAddress, out BufferTracking buffer, out int _offset)
     {
         buffer = buffers[frameIndex];
-        Allocate(buffer, size, out var dstOffset, out gpuAddress);
+        Allocate(buffer, size, 16, out var dstOffset, out gpuAddress);
         buffer.ToState(commandList, ResourceStates.CopyDest);
         commandList.CopyBufferRegion(buffer.resource, (ulong)dstOffset, src, (ulong)srcOffset, (ulong)size);
         _offset = dstOffset;
@@ -137,9 +153,9 @@ class FastBufferAllocator : IDisposable
         return buffers[frameIndex];
     }
 
-    void Allocate(BufferTracking tracking, int _size, out int _offset, out ulong address)
+    void Allocate(BufferTracking tracking, int _size, int align, out int _offset, out ulong address)
     {
-        if (tracking.Allocate(_size, out _offset, out address))
+        if (tracking.Allocate(_size, align, out _offset, out address))
         {
             return;
         }
@@ -148,7 +164,7 @@ class FastBufferAllocator : IDisposable
         while (tracking.size < tracking.offset + _size)
             tracking.size *= 2;
         CreateBuffer(tracking);
-        tracking.Allocate(_size, out _offset, out address);
+        tracking.Allocate(_size, align, out _offset, out address);
     }
 
     void CreateBuffer(BufferTracking tracking)
@@ -178,7 +194,6 @@ class FastBufferAllocator : IDisposable
 
     public void FrameEnd()
     {
-        //buffers[frameIndex].ToState(commandList, ResourceStates.Common);
         frameIndex = (frameIndex + 1) % 3;
         buffers[frameIndex].offset = 0;
     }

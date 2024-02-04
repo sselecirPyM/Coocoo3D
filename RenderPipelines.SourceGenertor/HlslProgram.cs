@@ -20,6 +20,9 @@ namespace RenderPipelines.SourceGenertor
         public string compute;
 
         public string code;
+
+        [Quotes]
+        public string fileName;
     }
     public class HlslVar : PassObject
     {

@@ -5,13 +5,13 @@ namespace RenderPipelines.SourceGenertor
     public abstract class PassLike : PassObject
     {
         public string name;
-        public List<PassLike> children = new List<PassLike>();
+        public List<PassLike> x_children = new List<PassLike>();
     }
 
     public class PassPlaceHolder : PassLike
     {
-        public string type;
-        public Dictionary<string, string> data = new Dictionary<string, string>();
+        public string placeHolderType;
+        public bool generateCode = false;
     }
 
     public class CopyPass : PassLike
@@ -43,5 +43,14 @@ namespace RenderPipelines.SourceGenertor
     public class Script : PassLike
     {
         public string source;
+    }
+
+    public class TextureProperty : PassLike
+    {
+        [Quotes]
+        public string size;
+        public string format;
+        public string aov;
+        public bool autoClear;
     }
 }

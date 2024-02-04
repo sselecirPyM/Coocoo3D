@@ -3,6 +3,8 @@ using Caprice.Display;
 using Coocoo3D.Components;
 using Coocoo3D.RenderPipeline;
 using Coocoo3DGraphics;
+using RenderPipelines.MaterialDefines;
+using RenderPipelines.Utility;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -14,79 +16,9 @@ namespace RenderPipelines;
 
 public class DeferredRenderPass
 {
-    public DrawObjectPass drawShadowMap = new DrawObjectPass()
-    {
-        shader = "ShadowMap.hlsl",
-        psoDesc = new PSODesc()
-        {
-            blendState = BlendState.None,
-            cullMode = CullMode.None,
-            depthBias = 2000,
-            slopeScaledDepthBias = 1.5f,
-        },
-        CBVPerObject = new object[]
-        {
-            null,
-            "ShadowMapVP",
-        },
-    };
-
-    public DrawObjectPass drawGBuffer = new DrawObjectPass()
-    {
-        shader = "DeferredGBuffer.hlsl",
-        psoDesc = new PSODesc()
-        {
-            blendState = BlendState.None,
-            cullMode = CullMode.None,
-        },
-        srvs = new string[]
-        {
-            "_Albedo",
-            "_Metallic",
-            "_Roughness",
-            "_Emissive",
-            "_Normal",
-            "_Spa",
-        },
-        CBVPerObject = new object[]
-        {
-            null,
-            nameof(ViewProjection),
-            "Metallic",
-            "Roughness",
-            "Emissive",
-            "Specular",
-            "AO",
-            nameof(CameraLeft),
-            nameof(CameraDown),
-        },
-        AutoKeyMap =
-        {
-            ("UseNormalMap","USE_NORMAL_MAP"),
-            ("UseSpa","USE_SPA"),
-        },
-        filter = FilterOpaque,
-    };
-    public DrawDecalPass decalPass = new DrawDecalPass()
-    {
-        srvs = new string[]
-        {
-            null,
-            "DecalColorTexture",
-            "DecalEmissiveTexture",
-        },
-        CBVPerObject = new object[]
-        {
-            null,
-            null,
-            "_DecalEmissivePower"
-        },
-        AutoKeyMap =
-        {
-            ("EnableDecalColor","ENABLE_DECAL_COLOR"),
-            ("EnableDecalEmissive","ENABLE_DECAL_EMISSIVE"),
-        }
-    };
+    public DrawShadowMap drawShadowMap = new DrawShadowMap();
+    public DrawGBuffer drawGBuffer = new DrawGBuffer();
+    public DrawDecalPass decalPass = new DrawDecalPass();
     public FinalPass finalPass = new FinalPass()
     {
         srvs = new string[]
@@ -356,6 +288,7 @@ public class DeferredRenderPass
     public Texture2D gbuffer3;
 
     public Texture2D renderTarget;
+    public Texture2D depth;
     public string depthStencil;
 
     [Indexable]
@@ -393,10 +326,10 @@ public class DeferredRenderPass
     public void Execute(RenderHelper renderHelper)
     {
         RenderWrap renderWrap = renderHelper.renderWrap;
-        var depth = renderWrap.GetRenderTexture2D(depthStencil);
+
         HiZPass.input = depth;
         HiZPass.output = renderWrap.GetRenderTexture2D("_HiZBuffer");
-        decalPass.srvs[0] = depthStencil;
+        decalPass.depthStencil = depth;
         decalPass.Visuals = Visuals;
         finalPass.srvs[5] = depthStencil;
 
@@ -413,16 +346,17 @@ public class DeferredRenderPass
         foreach (var visual in Visuals)
         {
             var material = visual.material;
-            if (visual.UIShowType != Caprice.Display.UIShowType.Light)
+            if (visual.material.Type != Caprice.Display.UIShowType.Light)
                 continue;
-            var lightType = (LightType)renderHelper.GetIndexableValue("LightType", material);
+            var lightMaterial = DictExt.ConvertToObject<LightMaterial>(material.Parameters);
+            var lightType = lightMaterial.LightType;
             if (lightType == LightType.Directional)
             {
                 if (directionalLight != null)
                     continue;
                 directionalLight = new DirectionalLightData()
                 {
-                    Color = (Vector3)renderHelper.GetIndexableValue("LightColor", material),
+                    Color = lightMaterial.LightColor,
                     Direction = Vector3.Transform(-Vector3.UnitZ, visual.transform.rotation),
                     Rotation = visual.transform.rotation
                 };
@@ -433,12 +367,12 @@ public class DeferredRenderPass
                 {
                     continue;
                 }
-                float range = (float)renderHelper.GetIndexableValue("LightRange", material);
+                float range = lightMaterial.LightRange;
                 if (!frustum.Intersects(new BoundingSphere(visual.transform.position, range)))
                     continue;
                 pointLights.Add(new PointLightData()
                 {
-                    Color = (Vector3)renderHelper.GetIndexableValue("LightColor", material),
+                    Color = lightMaterial.LightColor,
                     Position = visual.transform.position,
                     Range = range,
                 });
@@ -485,11 +419,11 @@ public class DeferredRenderPass
             int width = shadowMap.width;
             int height = shadowMap.height;
 
-            drawShadowMap.CBVPerObject[1] = ShadowMapVP;
+            drawShadowMap.viewProjection = ShadowMapVP;
             SetScissorViewportRect(renderWrap, 0, 0, width / 2, height / 2);
             drawShadowMap.Execute(renderHelper);
 
-            drawShadowMap.CBVPerObject[1] = ShadowMapVP1;
+            drawShadowMap.viewProjection = ShadowMapVP1;
             SetScissorViewportRect(renderWrap, width / 2, 0, width / 2, height / 2);
             drawShadowMap.Execute(renderHelper);
         }
@@ -513,6 +447,9 @@ public class DeferredRenderPass
             drawObjectTransparent.keywords.Add(("ENABLE_POINT_LIGHT", "1"));
             drawObjectTransparent.keywords.Add(("POINT_LIGHT_COUNT", pointLights.Count.ToString()));
         }
+        drawGBuffer.CameraLeft = CameraLeft;
+        drawGBuffer.CameraDown = CameraDown;
+        drawGBuffer.viewProjection = ViewProjection;
         renderWrap.SetRenderTarget([gbuffer0, gbuffer1, gbuffer2, gbuffer3], depth, false, false);
         drawGBuffer.Execute(renderHelper);
         renderWrap.SetRenderTarget([gbuffer0, gbuffer2], null, false, false);
@@ -547,7 +484,6 @@ public class DeferredRenderPass
         finalPass.cbvs[1][0] = null;
         drawObjectTransparent.CBVPerObject[1] = null;
 
-        drawGBuffer.keywords.Clear();
         drawObjectTransparent.keywords.Clear();
         finalPass.keywords.Clear();
     }
@@ -602,7 +538,7 @@ public class DeferredRenderPass
 
             foreach (var val in table)
             {
-                drawShadowMap.CBVPerObject[1] = GetShadowMapMatrix(pl.Position, val.Item1, val.Item2, near, far);
+                drawShadowMap.viewProjection = GetShadowMapMatrix(pl.Position, val.Item1, val.Item2, near, far);
                 var rect = GetRectangle(index, Split, width, height); ;
                 renderWrap.SetScissorRectAndViewport(rect.Left, rect.Top, rect.Right, rect.Bottom);
                 drawShadowMap.Execute(renderHelper);
@@ -661,5 +597,10 @@ public class DeferredRenderPass
     public void Dispose()
     {
         HiZPass?.Dispose();
+        HiZPass = null;
+        drawShadowMap?.Dispose();
+        drawShadowMap = null;
+        decalPass?.Dispose();
+        decalPass = null;
     }
 }

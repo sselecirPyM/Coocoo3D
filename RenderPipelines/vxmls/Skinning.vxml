@@ -1,11 +1,12 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <root name="SkinningCompute" xmlns:v="directive" xmlns:b="binding">
-	<render name="Execute" parameter="Mesh mesh">
+	<render name="Execute" parameter="Mesh mesh, ReadOnlySpan&lt;byte&gt; matrices">
 		<shader source="shader_skinning"/>
 		<script>
 			context.SetUAV(0, mesh, "POSITION0");
 			context.SetUAV(1, mesh, "NORMAL0");
 			context.SetUAV(2, mesh, "TANGENT0");
+			context.SetSRV(0, matrices);
 			context.SetSRV(1, mesh, "BONES0");
 			context.SetSRV(2, mesh, "WEIGHTS0");
 		</script>
@@ -13,7 +14,7 @@
 	</render>
 	
 	<hlsl name="shader_skinning" compute="csmain">
-		<srv name="_matrice" type="StructuredBuffer&lt;float4x4&gt;" xType="Matrix4x4[]"/>
+		<srv name="_matrices" type="StructuredBuffer&lt;float4x4&gt;" xType="" autoBinding="false"/>
 		<srv name="_boneIndice" type="StructuredBuffer&lt;uint2&gt;" xType="" autoBinding="false"/>
 		<srv name="_boneWeight" type="StructuredBuffer&lt;float4&gt;" xType="" autoBinding="false"/>
 		<uav name="_position" type="RWStructuredBuffer&lt;float3&gt;" xType="" autoBinding="false"/>
@@ -50,7 +51,7 @@ void csmain(uint3 dtid : SV_DispatchThreadID)
 		float fWeight = _boneWeight[id][i];
 		if (iBone < MAX_BONE_MATRICES)
 		{
-			mx += fWeight * _matrice[iBone];
+			mx += fWeight * _matrices[iBone];
 		}
 	}
 

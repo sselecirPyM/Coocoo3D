@@ -65,7 +65,8 @@ public class PopupsWindow : IWindow
         }
         if (ImGui.BeginPopupModal("编辑参数", ref popupParamEdit))
         {
-            uiImGui.ShowParams(UIShowType.Material, editorContext.currentChannel.renderPipelineView, UIImGui.paramEdit);
+            var matObj = editorContext.currentChannel.renderPipelineView.renderPipeline.UIMaterial(UIImGui.paramEdit);
+            uiImGui.ShowParams(matObj, UIImGui.paramEdit.Parameters);
 
             if (ImGui.Button("确定"))
             {
@@ -81,7 +82,7 @@ public class PopupsWindow : IWindow
                     materials = mmdRenderer.Materials;
                 }
                 foreach (var material in materials)
-                    foreach (var param in UIImGui.paramEdit)
+                    foreach (var param in UIImGui.paramEdit.Parameters)
                     {
                         material.Parameters[param.Key] = param.Value;
                     }

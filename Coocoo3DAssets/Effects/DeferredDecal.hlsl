@@ -104,5 +104,4 @@ MRTOutput psmain(PSIn input) : SV_TARGET
 		clip(-0.1);
 
 	return output;
-	//return float4(uv, 0, 0);
 }

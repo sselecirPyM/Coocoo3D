@@ -178,13 +178,7 @@ public class UIImGui
         }
     }
 
-    public void ShowParams(UIShowType showType, RenderPipelineView view, IDictionary<string, object> parameters)
-    {
-        if (view == null)
-            return;
-        ShowParams(showType, view.renderPipeline, parameters);
-    }
-    public void ShowParams(UIShowType showType, object source, IDictionary<string, object> parameters)
+    public void ShowParams(object source, IDictionary<string, object> parameters)
     {
         ImGui.Separator();
         string filter = ImGuiExt.ImFilter("查找参数", "搜索参数名称");
@@ -193,8 +187,6 @@ public class UIImGui
         {
             string name = param.MemberInfo.Name;
 
-            if ((param.UIShowType & showType) == 0)
-                continue;
             if (!Contains(param.Name, filter) && !Contains(name, filter))
                 continue;
 
@@ -613,7 +605,7 @@ public class UIImGui
 
     public static void StartEditParam()
     {
-        paramEdit = new Dictionary<string, object>();
+        paramEdit = new RenderMaterial() { Type = UIShowType.Material };
         requestParamEdit = true;
     }
 
@@ -733,7 +725,7 @@ public class UIImGui
     public static string fileOpenSlot;
 
     public static bool requestParamEdit = false;
-    public static Dictionary<string, object> paramEdit;
+    public static RenderMaterial paramEdit;
     public static bool showBounding = false;
     Entity selectedObject;
 

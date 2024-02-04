@@ -1,7 +1,5 @@
-﻿using Caprice.Display;
-using Coocoo3D.Components;
+﻿using Coocoo3D.Components;
 using Coocoo3D.Core;
-using Coocoo3D.Present;
 using DefaultEcs;
 using DefaultEcs.Command;
 using ImGuiNET;
@@ -111,22 +109,6 @@ public class SceneHierachyWindow : IWindow
             if (selectedObject.IsAlive)
                 CurrentScene.DuplicateObject(selectedObject);
         }
-    }
-
-
-    void NewParticle()
-    {
-        var world = CurrentScene.recorder.Record(CurrentScene.world);
-        var gameObject = world.CreateEntity();
-        VisualComponent component = new VisualComponent();
-        component.UIShowType = UIShowType.Particle;
-        gameObject.Set(component);
-        gameObject.Set(new ObjectDescription
-        {
-            Name = "粒子",
-            Description = ""
-        });
-        gameObject.Set(new Transform(new Vector3(0, 0, 0), Quaternion.CreateFromYawPitchRoll(0, 0, 0), new Vector3(1, 1, 1)));
     }
 
 

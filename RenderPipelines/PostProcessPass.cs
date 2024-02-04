@@ -15,8 +15,6 @@ public class PostProcessPass : IDisposable
 
     public Texture2D inputColor;
 
-    public Texture2D inputDepth;
-
     public Texture2D intermedia1;
     public Texture2D intermedia2;
     public Texture2D intermedia3;
@@ -70,6 +68,8 @@ public class PostProcessPass : IDisposable
 
     public void Dispose()
     {
+        bloomPass?.Dispose();
+        bloomPass = null;
         srgbConvert?.Dispose();
         srgbConvert = null;
         generateMipPass?.Dispose();

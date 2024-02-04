@@ -31,7 +31,7 @@ public class CooSceneObject
         }
         if (TryGetComponent<VisualComponent>(obj, out var visualComponent))
         {
-            switch (visualComponent.UIShowType)
+            switch (visualComponent.material.Type)
             {
                 case UIShowType.Decal:
                     type = "decal";
@@ -264,7 +264,7 @@ public class Coocoo3DScene
                         continue;
                 }
                 VisualComponent component = new VisualComponent();
-                component.UIShowType = uiShowType;
+                component.material.Type = uiShowType;
                 entity.Set(component);
                 entity.Set(transform);
                 if (obj.visual != null)

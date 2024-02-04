@@ -1,0 +1,34 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<root name="DeferredRenderPipeline" xmlns:v="directive" xmlns:b="binding" xmlns:c="component" xmlns:a="attribute" generateDispose="false">
+	<using>Caprice.Attributes</using>
+	<using>Caprice.Display</using>
+	<texture name="gbuffer0" size="Output" format="R16G16B16A16_Float" autoClear="true"/>
+	<texture name="gbuffer1" size="Output" format="R16G16B16A16_Float" autoClear="true"/>
+	<texture name="gbuffer2" size="Output" format="R16G16B16A16_Float" autoClear="true"/>
+	<texture name="gbuffer3" size="Output" format="R16G16B16A16_Float" autoClear="true"/>
+	<texture name="_ShadowMap" b:size="4096, 4096" format="D32_Float" autoClear="true"/>
+	<texture name="_HiZBuffer" b:size="2048, 2048, 9" format="R32G32_Float" autoClear="true"/>
+
+	<texture name="noPostProcess" size="Output" format="R16G16B16A16_Float"/>
+	<texture name="noPostProcess2" size="Output" format="R16G16B16A16_Float"/>
+
+	<texture name="intermedia1" size="BloomSize" format="R16G16B16A16_Float"/>
+	<texture name="intermedia2" size="BloomSize" format="R16G16B16A16_Float" autoClear="true"/>
+	<texture name="intermedia3" b:size="2048, 2048, 9" format="R16G16B16A16_Float" autoClear="true"/>
+
+	<texture name="depth" size="Output" format="D32_Float" aov="Depth" autoClear="true"/>
+	<texture name="depth2" size="Output" format="D32_Float"/>
+
+	<texture name="output" size="UnscaledOutput" format="R8G8B8A8_UNorm" aov="Color" autoClear="true"/>
+
+	<texture name="_BRDFLUT" b:size="128 , 128" format="R16G16B16A16_Float" a:BRDFBaker=""/>
+	<texture name="_SkyBox" b:size="1024, 1024, 6, 6" format="R16G16B16A16_Float" a:CubeFrom2D="nameof(skyboxTexture)" a:BakeDependency="nameof(skyboxTexture)"/>
+	<texture name="_Environment" b:size="512, 512, 6, 6" format="R16G16B16A16_Float" a:EnvironmentReflection="nameof(_SkyBox)" a:BakeDependency="nameof(_SkyBox)"/>
+
+	<texture name="skyboxTexture" a:UIShow="name: &quot;天空盒&quot;" a:Resource="&quot;adams_place_bridge_2k.jpg&quot;"/>
+	<c:DeferredRenderPass name="deferredRenderPass" b:shadowMap="_ShadowMap" b:renderTarget="noPostProcess" b:depth="depth"
+						  b:gbuffer0="gbuffer0" b:gbuffer1="gbuffer1" b:gbuffer2="gbuffer2" b:gbuffer3="gbuffer3"/>
+	<c:PostProcessPass name="postProcess" a:UITree="" b:inputColor="noPostProcess" b:output="output"
+					   b:intermedia1="intermedia1" b:intermedia2="intermedia2" b:intermedia3="intermedia3" generateCode="true"/>
+	<c:TAAPass name="taaPass" a:UITree="" b:target="noPostProcess" b:depth="depth" b:history="noPostProcess2" b:historyDepth="depth2" generateCode="true"/>
+</root>

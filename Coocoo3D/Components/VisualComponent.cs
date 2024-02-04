@@ -1,11 +1,9 @@
-﻿using Caprice.Display;
-using Coocoo3D.Present;
+﻿using Coocoo3D.Present;
 
 namespace Coocoo3D.Components;
 
 public class VisualComponent
 {
-    public UIShowType UIShowType;
     public RenderMaterial material = new RenderMaterial();
     public Transform transform;
     public int id;

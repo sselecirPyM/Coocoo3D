@@ -5,6 +5,7 @@ namespace RenderPipelines.SourceGenertor
     public class Component
     {
         public string name;
+        public bool generateDispose = true;
         public List<ComponentProperty> properties = new List<ComponentProperty>();
         public List<HlslProgram> hlslPrograms = new List<HlslProgram>();
         public List<PassLike> children = new List<PassLike>();

@@ -2,7 +2,6 @@
 using Coocoo3D.Present;
 using Coocoo3DGraphics;
 using System;
-using System.Collections.Generic;
 using System.IO;
 
 namespace Coocoo3D.RenderPipeline;
@@ -29,16 +28,10 @@ public class VisualChannel : IDisposable
 
     public bool disposed;
 
-    Dictionary<string, object> pipelineSettings = new();
-
     public void Onframe(float time)
     {
         if (newRenderPipelineType != null)
         {
-            if (renderPipelineView != null)
-            {
-                renderPipelineView.Export(pipelineSettings);
-            }
             renderPipelineView?.Dispose();
 
             SetRenderPipeline((RenderPipeline)Activator.CreateInstance(newRenderPipelineType), newRenderPipelinePath);
@@ -69,7 +62,6 @@ public class VisualChannel : IDisposable
         };
         renderPipeline.renderWrap = renderWrap;
         renderPipelineView.renderWrap = renderWrap;
-        renderPipelineView.Import(pipelineSettings);
     }
 
     public void UpdateSize()

@@ -1,7 +1,6 @@
 ﻿using Coocoo3DGraphics;
 using System;
 using System.Collections.Generic;
-using Vortice.Win32;
 
 namespace RenderPipelines.Utility
 {
@@ -18,10 +17,11 @@ namespace RenderPipelines.Utility
             return _shader;
         }
 
-        public VariantComputeShader(string source, string entryPoint)
+        public VariantComputeShader(string source, string entryPoint, string fileName = null)
         {
             this.source = source;
             this.entryPoint = entryPoint;
+            this.fileName = fileName;
         }
 
         public readonly string source;
@@ -50,10 +50,11 @@ namespace RenderPipelines.Utility
 
         public static implicit operator ComputeShader(VariantComputeShader d) => d.Get();
 
-        public VariantComputeShader(string source, string entryPoint)
+        public VariantComputeShader(string source, string entryPoint, string fileName = null)
         {
             this.source = source;
             this.entryPoint = entryPoint;
+            this.fileName = fileName;
         }
 
         public readonly string source;

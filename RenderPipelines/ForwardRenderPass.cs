@@ -2,6 +2,8 @@
 using Caprice.Display;
 using Coocoo3D.RenderPipeline;
 using Coocoo3DGraphics;
+using RenderPipelines.MaterialDefines;
+using RenderPipelines.Utility;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -15,22 +17,7 @@ public partial class ForwardRenderPipeline
 {
     public DrawSkyBoxPass drawSkyBox = new DrawSkyBoxPass();
 
-    public DrawObjectPass drawShadowMap = new DrawObjectPass()
-    {
-        shader = "ShadowMap.hlsl",
-        psoDesc = new PSODesc()
-        {
-            blendState = BlendState.None,
-            cullMode = CullMode.None,
-            depthBias = 2000,
-            slopeScaledDepthBias = 1.5f,
-        },
-        CBVPerObject = new object[]
-        {
-            null,
-            nameof(ShadowMapVP),
-        },
-    };
+    public DrawShadowMap drawShadowMap = new DrawShadowMap();
 
     public DrawObjectPass drawObject = new DrawObjectPass()
     {
@@ -75,7 +62,7 @@ public partial class ForwardRenderPipeline
             nameof(ShadowMapVP1),
             nameof(LightDir),
             0,
-            nameof(LightColor2),
+            nameof(LightColor),
             0,
             nameof(SkyLightMultiple),
             nameof(FogColor),
@@ -148,7 +135,7 @@ public partial class ForwardRenderPipeline
     [Indexable]
     public Vector3 LightDir;
     [Indexable]
-    public Vector3 LightColor2;
+    public Vector3 LightColor;
 
     [Indexable]
     public int Split;
@@ -186,16 +173,17 @@ public partial class ForwardRenderPipeline
         foreach (var visual in Visuals)
         {
             var material = visual.material;
-            if (visual.UIShowType != UIShowType.Light)
+            if (visual.material.Type != UIShowType.Light)
                 continue;
-            var lightType = (LightType)renderHelper.GetIndexableValue("LightType", material);
+            var lightMaterial = DictExt.ConvertToObject<LightMaterial>(material.Parameters);
+            var lightType = lightMaterial.LightType;
             if (lightType == LightType.Directional)
             {
                 if (directionalLight != null)
                     continue;
                 directionalLight = new DirectionalLightData()
                 {
-                    Color = (Vector3)renderHelper.GetIndexableValue("LightColor", material),
+                    Color = lightMaterial.LightColor,
                     Direction = Vector3.Transform(-Vector3.UnitZ, visual.transform.rotation),
                     Rotation = visual.transform.rotation
                 };
@@ -206,12 +194,12 @@ public partial class ForwardRenderPipeline
                 {
                     continue;
                 }
-                float range = (float)renderHelper.GetIndexableValue("LightRange", material);
+                float range = lightMaterial.LightRange;
                 if (!frustum.Intersects(new BoundingSphere(visual.transform.position, range)))
                     continue;
                 pointLights.Add(new PointLightData()
                 {
-                    Color = (Vector3)renderHelper.GetIndexableValue("LightColor", material),
+                    Color = lightMaterial.LightColor,
                     Position = visual.transform.position,
                     Range = range,
                 });
@@ -224,7 +212,7 @@ public partial class ForwardRenderPipeline
             ShadowMapVP = dl.GetLightingMatrix(InvertViewProjection, 0, 0.93f);
             ShadowMapVP1 = dl.GetLightingMatrix(InvertViewProjection, 0.93f, 0.991f);
             LightDir = dl.Direction;
-            LightColor2 = dl.Color;
+            LightColor = dl.Color;
             drawObject.keywords.Add(("ENABLE_DIRECTIONAL_LIGHT", "1"));
         }
         else
@@ -232,21 +220,20 @@ public partial class ForwardRenderPipeline
             ShadowMapVP = Matrix4x4.Identity;
             ShadowMapVP1 = Matrix4x4.Identity;
             LightDir = Vector3.UnitZ;
-            LightColor2 = Vector3.Zero;
+            LightColor = Vector3.Zero;
         }
 
         //renderHelper.PushParameters(this);
         if (directionalLight != null)
         {
-            renderWrap.ClearTexture("_ShadowMap");
             var shadowMap = _ShadowMap;
-            drawShadowMap.CBVPerObject[1] = ShadowMapVP;
+            drawShadowMap.viewProjection = ShadowMapVP;
             var rect = new Rectangle(0, 0, shadowMap.width / 2, shadowMap.height / 2);
             renderWrap.SetRenderTargetDepth(shadowMap, false);
             renderWrap.SetScissorRectAndViewport(rect.Left, rect.Top, rect.Right, rect.Bottom);
 
             drawShadowMap.Execute(renderHelper);
-            drawShadowMap.CBVPerObject[1] = ShadowMapVP1;
+            drawShadowMap.viewProjection = ShadowMapVP1;
             rect = new Rectangle(shadowMap.width / 2, 0, shadowMap.width / 2, shadowMap.height / 2);
             renderWrap.SetScissorRectAndViewport(rect.Left, rect.Top, rect.Right, rect.Bottom);
 
@@ -337,7 +324,7 @@ public partial class ForwardRenderPipeline
 
             foreach (var val in table)
             {
-                drawShadowMap.CBVPerObject[1] = GetShadowMapMatrix(pl.Position, val.Item1, val.Item2, near, far);
+                drawShadowMap.viewProjection = GetShadowMapMatrix(pl.Position, val.Item1, val.Item2, near, far);
                 SetViewportScissorRectangle(renderWrap, index, Split, width, height);
                 drawShadowMap.Execute(renderHelper);
                 index++;

@@ -26,6 +26,8 @@ public class RenderHelper
     public Mesh quadMesh = new Mesh();
     public Mesh cubeMesh = new Mesh();
 
+    public RenderPipeline renderPipeline;
+
     public Dictionary<MMDRendererComponent, Mesh> meshOverrides = new();
 
     public RenderWrap renderWrap;
@@ -44,7 +46,6 @@ public class RenderHelper
         foreach (var renderer in rpc.renderers)
         {
             var model = renderer.model;
-            var mesh = model.GetMesh();
             var meshOverride = meshOverrides[renderer];
             if (setMesh)
             {
@@ -54,15 +55,7 @@ public class RenderHelper
             {
                 var material = renderer.Materials[i];
                 var submesh = model.Submeshes[i];
-                var renderable = new MeshRenderable()
-                {
-                    mesh = meshOverride ?? mesh,
-                    transform = renderer.LocalToWorld,
-                    gpuSkinning = renderer.skinning,
-                    material = material,
-                };
-                WriteRenderable1(ref renderable, submesh);
-                yield return renderable;
+                yield return GetRenderable(submesh, meshOverride, renderer.LocalToWorld, material);
             }
         }
         foreach (var renderer in rpc.meshRenderers)
@@ -70,31 +63,72 @@ public class RenderHelper
             var model = renderer.model;
             var mesh = model.GetMesh();
             if (setMesh)
+            {
                 graphicsContext.SetMesh(mesh);
+            }
             for (int i = 0; i < renderer.Materials.Count; i++)
             {
                 var material = renderer.Materials[i];
                 var submesh = model.Submeshes[i];
-                var renderable = new MeshRenderable()
-                {
-                    mesh = mesh,
-                    transform = renderer.transform.GetMatrix(),
-                    gpuSkinning = false,
-                    material = material,
-                };
-                WriteRenderable1(ref renderable, submesh);
-                yield return renderable;
+                yield return GetRenderable(submesh, mesh, renderer.transform.GetMatrix(), material);
             }
         }
     }
 
-    void WriteRenderable1(ref MeshRenderable renderable, Submesh submesh)
+    MeshRenderable GetRenderable(Submesh submesh, Mesh mesh, Matrix4x4 transform, RenderMaterial material)
     {
+        MeshRenderable renderable = new MeshRenderable();
         renderable.indexStart = submesh.indexOffset;
         renderable.indexCount = submesh.indexCount;
         renderable.vertexStart = submesh.vertexStart;
         renderable.vertexCount = submesh.vertexCount;
         renderable.drawDoubleFace = submesh.DrawDoubleFace;
+        renderable.mesh = mesh;
+        renderable.transform = transform;
+        renderable.material = material;
+        return renderable;
+    }
+
+    public IEnumerable<MeshRenderable<T>> MeshRenderables<T>() where T : class, new()
+    {
+        RenderPipelineContext rpc = renderWrap.rpc;
+        foreach (var renderer in rpc.renderers)
+        {
+            var model = renderer.model;
+            var meshOverride = meshOverrides[renderer];
+            for (int i = 0; i < renderer.Materials.Count; i++)
+            {
+                var material = renderer.Materials[i];
+                var submesh = model.Submeshes[i];
+                yield return GetRenderable<T>(submesh, meshOverride, renderer.LocalToWorld, material);
+            }
+        }
+        foreach (var renderer in rpc.meshRenderers)
+        {
+            var model = renderer.model;
+            var mesh = model.GetMesh();
+            for (int i = 0; i < renderer.Materials.Count; i++)
+            {
+                var material = renderer.Materials[i];
+                var submesh = model.Submeshes[i];
+                yield return GetRenderable<T>(submesh, mesh, renderer.transform.GetMatrix(), material);
+            }
+        }
+    }
+
+    MeshRenderable<T> GetRenderable<T>(Submesh submesh, Mesh mesh, Matrix4x4 transform, RenderMaterial material) where T : class, new()
+    {
+        material.Type = Caprice.Display.UIShowType.Material;
+        MeshRenderable<T> renderable = new MeshRenderable<T>();
+        renderable.indexStart = submesh.indexOffset;
+        renderable.indexCount = submesh.indexCount;
+        renderable.vertexStart = submesh.vertexStart;
+        renderable.vertexCount = submesh.vertexCount;
+        renderable.drawDoubleFace = submesh.DrawDoubleFace;
+        renderable.mesh = mesh;
+        renderable.transform = transform;
+        renderable.material = renderPipeline.UIMaterial(material) as T;
+        return renderable;
     }
 
     void InitializeResources()
@@ -128,12 +162,12 @@ public class RenderHelper
         Writer.Clear();
         if (!resourcesInitialized)
             InitializeResources();
-        UpdateBoneMatrice();
 
         Morph();
     }
 
-    void UpdateBoneMatrice()
+    SkinningCompute skinningCompute = new SkinningCompute();
+    void Morph()
     {
         RenderPipelineContext rpc = renderWrap.rpc;
         var renderers = rpc.renderers;
@@ -142,13 +176,7 @@ public class RenderHelper
         {
             renderers[i].WriteMatriticesData();
         }
-    }
 
-    SkinningCompute skinningCompute = new SkinningCompute();
-    void Morph()
-    {
-        RenderPipelineContext rpc = renderWrap.rpc;
-        var renderers = rpc.renderers;
         var graphicsContext = rpc.graphicsContext;
         meshPool.Reset();
         meshOverrides.Clear();
@@ -170,21 +198,27 @@ public class RenderHelper
             graphicsContext.EndUpdateMesh(mesh);
         }
         skinningCompute.context = this;
-
+        Span<Matrix4x4> matrices = stackalloc Matrix4x4[1024];
         for (int i = 0; i < renderers.Count; i++)
         {
             var renderer = renderers[i];
             if (!renderer.skinning)
                 continue;
             var mesh = meshOverrides[renderer];
-            Matrix4x4[] matrices = new Matrix4x4[renderer.BoneMatricesData.Length];
-            for (int j = 0; j < renderer.BoneMatricesData.Length; j++)
+
+            int matrixCount = Math.Min(renderer.BoneMatricesData.Length, 1024);
+            for (int j = 0; j < matrixCount; j++)
             {
                 matrices[j] = Matrix4x4.Transpose(renderer.BoneMatricesData[j]);
             }
-            skinningCompute._matrice = matrices;
-            skinningCompute.Execute(mesh);
+            if (matrixCount > 0)
+                skinningCompute.Execute(mesh, MemoryMarshal.AsBytes(matrices.Slice(0, matrixCount)));
         }
+    }
+
+    public void SetMesh(Mesh mesh)
+    {
+        graphicsContext.SetMesh(mesh);
     }
 
     public void DrawQuad(int instanceCount = 1)
@@ -381,6 +415,10 @@ public class RenderHelper
 
     public static ComputeShader CreateComputeShader(string source, string entry, string fileName = null)
     {
+        if (fileName != null)
+        {
+            fileName = Path.Combine(_BasePath, fileName);
+        }
         var cs = LoadShader(DxcShaderStage.Compute, source, entry, fileName, null, out var reflection);
         return new ComputeShader(cs, reflection);
     }
@@ -580,6 +618,8 @@ public class RenderHelper
         var renderTargets = renderWrap.RenderTargets;
         if (pso.pixelShader != null && renderTargets.Count > 0)
             desc.rtvFormat = renderTargets[0].GetFormat();
+        else
+            desc.rtvFormat = Vortice.DXGI.Format.Unknown;
         desc.renderTargetCount = renderTargets.Count;
         graphicsContext.SetPSO(pso, desc);
     }
@@ -590,7 +630,7 @@ public class RenderHelper
     }
 
 
-    public void SetSRVs(params Texture2D[] textures)
+    public void SetSRVs(params IGPUResource[] textures)
     {
         for (int i = 0; i < textures.Length; i++)
         {
@@ -647,6 +687,11 @@ public class RenderHelper
     {
         graphicsContext.SetCBVRSlot<T>(slot, data);
     }
+
+    public void SetCBV<T>(int slot, Span<T> data) where T : unmanaged
+    {
+        graphicsContext.SetCBVRSlot<T>(slot, data);
+    }
     public void SetSimpleMesh(ReadOnlySpan<byte> vertexData, ReadOnlySpan<byte> indexData, int vertexStride, int indexStride)
     {
         graphicsContext.SetSimpleMesh(vertexData, indexData, vertexStride, indexStride);
@@ -666,6 +711,7 @@ public class RenderHelper
         meshOverrides.Clear();
         quadMesh?.Dispose();
         cubeMesh?.Dispose();
+        skinningCompute.Dispose();
         foreach (var obj in meshPool.list1)
         {
             obj.Dispose();
@@ -675,6 +721,5 @@ public class RenderHelper
             rtc.Value?.Dispose();
         }
         RTPSOs.Clear();
-        skinningCompute?.Dispose();
     }
 }

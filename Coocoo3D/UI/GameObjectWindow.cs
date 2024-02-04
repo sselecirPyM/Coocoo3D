@@ -175,8 +175,9 @@ public class GameObjectWindow : IWindow
                 {
                     UIImGui.StartEditParam();
                 }
-
-                uiImGui.ShowParams(UIShowType.Material, editorContext.currentChannel.renderPipelineView, material.Parameters);
+                material.Type = UIShowType.Material;
+                var matObj = editorContext.currentChannel.renderPipelineView.renderPipeline.UIMaterial(material);
+                uiImGui.ShowParams(matObj, material.Parameters);
             }
         }
         ImGui.EndChild();
@@ -256,13 +257,10 @@ public class GameObjectWindow : IWindow
             ImGui.Checkbox("显示包围盒", ref UIImGui.showBounding);
 
             ImGui.DragFloat3("大小", ref transform.scale, 0.01f);
-            if (renderPipelineView.renderPipeline.materialTypes.TryGetValue(visualComponent.UIShowType, out var baseMaterial))
-            {
-                uiImGui.ShowParams(visualComponent.UIShowType, baseMaterial, visualComponent.material.Parameters);
-            }
-            else
-                uiImGui.ShowParams(visualComponent.UIShowType, renderPipelineView, visualComponent.material.Parameters);
 
+            var obj = renderPipelineView.renderPipeline.UIMaterial(visualComponent.material);
+            if (obj != null)
+                uiImGui.ShowParams(obj, visualComponent.material.Parameters);
             ImGui.TreePop();
         }
     }

@@ -12,8 +12,6 @@ public class BRDFBakerAttribute : RuntimeBakeAttribute, ITexture2DBaker, IDispos
     static ushort[] quad = new ushort[] { 0, 1, 2, 2, 1, 3 };
     public bool Bake(Texture2D texture, RenderWrap renderWrap, ref object tag)
     {
-        this.renderWrap = renderWrap;
-
         renderWrap.SetRenderTarget(texture, true);
         var psoDesc = new PSODesc()
         {
@@ -28,7 +26,6 @@ public class BRDFBakerAttribute : RuntimeBakeAttribute, ITexture2DBaker, IDispos
         renderWrap.Draw(6, 0, 0);
         return true;
     }
-    RenderWrap renderWrap;
 
     public void Dispose()
     {
@@ -43,8 +40,6 @@ public class BRDFBakerAttribute : RuntimeBakeAttribute, ITexture2DBaker, IDispos
 #ifndef PI
 #define PI 3.14159265358979
 #endif
-#pragma VertexShader vsmain
-#pragma PixelShader psmain
 float GeometrySchlickGGX(float NdotV, float roughness)
 {
 	float a = roughness;

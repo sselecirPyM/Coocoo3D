@@ -1,6 +1,4 @@
-﻿using Caprice.Display;
-using System;
-using System.Collections.Generic;
+﻿using Coocoo3D.Present;
 
 namespace Coocoo3D.RenderPipeline;
 
@@ -12,10 +10,13 @@ public abstract class RenderPipeline
     public abstract void Render();
     public abstract void AfterRender();
 
-    public abstract IDictionary<UIShowType, ICloneable> materialTypes { get; }
-
     public virtual void OnResourceInvald(string name)
     {
 
+    }
+
+    public virtual object UIMaterial(RenderMaterial material)
+    {
+        return null;
     }
 }

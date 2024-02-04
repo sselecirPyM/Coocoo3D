@@ -120,7 +120,7 @@ public sealed class GraphicsContext
                 Transform = GetMatrix3X4(Matrix4x4.Transpose(instance.transform))
             };
         }
-        GetRingBuffer().UploadBuffer<RaytracingInstanceDescription>(raytracingInstanceDescriptions, out ulong gpuAddr);
+        readonlyBufferAllocator.Upload(MemoryMarshal.AsBytes(raytracingInstanceDescriptions), 64, out ulong gpuAddr);
         var tpInputs = new BuildRaytracingAccelerationStructureInputs
         {
             Type = RaytracingAccelerationStructureType.TopLevel,
@@ -208,7 +208,7 @@ public sealed class GraphicsContext
         };
 
         {
-            GetRingBuffer().UploadBuffer(GetShaderIdentifier(pRtsoProps, call.rayGenShader), out var gpuaddr);
+            readonlyBufferAllocator.Upload(GetShaderIdentifier(pRtsoProps, call.rayGenShader), 64, out var gpuaddr);
             dispatchRaysDescription.RayGenerationShaderRecord = new GpuVirtualAddressRange(gpuaddr, (ulong)D3D12ShaderIdentifierSizeInBytes);
         }
 
@@ -250,7 +250,7 @@ public sealed class GraphicsContext
         if (memoryStream.Position > 0)
         {
             int length1 = (int)memoryStream.Position;
-            GetRingBuffer().UploadBuffer(new ReadOnlySpan<byte>(memoryStream.GetBuffer(), 0, length1), out var gpuaddr);
+            readonlyBufferAllocator.Upload(new ReadOnlySpan<byte>(memoryStream.GetBuffer(), 0, length1), 64, out var gpuaddr);
             dispatchRaysDescription.HitGroupTable = new GpuVirtualAddressRangeAndStride(gpuaddr, (ulong)length1, (ulong)(length1 / call.tpas.instances.Count));
         }
 
@@ -263,7 +263,7 @@ public sealed class GraphicsContext
             }
 
             int length1 = (int)memoryStream.Position;
-            GetRingBuffer().UploadBuffer(new ReadOnlySpan<byte>(memoryStream.GetBuffer(), 0, length1), out var gpuaddr);
+            readonlyBufferAllocator.Upload(new ReadOnlySpan<byte>(memoryStream.GetBuffer(), 0, length1), out var gpuaddr);
             dispatchRaysDescription.MissShaderTable = new GpuVirtualAddressRangeAndStride(gpuaddr, (ulong)length1, D3D12ShaderIdentifierSizeInBytes);
         }
 
@@ -405,7 +405,7 @@ public sealed class GraphicsContext
         }
         else
         {
-            var handle = graphicsDevice.fastBufferAllocator.GetSRV(MemoryMarshal.AsBytes(data));
+            var handle = readonlyBufferAllocator.GetSRV(MemoryMarshal.AsBytes(data));
             currentSRVs[slot] = handle;
         }
     }
@@ -454,11 +454,9 @@ public sealed class GraphicsContext
 
     void SetSRVRSlot(int slot, ulong gpuAddr) => currentSRVs[slot] = gpuAddr;
 
-    public void SetCBVRSlot(int slot, CBuffer buffer) => currentCBVs[slot] = buffer.GetCurrentVirtualAddress();
-
     public void SetCBVRSlot<T>(int slot, ReadOnlySpan<T> data) where T : unmanaged
     {
-        GetRingBuffer().UploadBuffer(data, out ulong addr);
+        readonlyBufferAllocator.Upload(MemoryMarshal.AsBytes(data), 256, out ulong addr);
         currentCBVs[slot] = addr;
     }
 
@@ -611,12 +609,6 @@ public sealed class GraphicsContext
         foreach (var vtBuf in mesh.vtBuffersDisposed)
             vtBuf.resource?.Release();
         mesh.vtBuffersDisposed.Clear();
-    }
-
-    public void UpdateResource<T>(CBuffer buffer, ReadOnlySpan<T> data) where T : unmanaged
-    {
-        buffer.size = Marshal.SizeOf<T>() * data.Length;
-        GetRingBuffer().UploadBuffer(data, out buffer.gpuRefAddress);
     }
 
     public void UpdateResource<T>(GPUBuffer buffer, ReadOnlySpan<T> data) where T : unmanaged
@@ -782,7 +774,7 @@ public sealed class GraphicsContext
 
         if (vertexData != null)
         {
-            GetRingBuffer().UploadBuffer(vertexData, out ulong vertexGpuAddress);
+            readonlyBufferAllocator.Upload(vertexData, out ulong vertexGpuAddress);
             VertexBufferView vertexBufferView;
             vertexBufferView.BufferLocation = vertexGpuAddress;
             vertexBufferView.SizeInBytes = vertexData.Length;
@@ -792,7 +784,7 @@ public sealed class GraphicsContext
 
         if (indexData != null)
         {
-            GetRingBuffer().UploadBuffer(indexData, out ulong indexGpuAddress);
+            readonlyBufferAllocator.Upload(indexData, out ulong indexGpuAddress);
             IndexBufferView indexBufferView = new IndexBufferView
             {
                 BufferLocation = indexGpuAddress,
@@ -1232,7 +1224,7 @@ public sealed class GraphicsContext
 
     void _RTWriteGpuAddr<T>(ReadOnlySpan<T> data, BinaryWriter writer) where T : unmanaged
     {
-        GetRingBuffer().UploadBuffer(data, out ulong addr);
+        readonlyBufferAllocator.Upload(MemoryMarshal.AsBytes(data), out ulong addr);
         writer.Write(addr);
     }
 
@@ -1376,4 +1368,6 @@ public sealed class GraphicsContext
     HashSet<SwapChain> presents = new HashSet<SwapChain>();
 
     RingBuffer GetRingBuffer() => graphicsDevice.superRingBuffer;
+
+    FastBufferAllocator readonlyBufferAllocator => graphicsDevice.fastBufferAllocator;
 }

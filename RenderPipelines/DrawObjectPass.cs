@@ -1,13 +1,16 @@
-﻿using Coocoo3D.RenderPipeline;
+﻿using Coocoo3D.Present;
+using Coocoo3D.RenderPipeline;
 using Coocoo3DGraphics;
 using System;
 using System.Collections.Generic;
 
 namespace RenderPipelines;
 
-public class DrawObjectPass : Pass
+public class DrawObjectPass
 {
     public string shader;
+
+    public string[] srvs;
 
     public List<(string, string)> keywords = new();
     List<(string, string)> keywords2 = new();
@@ -22,17 +25,39 @@ public class DrawObjectPass : Pass
 
     public Func<MeshRenderable, bool> filter;
 
-    public override void Execute(RenderHelper renderHelper)
+    public List<(string, string)> AutoKeyMap = new();
+
+    void AutoMapKeyword(RenderHelper renderHelper, IList<(string, string)> keywords, RenderMaterial material)
     {
-        RenderWrap renderWrap = renderHelper.renderWrap;
+        foreach (var keyMap in AutoKeyMap)
+        {
+            if (true.Equals(renderHelper.GetIndexableValue(keyMap.Item1, material)))
+                keywords.Add((keyMap.Item2, "1"));
+        }
+    }
 
-        var desc = GetPSODesc(renderHelper, psoDesc);
+    public PSODesc GetPSODesc(RenderWrap renderWrap, PSODesc desc)
+    {
+        var rtvs = renderWrap.RenderTargets;
+        var dsv = renderWrap.depthStencil;
+        desc.rtvFormat = rtvs.Count > 0 ? rtvs[0].GetFormat() : Vortice.DXGI.Format.Unknown;
+        desc.dsvFormat = dsv == null ? Vortice.DXGI.Format.Unknown : dsv.GetFormat();
+        desc.renderTargetCount = rtvs.Count;
 
-        var writer = renderHelper.Writer;
+        return desc;
+    }
+
+    public void Execute(RenderHelper context)
+    {
+        RenderWrap renderWrap = context.renderWrap;
+
+        var desc = GetPSODesc(context.renderWrap, psoDesc);
+
+        var writer = context.Writer;
         writer.Clear();
         if (CBVPerPass != null)
         {
-            renderHelper.Write(CBVPerPass, writer);
+            context.Write(CBVPerPass, writer);
             writer.SetCBV(2);
         }
 
@@ -41,15 +66,15 @@ public class DrawObjectPass : Pass
         {
             if (srv.Value is byte[] data)
             {
-                renderHelper.SetSRV(srv.Key, data);
+                context.SetSRV(srv.Key, data);
             }
         }
-        foreach (var renderable in renderHelper.MeshRenderables())
+        foreach (var renderable in context.MeshRenderables())
         {
             if (filter != null && !filter.Invoke(renderable))
                 continue;
             keywords2.AddRange(this.keywords);
-            AutoMapKeyword(renderHelper, keywords2, renderable.material);
+            AutoMapKeyword(context, keywords2, renderable.material);
 
             if (renderable.drawDoubleFace)
                 desc.cullMode = CullMode.None;
@@ -59,12 +84,12 @@ public class DrawObjectPass : Pass
 
             CBVPerObject[0] = renderable.transform;
 
-            renderHelper.Write(CBVPerObject, writer, renderable.material);
+            context.Write(CBVPerObject, writer, renderable.material);
             writer.SetCBV(1);
 
             renderWrap.SetSRVs(srvs, renderable.material);
 
-            renderHelper.Draw(renderable);
+            context.Draw(renderable);
             keywords2.Clear();
         }
     }

@@ -30,61 +30,26 @@ internal sealed class RingBuffer : IDisposable
     IntPtr mapped;
     int size;
     int currentPosition;
-    int cbvSize;
 
     ID3D12Resource resource;
-    BufferTracking[] cbuffers;
     int frameIndex;
 
     List<CopyCommanding> copyCommands = new List<CopyCommanding>();
 
     internal List<ID3D12Resource> needRecycle = new List<ID3D12Resource>();
 
-    public unsafe void Initialize(ID3D12Device device, int size, int cbufferSize)
+    public unsafe void Initialize(ID3D12Device device, int size)
     {
         this.device = device;
         this.size = (size + 255) & ~255;
-        this.cbvSize = (cbufferSize + 255) & ~255;
 
         ThrowIfFailed(device.CreateCommittedResource(new HeapProperties(HeapType.Upload), HeapFlags.None,
             ResourceDescription.Buffer((ulong)this.size), ResourceStates.GenericRead, out resource));
 
-        cbuffers = new BufferTracking[3];
-        for (int i = 0; i < 3; i++)
-        {
-            cbuffers[i] = new BufferTracking();
-            cbuffers[i].size = this.cbvSize;
-            CreateBuffer(cbuffers[i]);
-        }
 
         void* ptr1 = null;
         resource.Map(0, &ptr1);
         mapped = new IntPtr(ptr1);
-    }
-
-    void CreateBuffer(BufferTracking tracking)
-    {
-        if (tracking.resource != null)
-        {
-            needRecycle.Add(tracking.resource);
-        }
-        tracking.offset = 0;
-        ThrowIfFailed(device.CreateCommittedResource(new HeapProperties(HeapType.Default), HeapFlags.None,
-            ResourceDescription.Buffer((ulong)tracking.size), ResourceStates.Common, out tracking.resource));
-    }
-
-    void Allocate(BufferTracking tracking, int _size, out int _offset, out ulong address)
-    {
-        if (tracking.Allocate(_size, out _offset, out address))
-        {
-            return;
-        }
-
-        tracking.size *= 2;
-        while (tracking.size < tracking.offset + _size)
-            tracking.size *= 2;
-        CreateBuffer(tracking);
-        tracking.Allocate(_size, out _offset, out address);
     }
 
     public void UploadTo(ID3D12GraphicsCommandList commandList, ReadOnlySpan<byte> data, ID3D12Resource dst, int dstOffset = 0)
@@ -95,28 +60,9 @@ internal sealed class RingBuffer : IDisposable
         commandList.CopyBufferRegion(dst, (ulong)dstOffset, resource, (ulong)srcOffset, (ulong)data1.Length);
     }
 
-    public void UploadBuffer<T>(ReadOnlySpan<T> data, out ulong gpuAddress) where T : unmanaged
-    {
-        var data1 = MemoryMarshal.AsBytes(data);
-
-        int _size = (data1.Length + 255) & ~255;
-        var tracking = cbuffers[frameIndex];
-        Allocate(tracking, _size, out var dstOffset, out gpuAddress);
-        DelayUploadTo(data1, tracking.resource, dstOffset);
-    }
-
     public void DelayUploadTo(ReadOnlySpan<byte> data, ID3D12Resource dst, int dstOffset)
     {
         int _size = data.Length;
-        var range = GetUploadRegion(_size, out var srcOffset);
-        data.CopyTo(range);
-
-        DelayCopyTo(resource, srcOffset, _size, dst, dstOffset);
-    }
-
-    public void DelayUploadTo(ReadOnlySpan<byte> data, ID3D12Resource dst, int dstOffset, int align)
-    {
-        int _size = (data.Length + align - 1) & ~(align - 1);
         var range = GetUploadRegion(_size, out var srcOffset);
         data.CopyTo(range);
 
@@ -173,7 +119,6 @@ internal sealed class RingBuffer : IDisposable
             commandList.CopyBufferRegion(command.dstResource, command.dstOffset, command.srcResource, command.srcOffset, command.numBytes);
         }
         frameIndex = (frameIndex + 1) % 3;
-        cbuffers[frameIndex].offset = 0;
         copyCommands.Clear();
 
         foreach (var resource in needRecycle)
@@ -189,9 +134,5 @@ internal sealed class RingBuffer : IDisposable
         mapped = IntPtr.Zero;
         resource?.Release();
         resource = null;
-        if (cbuffers != null)
-            foreach (var cbuffer in cbuffers)
-                cbuffer?.Dispose();
-        cbuffers = null;
     }
 }

@@ -96,7 +96,7 @@ public sealed class GraphicsDevice : IDisposable
         dsvHeap = new DescriptorHeapX();
         dsvHeap.Initialize(device, descriptorHeapDescription);
 
-        superRingBuffer.Initialize(this.device, 134217728, 1048576);
+        superRingBuffer.Initialize(this.device, 134217728);
         fastBufferAllocator = new FastBufferAllocator(superRingBuffer, cbvsrvuavHeap, ResourceFlags.None);
         fastBufferAllocatorUAV = new FastBufferAllocator(superRingBuffer, cbvsrvuavHeap, ResourceFlags.AllowUnorderedAccess);
     }

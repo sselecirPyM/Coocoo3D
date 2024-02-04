@@ -1,4 +1,5 @@
 ﻿using Coocoo3D.Present;
+using Coocoo3D.Utility;
 using Coocoo3DGraphics;
 using System;
 using System.Collections.Generic;
@@ -64,11 +65,11 @@ public class RenderWrap
             string texture = textures[i];
             if (RenderPipelineView.RenderTextures.TryGetValue(texture, out var usage))
             {
-                if (usage.fieldInfo.FieldType == typeof(Texture2D))
+                if (usage.memberInfo.GetGetterType() == typeof(Texture2D))
                 {
                     graphicsContext.SetSRVTSlot(i, GetTex2DFallBack(texture, material));
                 }
-                else if (usage.fieldInfo.FieldType == typeof(GPUBuffer))
+                else if (usage.memberInfo.GetGetterType() == typeof(GPUBuffer))
                 {
                     graphicsContext.SetSRVTSlot(i, usage.gpuBuffer);
                 }
@@ -124,7 +125,7 @@ public class RenderWrap
         if (string.IsNullOrEmpty(name))
             return null;
 
-        if (RenderPipelineView.RenderTextures.TryGetValue(name, out var usage) && usage.fieldInfo.FieldType == typeof(Texture2D))
+        if (RenderPipelineView.RenderTextures.TryGetValue(name, out var usage) && usage.memberInfo.GetGetterType() == typeof(Texture2D))
         {
             if (material != null && material.TryGetValue(name, out var o1))
             {
@@ -144,7 +145,7 @@ public class RenderWrap
     {
         if (string.IsNullOrEmpty(name))
             return null;
-        if (RenderPipelineView.RenderTextures.TryGetValue(name, out var usage) && usage.fieldInfo.FieldType == typeof(Texture2D))
+        if (RenderPipelineView.RenderTextures.TryGetValue(name, out var usage) && usage.memberInfo.GetGetterType() == typeof(Texture2D))
         {
             return usage.GetTexture2D();
         }
@@ -284,33 +285,9 @@ public class RenderWrap
         graphicsContext.ClearTexture(texture, Vector4.Zero, 1.0f);
     }
 
-    public void ClearTexture(string texture)
-    {
-        graphicsContext.ClearTexture(GetTex2D(texture), Vector4.Zero, 1.0f);
-    }
-
     public void SetScissorRectAndViewport(int left, int top, int right, int bottom)
     {
         graphicsContext.RSSetScissorRectAndViewport(left, top, right, bottom);
-    }
-
-    public void SetCBV(CBuffer cBuffer, int slot)
-    {
-        graphicsContext.SetCBVRSlot(slot, cBuffer);
-    }
-
-    public void Dispatch(string computeShader, IReadOnlyList<(string, string)> keywords, int x = 1, int y = 1, int z = 1)
-    {
-        var shader = rpc.mainCaches.GetComputeShaderWithKeywords(keywords, Path.GetFullPath(computeShader, BasePath));
-        if (shader != null)
-        {
-            graphicsContext.SetPSO(shader);
-            graphicsContext.Dispatch(x, y, z);
-        }
-        else
-        {
-            Console.Write("Dispatch faild. " + computeShader);
-        }
     }
 
     public void Dispatch(int x = 1, int y = 1, int z = 1)
@@ -330,14 +307,14 @@ public class RenderWrap
             Texture2D tex2 = rt2.GetTexture2D();
             if (tex1 != null && tex2 != null)
             {
-                rt1.fieldInfo.SetValue(RenderPipelineView.renderPipeline, tex2);
-                rt2.fieldInfo.SetValue(RenderPipelineView.renderPipeline, tex1);
+                rt1.memberInfo.SetValue(RenderPipelineView.renderPipeline, tex2);
+                rt2.memberInfo.SetValue(RenderPipelineView.renderPipeline, tex1);
             }
             else if (rt1.gpuBuffer != null && rt2.gpuBuffer != null)
             {
                 (rt1.gpuBuffer, rt2.gpuBuffer) = (rt2.gpuBuffer, rt1.gpuBuffer);
-                rt1.fieldInfo.SetValue(RenderPipelineView.renderPipeline, rt1.gpuBuffer);
-                rt2.fieldInfo.SetValue(RenderPipelineView.renderPipeline, rt2.gpuBuffer);
+                rt1.memberInfo.SetValue(RenderPipelineView.renderPipeline, rt1.gpuBuffer);
+                rt2.memberInfo.SetValue(RenderPipelineView.renderPipeline, rt2.gpuBuffer);
             }
         }
     }

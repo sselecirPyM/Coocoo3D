@@ -1,4 +1,5 @@
 ﻿using Caprice.Attributes;
+using Coocoo3D.Utility;
 using Coocoo3DGraphics;
 using System.Reflection;
 
@@ -32,16 +33,16 @@ public class RenderTextureUsage
 
     public RuntimeBakeAttribute runtimeBakeAttribute;
 
-    public BakeDependencyAttribute bakeDependencyAttribute;
+    public string[] bakeDependency;
 
-    public FieldInfo fieldInfo;
+    public MemberInfo memberInfo;
 
     public Texture2D GetTexture2D()
     {
-        if (fieldInfo.FieldType != typeof(Texture2D))
+        if (memberInfo.GetGetterType() != typeof(Texture2D))
         {
             return null;
         }
-        return fieldInfo.GetValue(renderPipeline) as Texture2D;
+        return memberInfo.GetValue2<Texture2D>(renderPipeline);
     }
 }

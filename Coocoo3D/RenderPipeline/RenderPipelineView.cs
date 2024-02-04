@@ -1,6 +1,4 @@
 ﻿using Caprice.Attributes;
-using Caprice.Display;
-using Coocoo3D.UI;
 using Coocoo3D.Utility;
 using Coocoo3DGraphics;
 using System;
@@ -42,20 +40,22 @@ public class RenderPipelineView : IDisposable
     void GetMetaData()
     {
         var type = renderPipeline.GetType();
-        var fields = type.GetFields();
-        foreach (var field in fields)
+
+        foreach (var memberInfo in type.GetMembers())
         {
-            if (field.FieldType == typeof(Texture2D) || field.FieldType == typeof(GPUBuffer))
+            if (!(memberInfo is PropertyInfo || memberInfo is FieldInfo))
             {
-                RenderResource(field);
+                continue;
             }
-            else
+            var type2 = memberInfo.GetGetterType();
+            if (type2 == typeof(Texture2D) || type2 == typeof(GPUBuffer))
             {
-                var sceneCapture = field.GetCustomAttribute<SceneCaptureAttribute>();
-                if (sceneCapture != null)
-                {
-                    sceneCaptures[field.Name] = (field, sceneCapture);
-                }
+                RenderResource(memberInfo);
+            }
+            var sceneCapture = memberInfo.GetCustomAttribute<SceneCaptureAttribute>();
+            if (sceneCapture != null)
+            {
+                sceneCaptures[memberInfo.Name] = (memberInfo, sceneCapture);
             }
         }
 
@@ -80,43 +80,43 @@ public class RenderPipelineView : IDisposable
         }
     }
 
-    void RenderResource(FieldInfo field)
+    void RenderResource(MemberInfo member)
     {
-        var aovAttribute = field.GetCustomAttribute<AOVAttribute>();
-        var clearColorAttribute = field.GetCustomAttribute<AutoClearAttribute>();
-        var formatAttribute = field.GetCustomAttribute<FormatAttribute>();
-        var resourceAttribute = field.GetCustomAttribute<ResourceAttribute>();
-        var runtimeBakeAttribute = field.GetCustomAttribute<RuntimeBakeAttribute>();
-        var sizeAttribute = field.GetCustomAttribute<SizeAttribute>();
-        var bakeDependencyAttribute = field.GetCustomAttribute<BakeDependencyAttribute>();
+        var aovAttribute = member.GetCustomAttribute<AOVAttribute>();
+        var autoClearAttribute = member.GetCustomAttribute<AutoClearAttribute>();
+        var formatAttribute = member.GetCustomAttribute<FormatAttribute>();
+        var resourceAttribute = member.GetCustomAttribute<ResourceAttribute>();
+        var runtimeBakeAttribute = member.GetCustomAttribute<RuntimeBakeAttribute>();
+        var sizeAttribute = member.GetCustomAttribute<SizeAttribute>();
+        var bakeDependencyAttribute = member.GetCustomAttribute<BakeDependencyAttribute>();
 
         var rt = new RenderTextureUsage
         {
             sizeAttribute = sizeAttribute,
-            autoClearAttribute = clearColorAttribute,
+            autoClearAttribute = autoClearAttribute,
             formatAttribute = formatAttribute,
             runtimeBakeAttribute = runtimeBakeAttribute,
-            bakeDependencyAttribute = bakeDependencyAttribute,
-            name = field.Name,
-            fieldInfo = field,
+            bakeDependency = bakeDependencyAttribute?.dependencies,
+            name = member.Name,
+            memberInfo = member,
             renderPipeline = renderPipeline
         };
-        RenderTextures[field.Name] = rt;
-        if(runtimeBakeAttribute != null)
+        RenderTextures[member.Name] = rt;
+        if (runtimeBakeAttribute != null)
         {
             bakes.Add(rt);
         }
 
-        if (bakeDependencyAttribute != null)
+        if (rt.bakeDependency != null)
         {
-            foreach (var dep in bakeDependencyAttribute.dependencies)
+            foreach (var dep in rt.bakeDependency)
             {
                 if (!dependents.TryGetValue(dep, out var list))
                 {
                     list = new List<string>();
                     dependents[dep] = list;
                 }
-                list.Add(field.Name);
+                list.Add(member.Name);
             }
         }
         if (sizeAttribute != null)
@@ -131,35 +131,35 @@ public class RenderPipelineView : IDisposable
             rt.resourceFormat = formatAttribute.format;
         }
 
-        if (field.FieldType == typeof(Texture2D))
+        if (member.GetGetterType() == typeof(Texture2D))
         {
             if (resourceAttribute != null)
             {
                 string fullPath = Path.GetFullPath(resourceAttribute.Resource, path);
                 var tex = mainCaches.GetTexturePreloaded(fullPath);
-                field.SetValue(renderPipeline, tex);
+                member.SetValue(renderPipeline, tex);
             }
             else
             {
                 Texture2D texture2D = new Texture2D();
-                texture2D.Name = field.Name;
+                texture2D.Name = member.Name;
                 internalTextures.Add(texture2D);
                 if (aovAttribute != null)
                 {
                     if (AOVs.ContainsKey(aovAttribute.AOVType))
-                        Console.WriteLine(field.Name + ". Duplicate AOV bindings.");
+                        Console.WriteLine(member.Name + ". Duplicate AOV bindings.");
 
                     AOVs[aovAttribute.AOVType] = texture2D;
                 }
-                field.SetValue(renderPipeline, texture2D);
+                member.SetValue(renderPipeline, texture2D);
             }
         }
-        if (field.FieldType == typeof(GPUBuffer))
+        if (member.GetGetterType() == typeof(GPUBuffer))
         {
             GPUBuffer buffer = new GPUBuffer();
-            buffer.Name = field.Name;
+            buffer.Name = member.Name;
             rt.gpuBuffer = buffer;
-            field.SetValue(renderPipeline, buffer);
+            member.SetValue(renderPipeline, buffer);
         }
     }
 
@@ -209,9 +209,9 @@ public class RenderPipelineView : IDisposable
         if (rt.ready)
             return;
 
-        if (rt.bakeDependencyAttribute != null)
+        if (rt.bakeDependency != null)
         {
-            foreach (var dep in rt.bakeDependencyAttribute.dependencies)
+            foreach (var dep in rt.bakeDependency)
             {
                 if (!RenderTextures.TryGetValue(dep, out var rt2))
                     return;
@@ -220,57 +220,9 @@ public class RenderPipelineView : IDisposable
             }
         }
 
-        if (rt.fieldInfo.FieldType == typeof(Texture2D) && rt.runtimeBakeAttribute is ITexture2DBaker baker1)
+        if (rt.memberInfo.GetGetterType() == typeof(Texture2D) && rt.runtimeBakeAttribute is ITexture2DBaker baker1)
         {
-            rt.ready = baker1.Bake(rt.fieldInfo.GetValue(renderPipeline) as Texture2D, renderWrap, ref rt.bakeTag);
-        }
-    }
-
-    public void Export(Dictionary<string, object> settings)
-    {
-        var UIUsages = UIUsage.GetUIUsage(renderPipeline.GetType());
-        foreach (var usage in UIUsages)
-        {
-            if (usage.UIShowType != UIShowType.Global)
-                continue;
-            object obj = usage.MemberInfo.GetValue<object>(renderPipeline);
-            if (obj is IDisposable)
-            {
-                usage.MemberInfo.SetValue(renderPipeline, null);
-            }
-            if (obj is Texture2D tex && !internalTextures.Contains(tex))
-            {
-                obj = new Texture2DTransfer(tex);
-            }
-
-            settings[usage.MemberInfo.Name] = obj;
-        }
-    }
-
-    public void Import(Dictionary<string, object> settings)
-    {
-        var UIUsages = UIUsage.GetUIUsage(renderPipeline.GetType());
-        foreach (var usage in UIUsages)
-        {
-            if (!settings.TryGetValue(usage.MemberInfo.Name, out object settingValue))
-                continue;
-            var type = usage.MemberInfo.GetGetterType();
-            if (type.IsAssignableFrom(settingValue.GetType()))
-            {
-                usage.MemberInfo.SetValue(renderPipeline, settingValue);
-                settings.Remove(usage.MemberInfo.Name);
-            }
-            else
-            {
-
-            }
-        }
-        foreach (var t in settings.Values)
-        {
-            if (t is IDisposable disposable)
-            {
-                disposable.Dispose();
-            }
+            rt.ready = baker1.Bake(rt.memberInfo.GetValue2<Texture2D>(renderPipeline), renderWrap, ref rt.bakeTag);
         }
     }
 
@@ -290,9 +242,9 @@ public class RenderPipelineView : IDisposable
         {
             rt.Value.gpuBuffer?.Dispose();
         }
-        foreach(var bake in bakes)
+        foreach (var bake in bakes)
         {
-            if(bake.runtimeBakeAttribute is IDisposable disposable1)
+            if (bake.runtimeBakeAttribute is IDisposable disposable1)
             {
                 disposable1.Dispose();
             }

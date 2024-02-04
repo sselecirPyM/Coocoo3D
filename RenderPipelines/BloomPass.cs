@@ -214,6 +214,12 @@ void csmain(uint3 dtid : SV_DispatchThreadID, uint groupIndex : SV_GroupIndex)
         renderWrap.SetPSO(shader_bloom.Get(Keyword_Bloom.BLOOM_2));
         renderWrap.Dispatch(output.width, (output.height + 63) / 64);
     }
+
+    public void Dispose()
+    {
+        shader_bloom?.Dispose();
+        shader_bloom = null;
+    }
 }
 
 public enum Keyword_Bloom

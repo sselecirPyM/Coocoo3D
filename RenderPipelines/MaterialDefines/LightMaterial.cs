@@ -1,10 +1,10 @@
 ﻿using Caprice.Display;
-using System;
 using System.Numerics;
 
 namespace RenderPipelines.MaterialDefines;
 
-public class LightMaterial : ICloneable
+
+public class LightMaterial
 {
     [UIColor(UIShowType.Light, "光照颜色")]
     public Vector3 LightColor = new Vector3(3, 3, 3);
@@ -13,9 +13,4 @@ public class LightMaterial : ICloneable
 
     [UIShow(UIShowType.Light, "光照类型")]
     public LightType LightType;
-
-    public object Clone()
-    {
-        return MemberwiseClone();
-    }
 }

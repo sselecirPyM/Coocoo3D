@@ -98,7 +98,7 @@ public class Scene
         var gameObject = world.CreateEntity();
 
         VisualComponent lightComponent = new VisualComponent();
-        lightComponent.UIShowType = UIShowType.Light;
+        lightComponent.material.Type = UIShowType.Light;
         gameObject.Set(lightComponent);
         gameObject.Set(new ObjectDescription
         {
@@ -114,7 +114,7 @@ public class Scene
         var gameObject = world.CreateEntity();
 
         VisualComponent decalComponent = new VisualComponent();
-        decalComponent.UIShowType = UIShowType.Decal;
+        decalComponent.material.Type = UIShowType.Decal;
         gameObject.Set(decalComponent);
         gameObject.Set(new ObjectDescription
         {

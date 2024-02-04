@@ -28,7 +28,6 @@ public class MainCaches : IDisposable
 
     public VersionedDictionary<string, ModelPack> ModelPackCaches = new();
     public VersionedDictionary<string, MMDMotion> Motions = new();
-    public VersionedDictionary<string, ComputeShader> ComputeShaders = new();
 
     public VersionedDictionary<string, PSO> PipelineStateObjects = new();
     public VersionedDictionary<string, Assembly> Assemblies = new();
@@ -389,44 +388,6 @@ public class MainCaches : IDisposable
         }
     }
 
-    public ComputeShader GetComputeShaderWithKeywords(IReadOnlyList<(string, string)> keywords, string path)
-    {
-        string xPath;
-        if (keywords != null)
-        {
-            //keywords.Sort((x, y) => x.CompareTo(y));
-            StringBuilder stringBuilder = new StringBuilder();
-            stringBuilder.Append(path);
-            foreach (var keyword in keywords)
-            {
-                stringBuilder.Append(keyword.Item1);
-                stringBuilder.Append(keyword.Item2);
-            }
-            xPath = stringBuilder.ToString();
-        }
-        else
-        {
-            xPath = path;
-        }
-        if (string.IsNullOrEmpty(path)) return null;
-        if (!Path.IsPathRooted(path)) path = Path.GetFullPath(path);
-        return GetT(ComputeShaders, xPath, path, file =>
-        {
-            DxcDefine[] dxcDefines = null;
-            if (keywords != null)
-            {
-                dxcDefines = new DxcDefine[keywords.Count];
-                for (int i = 0; i < keywords.Count; i++)
-                {
-                    dxcDefines[i] = new DxcDefine() { Name = keywords[i].Item1, Value = keywords[i].Item2 };
-                }
-            }
-            var shaderCode = LoadShader(DxcShaderStage.Compute, File.ReadAllText(path), "csmain", path, dxcDefines, out var reflection);
-            ComputeShader computeShader = new ComputeShader(shaderCode, reflection);
-            return computeShader;
-        });
-    }
-
     public PSO GetPSO(IReadOnlyList<(string, string)> keywords, string path)
     {
         string xPath;
@@ -497,22 +458,6 @@ public class MainCaches : IDisposable
         return resultData;
     }
 
-    static byte[] LoadShader(DxcShaderStage shaderStage, string shaderCode, string entryPoint, string fileName, DxcDefine[] dxcDefines = null)
-    {
-        var shaderModel = shaderStage == DxcShaderStage.Library ? DxcShaderModel.Model6_3 : DxcShaderModel.Model6_0;
-        var options = new DxcCompilerOptions() { ShaderModel = shaderModel };
-        var result = DxcCompiler.Compile(shaderStage, shaderCode, entryPoint, options, fileName, dxcDefines, null);
-        if (result.GetStatus() != SharpGen.Runtime.Result.Ok)
-        {
-            string err = result.GetErrors();
-            result.Dispose();
-            throw new Exception(err);
-        }
-        byte[] resultData = result.GetResult().AsBytes();
-        result.Dispose();
-        return resultData;
-    }
-
     public bool TryGetTexture(string path, out Texture2D tex)
     {
         bool result = TextureCaches.TryGetValue(path, out var tex1);
@@ -559,11 +504,7 @@ public class MainCaches : IDisposable
             t.Value?.Dispose();
         }
         TextureCaches.Clear();
-        foreach (var t in ComputeShaders)
-        {
-            t.Value?.Dispose();
-        }
-        ComputeShaders.Clear();
+
         foreach (var t in PipelineStateObjects)
         {
             t.Value?.Dispose();

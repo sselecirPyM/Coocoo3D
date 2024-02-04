@@ -1,4 +1,3 @@
-
 #include "Skinning.hlsli"
 #include "PBR.hlsli"
 #include "SH.hlsli"
@@ -83,10 +82,6 @@ Texture2D NormalMap : register(t7);
 Texture2D Spa : register(t8);
 StructuredBuffer<SH9C> giBuffer : register(t9);
 StructuredBuffer<PointLightInfo> PointLights : register(t11);
-cbuffer cbAnimMatrices : register(b0)
-{
-	float4x4 g_mConstBoneWorld[MAX_BONE_MATRICES];
-};
 
 struct PSSkinnedIn
 {
@@ -101,11 +96,10 @@ struct PSSkinnedIn
 PSSkinnedIn vsmain(VSSkinnedIn input)
 {
 	PSSkinnedIn output;
-
-	SkinnedInfo vSkinned = SkinVert(input, g_mConstBoneWorld);
-	float3 pos = mul(vSkinned.Pos, g_mWorld);
-	output.Norm = normalize(mul(vSkinned.Norm, (float3x3)g_mWorld));
-	output.Tangent = normalize(mul(vSkinned.Tan, (float3x3)g_mWorld));
+	
+    float3 pos = mul(float4(input.Pos, 1), g_mWorld);
+    output.Norm = normalize(mul(input.Norm, (float3x3) g_mWorld));
+    output.Tangent = normalize(mul(input.Tan, (float3x3) g_mWorld));
 	output.Bitangent = cross(output.Norm, output.Tangent) * input.Tan.w;
 	output.Tex = input.Tex;
 

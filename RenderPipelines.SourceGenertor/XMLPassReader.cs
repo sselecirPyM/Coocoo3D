@@ -64,6 +64,7 @@ namespace RenderPipelines.SourceGenertor
             { "draw",()=>new DrawCall() },
             { "script",()=>new Script() },
             { "dispatch",()=>new DispatchCall() },
+            { "texture",()=>new TextureProperty() },
         };
 
         void ReadElement(XmlReader reader)
@@ -226,7 +227,7 @@ namespace RenderPipelines.SourceGenertor
                         switch (parent)
                         {
                             case Render render:
-                                render.children.Add(shader);
+                                render.x_children.Add(shader);
                                 break;
                         }
                         while (reader.MoveToNextAttribute())
@@ -280,8 +281,7 @@ namespace RenderPipelines.SourceGenertor
                         state.Push(component);
                         while (reader.MoveToNextAttribute())
                         {
-                            if (reader.Name == "name")
-                                component.name = reader.Value;
+                            BindAttribute1(component, reader);
                         }
                         if (component.name != null)
                             components.Add(component);
@@ -314,7 +314,7 @@ namespace RenderPipelines.SourceGenertor
 
                         LinkToParent(placeHolder, parent);
 
-                        placeHolder.name = reader.LocalName;
+                        placeHolder.placeHolderType = reader.LocalName;
 
                         while (reader.MoveToNextAttribute())
                         {
@@ -353,10 +353,10 @@ namespace RenderPipelines.SourceGenertor
                     program.code = reader.Value;
                     break;
                 case Render render:
-                    render.children.Add(new Script() { source = reader.Value });
+                    render.x_children.Add(new Script() { source = reader.Value });
                     break;
                 case Script script:
-                    script.children.Add(new Script() { source = reader.Value });
+                    script.x_children.Add(new Script() { source = reader.Value });
                     break;
                 case ShaderVariant variant:
                     variant.keyword = reader.Value;
@@ -402,7 +402,7 @@ namespace RenderPipelines.SourceGenertor
                 //    render.children.Add(passLike);
                 //    break;
                 case PassLike passLike1:
-                    passLike1.children.Add(passLike);
+                    passLike1.x_children.Add(passLike);
                     break;
 
             }
@@ -429,48 +429,52 @@ namespace RenderPipelines.SourceGenertor
             {
                 passObject.directives.Add(localName, reader.Value);
             }
+            else if (reader.NamespaceURI == "attribute")
+            {
+                passObject.x_attributes.Add(localName, reader.Value);
+            }
             else if (string.IsNullOrEmpty(reader.NamespaceURI))
             {
-                var member = passObject.GetType().GetMember(localName);
-                if (member.Length > 0)
-                {
-                    switch (member[0])
-                    {
-                        case PropertyInfo propertyInfo:
-                            if (propertyInfo.PropertyType == typeof(string))
-                            {
-                                if (propertyInfo.GetCustomAttribute<QuotesAttribute>() != null)
-                                    propertyInfo.SetValue(passObject, $"\"{reader.Value}\"");
-                                else
-                                    propertyInfo.SetValue(passObject, reader.Value);
-                            }
-                            else if (propertyInfo.PropertyType == typeof(bool))
-                            {
-                                propertyInfo.SetValue(passObject, bool.Parse(reader.Value));
-                            }
-                            break;
-                        case FieldInfo fieldInfo:
-                            if (fieldInfo.FieldType == typeof(string))
-                            {
-                                if (fieldInfo.GetCustomAttribute<QuotesAttribute>() != null)
-                                    fieldInfo.SetValue(passObject, $"\"{reader.Value}\"");
-                                else
-                                    fieldInfo.SetValue(passObject, reader.Value);
-                            }
-                            else if (fieldInfo.FieldType == typeof(bool))
-                            {
-                                fieldInfo.SetValue(passObject, bool.Parse(reader.Value));
-                            }
-                            break;
-                    }
-                }
-                else
-                {
-
-                }
+                BindAttribute1(passObject, reader);
             }
             //Console.WriteLine("    {0},{1},{2},{3},{4}", reader.NamespaceURI, reader.LocalName, reader.Depth, reader.NodeType, reader.Value);
         }
-
+        void BindAttribute1(object obj, XmlReader reader)
+        {
+            var localName = reader.LocalName;
+            var member = obj.GetType().GetMember(localName);
+            if (member.Length > 0)
+            {
+                switch (member[0])
+                {
+                    case PropertyInfo propertyInfo:
+                        if (propertyInfo.PropertyType == typeof(string))
+                        {
+                            if (propertyInfo.GetCustomAttribute<QuotesAttribute>() != null)
+                                propertyInfo.SetValue(obj, $"\"{reader.Value}\"");
+                            else
+                                propertyInfo.SetValue(obj, reader.Value);
+                        }
+                        else if (propertyInfo.PropertyType == typeof(bool))
+                        {
+                            propertyInfo.SetValue(obj, bool.Parse(reader.Value));
+                        }
+                        break;
+                    case FieldInfo fieldInfo:
+                        if (fieldInfo.FieldType == typeof(string))
+                        {
+                            if (fieldInfo.GetCustomAttribute<QuotesAttribute>() != null)
+                                fieldInfo.SetValue(obj, $"\"{reader.Value}\"");
+                            else
+                                fieldInfo.SetValue(obj, reader.Value);
+                        }
+                        else if (fieldInfo.FieldType == typeof(bool))
+                        {
+                            fieldInfo.SetValue(obj, bool.Parse(reader.Value));
+                        }
+                        break;
+                }
+            }
+        }
     }
 }

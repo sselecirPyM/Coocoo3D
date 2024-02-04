@@ -1,9 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Coocoo3D.Utility
 {
@@ -17,6 +13,18 @@ namespace Coocoo3D.Utility
                     return (T)fieldInfo.GetValue(obj);
                 case PropertyInfo propertyInfo:
                     return (T)propertyInfo.GetValue(obj);
+                default:
+                    throw new NotImplementedException();
+            }
+        }
+        public static T GetValue2<T>(this MemberInfo memberInfo, object obj)where T :class
+        {
+            switch (memberInfo)
+            {
+                case FieldInfo fieldInfo:
+                    return fieldInfo.GetValue(obj) as T;
+                case PropertyInfo propertyInfo:
+                    return propertyInfo.GetValue(obj) as T;
                 default:
                     throw new NotImplementedException();
             }

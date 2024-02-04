@@ -6,5 +6,6 @@ namespace RenderPipelines.SourceGenertor
     {
         public Dictionary<string, string> bindings = new Dictionary<string, string>();
         public Dictionary<string, string> directives = new Dictionary<string, string>();
+        public Dictionary<string, string> x_attributes = new Dictionary<string, string>();
     }
 }

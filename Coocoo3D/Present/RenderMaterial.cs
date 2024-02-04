@@ -1,18 +1,20 @@
-﻿using System.Collections.Generic;
+﻿using Caprice.Display;
+using System.Collections.Generic;
 
 namespace Coocoo3D.Present;
 
 public class RenderMaterial
 {
     public string Name;
-
-    public RenderMaterial baseMaterial;
+    public UIShowType Type;
+    public Dictionary<string, object> Parameters = new Dictionary<string, object>();
 
     public object GetObject(string key)
     {
         if (Parameters.TryGetValue(key, out object obj))
             return obj;
-        return baseMaterial?.GetObject(key);
+
+        return null;
     }
 
     public T GetObject<T>(string key)
@@ -21,14 +23,8 @@ public class RenderMaterial
         {
             return res;
         }
-        if (baseMaterial == null)
-        {
-            return default;
-        }
-        return baseMaterial.GetObject<T>(key);
+        return default;
     }
-
-    public Dictionary<string, object> Parameters = new Dictionary<string, object>();
 
     public RenderMaterial GetClone()
     {
