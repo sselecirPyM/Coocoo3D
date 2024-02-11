@@ -3,27 +3,18 @@ using Coocoo3D.RenderPipeline;
 using Coocoo3DGraphics;
 using RenderPipelines.Utility;
 using System;
-using System.Runtime.InteropServices;
 
 namespace RenderPipelines;
 
 public class BRDFBakerAttribute : RuntimeBakeAttribute, ITexture2DBaker, IDisposable
 {
-    static ushort[] quad = new ushort[] { 0, 1, 2, 2, 1, 3 };
     public bool Bake(Texture2D texture, RenderWrap renderWrap, ref object tag)
     {
         renderWrap.SetRenderTarget(texture, true);
-        var psoDesc = new PSODesc()
-        {
-            blendState = BlendState.None,
-            cullMode = CullMode.None,
-            rtvFormat = texture.GetFormat(),
-            inputLayout = InputLayout.Default,
-            renderTargetCount = 1,
-        };
-        renderWrap.SetPSO(shader_BRDFLUT, psoDesc);
-        renderWrap.graphicsContext.SetSimpleMesh(null, MemoryMarshal.Cast<ushort, byte>(quad), 0, 2);
-        renderWrap.Draw(6, 0, 0);
+        renderWrap.graphicsContext.SetCBVRSlot(0, [texture.width, texture.height]);
+        renderWrap.SetUAV(0, texture);
+        renderWrap.SetPSO(shader_BRDFLUT);
+        renderWrap.Dispatch((texture.width + 7) / 8, (texture.height + 7) / 8, 6);
         return true;
     }
 
@@ -33,7 +24,8 @@ public class BRDFBakerAttribute : RuntimeBakeAttribute, ITexture2DBaker, IDispos
         shader_BRDFLUT = null;
     }
 
-    VariantShader shader_BRDFLUT = new VariantShader(
+
+    VariantComputeShader shader_BRDFLUT = new VariantComputeShader(
 """
 //ref: https://learnopengl.com/PBR/IBL/Specular-IBL
 #include "Random.hlsli"
@@ -131,7 +123,7 @@ cbuffer cb0 : register(b0) {
 [numthreads(8, 8, 1)]
 void csmain(uint3 dtid : SV_DispatchThreadID)
 {
-	brdf[dtid.xy] = float4(IntegrateBRDF((dtid.x + 0.5) / textureSize.x, (dtid.y + 0.5) / textureSize.y), 0, 0);
+	brdf[dtid.xy] = float4(IntegrateBRDF((dtid.x + 0.5) / textureSize.x, (dtid.y + 0.5) / textureSize.y), 0, 1);
 }
 struct VSIn
 {
@@ -158,5 +150,5 @@ float4 psmain(PSIn input) : SV_TARGET
 	uv.y = 1 - uv.y;
 	return float4(IntegrateBRDF(uv.x, uv.y), 0, 1);
 }
-""", "vsmain", null, "psmain", "BRDFLUT.hlsl");
+""", "csmain", "BRDFLUT.hlsl");
 }

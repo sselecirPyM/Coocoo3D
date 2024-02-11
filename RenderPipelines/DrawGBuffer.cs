@@ -83,7 +83,7 @@ public class DrawGBuffer
             context.SetSRV(4, material._Normal);
             context.SetSRV(5, material._Spa);
 
-            context.DrawIndexedInstanced(renderable.indexCount, 1, renderable.indexStart, renderable.vertexStart, 0);
+            context.Draw(renderable);
             keywords2.Clear();
         }
     }

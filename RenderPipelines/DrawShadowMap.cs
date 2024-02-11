@@ -1,4 +1,5 @@
 ﻿using Coocoo3DGraphics;
+using RenderPipelines.MaterialDefines;
 using RenderPipelines.Utility;
 using System;
 using System.Numerics;
@@ -26,8 +27,15 @@ public class DrawShadowMap
 
         Span<byte> bufferData = stackalloc byte[64];
 
-        foreach (var renderable in context.MeshRenderables())
+        Mesh mesh = null;
+
+        foreach (var renderable in context.MeshRenderables<ModelMaterial>())
         {
+            if (mesh != renderable.mesh)
+            {
+                mesh = renderable.mesh;
+                context.SetMesh(mesh);
+            }
             MemoryMarshal.Write(bufferData.Slice(0), Matrix4x4.Transpose(renderable.transform * viewProjection));
             if (renderable.drawDoubleFace)
                 desc.cullMode = CullMode.None;

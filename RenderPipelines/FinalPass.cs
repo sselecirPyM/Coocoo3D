@@ -1,5 +1,7 @@
 ﻿using Coocoo3D.RenderPipeline;
 using Coocoo3DGraphics;
+using RenderPipelines.MaterialDefines;
+using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
@@ -7,8 +9,6 @@ namespace RenderPipelines;
 
 public class FinalPass
 {
-    public string[] srvs;
-
     PSODesc GetPSODesc(RenderWrap renderWrap, PSODesc desc)
     {
         var rtvs = renderWrap.RenderTargets;
@@ -39,9 +39,11 @@ public class FinalPass
     public bool UseGI;
     public bool NoBackGround;
 
-    public void Execute(RenderHelper renderHelper)
+    public PipelineMaterial pipelineMaterial;
+
+    public void Execute(RenderHelper context)
     {
-        RenderWrap renderWrap = renderHelper.renderWrap;
+        RenderWrap renderWrap = context.renderWrap;
         _keywords.Clear();
         _keywords.AddRange(this.keywords);
 
@@ -58,22 +60,74 @@ public class FinalPass
 
         var desc = GetPSODesc(renderWrap, psoDesc);
         renderWrap.SetShader(shader, desc, _keywords);
-        renderWrap.SetSRVs(srvs);
 
-        renderWrap.graphicsContext.SetSRVTSlot<PointLightData>(11, CollectionsMarshal.AsSpan(pointLightDatas));
+        context.SetSRV(0, pipelineMaterial.gbuffer0);
+        context.SetSRV(1, pipelineMaterial.gbuffer1);
+        context.SetSRV(2, pipelineMaterial.gbuffer2);
+        context.SetSRV(3, pipelineMaterial.gbuffer3);
+        context.SetSRV(4, pipelineMaterial._Environment);
+        context.SetSRV(5, pipelineMaterial.depth);
+        context.SetSRV(6, pipelineMaterial._ShadowMap);
+        context.SetSRV(7, pipelineMaterial._SkyBox);
+        context.SetSRV(8, pipelineMaterial._BRDFLUT);
+        context.SetSRV(9, pipelineMaterial._HiZBuffer);
+        context.SetSRV(10, pipelineMaterial.GIBuffer);
 
-        var writer = renderHelper.Writer;
+
+        context.SetSRV<PointLightData>(11, CollectionsMarshal.AsSpan(pointLightDatas));
+
+
+        //new object[]
+        //{
+        //        nameof(ViewProjection),
+        //        nameof(InvertViewProjection),
+        //        nameof(Far),
+        //        nameof(Near),
+        //        nameof(Fov),
+        //        nameof(AspectRatio),
+        //        nameof(CameraPosition),
+        //        nameof(SkyLightMultiple),
+        //        nameof(FogColor),
+        //        nameof(FogDensity),
+        //        nameof(FogStartDistance),
+        //        nameof(FogEndDistance),
+        //        nameof(OutputSize),
+        //        nameof(Brightness),
+        //        nameof(VolumetricLightingSampleCount),
+        //        nameof(VolumetricLightingDistance),
+        //        nameof(VolumetricLightingIntensity),
+        //        nameof(ShadowMapVP),
+        //        nameof(ShadowMapVP1),
+        //        nameof(LightDir),
+        //        0,
+        //        nameof(LightColor),
+        //        0,
+        //        nameof(GIVolumePosition),
+        //        nameof(AODistance),
+        //        nameof(GIVolumeSize),
+        //        nameof(AOLimit),
+        //        nameof(AORaySampleCount),
+        //        nameof(RandomI),
+        //        nameof(Split),
+        //},
+
+        var writer = context.Writer;
         if (cbvs != null)
             for (int i = 0; i < cbvs.Length; i++)
             {
                 object[] cbv1 = cbvs[i];
                 if (cbv1 == null)
                     continue;
-                renderHelper.Write(cbv1, writer);
+                context.Write(cbv1, writer);
                 writer.SetCBV(i);
             }
-        renderHelper.DrawQuad();
+        context.DrawQuad();
         writer.Clear();
         _keywords.Clear();
+    }
+
+    void WriteCBuffer(Span<byte> data)
+    {
+
     }
 }

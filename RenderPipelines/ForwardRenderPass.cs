@@ -27,27 +27,6 @@ public partial class ForwardRenderPipeline
             blendState = BlendState.None,
             cullMode = CullMode.None,
         },
-        srvs = new string[]
-        {
-            nameof(_Albedo),
-            nameof(_Metallic),
-            nameof(_Roughness),
-            nameof(_Emissive),
-            nameof(_ShadowMap),
-            nameof(_Environment),
-            nameof(_BRDFLUT),
-            nameof(_Normal),
-            nameof(_Spa),
-        },
-        CBVPerObject = new object[]
-        {
-            null,
-            null,
-            nameof(Metallic),
-            nameof(Roughness),
-            nameof(Emissive),
-            nameof(Specular),
-        },
         CBVPerPass = new object[]
         {
             nameof(ViewProjection),
@@ -73,12 +52,6 @@ public partial class ForwardRenderPipeline
             nameof(CameraDown),
             nameof(Split),
         },
-        AutoKeyMap =
-        {
-            (nameof(EnableFog),"ENABLE_FOG"),
-            (nameof(UseNormalMap),"USE_NORMAL_MAP"),
-            (nameof(UseSpa),"USE_SPA"),
-        }
     };
 
     [Indexable]
@@ -230,12 +203,12 @@ public partial class ForwardRenderPipeline
             drawShadowMap.viewProjection = ShadowMapVP;
             var rect = new Rectangle(0, 0, shadowMap.width / 2, shadowMap.height / 2);
             renderWrap.SetRenderTargetDepth(shadowMap, false);
-            renderWrap.SetScissorRectAndViewport(rect.Left, rect.Top, rect.Right, rect.Bottom);
+            renderHelper.SetScissorRectAndViewport(rect.Left, rect.Top, rect.Right, rect.Bottom);
 
             drawShadowMap.Execute(renderHelper);
             drawShadowMap.viewProjection = ShadowMapVP1;
             rect = new Rectangle(shadowMap.width / 2, 0, shadowMap.width / 2, shadowMap.height / 2);
-            renderWrap.SetScissorRectAndViewport(rect.Left, rect.Top, rect.Right, rect.Bottom);
+            renderHelper.SetScissorRectAndViewport(rect.Left, rect.Top, rect.Right, rect.Bottom);
 
             drawShadowMap.Execute(renderHelper);
         }
@@ -264,13 +237,16 @@ public partial class ForwardRenderPipeline
         drawSkyBox.skybox = _SkyBox;
         drawSkyBox.Execute(renderHelper);
 
+        drawObject.EnableFog = EnableFog;
         renderWrap.SetRenderTarget(noPostProcess, depth, false, false);
+        drawObject.DrawOpaque = true;
+        drawObject.DrawTransparent = false;
         drawObject.psoDesc.blendState = BlendState.None;
-        drawObject.filter = FilterOpaque;
         drawObject.Execute(renderHelper);
 
+        drawObject.DrawOpaque = false;
+        drawObject.DrawTransparent = true;
         drawObject.psoDesc.blendState = BlendState.Alpha;
-        drawObject.filter = FilterTransparent;
         drawObject.Execute(renderHelper);
 
         //renderHelper.PopParameters();
@@ -284,7 +260,7 @@ public partial class ForwardRenderPipeline
          * Matrix4x4.CreatePerspectiveFieldOfView(1.57079632679f, 1, near, far);
     }
 
-    static void SetViewportScissorRectangle(RenderWrap renderWrap, int index, int split, int width, int height)
+    static void SetViewportScissorRectangle(RenderHelper context, int index, int split, int width, int height)
     {
         float xOffset = (float)(index % split) / split;
         float yOffset = (float)(index / split) / split;
@@ -296,7 +272,7 @@ public partial class ForwardRenderPipeline
         int sizeY1 = (int)(height * size);
 
         var rect = new Rectangle(x, y, sizeX1, sizeY1);
-        renderWrap.SetScissorRectAndViewport(rect.Left, rect.Top, rect.Right, rect.Bottom);
+        context.SetScissorRectAndViewport(rect.Left, rect.Top, rect.Right, rect.Bottom);
     }
 
     static readonly (Vector3, Vector3)[] table =
@@ -325,7 +301,7 @@ public partial class ForwardRenderPipeline
             foreach (var val in table)
             {
                 drawShadowMap.viewProjection = GetShadowMapMatrix(pl.Position, val.Item1, val.Item2, near, far);
-                SetViewportScissorRectangle(renderWrap, index, Split, width, height);
+                SetViewportScissorRectangle(renderHelper, index, Split, width, height);
                 drawShadowMap.Execute(renderHelper);
                 index++;
             }
@@ -340,24 +316,6 @@ public partial class ForwardRenderPipeline
             pointLightSplit = i;
         pointLightSplit += 2;
         return pointLightSplit;
-    }
-
-    static bool FilterOpaque(MeshRenderable renderable)
-    {
-        if (true.Equals(renderable.material.GetObject("IsTransparent")))
-        {
-            return false;
-        }
-        return true;
-    }
-
-    static bool FilterTransparent(MeshRenderable renderable)
-    {
-        if (true.Equals(renderable.material.GetObject("IsTransparent")))
-        {
-            return true;
-        }
-        return false;
     }
 
     static Dictionary<DebugRenderType, string> debugKeywords = new Dictionary<DebugRenderType, string>()

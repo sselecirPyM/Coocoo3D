@@ -39,56 +39,6 @@ public class RenderHelper
     public IEnumerable<MMDRendererComponent> MMDRenderers => renderWrap.rpc.renderers;
 
 
-    public IEnumerable<MeshRenderable> MeshRenderables(bool setMesh = true)
-    {
-        RenderPipelineContext rpc = renderWrap.rpc;
-        var graphicsContext = rpc.graphicsContext;
-        foreach (var renderer in rpc.renderers)
-        {
-            var model = renderer.model;
-            var meshOverride = meshOverrides[renderer];
-            if (setMesh)
-            {
-                graphicsContext.SetMesh(meshOverride);
-            }
-            for (int i = 0; i < renderer.Materials.Count; i++)
-            {
-                var material = renderer.Materials[i];
-                var submesh = model.Submeshes[i];
-                yield return GetRenderable(submesh, meshOverride, renderer.LocalToWorld, material);
-            }
-        }
-        foreach (var renderer in rpc.meshRenderers)
-        {
-            var model = renderer.model;
-            var mesh = model.GetMesh();
-            if (setMesh)
-            {
-                graphicsContext.SetMesh(mesh);
-            }
-            for (int i = 0; i < renderer.Materials.Count; i++)
-            {
-                var material = renderer.Materials[i];
-                var submesh = model.Submeshes[i];
-                yield return GetRenderable(submesh, mesh, renderer.transform.GetMatrix(), material);
-            }
-        }
-    }
-
-    MeshRenderable GetRenderable(Submesh submesh, Mesh mesh, Matrix4x4 transform, RenderMaterial material)
-    {
-        MeshRenderable renderable = new MeshRenderable();
-        renderable.indexStart = submesh.indexOffset;
-        renderable.indexCount = submesh.indexCount;
-        renderable.vertexStart = submesh.vertexStart;
-        renderable.vertexCount = submesh.vertexCount;
-        renderable.drawDoubleFace = submesh.DrawDoubleFace;
-        renderable.mesh = mesh;
-        renderable.transform = transform;
-        renderable.material = material;
-        return renderable;
-    }
-
     public IEnumerable<MeshRenderable<T>> MeshRenderables<T>() where T : class, new()
     {
         RenderPipelineContext rpc = renderWrap.rpc;
@@ -239,7 +189,7 @@ public class RenderHelper
         graphicsContext.DrawIndexedInstanced(36, instanceCount, 0, 0, 0);
     }
 
-    public void Draw(MeshRenderable renderable)
+    public void Draw<T>(MeshRenderable<T> renderable)
     {
         renderWrap.graphicsContext.DrawIndexed(renderable.indexCount, renderable.indexStart, renderable.vertexStart);
     }
@@ -255,45 +205,6 @@ public class RenderHelper
     }
 
     #region write object
-    public object GetIndexableValue(string key)
-    {
-        for (int i = dataStack.Count - 1; i >= 0; i--)
-        {
-            var finder = dataStack[i];
-            if (finder.Item2.TryGetValue(key, out var memberInfo1))
-            {
-                return memberInfo1.GetValue<object>(finder.Item1);
-            }
-        }
-        return null;
-    }
-
-    public object GetIndexableValue(string key, RenderMaterial material)
-    {
-        var obj1 = material.GetObject(key);
-        if (obj1 != null && paramBaseType.TryGetValue(key, out var type))
-        {
-            var objType = obj1.GetType();
-            if (objType == type)
-                return obj1;
-            else if (type.IsEnum && objType == typeof(string))
-            {
-                if (Enum.TryParse(type, (string)obj1, out var obj2))
-                {
-                    return obj2;
-                }
-            }
-        }
-        for (int i = dataStack.Count - 1; i >= 0; i--)
-        {
-            var finder = dataStack[i];
-            if (finder.Item2.TryGetValue(key, out var memberInfo1))
-            {
-                return memberInfo1.GetValue<object>(finder.Item1);
-            }
-        }
-        return null;
-    }
 
     List<(object, Dictionary<string, MemberInfo>)> dataStack = new();
     Dictionary<Type, Dictionary<string, MemberInfo>> memberInfoCache = new();
@@ -703,6 +614,12 @@ public class RenderHelper
     public void SetSimpleMesh(ReadOnlySpan<byte> vertexData, ReadOnlySpan<uint> indexData, int vertexStride)
     {
         graphicsContext.SetSimpleMesh(vertexData, MemoryMarshal.AsBytes(indexData), vertexStride, 4);
+    }
+
+
+    public void SetScissorRectAndViewport(int left, int top, int right, int bottom)
+    {
+        graphicsContext.RSSetScissorRectAndViewport(left, top, right, bottom);
     }
 
     #endregion

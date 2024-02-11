@@ -75,11 +75,7 @@ public class VisualChannel : IDisposable
 
     public Texture2D GetAOV(AOVType type)
     {
-        var aov = renderPipelineView?.GetAOV(type);
-        if (aov != null)
-            return aov;
-        else
-            return null;
+        return renderPipelineView?.GetAOV(type);
     }
 
     public void Dispose()

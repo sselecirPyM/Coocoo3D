@@ -1,19 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using Vortice.Direct3D12;
+﻿using System.Collections.Generic;
 
 namespace Coocoo3DGraphics;
 
-public class RTTopLevelAcclerationStruct : IDisposable
+public class RTTopLevelAcclerationStruct
 {
     public List<RTInstance> instances;
-    public RaytracingInstanceDescription raytracingInstanceDescription;
     public bool initialized;
-    public ID3D12Resource resource;
-
-    public void Dispose()
-    {
-        resource?.Release();
-        resource = null;
-    }
+    internal ulong GPUVirtualAddress;
 }

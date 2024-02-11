@@ -2,7 +2,7 @@
 <root name="ForwardRenderPipeline" xmlns:v="directive" xmlns:b="binding" xmlns:c="component" xmlns:a="attribute" generateDispose="false">
 	<using>Caprice.Attributes</using>
 	<using>Caprice.Display</using>
-	
+
 	<texture name="_ShadowMap" b:size="4096, 4096" format="D32_Float" autoClear="true"/>
 
 	<texture name="noPostProcess" size="Output" format="R16G16B16A16_Float"/>
@@ -26,4 +26,6 @@
 	<c:PostProcessPass name="postProcess" a:UITree="" b:inputColor="noPostProcess" b:output="output"
 					   b:intermedia1="intermedia1" b:intermedia2="intermedia2" b:intermedia3="intermedia3" generateCode="true"/>
 	<c:TAAPass name="taaPass" a:UITree="" b:target="noPostProcess" b:depth="depth" b:history="noPostProcess2" b:historyDepth="depth2" generateCode="true"/>
+
+	<c:DrawObjectPass name="drawObject" b:_ShadowMap="_ShadowMap" b:_Environment="_Environment" b:_BRDFLUT="_BRDFLUT"/>
 </root>

@@ -15,13 +15,6 @@ namespace RenderPipelines;
 [Text(text: "延迟渲染")]
 public partial class DeferredRenderPipeline : RenderPipeline, IDisposable
 {
-
-    [Size("GIBufferSize")]
-    public GPUBuffer GIBuffer;
-
-    [Size("GIBufferSize")]
-    public GPUBuffer GIBufferWrite;
-
     [UISlider(0.5f, 2.0f, name: "渲染倍数")]
     public float RenderScale = 1;
 
@@ -29,29 +22,6 @@ public partial class DeferredRenderPipeline : RenderPipeline, IDisposable
     public DebugRenderType DebugRenderType;
 
     #region Material Parameters
-    [Indexable]
-    [UIShow(UIShowType.Material, "透明材质")]
-    public bool IsTransparent;
-
-    [Indexable]
-    [UISlider(0.0f, 1.0f, UIShowType.Material, "金属")]
-    public float Metallic;
-
-    [Indexable]
-    [UISlider(0.0f, 1.0f, UIShowType.Material, "粗糙")]
-    public float Roughness = 0.8f;
-
-    [Indexable]
-    [UIDragFloat(0.01f, 0, float.MaxValue, UIShowType.Material, "发光")]
-    public float Emissive;
-
-    [Indexable]
-    [UISlider(0.0f, 1.0f, UIShowType.Material, "高光")]
-    public float Specular = 0.5f;
-
-    [Indexable]
-    [UISlider(0.0f, 1.0f, UIShowType.Material, "遮蔽")]
-    public float AO = 1.0f;
 
     [UIShow(UIShowType.Material)]
     [PureColorBaker(1, 1, 1, 1)]
@@ -77,19 +47,11 @@ public partial class DeferredRenderPipeline : RenderPipeline, IDisposable
     [Size(32, 32)]
     public Texture2D _Emissive;
 
-    [Indexable]
-    [UIShow(UIShowType.Material, "使用法线贴图")]
-    public bool UseNormalMap;
-
     [UIShow(UIShowType.Material)]
     [PureColorBaker(0.5f, 0.5f, 1, 1)]
     [Format(ResourceFormat.R8G8B8A8_UNorm)]
     [Size(32, 32)]
     public Texture2D _Normal;
-
-    [Indexable]
-    [UIShow(UIShowType.Material, "使用Spa")]
-    public bool UseSpa;
 
     [UIShow(UIShowType.Material)]
     [PureColorBaker(0, 0, 0, 1)]
@@ -105,19 +67,18 @@ public partial class DeferredRenderPipeline : RenderPipeline, IDisposable
     [SceneCapture("Visual")]
     public IReadOnlyList<VisualComponent> Visuals;
 
+    public PipelineMaterial pipelineMaterial = new PipelineMaterial();
+
     RenderHelper renderHelper;
 
     Random random = new Random(0);
-    public int outputWidth;
-    public int outputHeight;
+    int outputWidth;
+    int outputHeight;
 
     CameraData historyCamera;
 
     [UITree]
-    public DeferredRenderPass deferredRenderPass = new DeferredRenderPass()
-    {
-        depthStencil = nameof(depth),
-    };
+    public DeferredRenderPass deferredRenderPass = new DeferredRenderPass();
 
     public override void BeforeRender()
     {
@@ -154,6 +115,7 @@ public partial class DeferredRenderPipeline : RenderPipeline, IDisposable
 
         deferredRenderPass.Visuals = Visuals;
         deferredRenderPass.DebugRenderType = DebugRenderType;
+        deferredRenderPass.pipelineMaterial = pipelineMaterial;
         deferredRenderPass.SetCamera(camera);
         deferredRenderPass.Execute(renderHelper);
 

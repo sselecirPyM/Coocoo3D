@@ -65,8 +65,6 @@ cbuffer cb0 : register(b0)
 {
 	float4x4 g_mWorldToProj;
 	float4x4 g_mProjToWorld;
-	float4x4 g_mWorldToView;
-	float4x4 g_mViewToProj;
 	float g_cameraFarClip;
 	float g_cameraNearClip;
 	float g_cameraFOV;

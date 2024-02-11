@@ -99,7 +99,7 @@ public class RenderPipelineView : IDisposable
             bakeDependency = bakeDependencyAttribute?.dependencies,
             name = member.Name,
             memberInfo = member,
-            renderPipeline = renderPipeline
+            bindingObject = renderPipeline
         };
         RenderTextures[member.Name] = rt;
         if (runtimeBakeAttribute != null)

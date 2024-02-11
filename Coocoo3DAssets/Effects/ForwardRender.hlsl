@@ -19,7 +19,6 @@
 #define SH_RESOLUTION (16)
 #pragma VertexShader vsmain
 #pragma PixelShader psmain
-#pragma Blend Alpha
 struct LightInfo
 {
 	float3 LightDir;
@@ -75,11 +74,11 @@ Texture2D Albedo : register(t0);
 Texture2D Metallic : register(t1);
 Texture2D Roughness : register(t2);
 Texture2D Emissive : register(t3);
-Texture2D ShadowMap : register(t4);
-TextureCube EnvCube : register (t5);
-Texture2D BRDFLut : register(t6);
-Texture2D NormalMap : register(t7);
-Texture2D Spa : register(t8);
+Texture2D NormalMap : register(t4);
+Texture2D Spa : register(t5);
+Texture2D ShadowMap : register(t6);
+TextureCube EnvCube : register (t7);
+Texture2D BRDFLut : register(t8);
 StructuredBuffer<SH9C> giBuffer : register(t9);
 StructuredBuffer<PointLightInfo> PointLights : register(t11);
 

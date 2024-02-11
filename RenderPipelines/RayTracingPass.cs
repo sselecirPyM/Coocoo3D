@@ -1,11 +1,13 @@
 ﻿using Caprice.Attributes;
 using Coocoo3D.RenderPipeline;
 using Coocoo3DGraphics;
+using RenderPipelines.MaterialDefines;
 using RenderPipelines.Utility;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Numerics;
+using System.Runtime.InteropServices;
 
 namespace RenderPipelines;
 
@@ -29,6 +31,12 @@ public class RayTracingPass
     {
         nameof(ViewProjection),
         nameof(InvertViewProjection),
+        "ShadowMapVP",
+        "ShadowMapVP1",
+        "LightDir",
+        0,
+        "LightColor",
+        0,
         nameof(CameraPosition),
         "SkyLightMultiple",
         "GIVolumePosition",//"GIVolumePosition",
@@ -37,25 +45,6 @@ public class RayTracingPass
         "RandomI",
         "RayTracingReflectionThreshold"
     };
-
-    object[] cbv1 =
-    {
-        null,//transform
-        "ShadowMapVP",
-        "ShadowMapVP1",
-        "LightDir",
-        0,
-        "LightColor",
-        0,
-        "Metallic",
-        "Roughness",
-        "Emissive",
-        "Specular"
-    };
-
-    public string[] srvs;
-
-    object[] uavs = { null, null };
 
     [Indexable]
     public Matrix4x4 ViewProjection;
@@ -71,20 +60,13 @@ public class RayTracingPass
     [Indexable]
     public int RandomI;
 
+    public PipelineMaterial pipelineMaterial;
+
     RayTracingShader rayTracingShader;
 
     public DirectionalLightData directionalLight;
 
     static readonly string[] missShaders = new[] { "miss" };
-
-    string[] localSrvs = new string[]
-    {
-        "_Albedo",
-        "_Emissive",
-        "_Metallic",
-        "_Roughness",
-        "_Roughness"
-    };
 
     public void SetCamera(CameraData camera)
     {
@@ -97,14 +79,14 @@ public class RayTracingPass
         CameraPosition = camera.Position;
     }
 
-    public void Execute(RenderHelper renderHelper)
+    public void Execute(RenderHelper context)
     {
         if (rayTracingShader == null)
-            Initialize(renderHelper);
-        RenderWrap renderWrap = renderHelper.renderWrap;
+            Initialize(context);
+        RenderWrap renderWrap = context.renderWrap;
         var graphicsContext = renderWrap.graphicsContext;
 
-        renderHelper.PushParameters(this);
+        context.PushParameters(this);
         RandomI = random.Next();
 
         keywords1.Clear();
@@ -116,21 +98,19 @@ public class RayTracingPass
         {
             keywords1.Add(new("ENABLE_GI", "1"));
         }
-        var rtpso = renderHelper.GetRTPSO(keywords1, rayTracingShader,
+        var rtpso = context.GetRTPSO(keywords1, rayTracingShader,
             Path.GetFullPath(rayTracingShader.hlslFile, renderWrap.BasePath));
 
         if (!graphicsContext.SetPSO(rtpso))
             return;
-        var writer = renderHelper.Writer;
+        var writer = context.Writer;
 
         var tpas = new RTTopLevelAcclerationStruct();
         tpas.instances = new();
-        foreach (var renderable in renderHelper.MeshRenderables(false))
+        Span<byte> bufferData = stackalloc byte[256];
+        foreach (var renderable in context.MeshRenderables<ModelMaterial>())
         {
             var material = renderable.material;
-            cbv1[0] = renderable.transform;
-            renderHelper.Write(cbv1, writer, material);
-            var cbvData1 = writer.GetData();
 
             var btas = new RTBottomLevelAccelerationStruct();
 
@@ -145,21 +125,26 @@ public class RayTracingPass
             inst.hitGroupName = "rayHit";
             inst.SRVs = new();
             inst.CBVs = new();
-            for (int i = 0; i < localSrvs.Length; i++)
-            {
-                inst.SRVs.Add(i + 4, renderWrap.GetTex2DFallBack(localSrvs[i], material));
-            }
 
-            inst.CBVs.Add(0, cbvData1);
+            inst.SRVs.Add(4, material._Albedo);
+            inst.SRVs.Add(5, material._Metallic);
+            inst.SRVs.Add(6, material._Roughness);
+            inst.SRVs.Add(7, material._Emissive);
+
+
+            MemoryMarshal.Write(bufferData.Slice(0), Matrix4x4.Transpose(renderable.transform));
+            MemoryMarshal.Write(bufferData.Slice(64), material.Metallic);
+            MemoryMarshal.Write(bufferData.Slice(64 + 4), material.Roughness);
+            MemoryMarshal.Write(bufferData.Slice(64 + 8), material.Emissive);
+            MemoryMarshal.Write(bufferData.Slice(64 + 12), material.Specular);
+            inst.CBVs.Add(0, bufferData.ToArray());
             tpas.instances.Add(inst);
         }
 
         int width = renderTarget.width;
         int height = renderTarget.height;
-        uavs[0] = renderTarget;
-        uavs[1] = renderWrap.GetResourceFallBack("GIBufferWrite");
 
-        renderHelper.Write(cbv0, writer);
+        context.Write(cbv0, writer);
         var cbvData0 = writer.GetData();
 
 
@@ -169,18 +154,18 @@ public class RayTracingPass
         call.SRVs = new();
         call.CBVs = new();
         call.missShaders = missShaders;
-        for (int i = 0; i < uavs.Length; i++)
-        {
-            call.UAVs[i] = uavs[i];
-        }
 
-        for (int i = 0; i < srvs.Length; i++)
-        {
-            string srv = srvs[i];
-            if (srv == null)
-                continue;
-            call.SRVs[i] = renderWrap.GetResourceFallBack(srv);
-        }
+        call.UAVs[0] = renderTarget;
+        call.UAVs[1] = pipelineMaterial.GIBufferWrite;
+
+        call.SRVs[1] = pipelineMaterial._Environment;
+        call.SRVs[2] = pipelineMaterial._BRDFLUT;
+        call.SRVs[3] = pipelineMaterial.depth;
+        call.SRVs[4] = pipelineMaterial.gbuffer0;
+        call.SRVs[5] = pipelineMaterial.gbuffer1;
+        call.SRVs[6] = pipelineMaterial.gbuffer2;
+        call.SRVs[7] = pipelineMaterial._ShadowMap;
+        call.SRVs[8] = pipelineMaterial.GIBuffer;
 
         call.CBVs.Add(0, cbvData0);
 
@@ -197,10 +182,7 @@ public class RayTracingPass
             graphicsContext.DispatchRays(width, height, 1, call);
         }
 
-        foreach (var inst in tpas.instances)
-            inst.accelerationStruct.Dispose();
-        tpas.Dispose();
-        renderHelper.PopParameters();
+        context.PopParameters();
     }
 
     void Initialize(RenderHelper renderHelper)

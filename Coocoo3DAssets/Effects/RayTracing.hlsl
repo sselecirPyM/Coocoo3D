@@ -88,6 +88,9 @@ cbuffer cb0 : register(b0)
 {
     float4x4 g_mWorldToProj;
     float4x4 g_mProjToWorld;
+    float4x4 LightMapVP;
+    float4x4 LightMapVP1;
+    LightInfo Lightings[1];
     float3 g_camPos;
     float g_skyBoxMultiple;
     float3 g_GIVolumePosition;
@@ -99,9 +102,6 @@ cbuffer cb0 : register(b0)
 cbuffer cb1 : register(b0, space1)
 {
     float4x4 g_mWorld;
-    float4x4 LightMapVP;
-    float4x4 LightMapVP1;
-    LightInfo Lightings[1];
     float _Metallic;
     float _Roughness;
     float _Emissive;
@@ -145,7 +145,7 @@ void rayGen()
     float3 GF = c_specular * AB.x + AB.y;
 
     uint randomState = RNG::RandomSeed(DispatchRaysIndex().x + DispatchRaysIndex().y * 8192 + g_RandomI);
-    int sampleCount = 1 + (int) (roughness * 256 * g_RayTracingReflectionQuality * GF);
+    int sampleCount = 1 + (int) max(roughness * 256 * g_RayTracingReflectionQuality * GF, 0);
     float3 specReflectColor = float3(0, 0, 0);
     float weight = 0;
     if (g_RayTracingReflectionThreshold > roughness)
@@ -164,7 +164,7 @@ void rayGen()
                 RayDesc ray;
                 ray.Origin = world.xyz;
                 ray.Direction = L;
-                ray.TMin = 0.01;
+                ray.TMin = 0.008 + (1 - dot(N, L)) * 0.05;
                 ray.TMax = 10000;
 
                 RayPayload payload;
@@ -202,9 +202,9 @@ StructuredBuffer<float3> Positions : register(t1, space1);
 StructuredBuffer<float3> Normals : register(t2, space1);
 StructuredBuffer<float2> UVs : register(t3, space1);
 Texture2D<float4> Albedo : register(t4, space1);
-Texture2D<float4> Emissive : register(t5, space1);
-Texture2D<float4> Metallic : register(t6, space1);
-Texture2D<float4> Roughness : register(t7, space1);
+Texture2D<float4> Metallic : register(t5, space1);
+Texture2D<float4> Roughness : register(t6, space1);
+Texture2D<float4> Emissive : register(t7, space1);
 
 [shader("closesthit")]
 void closestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttributes attr)

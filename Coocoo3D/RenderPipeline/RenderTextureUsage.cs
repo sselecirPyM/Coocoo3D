@@ -9,7 +9,7 @@ public class RenderTextureUsage
 {
     public GPUBuffer gpuBuffer;
 
-    public RenderPipeline renderPipeline;
+    public object bindingObject;
 
     public string name;
 
@@ -43,6 +43,6 @@ public class RenderTextureUsage
         {
             return null;
         }
-        return memberInfo.GetValue2<Texture2D>(renderPipeline);
+        return memberInfo.GetValue2<Texture2D>(bindingObject);
     }
 }

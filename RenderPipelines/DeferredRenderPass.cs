@@ -21,28 +21,12 @@ public class DeferredRenderPass
     public DrawDecalPass decalPass = new DrawDecalPass();
     public FinalPass finalPass = new FinalPass()
     {
-        srvs = new string[]
-        {
-            "gbuffer0",
-            "gbuffer1",
-            "gbuffer2",
-            "gbuffer3",
-            "_Environment",
-            null,
-            "_ShadowMap",
-            "_SkyBox",
-            "_BRDFLUT",
-            "_HiZBuffer",
-            "GIBuffer",
-        },
         cbvs = new object[][]
         {
             new object []
             {
                 nameof(ViewProjection),
                 nameof(InvertViewProjection),
-                nameof(View),
-                nameof(Projection),
                 nameof(Far),
                 nameof(Near),
                 nameof(Fov),
@@ -71,10 +55,6 @@ public class DeferredRenderPass
                 nameof(AORaySampleCount),
                 nameof(RandomI),
                 nameof(Split),
-            },
-            new object[]
-            {
-                null
             }
         },
     };
@@ -86,28 +66,6 @@ public class DeferredRenderPass
         {
             blendState = BlendState.Alpha,
             cullMode = CullMode.None,
-        },
-        srvs = new string[]
-        {
-            "_Albedo",
-            "_Metallic",
-            "_Roughness",
-            "_Emissive",
-            "_ShadowMap",
-            "_Environment",
-            "_BRDFLUT",
-            "_Normal",
-            "_Spa",
-            "GIBuffer",
-        },
-        CBVPerObject = new object[]
-        {
-            null,
-            null,
-            "Metallic",
-            "Roughness",
-            "Emissive",
-            "Specular",
         },
         CBVPerPass = new object[]
         {
@@ -136,31 +94,9 @@ public class DeferredRenderPass
             nameof(GIVolumePosition),
             nameof(GIVolumeSize),
         },
-        AutoKeyMap =
-        {
-            (nameof(EnableFog),"ENABLE_FOG"),
-            ("UseNormalMap","USE_NORMAL_MAP"),
-            ("UseSpa","USE_SPA"),
-            (nameof(UseGI),"ENABLE_GI"),
-        },
-        filter = FilterTransparent,
     };
 
-    public RayTracingPass rayTracingPass = new RayTracingPass()
-    {
-        srvs = new string[]
-        {
-            null,
-            "_Environment",
-            "_BRDFLUT",
-            null,//nameof(depth),
-            "gbuffer0",
-            "gbuffer1",
-            "gbuffer2",
-            "_ShadowMap",
-            "GIBuffer",
-        },
-    };
+    public RayTracingPass rayTracingPass = new RayTracingPass();
 
     public HiZPass HiZPass = new HiZPass();
 
@@ -289,10 +225,12 @@ public class DeferredRenderPass
 
     public Texture2D renderTarget;
     public Texture2D depth;
-    public string depthStencil;
+
 
     [Indexable]
     public int Split;
+
+    public PipelineMaterial pipelineMaterial;
 
     public DebugRenderType DebugRenderType;
 
@@ -326,15 +264,10 @@ public class DeferredRenderPass
     public void Execute(RenderHelper renderHelper)
     {
         RenderWrap renderWrap = renderHelper.renderWrap;
-
-        HiZPass.input = depth;
-        HiZPass.output = renderWrap.GetRenderTexture2D("_HiZBuffer");
         decalPass.depthStencil = depth;
         decalPass.Visuals = Visuals;
-        finalPass.srvs[5] = depthStencil;
 
         rayTracingPass.renderTarget = gbuffer2;
-        rayTracingPass.srvs[3] = depthStencil;
 
         RandomI = random.Next();
 
@@ -420,11 +353,11 @@ public class DeferredRenderPass
             int height = shadowMap.height;
 
             drawShadowMap.viewProjection = ShadowMapVP;
-            SetScissorViewportRect(renderWrap, 0, 0, width / 2, height / 2);
+            SetScissorViewportRect(renderHelper, 0, 0, width / 2, height / 2);
             drawShadowMap.Execute(renderHelper);
 
             drawShadowMap.viewProjection = ShadowMapVP1;
-            SetScissorViewportRect(renderWrap, width / 2, 0, width / 2, height / 2);
+            SetScissorViewportRect(renderHelper, width / 2, 0, width / 2, height / 2);
             drawShadowMap.Execute(renderHelper);
         }
 
@@ -456,6 +389,8 @@ public class DeferredRenderPass
         decalPass.Execute(renderHelper);
         if (EnableSSR)
         {
+            HiZPass.input = depth;
+            HiZPass.output = pipelineMaterial._HiZBuffer;
             HiZPass.context = renderHelper;
             HiZPass.Execute();
         }
@@ -467,6 +402,7 @@ public class DeferredRenderPass
             rayTracingPass.RayTracingGI = UpdateGI;
             rayTracingPass.UseGI = UseGI;
             rayTracingPass.directionalLight = directionalLight;
+            rayTracingPass.pipelineMaterial = pipelineMaterial;
             rayTracingPass.Execute(renderHelper);
         }
         finalPass.EnableSSR = EnableSSR;
@@ -474,24 +410,31 @@ public class DeferredRenderPass
         finalPass.EnableFog = EnableFog;
         finalPass.UseGI = UseGI;
         finalPass.NoBackGround = NoBackGround;
+        finalPass.pipelineMaterial = pipelineMaterial;
         renderWrap.SetRenderTarget(renderTarget, null, false, false);
         finalPass.Execute(renderHelper);
         renderWrap.SetRenderTarget(renderTarget, depth, false, false);
+
+        drawObjectTransparent.DrawOpaque = false;
+        drawObjectTransparent.DrawTransparent = true;
+        drawObjectTransparent.EnableFog = EnableFog;
+        drawObjectTransparent.UseGI = UseGI;
+        drawObjectTransparent._ShadowMap = shadowMap;
+        drawObjectTransparent._Environment = pipelineMaterial._Environment;
+        drawObjectTransparent._BRDFLUT = pipelineMaterial._BRDFLUT;
+        drawObjectTransparent.GIBuffer = pipelineMaterial.GIBuffer;
         drawObjectTransparent.Execute(renderHelper);
 
         renderHelper.PopParameters();
-
-        finalPass.cbvs[1][0] = null;
-        drawObjectTransparent.CBVPerObject[1] = null;
 
         drawObjectTransparent.keywords.Clear();
         finalPass.keywords.Clear();
     }
 
-    static void SetScissorViewportRect(RenderWrap renderWrap, int x, int y, int width, int height)
+    static void SetScissorViewportRect(RenderHelper context, int x, int y, int width, int height)
     {
         var rect = new Rectangle(x, y, width, height);
-        renderWrap.SetScissorRectAndViewport(rect.Left, rect.Top, rect.Right, rect.Bottom);
+        context.SetScissorRectAndViewport(rect.Left, rect.Top, rect.Right, rect.Bottom);
     }
 
     static Matrix4x4 GetShadowMapMatrix(Vector3 pos, Vector3 dir, Vector3 up, float near, float far)
@@ -523,9 +466,9 @@ public class DeferredRenderPass
         (new Vector3(0, 0, 1), new Vector3(-1, 0, 0)),
         (new Vector3(0, 0, -1), new Vector3(1, 0, 0))
     };
-    void DrawPointShadow(RenderHelper renderHelper, ReadOnlySpan<PointLightData> pointLightDatas)
+    void DrawPointShadow(RenderHelper context, ReadOnlySpan<PointLightData> pointLightDatas)
     {
-        RenderWrap renderWrap = renderHelper.renderWrap;
+        RenderWrap renderWrap = context.renderWrap;
         int index = 0;
         int width = shadowMap.width;
         int height = shadowMap.height;
@@ -540,8 +483,8 @@ public class DeferredRenderPass
             {
                 drawShadowMap.viewProjection = GetShadowMapMatrix(pl.Position, val.Item1, val.Item2, near, far);
                 var rect = GetRectangle(index, Split, width, height); ;
-                renderWrap.SetScissorRectAndViewport(rect.Left, rect.Top, rect.Right, rect.Bottom);
-                drawShadowMap.Execute(renderHelper);
+                context.SetScissorRectAndViewport(rect.Left, rect.Top, rect.Right, rect.Bottom);
+                drawShadowMap.Execute(context);
                 index++;
             }
         }
@@ -575,24 +518,6 @@ public class DeferredRenderPass
         { DebugRenderType.Tangent,"DEBUG_TANGENT"},
         { DebugRenderType.UV,"DEBUG_UV"},
     };
-
-    static bool FilterOpaque(MeshRenderable renderable)
-    {
-        if (true.Equals(renderable.material.GetObject("IsTransparent")))
-        {
-            return false;
-        }
-        return true;
-    }
-
-    static bool FilterTransparent(MeshRenderable renderable)
-    {
-        if (true.Equals(renderable.material.GetObject("IsTransparent")))
-        {
-            return true;
-        }
-        return false;
-    }
 
     public void Dispose()
     {

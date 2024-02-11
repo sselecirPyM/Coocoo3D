@@ -10,7 +10,7 @@ public class EnvironmentReflectionAttribute : RuntimeBakeAttribute, ITexture2DBa
 {
     public bool Bake(Texture2D texture, RenderWrap renderWrap, ref object tag)
     {
-        var tex = renderWrap.GetTex2D(Source);
+        var tex = renderWrap.GetRenderTexture2D(Source);
         if (tex == null || tex.Status != GraphicsObjectStatus.loaded)
             return false;
 
@@ -296,7 +296,7 @@ float3 PrefilterEnvMap(uint2 Random, float Roughness, float3 R)
 	if (Roughness < 0.25)
 		NumSamples = 8;
 	if (Roughness < 0.0625)
-		NumSamples = 2;
+		NumSamples = 4;
 	for (uint i = 0; i < NumSamples; i++)
 	{
 		float2 E = Hammersley(i, NumSamples, Random);
