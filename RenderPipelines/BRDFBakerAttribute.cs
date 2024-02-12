@@ -29,19 +29,10 @@ public class BRDFBakerAttribute : RuntimeBakeAttribute, ITexture2DBaker, IDispos
 """
 //ref: https://learnopengl.com/PBR/IBL/Specular-IBL
 #include "Random.hlsli"
+#include "PBR.hlsli"
 #ifndef PI
 #define PI 3.14159265358979
 #endif
-float GeometrySchlickGGX(float NdotV, float roughness)
-{
-	float a = roughness;
-	float k = (a * a) / 2.0;
-
-	float nom = NdotV;
-	float denom = NdotV * (1.0 - k) + k;
-
-	return nom / denom;
-}
 
 float GeometrySmith(float3 N, float3 V, float3 L, float roughness)
 {
@@ -58,8 +49,8 @@ float3 ImportanceSampleGGX(float2 Xi, float3 N, float roughness)
 	float a = roughness * roughness;
 
 	float phi = 2.0 * PI * Xi.x;
-	float cosTheta = sqrt((1.0 - Xi.y) / (1.0 + (a * a - 1.0) * Xi.y));
-	float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
+	float cosTheta = saturate(sqrt((1.0 - Xi.y) / (1.0 + (a * a - 1.0) * Xi.y)));
+	float sinTheta = saturate(sqrt(1.0 - cosTheta * cosTheta));
 
 	// from spherical coordinates to cartesian coordinates
 	float3 H;
@@ -101,8 +92,8 @@ float2 IntegrateBRDF(float NdotV, float roughness)
 
 		if (NdotL > 0.0)
 		{
-			float G = GeometrySmith(N, V, L, roughness);
-			float G_Vis = (G * VdotH) / (NdotH * NdotV);
+			float Vis = Vis_SmithJointApprox(roughness * roughness, NdotV, NdotL );
+			float G_Vis = NdotL * Vis * (4 * VdotH / NdotH);
 			float Fc = pow(1.0 - VdotH, 5.0);
 
 			A += (1.0 - Fc) * G_Vis;

@@ -102,8 +102,8 @@ float3 Fresnel_SchlickRoughness(float cosTheta, float3 F0, float roughness)
 float4 ImportanceSampleGGX(float2 E, float a2)
 {
 	float Phi = 2 * COO_PI * E.x;
-	float CosTheta = sqrt((1 - E.y) / (1 + (a2 - 1) * E.y));
-	float SinTheta = sqrt(1 - CosTheta * CosTheta);
+    float CosTheta = saturate(sqrt((1 - E.y) / (1 + (a2 - 1) * E.y)));
+    float SinTheta = saturate(sqrt(1 - CosTheta * CosTheta));
 
 	float3 H;
 	H.x = SinTheta * cos(Phi);
@@ -115,4 +115,21 @@ float4 ImportanceSampleGGX(float2 E, float a2)
 	float PDF = D * CosTheta;
 
 	return float4(H, PDF);
+}
+
+
+float GeometrySchlickGGX(float NdotV, float roughness)
+{
+    float a = roughness;
+    float k = (a * a) / 2.0;
+
+    float nom = NdotV;
+    float denom = NdotV * (1.0 - k) + k;
+
+    return nom / denom;
+}
+
+float Vis_SmithJointApprox(float a, float NdotV, float NdotL)
+{
+    return 0.5 / ((1 - a) * NdotV * NdotL * 2 + (NdotV + NdotL) * a);
 }

@@ -154,17 +154,21 @@ void rayGen()
         for (int i = 0; i < sampleCount; i++)
         {
             float2 E = Hammersley(i, sampleCount, rnd1);
-            float3 H = TangentToWorld(ImportanceSampleGGX(E, Pow4(roughness)).xyz, N);
+            float3 H = TangentToWorld(ImportanceSampleGGX(E, alpha * alpha).xyz, N);
+            
             float3 L = 2 * dot(V, H) * H - V;
 
             float NdotL = saturate(dot(N, L));
+            float NdotH = saturate(dot(N, H));
+            
+            float VdotH = saturate(dot(V, H));
 
             if (NdotL > 0)
             {
                 RayDesc ray;
-                ray.Origin = world.xyz;
+                ray.Origin = world.xyz + N * 0.004;
                 ray.Direction = L;
-                ray.TMin = 0.008 + (1 - dot(N, L)) * 0.05;
+                ray.TMin = 0.008;
                 ray.TMax = 10000;
 
                 RayPayload payload;
@@ -178,11 +182,17 @@ void rayGen()
 					0 /* Miss index */,
 					ray,
 					payload);
-                specReflectColor += payload.color * NdotL;
-                weight += NdotL;
+                float3 sampleColor = payload.color;
+                
+                float Fc = pow(1 - VdotH, 5);
+                float3 F = (1 - Fc) * c_specular + Fc;
+                float Vis = Vis_SmithJointApprox(alpha, NdotV, NdotL);
+                
+                specReflectColor += sampleColor * F * (NdotL * Vis * (4 * VdotH / NdotH));
+                weight += 1;
             }
         }
-        specReflectColor = specReflectColor / max(weight, 1e-4) * GF;
+        specReflectColor = clamp(specReflectColor / max(weight, 1e-4), 0, 65536);
         gOutput[launchIndex.xy] += float4(specReflectColor, 0);
     }
     else
