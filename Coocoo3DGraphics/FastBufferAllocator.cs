@@ -48,17 +48,44 @@ class BufferTracking
 class FastBufferAllocator : IDisposable
 {
     RingBuffer ringBuffer;
+    ID3D12Device device;
     DescriptorHeapX descriptorHeap;
 
     BufferTracking[] buffers;
     int frameIndex;
     ResourceFlags resourceFlags;
+    HeapType heapType;
+    ResourceStates resourceStates;
 
     internal FastBufferAllocator(RingBuffer ringBuffer, DescriptorHeapX cbvsrvuav, ResourceFlags resourceFlags)
     {
         this.ringBuffer = ringBuffer;
+        this.device = ringBuffer.device;
         this.descriptorHeap = cbvsrvuav;
         this.resourceFlags = resourceFlags;
+
+        heapType = HeapType.Default;
+        buffers = new BufferTracking[3];
+        for (int i = 0; i < 3; i++)
+        {
+            buffers[i] = new BufferTracking();
+            buffers[i].size = 65536;
+            CreateBuffer(buffers[i]);
+        }
+    }
+
+    internal FastBufferAllocator(RingBuffer ringBuffer, DescriptorHeapX cbvsrvuav, HeapType heapType, ResourceFlags resourceFlags)
+    {
+        this.ringBuffer = ringBuffer;
+        this.device = ringBuffer.device;
+        this.descriptorHeap = cbvsrvuav;
+        this.resourceFlags = resourceFlags;
+        this.heapType = heapType;
+
+        if (heapType == HeapType.Readback)
+        {
+            resourceStates = ResourceStates.CopyDest;
+        }
 
         buffers = new BufferTracking[3];
         for (int i = 0; i < 3; i++)
@@ -148,6 +175,13 @@ class FastBufferAllocator : IDisposable
         _offset = dstOffset;
     }
 
+    internal void GetTemporaryBuffer(int size,out ID3D12Resource resource, out int _offset, out ulong gpuAddress)
+    {
+        var buffer = buffers[frameIndex];
+        Allocate(buffer, size, 4, out _offset, out gpuAddress);
+        resource = buffer.resource;
+    }
+
     internal BufferTracking GetBufferTracking()
     {
         return buffers[frameIndex];
@@ -174,21 +208,21 @@ class FastBufferAllocator : IDisposable
             ringBuffer.needRecycle.Add(tracking.resource);
         }
         tracking.offset = 0;
-        ThrowIfFailed(ringBuffer.device.CreateCommittedResource(new HeapProperties(HeapType.Default), HeapFlags.None,
-            ResourceDescription.Buffer((ulong)tracking.size, resourceFlags), ResourceStates.Common, out tracking.resource));
+        ThrowIfFailed(device.CreateCommittedResource(new HeapProperties(heapType), HeapFlags.None,
+            ResourceDescription.Buffer((ulong)tracking.size, resourceFlags), resourceStates, out tracking.resource));
     }
 
     GpuDescriptorHandle CreateSRV(ID3D12Resource resource, ShaderResourceViewDescription srvDesc)
     {
         descriptorHeap.GetTempHandle(out var cpuHandle, out var gpuHandle);
-        ringBuffer.device.CreateShaderResourceView(resource, srvDesc, cpuHandle);
+        device.CreateShaderResourceView(resource, srvDesc, cpuHandle);
         return gpuHandle;
     }
 
     GpuDescriptorHandle CreateUAV(ID3D12Resource resource, UnorderedAccessViewDescription uavDesc)
     {
         descriptorHeap.GetTempHandle(out var cpuHandle, out var gpuHandle);
-        ringBuffer.device.CreateUnorderedAccessView(resource, null, uavDesc, cpuHandle);
+        device.CreateUnorderedAccessView(resource, null, uavDesc, cpuHandle);
         return gpuHandle;
     }
 

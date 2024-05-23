@@ -38,6 +38,8 @@ internal sealed class CommandQueue : IDisposable
 
     internal List<(ID3D12Object, ulong)> m_recycleList = new List<(ID3D12Object, ulong)>();
 
+    internal List<ReadBackCallbackData> readBackCallbacks = new List<ReadBackCallbackData>();
+
     public void Initialize(ID3D12Device device, CommandListType commandListType)
     {
         this.device = device;
@@ -124,6 +126,15 @@ internal sealed class CommandQueue : IDisposable
     {
         var fence = this.fence;
         ulong completedFrame = fence.CompletedValue;
+        readBackCallbacks.RemoveAll(x =>
+        {
+            if (x.frame <= completedFrame)
+            {
+                x.Call();
+                return true;
+            }
+            return false;
+        });
         m_recycleList.RemoveAll(x =>
         {
             if (x.Item2 <= completedFrame)

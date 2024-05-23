@@ -20,6 +20,7 @@ public sealed class GraphicsDevice : IDisposable
     internal RingBuffer superRingBuffer = new RingBuffer();
     internal FastBufferAllocator fastBufferAllocator;
     internal FastBufferAllocator fastBufferAllocatorUAV;
+    internal FastBufferAllocator fastBufferAllocatorReadBack;
 
     internal ID3D12Resource scratchResource;
 
@@ -99,6 +100,7 @@ public sealed class GraphicsDevice : IDisposable
         superRingBuffer.Initialize(this.device, 134217728);
         fastBufferAllocator = new FastBufferAllocator(superRingBuffer, cbvsrvuavHeap, ResourceFlags.None);
         fastBufferAllocatorUAV = new FastBufferAllocator(superRingBuffer, cbvsrvuavHeap, ResourceFlags.AllowUnorderedAccess);
+        fastBufferAllocatorReadBack = new FastBufferAllocator(superRingBuffer, null, HeapType.Readback, ResourceFlags.None);
     }
 
     public void WaitForGpu()
@@ -184,6 +186,7 @@ public sealed class GraphicsDevice : IDisposable
         copyCommandQueue?.Dispose();
         fastBufferAllocatorUAV?.Dispose();
         fastBufferAllocator?.Dispose();
+        fastBufferAllocatorReadBack?.Dispose();
         superRingBuffer?.Dispose();
         scratchResource?.Release();
         cbvsrvuavHeap?.Dispose();

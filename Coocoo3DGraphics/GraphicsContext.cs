@@ -729,13 +729,6 @@ public sealed class GraphicsContext
         buffer.resourceStates = ResourceStates.UnorderedAccess;
     }
 
-    public void UpdateReadBackBuffer(ReadBackBuffer buffer, int size)
-    {
-        CreateBuffer(size, ref buffer.bufferReadBack, heapType: HeapType.Readback);
-        buffer.size = size;
-        buffer.bufferReadBack.Name = "texture readback";
-    }
-
     void ClearMeshState()
     {
         currentMesh.Clear();
@@ -826,12 +819,15 @@ public sealed class GraphicsContext
         m_commandList.CopyResource(target.resource, source.resource);
     }
 
-    public int ReadBack(ReadBackBuffer target, Texture2D texture2D)
+    public void ReadBack(Texture2D texture2D, TextureDataCallback callback, object tag)
     {
+        int RowPitch = (texture2D.width * 4 + 255) & ~255;
+        int size = RowPitch * texture2D.height;
+
+        graphicsDevice.fastBufferAllocatorReadBack.GetTemporaryBuffer(size, out var targetResource, out int offset, out var gpuAddress);
+
         var source = texture2D.resource;
         texture2D.SetAllResourceState(m_commandList, ResourceStates.CopySource);
-        int RowPitch = (texture2D.width * 4 + 255) & ~255;
-        int offset = target.GetOffsetAndMove(RowPitch * texture2D.height);
         PlacedSubresourceFootPrint footPrint = new PlacedSubresourceFootPrint();
         footPrint.Footprint.Width = texture2D.width;
         footPrint.Footprint.Height = texture2D.height;
@@ -840,11 +836,22 @@ public sealed class GraphicsContext
         footPrint.Footprint.Format = texture2D.format;
         footPrint.Offset = (ulong)offset;
 
-        TextureCopyLocation Dst = new TextureCopyLocation(target.bufferReadBack, footPrint);
+        TextureCopyLocation Dst = new TextureCopyLocation(targetResource, footPrint);
         TextureCopyLocation Src = new TextureCopyLocation(source, 0);
         m_commandList.CopyTextureRegion(Dst, 0, 0, 0, Src, null);
-
-        return offset;
+        graphicsDevice.commandQueue.readBackCallbacks.Add(new ReadBackCallbackData()
+        {
+            callback = callback,
+            resource = targetResource,
+            frame = graphicsDevice.commandQueue.currentFenceValue,
+            imageSize = size,
+            offset = offset,
+            rowPitch = RowPitch,
+            width = texture2D.width,
+            height = texture2D.height,
+            format = texture2D.format,
+            tag = tag
+        });
     }
 
     public void RSSetScissorRect(int left, int top, int right, int bottom)
@@ -1192,6 +1199,7 @@ public sealed class GraphicsContext
         graphicsDevice.superRingBuffer.DelayCommands(m_copyCommandList, commandQueue);
         graphicsDevice.fastBufferAllocator.FrameEnd();
         graphicsDevice.fastBufferAllocatorUAV.FrameEnd();
+        graphicsDevice.fastBufferAllocatorReadBack.FrameEnd();
         m_copyCommandList.Close();
         copyCommandQueue.ExecuteCommandList(m_copyCommandList);
         copyCommandQueue.NextExecuteIndex();

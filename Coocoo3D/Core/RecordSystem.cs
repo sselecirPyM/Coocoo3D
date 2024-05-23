@@ -3,7 +3,6 @@ using Coocoo3D.RenderPipeline;
 using Coocoo3D.ResourceWrap;
 using Coocoo3DGraphics;
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Pipes;
@@ -58,7 +57,7 @@ public class RecordSystem : IDisposable
     public EditorContext editorContext;
 
     public float StartTime;
-    public float StopTime;
+    public int maxRecordCount;
     public int RecordCount = 0;
     public string saveDirectory;
 
@@ -68,7 +67,7 @@ public class RecordSystem : IDisposable
         Width = 1920,
         Height = 1080,
         StartTime = 0,
-        StopTime = 9999,
+        StopTime = 300,
     };
 
     bool recording;
@@ -103,7 +102,7 @@ public class RecordSystem : IDisposable
             {
                 return;
             }
-            if (gameDriverContext.PlayTime >= StartTime && gameDriverContext.PlayTime <= StopTime)
+            if (gameDriverContext.PlayTime >= StartTime && RecordCount < maxRecordCount)
             {
                 var aov = visualChannel1.GetAOV(Caprice.Attributes.AOVType.Color);
                 string fileName;
@@ -111,17 +110,37 @@ public class RecordSystem : IDisposable
                     fileName = Path.GetFullPath(string.Format("{0}.png", RecordCount), saveDirectory);
                 else
                     fileName = Path.GetFullPath(string.Format("{0}.bmp", RecordCount), saveDirectory);
-                Record(aov, pipe, fileName);
+
+                bool endFrame = RecordCount + 1 >= maxRecordCount;
+
+
+                Record(aov, pipe, fileName, endFrame);
                 RecordCount++;
             }
         }
+    }
 
-        OnFrame();
-        if (recordQueue.Count == 0 && !recording)
+    void Record(Texture2D texture, Stream stream, string output, bool endFrame)
+    {
+        graphicsContext.ReadBack(texture, (info, data) =>
         {
-            pipe?.Dispose();
-            pipe = null;
-        }
+            int width = info.width;
+            int height = info.height;
+            if (stream == null)
+            {
+                TextureHelper.SaveToFile(data, width, height, output);
+            }
+            else
+            {
+                TextureHelper.SaveToFile(data, width, height, output, stream);
+                stream.Flush();
+            }
+            if (endFrame)
+            {
+                pipe?.Dispose();
+                pipe = null;
+            }
+        }, null);
     }
 
     public void StartRecord()
@@ -140,7 +159,8 @@ public class RecordSystem : IDisposable
         visualchannel.resolusionSizeSource = ResolusionSizeSource.Custom;
 
         StartTime = recordSettings.StartTime;
-        StopTime = recordSettings.StopTime;
+        maxRecordCount = (int)((recordSettings.StopTime - recordSettings.StartTime) * recordSettings.FPS);
+
         RecordCount = 0;
         recording = true;
 
@@ -164,21 +184,18 @@ public class RecordSystem : IDisposable
         {
             string[] args =
             {
-                    "-y",
-                    "-r",
-                    recordSettings.FPS.ToString(),
-                    "-i",
-                    @"\\.\pipe\" + pipeName,
-                    "-c:v",
-                    "libx264",
-                    "-s",
-                    recordSettings.Width + "X" + recordSettings.Height,
-                    "-pix_fmt",
-                    "yuv420p",
-                    "-crf",
-                    "17",
-                    saveDirectory + @"\output.mp4",
-                };
+                "-y",
+                "-r",
+                recordSettings.FPS.ToString(),
+                "-colorspace","bt709",
+                "-i", @"\\.\pipe\" + pipeName,
+                "-c:v", "libx264",
+                "-s", recordSettings.Width + "X" + recordSettings.Height,
+                "-vf", "format=yuv420p",
+                //"-preset", "medium",
+                "-crf", "17",
+                saveDirectory + @"\output.mp4",
+            };
             var processStartInfo = new ProcessStartInfo();
             processStartInfo.FileName = "ffmpeg";
             foreach (var arg in args)
@@ -203,68 +220,7 @@ public class RecordSystem : IDisposable
         Record();
     }
 
-    public ReadBackBuffer ReadBackBuffer = new ReadBackBuffer();
-
-    byte[] temp;
-
-    void OnFrame()
-    {
-        if (recordQueue.Count == 0)
-            return;
-        ulong completed = graphicsDevice.GetInternalCompletedFenceValue();
-        while (recordQueue.Count > 0 && recordQueue.Peek().frame <= completed)
-        {
-            var tuple = recordQueue.Dequeue();
-            int width = tuple.width;
-            int height = tuple.height;
-            var stream = tuple.stream;
-
-            if (temp == null || temp.Length != width * height * 4)
-            {
-                temp = new byte[width * height * 4];
-            }
-            var data = temp;
-            ReadBackBuffer.GetData<byte>(tuple.buffOffset, height, (width * 4 + 255) & ~255, width * 4, data);
-
-            if (stream == null)
-            {
-                TextureHelper.SaveToFile(data, width, height, tuple.target);
-            }
-            else
-            {
-                TextureHelper.SaveToFile(data, width, height, tuple.target, stream);
-                stream.Flush();
-            }
-        }
-    }
-
-    public Queue<TextureRecordData> recordQueue = new();
-
-    public void Record(Texture2D texture, Stream stream, string output)
-    {
-        int width = texture.width;
-        int height = texture.height;
-        if (ReadBackBuffer.size < ((width * 4 + 255) & ~255) * height)
-        {
-            graphicsContext.UpdateReadBackBuffer(ReadBackBuffer, width * height * 4 * 3);
-        }
-
-        int offset = graphicsContext.ReadBack(ReadBackBuffer, texture);
-
-        recordQueue.Enqueue(new TextureRecordData
-        {
-            frame = graphicsDevice.GetInternalFenceValue(),
-            buffOffset = offset,
-            target = output,
-            width = width,
-            height = height,
-            stream = stream
-        });
-    }
-
     public void Dispose()
     {
-        ReadBackBuffer?.Dispose();
-        ReadBackBuffer = null;
     }
 }

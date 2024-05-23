@@ -10,7 +10,7 @@ namespace Coocoo3D.ResourceWrap;
 
 public static class TextureHelper
 {
-    public static void SaveToFile(Span<byte> data, int width, int height, string fileName)
+    public static void SaveToFile(ReadOnlySpan<byte> data, int width, int height, string fileName)
     {
         var pack = FindPack();
 
@@ -28,21 +28,20 @@ public static class TextureHelper
         totalCount++;
     }
 
-    public static void SaveToFile(Span<byte> data, int width, int height, string fileName, Stream stream)
+    public static void SaveToFile(ReadOnlySpan<byte> data, int width, int height, string fileName, Stream stream)
     {
-        var pack = new _TextureStreamSavePack();
+        var pack = new _TextureSavePack();
 
         pack.width = width;
         pack.height = height;
         pack.saveFileName = fileName;
-        pack.stream = stream;
         if (pack.imageData == null || pack.imageData.Length != data.Length)
         {
             pack.imageData = new byte[data.Length];
         }
         data.CopyTo(pack.imageData);
 
-        pack.StreamSave();
+        pack.StreamSave(stream);
 
         totalCount++;
     }
@@ -109,52 +108,35 @@ class _TextureSavePack
                 break;
         }
     }
-
-}
-class _TextureStreamSavePack
-{
-    public byte[] imageData;
-    public int width;
-    public int height;
-    public string saveFileName;
-    public Stream stream;
-
-    public void StreamSave()
+    public void StreamSave(Stream stream)
     {
         Image<Rgba32> image = Image.WrapMemory<Rgba32>(imageData, width, height);
         string extension = Path.GetExtension(saveFileName).ToLower();
-        try
+        switch (extension)
         {
-            switch (extension)
-            {
-                case ".jpg":
-                case ".jpeg":
-                    image.SaveAsJpeg(stream);
-                    break;
-                case ".bmp":
-                    image.SaveAsBmp(stream);
-                    break;
-                case ".png":
-                    PngEncoder pngEncoder = new PngEncoder
-                    {
-                        CompressionLevel = PngCompressionLevel.NoCompression,
-                        ColorType = PngColorType.Rgb
-                    };
-                    image.SaveAsPng(stream, pngEncoder);
-                    break;
-                case ".tga":
-                    TgaEncoder encoder = new TgaEncoder
-                    {
-                        Compression = TgaCompression.None,
-                        BitsPerPixel = TgaBitsPerPixel.Pixel24
-                    };
-                    image.SaveAsTga(stream, encoder);
-                    break;
-            }
-        }
-        catch
-        {
-
+            case ".jpg":
+            case ".jpeg":
+                image.SaveAsJpeg(stream);
+                break;
+            case ".bmp":
+                image.SaveAsBmp(stream);
+                break;
+            case ".png":
+                PngEncoder pngEncoder = new PngEncoder
+                {
+                    CompressionLevel = PngCompressionLevel.NoCompression,
+                    ColorType = PngColorType.Rgb
+                };
+                image.SaveAsPng(stream, pngEncoder);
+                break;
+            case ".tga":
+                TgaEncoder encoder = new TgaEncoder
+                {
+                    Compression = TgaCompression.None,
+                    BitsPerPixel = TgaBitsPerPixel.Pixel24
+                };
+                image.SaveAsTga(stream, encoder);
+                break;
         }
     }
 }
