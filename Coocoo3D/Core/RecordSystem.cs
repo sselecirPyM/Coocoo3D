@@ -57,6 +57,7 @@ public class RecordSystem : IDisposable
     public EditorContext editorContext;
 
     public float StartTime;
+    public int forceEnd = -1;
     public int maxRecordCount;
     public int RecordCount = 0;
     public string saveDirectory;
@@ -95,16 +96,24 @@ public class RecordSystem : IDisposable
 
     public void Record()
     {
+        if (forceEnd == 0)
+        {
+            pipe?.Dispose();
+            pipe = null;
+        }
+        if (forceEnd >= 0)
+        {
+            forceEnd--;
+        }
         if (recording)
         {
-            var visualChannel1 = recordTarget;
-            if (visualChannel1 == null || visualChannel1.disposed)
+            if (recordTarget == null || recordTarget.disposed)
             {
                 return;
             }
             if (gameDriverContext.PlayTime >= StartTime && RecordCount < maxRecordCount)
             {
-                var aov = visualChannel1.GetAOV(Caprice.Attributes.AOVType.Color);
+                var aov = recordTarget.GetAOV(Caprice.Attributes.AOVType.Color);
                 string fileName;
                 if (pipe == null)
                     fileName = Path.GetFullPath(string.Format("{0}.png", RecordCount), saveDirectory);
@@ -124,6 +133,8 @@ public class RecordSystem : IDisposable
     {
         graphicsContext.ReadBack(texture, (info, data) =>
         {
+            if (recordTarget == null)
+                return;
             int width = info.width;
             int height = info.height;
             if (stream == null)
@@ -160,7 +171,7 @@ public class RecordSystem : IDisposable
 
         StartTime = recordSettings.StartTime;
         maxRecordCount = (int)((recordSettings.StopTime - recordSettings.StartTime) * recordSettings.FPS);
-
+        forceEnd = -1;
         RecordCount = 0;
         recording = true;
 
@@ -178,7 +189,7 @@ public class RecordSystem : IDisposable
     void StartRecordFFmpeg()
     {
         pipeName = Path.GetRandomFileName();
-        var pipe = new NamedPipeServerStream(pipeName, PipeDirection.Out, 1, PipeTransmissionMode.Byte, PipeOptions.None, 0, 1024 * 1024 * 64);
+        var pipe = new NamedPipeServerStream(pipeName, PipeDirection.Out, 1, PipeTransmissionMode.Byte, PipeOptions.None, 0, 1024 * 1024 * 2);
         this.pipe = pipe;
         Task.Run(() =>
         {
@@ -211,6 +222,7 @@ public class RecordSystem : IDisposable
         if (recordTarget != null)
         {
             recordTarget.resolusionSizeSource = ResolusionSizeSource.Default;
+            forceEnd = 3;
         }
         recordTarget = null;
     }

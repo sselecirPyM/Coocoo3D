@@ -10,8 +10,6 @@ namespace Coocoo3D.UI;
 
 public class SettingsWindow : IWindow
 {
-    public Config config;
-
     public GameDriverContext gameDriverContext;
 
     public RenderSystem renderSystem;
@@ -40,8 +38,8 @@ public class SettingsWindow : IWindow
 
     void Settings()
     {
-        ImGui.Checkbox("垂直同步", ref config.VSync);
-        ImGui.Checkbox("节省CPU", ref config.SaveCpuPower);
+        ImGui.Checkbox("垂直同步", ref gameDriverContext.VSync);
+        ImGui.Checkbox("节省CPU", ref gameDriverContext.SaveCpuPower);
         float a = (float)(1.0 / Math.Clamp(gameDriverContext.FrameInterval, 1e-4, 1));
         if (ImGui.DragFloat("帧率限制", ref a, 10, 1, 5000))
         {

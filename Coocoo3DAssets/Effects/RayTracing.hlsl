@@ -431,6 +431,8 @@ void rayGenPathTracing()
 
     float3 V = normalize(g_camPos - world.xyz);
     float3 N = normalize(NormalDecode(buffer1Color.rg));
+    if (dot(N,V) < 0)
+        N = -N;
     float NdotV = saturate(dot(N, V));
     float roughness = buffer1Color.b;
     float alpha = roughness * roughness;

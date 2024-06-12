@@ -226,3 +226,22 @@ public class Texture2DPack : IDisposable
         texture2D.Dispose();
     }
 }
+
+public class ImageMeta
+{
+    public int width;
+    public int height;
+    public int mipLevels;
+    public Format format;
+
+    public byte[] data;
+
+    public ImageMeta(byte[] rawData, Format format, int width, int height, int mipLevel)
+    {
+        this.width = width;
+        this.height = height;
+        this.format = format;
+        this.mipLevels = mipLevel;
+        this.data = rawData;
+    }
+}

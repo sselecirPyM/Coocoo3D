@@ -618,8 +618,12 @@ float4 psmain(PSIn input) : SV_TARGET
 		surface.diffuse = diffuse;
 		surface.specular = specular;
 		surface.roughness = roughness;
-		surface.alpha = roughness * roughness;
-		surface.normal = N;
+        surface.alpha = roughness * roughness;
+        surface.normal = N;
+   //     if (dot(N, V) > 0)
+			//surface.normal = N;
+   //     else
+   //         surface.normal = -N;
 #if ENABLE_SSAO
 		uint randomState = RNG::RandomSeed(sx.x + sx.y * 2048 + g_RandomI);
 		if (AOFactor != 0)

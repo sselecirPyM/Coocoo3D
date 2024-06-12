@@ -23,49 +23,12 @@ public partial class ForwardRenderPipeline : RenderPipeline, IDisposable
     public DebugRenderType DebugRenderType;
 
     #region Material Parameters
-    [Indexable]
-    [UIShow(UIShowType.Material, "透明材质")]
-    public bool IsTransparent;
-
-    [Indexable]
-    [UISlider(0.0f, 1.0f, UIShowType.Material, "金属")]
-    public float Metallic;
-
-    [Indexable]
-    [UISlider(0.0f, 1.0f, UIShowType.Material, "粗糙")]
-    public float Roughness = 0.8f;
-
-    [Indexable]
-    [UIDragFloat(0.01f, 0, float.MaxValue, UIShowType.Material, "发光")]
-    public float Emissive;
-
-    [Indexable]
-    [UISlider(0.0f, 1.0f, UIShowType.Material, "高光")]
-    public float Specular = 0.5f;
 
     [UIShow(UIShowType.Material)]
     [PureColorBaker(1, 1, 1, 1)]
     [Format(ResourceFormat.R8G8B8A8_UNorm)]
     [Size(32, 32)]
-    public Texture2D _Albedo;
-
-    [UIShow(UIShowType.Material)]
-    [PureColorBaker(1, 1, 1, 1)]
-    [Format(ResourceFormat.R8G8B8A8_UNorm)]
-    [Size(32, 32)]
-    public Texture2D _Metallic;
-
-    [UIShow(UIShowType.Material)]
-    [PureColorBaker(1, 1, 1, 1)]
-    [Format(ResourceFormat.R8G8B8A8_UNorm)]
-    [Size(32, 32)]
-    public Texture2D _Roughness;
-
-    [UIShow(UIShowType.Material)]
-    [PureColorBaker(1, 1, 1, 1)]
-    [Format(ResourceFormat.R8G8B8A8_UNorm)]
-    [Size(32, 32)]
-    public Texture2D _Emissive;
+    public Texture2D _Albedo, _Metallic, _Roughness, _Emissive;
 
     [Indexable]
     [UIShow(UIShowType.Material, "使用法线贴图")]

@@ -17,7 +17,6 @@ public class Coocoo3DMain : IDisposable
     public EntityCommandRecorder recorder;
     public Statistics statistics;
 
-    public DX12ResourceManager manager;
     GraphicsDevice graphicsDevice;
     SwapChain swapChain;
     public MainCaches mainCaches;
@@ -46,8 +45,7 @@ public class Coocoo3DMain : IDisposable
 
     public TimeManager timeManagerUpdate = new TimeManager();
     public TimeManager timeManager = new TimeManager();
-
-    public Config config;
+    DX12Resource DX12Resource;
 
     Thread renderWorkThread;
     CancellationTokenSource cancelRenderThread;
@@ -71,14 +69,10 @@ public class Coocoo3DMain : IDisposable
 
         statistics = e.AddSystem<Statistics>();
 
-        config = e.AddSystem<Config>();
-
         graphicsDevice = e.AddSystem<GraphicsDevice>();
 
-        manager = new DX12ResourceManager();
-        manager.DX12Resource = JsonConvert.DeserializeObject<DX12Resource>(File.ReadAllText("Assets/DX12Launch.json"),
+        DX12Resource = JsonConvert.DeserializeObject<DX12Resource>(File.ReadAllText("Assets/DX12Launch.json"),
             new JsonSerializerSettings { PreserveReferencesHandling = PreserveReferencesHandling.All });
-        e.AddSystem(manager);
 
         swapChain = e.AddSystem<SwapChain>();
 
@@ -135,7 +129,7 @@ public class Coocoo3DMain : IDisposable
             timeManager.AbsoluteTimeInput(time);
 
             bool rendered = RenderFrame();
-            if (config.SaveCpuPower && !RPContext.recording && !(config.VSync && rendered))
+            if (GameDriverContext.SaveCpuPower && !RPContext.recording && !(GameDriverContext.VSync && rendered))
                 Thread.Sleep(1);
         }
     }
@@ -157,7 +151,6 @@ public class Coocoo3DMain : IDisposable
 
         if (gdc.Playing || gdc.RefreshScene)
         {
-            //animationSystem.playTime = (float)gdc.PlayTime;
             animationSystem.deltaTime = (float)gdc.DeltaTime;
             animationSystem.Update();
 
@@ -198,7 +191,7 @@ public class Coocoo3DMain : IDisposable
         graphicsContext.Execute();
 
         statistics.DrawTriangleCount = graphicsContext.TriangleCount;
-        swapChain.Present(config.VSync);
+        swapChain.Present(GameDriverContext.VSync);
 
         return true;
     }
@@ -218,7 +211,14 @@ public class Coocoo3DMain : IDisposable
     public void SetWindow(IntPtr hwnd, int width, int height)
     {
         //swapChain.Initialize(graphicsDevice, hwnd, width, height);
-        manager.InitializeSwapChain(swapChain, hwnd, width, height);
+        InitializeSwapChain(swapChain, hwnd, width, height);
         platformIO.windowSize = (width, height);
+    }
+    public void InitializeSwapChain(SwapChain swapChain, IntPtr hwnd, int width, int height)
+    {
+        var desc = DX12Resource.SwapChainDescriptions[0].GetSwapChainDescription1();
+        desc.Width = width;
+        desc.Height = height;
+        swapChain.Initialize(graphicsDevice, hwnd, desc);
     }
 }

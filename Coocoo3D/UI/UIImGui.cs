@@ -664,7 +664,7 @@ public class UIImGui
             int size = width * height * bytesPerPixel;
             Span<byte> spanByte1 = new Span<byte>(data, size);
 
-            uploader.Texture2DRaw(spanByte1, Vortice.DXGI.Format.R8G8B8A8_UNorm, width, height);
+            uploader.Texture2DRawLessCopy(spanByte1.ToArray(), Vortice.DXGI.Format.R8G8B8A8_UNorm, width, height, 1);
         }
 
         var texture2D = uiRenderSystem.uiTexture = new Coocoo3DGraphics.Texture2D();

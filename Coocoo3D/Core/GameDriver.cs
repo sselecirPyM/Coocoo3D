@@ -23,6 +23,10 @@ public class GameDriverContext
     public bool RefreshScene;
     public TimeManager timeManager;
 
+
+    public bool SaveCpuPower = true;
+    public bool VSync = false;
+
     public RendererWorkMode workMode;
 
     public void RequireRender(bool updateEntities)

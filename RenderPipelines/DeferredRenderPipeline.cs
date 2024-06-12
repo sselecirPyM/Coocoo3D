@@ -27,25 +27,8 @@ public partial class DeferredRenderPipeline : RenderPipeline, IDisposable
     [PureColorBaker(1, 1, 1, 1)]
     [Format(ResourceFormat.R8G8B8A8_UNorm)]
     [Size(32, 32)]
-    public Texture2D _Albedo;
+    public Texture2D _Albedo, _Metallic, _Roughness, _Emissive;
 
-    [UIShow(UIShowType.Material)]
-    [PureColorBaker(1, 1, 1, 1)]
-    [Format(ResourceFormat.R8G8B8A8_UNorm)]
-    [Size(32, 32)]
-    public Texture2D _Metallic;
-
-    [UIShow(UIShowType.Material)]
-    [PureColorBaker(1, 1, 1, 1)]
-    [Format(ResourceFormat.R8G8B8A8_UNorm)]
-    [Size(32, 32)]
-    public Texture2D _Roughness;
-
-    [UIShow(UIShowType.Material)]
-    [PureColorBaker(1, 1, 1, 1)]
-    [Format(ResourceFormat.R8G8B8A8_UNorm)]
-    [Size(32, 32)]
-    public Texture2D _Emissive;
 
     [UIShow(UIShowType.Material)]
     [PureColorBaker(0.5f, 0.5f, 1, 1)]
