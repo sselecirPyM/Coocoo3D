@@ -8,7 +8,7 @@ using System.Numerics;
 
 namespace Coocoo3D.UI;
 
-public class SceneHierachyWindow : IWindow
+public class SceneHierachyWindow : IWindow2
 {
     public bool Removing { get; private set; }
     public Scene CurrentScene;
@@ -16,6 +16,7 @@ public class SceneHierachyWindow : IWindow
     public EntityCommandRecorder recorder;
 
     public EditorContext editorContext;
+    public EngineContext engineContext;
 
     public void Initialize()
     {
@@ -27,12 +28,13 @@ public class SceneHierachyWindow : IWindow
         selectedObject = obj;
     }
 
-    public void OnGui()
+    public void OnGUI()
     {
         ImGui.SetNextWindowPos(new Vector2(750, 0), ImGuiCond.FirstUseEver);
         ImGui.SetNextWindowSize(new Vector2(350, 300), ImGuiCond.FirstUseEver);
-        if (ImGui.Begin("场景层级"))
+        if (ImGui.Begin("场景层级", ImGuiWindowFlags.MenuBar))
         {
+
             SceneHierarchy();
         }
         ImGui.End();
@@ -41,21 +43,15 @@ public class SceneHierachyWindow : IWindow
     Entity selectedObject;
     void SceneHierarchy()
     {
-        if (ImGui.Button("新光源"))
+        if (ImGui.BeginMenuBar())
         {
-            CurrentScene.NewLighting();
+            if (ImGui.BeginMenu("场景命令"))
+            {
+                ImGuiExt.CommandMenu("UISceneCommand");
+                ImGui.EndMenu();
+            }
+            ImGui.EndMenuBar();
         }
-        ImGui.SameLine();
-        //if (ImGui.Button("新粒子"))
-        //{
-        //    NewParticle();
-        //}
-        ImGui.SameLine();
-        if (ImGui.Button("新贴花"))
-        {
-            CurrentScene.NewDecal();
-        }
-        //ImGui.SameLine();
         bool removeObject = false;
         if (ImGui.Button("移除物体") || (ImGui.IsKeyPressed((int)ImGuiKey.Delete) && ImGui.IsWindowHovered()))
         {
@@ -93,15 +89,15 @@ public class SceneHierachyWindow : IWindow
             if (selecting || !selectedObject.IsAlive)
             {
                 editorContext.SelectObjectMessage(gameObject);
-
-                //CurrentScene.SelectedGameObjects.Clear();
-                //CurrentScene.SelectedGameObjects.Add(gameObject.GetHashCode());
             }
         }
         if (removeObject)
         {
             if (selectedObject.IsAlive)
+            {
                 recorder.Record(selectedObject).Dispose();
+                editorContext.RemoveObjectMessage(selectedObject);
+            }
 
         }
         if (copyObject)

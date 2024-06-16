@@ -29,14 +29,39 @@ public class RenderPipelineContext : IDisposable
     public List<MeshRendererComponent> meshRenderers = new();
     public List<VisualComponent> visuals = new();
 
+    public List<Entity> entities = new List<Entity>();
+
     public void FrameBegin()
     {
+        entities.Clear();
+        entities.AddRange(scene.gameObjects.Values);
+
         renderers.Clear();
-        renderers.AddRange(scene.renderers);
+        //renderers.AddRange(scene.renderers);
         meshRenderers.Clear();
-        meshRenderers.AddRange(scene.meshRenderers);
+        //meshRenderers.AddRange(scene.meshRenderers);
         visuals.Clear();
-        visuals.AddRange(scene.visuals);
+        //visuals.AddRange(scene.visuals);
+        foreach(var entity in entities)
+        {
+            if (TryGetComponent(entity, out MMDRendererComponent renderer))
+            {
+                renderer.SetTransform(entity.Get<Transform>());
+                renderers.Add(renderer);
+            }
+            if (TryGetComponent(entity, out MeshRendererComponent meshRenderer))
+            {
+                meshRenderer.transform = entity.Get<Transform>();
+                meshRenderers.Add(meshRenderer);
+            }
+            if (TryGetComponent(entity, out VisualComponent visual))
+            {
+                visual.transform = entity.Get<Transform>();
+                visuals.Add(visual);
+            }
+        }
+
+
 
         foreach (var visual in visuals)
         {

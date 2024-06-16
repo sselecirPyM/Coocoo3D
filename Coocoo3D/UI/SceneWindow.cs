@@ -10,7 +10,7 @@ using System.Numerics;
 
 namespace Coocoo3D.UI;
 
-public class SceneWindow : IWindow
+public class SceneWindow : IWindow2
 {
     public bool Removing { get; private set; }
 
@@ -50,14 +50,25 @@ public class SceneWindow : IWindow
         channel = visualChannel;
     }
 
-    public void OnGui()
+    public void OnGUI()
     {
         bool show = true;
-        if (ImGui.Begin(channel.Name, ref show))
+        if (channel.Name == "main")
         {
-            SceneView(ImGui.GetIO().MouseWheel, mouseMoveDelta);
+            if (ImGui.Begin(channel.Name))
+            {
+                SceneView(ImGui.GetIO().MouseWheel, mouseMoveDelta);
+            }
+            ImGui.End();
         }
-        ImGui.End();
+        else
+        {
+            if (ImGui.Begin(channel.Name, ref show))
+            {
+                SceneView(ImGui.GetIO().MouseWheel, mouseMoveDelta);
+            }
+            ImGui.End();
+        }
         mouseMoveDelta = default(Vector2);
         if (!show)
         {
@@ -170,7 +181,7 @@ public class SceneWindow : IWindow
                     hasDrag = true;
                 }
             }
-            if (TryGetComponent(obj, out VisualComponent visual) && UIImGui.showBounding)
+            if (TryGetComponent(obj, out VisualComponent visual) && editorContext.showBoundingBox)
             {
                 viewport.mvp = transform.GetMatrix() * vpMatrix;
                 ImGuiExt.DrawCube(drawList, viewport);

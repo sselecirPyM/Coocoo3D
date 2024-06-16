@@ -10,7 +10,7 @@ using System.Numerics;
 
 namespace Coocoo3D.UI;
 
-public class GameObjectWindow : IWindow
+public class GameObjectWindow : IWindow2
 {
     public GameDriverContext gameDriverContext;
 
@@ -35,7 +35,7 @@ public class GameObjectWindow : IWindow
         selectedObject = obj;
     }
 
-    public void OnGui()
+    public void OnGUI()
     {
         ImGui.SetNextWindowPos(new Vector2(0, 400), ImGuiCond.FirstUseEver);
         ImGui.SetNextWindowSize(new Vector2(300, 300), ImGuiCond.FirstUseEver);
@@ -185,76 +185,76 @@ public class GameObjectWindow : IWindow
 
     void VisualComponent(ref Transform transform, VisualComponent visualComponent)
     {
-        if (ImGui.TreeNode("绑定"))
-        {
-            int rendererCount = scene.renderers.Count;
-            string[] renderers = new string[rendererCount + 1];
-            int[] ids = new int[rendererCount + 1];
-            renderers[0] = "-";
-            ids[0] = -1;
-            int count = 1;
-            int currentItem = 0;
+        //if (ImGui.TreeNode("绑定"))
+        //{
+        //    int rendererCount = scene.renderers.Count;
+        //    string[] renderers = new string[rendererCount + 1];
+        //    int[] ids = new int[rendererCount + 1];
+        //    renderers[0] = "-";
+        //    ids[0] = -1;
+        //    int count = 1;
+        //    int currentItem = 0;
 
-            foreach (var gameObject1 in scene.world)
-            {
-                if (!TryGetComponent<MMDRendererComponent>(gameObject1, out var renderer))
-                    continue;
-                TryGetComponent<ObjectDescription>(gameObject1, out var desc);
-                renderers[count] = desc == null ? "object" : desc.Name;
-                ids[count] = gameObject1.GetHashCode();
-                if (gameObject1.GetHashCode() == visualComponent.bindId)
-                    currentItem = count;
-                count++;
-                if (count == rendererCount + 1)
-                    break;
-            }
-            if (ImGui.Combo("绑定到物体", ref currentItem, renderers, rendererCount + 1))
-            {
-                visualComponent.bindId = ids[currentItem];
-            }
+        //    foreach (var gameObject1 in scene.world)
+        //    {
+        //        if (!TryGetComponent<MMDRendererComponent>(gameObject1, out var renderer))
+        //            continue;
+        //        TryGetComponent<ObjectDescription>(gameObject1, out var desc);
+        //        renderers[count] = desc == null ? "object" : desc.Name;
+        //        ids[count] = gameObject1.GetHashCode();
+        //        if (gameObject1.GetHashCode() == visualComponent.bindId)
+        //            currentItem = count;
+        //        count++;
+        //        if (count == rendererCount + 1)
+        //            break;
+        //    }
+        //    if (ImGui.Combo("绑定到物体", ref currentItem, renderers, rendererCount + 1))
+        //    {
+        //        visualComponent.bindId = ids[currentItem];
+        //    }
 
-            string[] bones;
-            if (scene.gameObjects.TryGetValue(visualComponent.bindId, out var gameObject2))
-            {
-                var renderer = gameObject2.Get<MMDRendererComponent>();
-                bones = new string[renderer.bones.Count + 1];
-                bones[0] = "-";
-                for (int i = 0; i < renderer.bones.Count; i++)
-                {
-                    bones[i + 1] = renderer.bones[i].Name;
-                }
-            }
-            else
-            {
-                bones = new string[0];
-            }
-            currentItem = 0;
-            for (int i = 1; i < bones.Length; i++)
-            {
-                if (bones[i] == visualComponent.bindBone)
-                    currentItem = i;
-            }
-            if (ImGui.Combo("绑定骨骼", ref currentItem, bones, bones.Length))
-            {
-                if (currentItem > 0)
-                {
-                    visualComponent.bindBone = bones[currentItem];
-                }
-                else
-                {
-                    visualComponent.bindBone = null;
-                }
-            }
-            ImGui.Checkbox("绑定X", ref visualComponent.bindX);
-            ImGui.Checkbox("绑定Y", ref visualComponent.bindY);
-            ImGui.Checkbox("绑定Z", ref visualComponent.bindZ);
-            ImGui.Checkbox("绑定旋转", ref visualComponent.bindRot);
-            ImGui.TreePop();
-        }
+        //    string[] bones;
+        //    if (scene.gameObjects.TryGetValue(visualComponent.bindId, out var gameObject2))
+        //    {
+        //        var renderer = gameObject2.Get<MMDRendererComponent>();
+        //        bones = new string[renderer.bones.Count + 1];
+        //        bones[0] = "-";
+        //        for (int i = 0; i < renderer.bones.Count; i++)
+        //        {
+        //            bones[i + 1] = renderer.bones[i].Name;
+        //        }
+        //    }
+        //    else
+        //    {
+        //        bones = new string[0];
+        //    }
+        //    currentItem = 0;
+        //    for (int i = 1; i < bones.Length; i++)
+        //    {
+        //        if (bones[i] == visualComponent.bindBone)
+        //            currentItem = i;
+        //    }
+        //    if (ImGui.Combo("绑定骨骼", ref currentItem, bones, bones.Length))
+        //    {
+        //        if (currentItem > 0)
+        //        {
+        //            visualComponent.bindBone = bones[currentItem];
+        //        }
+        //        else
+        //        {
+        //            visualComponent.bindBone = null;
+        //        }
+        //    }
+        //    ImGui.Checkbox("绑定X", ref visualComponent.bindX);
+        //    ImGui.Checkbox("绑定Y", ref visualComponent.bindY);
+        //    ImGui.Checkbox("绑定Z", ref visualComponent.bindZ);
+        //    ImGui.Checkbox("绑定旋转", ref visualComponent.bindRot);
+        //    ImGui.TreePop();
+        //}
         if (ImGui.TreeNode("视觉"))
         {
             var renderPipelineView = editorContext.currentChannel.renderPipelineView;
-            ImGui.Checkbox("显示包围盒", ref UIImGui.showBounding);
+            ImGui.Checkbox("显示包围盒", ref editorContext.showBoundingBox);
 
             ImGui.DragFloat3("大小", ref transform.scale, 0.01f);
 

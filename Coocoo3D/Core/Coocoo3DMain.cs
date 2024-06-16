@@ -57,8 +57,6 @@ public class Coocoo3DMain : IDisposable
         {
             UI.UIImGui.openRequest = new FileInfo(launchOption.openFile);
         }
-        if (launchOption.AddLight)
-            CurrentScene.NewLighting();
     }
 
     void Launch()
@@ -166,7 +164,7 @@ public class Coocoo3DMain : IDisposable
         {
             return false;
         }
-        EngineContext.SyncCallStage();
+        EngineContext._BeforeFrameBegin();
         timeManager.RealCounter("fps", 1, out statistics.FramePerSecond);
         Simulation();
 

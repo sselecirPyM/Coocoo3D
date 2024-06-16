@@ -3,32 +3,26 @@ using Coocoo3D.RenderPipeline;
 using ImGuiNET;
 using System.Numerics;
 using System;
+using Coocoo3D.UI;
+using System.ComponentModel.Composition;
 
-namespace Coocoo3D.UI;
+namespace Coocoo3D.Extensions.UI;
 
+[Export(typeof(IWindow))]
+[ExportMetadata("MenuItem", "Render Buffer")]
 public class RenderBufferWindow : IWindow
 {
-    public bool Removing { get; private set; }
-
     public UIRenderSystem uiRenderSystem;
     public EditorContext editorContext;
 
-    bool show = true;
+    public string Title { get => "Render Buffer"; }
 
-    public void OnGui()
+    public void OnGUI()
     {
-        if (ImGui.Begin("buffers", ref show))
+        var view = editorContext.currentChannel.renderPipelineView;
+        if (view != null)
         {
-            var view = editorContext.currentChannel.renderPipelineView;
-            if (view != null)
-            {
-                ShowRenderBuffers(view);
-            }
-        }
-        ImGui.End();
-        if (!show)
-        {
-            Removing = true;
+            ShowRenderBuffers(view);
         }
     }
 

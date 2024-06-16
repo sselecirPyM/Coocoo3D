@@ -1,26 +1,16 @@
-﻿using ImGuiNET;
+﻿using Coocoo3D.UI;
+using ImGuiNET;
+using System.ComponentModel.Composition;
 
-namespace Coocoo3D.UI;
+namespace Coocoo3D.Extensions.UI;
 
+[Export(typeof(IWindow))]
+[ExportMetadata("MenuItem", "帮助")]
 public class HelpWindow : IWindow
 {
-    public bool Removing { get; private set; }
+    public string Title { get => "帮助"; }
 
-    bool show = true;
-    public void OnGui()
-    {
-        if (ImGui.Begin("帮助", ref show))
-        {
-            Help();
-        }
-        ImGui.End();
-        if (!show)
-        {
-            Removing = true;
-        }
-    }
-
-    void Help()
+    public void OnGUI()
     {
         if (ImGui.TreeNode("基本操作"))
         {
@@ -33,8 +23,8 @@ public class HelpWindow : IWindow
         }
         if (ImGui.TreeNode("支持格式"))
         {
-            ImGui.Text(@"当前版本支持pmx、glTF格式模型，
-vmd格式动作。支持几乎所有的图片格式。");
+            ImGui.Text(@"支持模型: pmx, glTF
+支持动画: vmd");
             ImGui.TreePop();
         }
     }

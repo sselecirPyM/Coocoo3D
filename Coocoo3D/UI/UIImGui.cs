@@ -6,7 +6,9 @@ using Coocoo3D.Utility;
 using DefaultEcs;
 using ImGuiNET;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.ComponentModel.Composition;
 using System.IO;
 using System.Linq;
 using System.Numerics;
@@ -32,6 +34,7 @@ public class UIImGui
 
     public void GUI()
     {
+
         var io = ImGui.GetIO();
         Input();
 
@@ -61,19 +64,42 @@ public class UIImGui
             }
         }
 
-
         ImGui.NewFrame();
-
-        if (demoWindowOpen)
-            ImGui.ShowDemoWindow(ref demoWindowOpen);
 
         DockSpace();
 
+        foreach (var window in editorContext.Windows2)
+        {
+            window.OnGUI();
+        }
         foreach (var window in editorContext.Windows)
         {
-            window.OnGui();
+            string title = window.Title;
+            title ??= window.GetType().Name;
+            bool open = true;
+            if (window.SimpleWindow)
+            {
+                if (editorContext.OpeningWindow.Contains(window))
+                {
+                    ImGui.SetNextWindowFocus();
+                }
+                if (ImGui.Begin(title, ref open))
+                {
+                    window.OnGUI();
+                }
+                ImGui.End();
+                if (!open)
+                {
+                    editorContext.CloseWindow(window);
+                }
+            }
+            else
+            {
+                window.OnGUI();
+            }
         }
         _OpenWindow();
+
 
         windowSystem.UpdateChannels();
         ImGui.Render();
@@ -563,11 +589,11 @@ public class UIImGui
         ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 0.0f);
         var viewPort = ImGui.GetMainViewport();
         ImGui.SetNextWindowPos(viewPort.WorkPos, ImGuiCond.Always);
-        ImGui.SetNextWindowSize(viewPort.Size, ImGuiCond.Always);
+        ImGui.SetNextWindowSize(viewPort.Size - new Vector2(0, 14), ImGuiCond.Always);
         ImGui.SetNextWindowViewport(viewPort.ID);
-
         if (ImGui.Begin("Dockspace", window_flags))
         {
+            MainMenu();
             if (editorContext.currentChannel != null)
             {
                 var tex = editorContext.currentChannel.GetAOV(Caprice.Attributes.AOVType.Color);
@@ -579,6 +605,30 @@ public class UIImGui
         }
         ImGui.End();
         ImGui.PopStyleVar(3);
+    }
+
+    void MainMenu()
+    {
+        if (ImGui.BeginMainMenuBar())
+        {
+            if (ImGui.BeginMenu("命令"))
+            {
+                ImGuiExt.CommandMenu("UICommand");
+                ImGui.EndMenu();
+            }
+            if (ImGui.BeginMenu("窗口"))
+            {
+                foreach (var factory in extensionFactory.Windows)
+                {
+                    if (ImGui.MenuItem(factory.Metadata.MenuItem))
+                    {
+                        editorContext.OpenWindow(factory.Value);
+                    }
+                }
+                ImGui.EndMenu();
+            }
+            ImGui.EndMainMenuBar();
+        }
     }
 
     static void StartSelectResource(string id, string slot)
@@ -611,7 +661,6 @@ public class UIImGui
 
     static string fileOpenId = null;
 
-    public static bool demoWindowOpen = false;
     public static Vector3 position;
     public static Vector3 rotation;
     public static Vector3 scale;
@@ -619,9 +668,7 @@ public class UIImGui
     public static bool rotationChange;
     public static bool positionChange;
 
-    public static bool requireOpenFolder;
     public static bool requestRecord;
-    public static bool requestSave;
 
     public static bool requestSelectRenderPipelines;
 
@@ -675,15 +722,16 @@ public class UIImGui
         OpenWindow(typeof(CommonWindow));
         OpenWindow(typeof(SceneHierachyWindow));
         OpenWindow(typeof(GameObjectWindow));
-        OpenWindow(typeof(SettingsWindow));
-        OpenWindow(typeof(StatisticsWindow));
         OpenWindow(typeof(PopupsWindow));
         OpenWindow(typeof(ResourceWindow));
 
         editorContext.currentChannel = windowSystem.AddVisualChannel("main");
         OpenWindow(new SceneWindow(editorContext.currentChannel));
+
         _OpenWindow();
     }
+
+    ExtensionFactory extensionFactory { get => engineContext.extensionFactory; }
 
     private void EditorContext_OnSelectObject(Entity obj)
     {
@@ -726,7 +774,6 @@ public class UIImGui
 
     public static bool requestParamEdit = false;
     public static RenderMaterial paramEdit;
-    public static bool showBounding = false;
     Entity selectedObject;
 
     static bool Contains(string input, string filter)
@@ -734,14 +781,15 @@ public class UIImGui
         return input.Contains(filter, StringComparison.CurrentCultureIgnoreCase);
     }
 
-    List<IWindow> wantAdded = new List<IWindow>();
+    List<IWindow2> wantAdded = new List<IWindow2>();
     List<Type> wantToOpen = new List<Type>();
+    public static ConcurrentQueue<PlatformIOTask> UITaskQueue = new ConcurrentQueue<PlatformIOTask>();
 
     public void OpenWindow(Type type)
     {
         wantToOpen.Add(type);
     }
-    public void OpenWindow(IWindow window)
+    public void OpenWindow(IWindow2 window)
     {
         wantAdded.Add(window);
     }
@@ -749,12 +797,12 @@ public class UIImGui
     {
         foreach (var type in wantToOpen)
         {
-            if (type.IsAssignableTo(typeof(IWindow)) && !editorContext.Windows.Any(u => u.GetType() == type))
+            if (type.IsAssignableTo(typeof(IWindow2)) && !editorContext.Windows2.Any(u => u.GetType() == type))
             {
-                IWindow o = (IWindow)Activator.CreateInstance(type);
+                IWindow2 o = (IWindow2)Activator.CreateInstance(type);
                 engineContext.FillProperties(o);
                 engineContext.InitializeObject(o);
-                editorContext.Windows.Add(o);
+                editorContext.Windows2.Add(o);
             }
         }
 
@@ -762,15 +810,33 @@ public class UIImGui
         {
             engineContext.FillProperties(window);
             engineContext.InitializeObject(window);
-            editorContext.Windows.Add(window);
+            editorContext.Windows2.Add(window);
         }
         wantToOpen.Clear();
         wantAdded.Clear();
 
-        foreach (var window in editorContext.Windows)
+        foreach (var window in editorContext.Windows2)
         {
             if (window.Removing)
-                editorContext.Windows.Remove(window);
+                editorContext.Windows2.Remove(window);
         }
+
+        foreach (var window in editorContext.OpeningWindow)
+        {
+            engineContext.FillProperties(window);
+            if (editorContext.Windows.Add(window))
+            {
+                window.OnShow();
+            }
+        }
+        editorContext.OpeningWindow.Clear();
+        foreach (var window in editorContext.RemovingWindow)
+        {
+            if (editorContext.Windows.Remove(window))
+            {
+                window.OnClose();
+            }
+        }
+        editorContext.RemovingWindow.Clear();
     }
 }

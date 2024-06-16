@@ -49,9 +49,28 @@ public class MainCaches : IDisposable
         textureDecodeHandler.LoadComplete = () => gameDriverContext.RequireRender(true);
     }
 
+    public void _ReloadShaders()
+    {
+        foreach (var knownFile in KnownFiles)
+        {
+            knownFile.Value.requireReload = true;
+        }
+        Console.Clear();
+    }
 
-    public bool ReloadTextures = false;
-    public bool ReloadShaders = false;
+    public void _ReloadTextures()
+    {
+        var packs = TextureCaches.ToList();
+        foreach (var pair in packs)
+        {
+            TextureOnDemand.TryAdd(pair.Key, false);
+        }
+        foreach (var pair in KnownFiles)
+        {
+            pair.Value.requireReload = true;
+        }
+        Console.Clear();
+    }
 
     public void PreloadTexture(string fullPath)
     {
@@ -62,29 +81,6 @@ public class MainCaches : IDisposable
     Queue<string> textureLoadQueue = new();
     public void OnFrame(GraphicsContext graphicsContext)
     {
-        if (ReloadShaders)
-        {
-            ReloadShaders = false;
-            foreach (var knownFile in KnownFiles)
-            {
-                knownFile.Value.requireReload = true;
-            }
-            Console.Clear();
-        }
-        if (ReloadTextures)
-        {
-            ReloadTextures = false;
-            var packs = TextureCaches.ToList();
-            foreach (var pair in packs)
-            {
-                TextureOnDemand.TryAdd(pair.Key, false);
-            }
-            foreach (var pair in KnownFiles)
-            {
-                pair.Value.requireReload = true;
-            }
-            Console.Clear();
-        }
         cacheHandler.mainCaches = this;
         sceneLoadHandler.state = this;
         modelLoadHandler.state = this;

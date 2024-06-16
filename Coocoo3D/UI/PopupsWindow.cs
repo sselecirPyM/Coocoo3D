@@ -1,5 +1,4 @@
-﻿using Caprice.Display;
-using Coocoo3D.Components;
+﻿using Coocoo3D.Components;
 using Coocoo3D.Core;
 using Coocoo3D.Present;
 using DefaultEcs;
@@ -9,7 +8,7 @@ using System.Numerics;
 
 namespace Coocoo3D.UI;
 
-public class PopupsWindow : IWindow
+public class PopupsWindow : IWindow2
 {
     public UIImGui uiImGui;
 
@@ -28,8 +27,14 @@ public class PopupsWindow : IWindow
         selectedObject = obj;
     }
 
-    public void OnGui()
+    public void OnGUI()
     {
+        if (UIImGui.requestParamEdit)
+        {
+            UIImGui.requestParamEdit = false;
+            ImGui.OpenPopup("编辑参数");
+            popupParamEdit = true;
+        }
         PopupsWindow1(selectedObject);
     }
 
@@ -56,12 +61,6 @@ public class PopupsWindow : IWindow
                 popupOpenResource = false;
             }
             ImGui.EndPopup();
-        }
-        if (UIImGui.requestParamEdit)
-        {
-            UIImGui.requestParamEdit = false;
-            ImGui.OpenPopup("编辑参数");
-            popupParamEdit = true;
         }
         if (ImGui.BeginPopupModal("编辑参数", ref popupParamEdit))
         {

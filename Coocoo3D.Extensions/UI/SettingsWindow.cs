@@ -1,13 +1,15 @@
 ﻿using Caprice.Display;
 using Coocoo3D.Core;
-using Coocoo3D.RenderPipeline;
+using Coocoo3D.UI;
 using ImGuiNET;
 using System;
-using System.Numerics;
+using System.ComponentModel.Composition;
 using System.Reflection;
 
-namespace Coocoo3D.UI;
+namespace Coocoo3D.Extensions.UI;
 
+[Export(typeof(IWindow))]
+[ExportMetadata("MenuItem", "设置")]
 public class SettingsWindow : IWindow
 {
     public GameDriverContext gameDriverContext;
@@ -16,23 +18,13 @@ public class SettingsWindow : IWindow
 
     public UIImGui uiImGui;
 
-    public MainCaches mainCaches;
-
     public EditorContext editorContext;
 
-    public WindowSystem windowSystem;
+    public string Title { get => "设置"; }
 
-    public bool Removing { get; set; }
-
-    public void OnGui()
+    public void OnGUI()
     {
-        ImGui.SetNextWindowPos(new Vector2(800, 0), ImGuiCond.FirstUseEver);
-        ImGui.SetNextWindowSize(new Vector2(300, 400), ImGuiCond.FirstUseEver);
-        if (ImGui.Begin("设置"))
-        {
-            Settings();
-        }
-        ImGui.End();
+        Settings();
     }
 
 
@@ -80,40 +72,6 @@ public class SettingsWindow : IWindow
             {
                 currentChannel.DelaySetRenderPipeline(rps[renderPipelineIndex]);
             }
-        }
-        if (ImGui.Button("加载渲染管线"))
-        {
-            UIImGui.requestSelectRenderPipelines = true;
-        }
-        if (ImGui.IsItemHovered())
-        {
-            ImGui.SetTooltip("默认的渲染管线位于软件的Effects文件夹，软件会在启动时加载这些插件。");
-        }
-
-        if (ImGui.Button("添加视口"))
-        {
-            int c = 1;
-            while (true)
-            {
-                if (!windowSystem.visualChannels.ContainsKey(c.ToString()))
-                {
-                    uiImGui.OpenWindow(new SceneWindow(windowSystem.AddVisualChannel(c.ToString())));
-                    break;
-                }
-                c++;
-            }
-        }
-        if (ImGui.Button("保存场景"))
-        {
-            UIImGui.requestSave = true;
-        }
-        if (ImGui.Button("重新加载纹理"))
-        {
-            mainCaches.ReloadTextures = true;
-        }
-        if (ImGui.Button("重新加载Shader"))
-        {
-            mainCaches.ReloadShaders = true;
         }
     }
 }

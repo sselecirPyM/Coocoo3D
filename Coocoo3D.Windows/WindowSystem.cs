@@ -26,6 +26,7 @@ public class WindowSystem
         coocoo3DMain.SetWindow(hwnd, Width, Height);
         SDL_SetWindowTitle(window, "Coocoo3D GPU: " + coocoo3DMain.statistics.DeviceDescription);
         uiHelper = new UIHelper();
+        uiHelper.hwnd = hwnd;
         coocoo3DMain.EngineContext.FillProperties(uiHelper);
         coocoo3DMain.EngineContext.InitializeObject(uiHelper);
         coocoo3DMain.RequireRender();
@@ -56,7 +57,11 @@ public class WindowSystem
         {
             SDL_ShowSimpleMessageBox(SDL_MessageBoxFlags.SDL_MESSAGEBOX_ERROR, "error", e.Message + "\n" + e.StackTrace, window);
         }
-
+        if (uiHelper.wantQuit)
+        {
+            SDL_DestroyWindow(window);
+            quitRequested = true;
+        }
     }
 
     static bool EventProcess(PlatformIO platformIO, Dictionary<SDL_Keycode, int> sdlKeycode2ImguiKey)

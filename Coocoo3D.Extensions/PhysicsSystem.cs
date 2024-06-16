@@ -5,6 +5,7 @@ using Coocoo3D.Utility;
 using DefaultEcs;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.Composition;
 using System.Numerics;
 
 namespace Coocoo3D.Extensions;
@@ -14,6 +15,7 @@ public class _physicsObjects
     public List<Physics3DRigidBody> rigidbodies = new();
     public List<Physics3DJoint> joints = new();
 }
+[Export(typeof(ISceneExtension))]
 public class PhysicsSystem : ISceneExtension, IDisposable
 {
     public GameDriverContext gameDriverContext;

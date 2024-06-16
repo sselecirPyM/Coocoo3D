@@ -1,4 +1,5 @@
-﻿using ImGuiNET;
+﻿using Coocoo3D.Core;
+using ImGuiNET;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -6,11 +7,12 @@ using System.Numerics;
 
 namespace Coocoo3D.UI;
 
-public class ResourceWindow : IWindow
+public class ResourceWindow : IWindow2
 {
+    GameDriver gameDriver;
     public bool Removing { get; private set; }
 
-    public void OnGui()
+    public void OnGUI()
     {
         ImGui.SetNextWindowPos(new Vector2(300, 400), ImGuiCond.FirstUseEver);
         ImGui.SetNextWindowSize(new Vector2(500, 300), ImGuiCond.FirstUseEver);
@@ -29,7 +31,15 @@ public class ResourceWindow : IWindow
     {
         if (ImGui.Button("打开文件夹"))
         {
-            UIImGui.requireOpenFolder = true;
+            UIImGui.UITaskQueue.Enqueue(new PlatformIOTask()
+            {
+                type = PlatformIOTaskType.SaveFolder,
+                callback = (s) =>
+                {
+                    DirectoryInfo folder = new DirectoryInfo(s);
+                    UIImGui.viewRequest = folder;
+                }
+            });
         }
         ImGui.SameLine();
         if (ImGui.Button("刷新"))

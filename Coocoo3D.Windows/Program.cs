@@ -7,12 +7,13 @@ class Program
     static void Main(string[] args)
     {
         Core.LaunchOption launchOption = new Core.LaunchOption();
-        launchOption.AddLight = true;
         if (args.Length == 1)
         {
             launchOption.openFile = args[0];
             if (launchOption.openFile.EndsWith(".coocoo3DScene", System.StringComparison.CurrentCultureIgnoreCase))
-                launchOption.AddLight = false;
+            {
+
+            }
         }
         Directory.SetCurrentDirectory(System.AppDomain.CurrentDomain.BaseDirectory);
         Core.Coocoo3DMain coocoo3DMain = new Core.Coocoo3DMain(launchOption);

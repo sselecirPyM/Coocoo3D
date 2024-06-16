@@ -8,7 +8,7 @@ using System.Numerics;
 
 namespace Coocoo3D.UI;
 
-public class CommonWindow : IWindow
+public class CommonWindow : IWindow2
 {
     public bool Removing { get; private set; }
 
@@ -26,7 +26,7 @@ public class CommonWindow : IWindow
 
     public World world;
 
-    public void OnGui()
+    public void OnGUI()
     {
         ImGui.SetNextWindowPos(new Vector2(0, 0), ImGuiCond.FirstUseEver);
         ImGui.SetNextWindowSize(new Vector2(300, 400), ImGuiCond.FirstUseEver);
@@ -88,11 +88,6 @@ public class CommonWindow : IWindow
             }
             ImGui.TreePop();
         }
-        if (ImGui.TreeNode("帮助"))
-        {
-            Help();
-            ImGui.TreePop();
-        }
         if (ImGui.Button("播放"))
         {
             Play();
@@ -132,16 +127,6 @@ public class CommonWindow : IWindow
         {
             ImGui.Text(((TextureLoadTask)input).KnownFile.fullPath);
         }
-    }
-
-
-    void Help()
-    {
-        if (ImGui.Button("显示帮助"))
-            uiImGui.OpenWindow(typeof(HelpWindow));
-        if (ImGui.Button("显示Render Buffers"))
-            uiImGui.OpenWindow(typeof(RenderBufferWindow));
-        ImGui.Checkbox("显示ImGuiDemoWindow", ref UIImGui.demoWindowOpen);
     }
 
     public void Play()

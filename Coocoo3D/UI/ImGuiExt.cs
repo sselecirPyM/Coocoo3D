@@ -1,4 +1,5 @@
 ﻿using Caprice.Display;
+using Coocoo3D.Core;
 using ImGuiNET;
 using System;
 using System.Collections.Generic;
@@ -362,4 +363,79 @@ public static class ImGuiExt
 
     static Dictionary<Type, string[]> enumNames = new();
     static Dictionary<Type, object[]> enumValues = new();
+
+    public static Dictionary<string, Dictionary<string, object>> commands = new Dictionary<string, Dictionary<string, object>>();
+
+    public static void CommandMenu(string contractName)
+    {
+        if (commands.TryGetValue(contractName, out var dict))
+        {
+        }
+        else
+        {
+            dict = CreateMenuItems(EngineContext.compositionContainer.GetExports<Action, IUIMeta>(contractName));
+            commands[contractName] = dict;
+        }
+        SubMenu(dict);
+    }
+
+    static void SubMenu(Dictionary<string, object> subMenu)
+    {
+        foreach (var pair in subMenu)
+        {
+            if (pair.Value is Lazy<Action, IUIMeta> command)
+            {
+                if (ImGui.MenuItem(pair.Key))
+                {
+                    command.Value();
+                }
+            }
+            else if (pair.Value is Dictionary<string, object> subMenu1)
+            {
+                if (ImGui.BeginMenu(pair.Key))
+                {
+                    SubMenu(subMenu1);
+                    ImGui.EndMenu();
+                }
+            }
+        }
+    }
+
+    static Dictionary<string, object> CreateMenuItems(IEnumerable<Lazy<Action, IUIMeta>> commands)
+    {
+        var commandMenu = new Dictionary<string, object>();
+        foreach (var command in commands)
+        {
+            var arr = command.Metadata.MenuItem.Split("/");
+            var curr = commandMenu;
+            for (int i = 0; i < arr.Length; i++)
+            {
+                string item = arr[i];
+                if (i == arr.Length - 1)
+                {
+                    curr[item] = command;
+                }
+                else
+                {
+                    if (curr.TryGetValue(item, out var menuItem))
+                    {
+                        if (menuItem is not Dictionary<string, object> i1)
+                        {
+                            curr[item + "_"] = menuItem;
+                            i1 = new Dictionary<string, object>();
+                            curr[item] = i1;
+                        }
+                        curr = i1;
+                    }
+                    else
+                    {
+                        var i1 = new Dictionary<string, object>();
+                        curr[item] = i1;
+                        curr = i1;
+                    }
+                }
+            }
+        }
+        return commandMenu;
+    }
 }

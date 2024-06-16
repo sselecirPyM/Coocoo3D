@@ -9,7 +9,21 @@ namespace Coocoo3D.Core;
 
 public class EditorContext
 {
-    public HashSet<IWindow> Windows = new();
+    public HashSet<IWindow2> Windows2 = new HashSet<IWindow2>();
+    public HashSet<IWindow> Windows = new HashSet<IWindow>();
+    public HashSet<IWindow> RemovingWindow = new HashSet<IWindow>();
+    public HashSet<IWindow> OpeningWindow = new HashSet<IWindow>();
+
+    public bool showBoundingBox;
+
+    public void OpenWindow(IWindow window)
+    {
+        OpeningWindow.Add(window);
+    }
+    public void CloseWindow(IWindow window)
+    {
+        RemovingWindow.Add(window);
+    }
 
     public void SelectObjectMessage(Entity entity)
     {
@@ -27,6 +41,8 @@ public class EditorContext
     }
 
     public event Action<Entity> OnSelectObject;
+    public event Action<Entity> OnDeselectObject;
+
     public event Action<Entity> OnRemoveObject;
 
     public event Action<Vector2> OnMounseMoveDelta;

@@ -1,5 +1,8 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.ComponentModel.Composition.Hosting;
+using System.ComponentModel.Composition.Primitives;
 
 namespace Coocoo3D.Core;
 
@@ -8,7 +11,11 @@ public class EngineContext : IDisposable
     public List<object> systems = new();
     public Dictionary<Type, object> autoFills = new();
 
-    public List<Action> syncCalls = new();
+    public ConcurrentQueue<Action> syncCalls = new();
+
+    public ExtensionFactory extensionFactory;
+
+    public static CompositionContainer compositionContainer;
 
     public EngineContext()
     {
@@ -62,18 +69,29 @@ public class EngineContext : IDisposable
         foreach (var system in systems)
         {
             FillProperties(system);
+        }
+        foreach (var system in systems)
+        {
             InitializeObject(system);
+        }
+        var cat = new TypeCatalog(typeof(ExtensionFactory));
+        var cat2 = new DirectoryCatalog("Extension");
+        compositionContainer = new CompositionContainer(new AggregateCatalog(cat, cat2));
+        extensionFactory = compositionContainer.GetExportedValue<ExtensionFactory>();
+        foreach (var o in extensionFactory.EditorAccess)
+        {
+            FillProperties(o);
         }
     }
 
-    public void SyncCall(Action action)
+    public void BeforeFrameBegin(Action action)
     {
-        syncCalls.Add(action);
+        syncCalls.Enqueue(action);
     }
 
-    public void SyncCallStage()
+    public void _BeforeFrameBegin()
     {
-        foreach (var action in syncCalls)
+        while (syncCalls.TryDequeue(out var action))
         {
             try
             {
@@ -84,7 +102,6 @@ public class EngineContext : IDisposable
                 Console.WriteLine(ex);
             }
         }
-        syncCalls.Clear();
     }
 
     public void Dispose()

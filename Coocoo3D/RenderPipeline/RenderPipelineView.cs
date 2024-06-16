@@ -26,7 +26,7 @@ public class RenderPipelineView : IDisposable
     }
 
     internal Dictionary<AOVType, Texture2D> AOVs = new();
-    internal Dictionary<string, RenderTextureUsage> RenderTextures = new();
+    public Dictionary<string, RenderTextureUsage> RenderTextures = new();
     internal HashSet<Texture2D> internalTextures = new();
 
     internal Dictionary<string, (MemberInfo, SceneCaptureAttribute)> sceneCaptures = new();

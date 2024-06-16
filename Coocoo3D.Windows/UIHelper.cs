@@ -23,6 +23,10 @@ public class UIHelper
 
     public Entity selectedObject;
 
+    public nint hwnd;
+
+    public bool wantQuit;
+
     public void Initialize()
     {
         editorContext.OnSelectObject += EditorContext_OnSelectObject;
@@ -35,17 +39,6 @@ public class UIHelper
 
     public void OnFrame()
     {
-        if (UIImGui.requireOpenFolder)
-        {
-            UIImGui.requireOpenFolder = false;
-            string path = OpenResourceFolder();
-            if (!string.IsNullOrEmpty(path))
-            {
-                DirectoryInfo folder = new DirectoryInfo(path);
-                UIImGui.viewRequest = folder;
-            }
-            gameDriver.RequireRender(false);
-        }
         if (UIImGui.requestSelectRenderPipelines)
         {
             UIImGui.requestSelectRenderPipelines = false;
@@ -100,25 +93,58 @@ public class UIHelper
                 gameDriver.ToRecordMode(folder.FullName);
             }
         }
-        if (UIImGui.requestSave)
+        while (UIImGui.UITaskQueue.TryDequeue(out var task))
         {
-            UIImGui.requestSave = false;
-            FileOpenDialog fileDialog = new FileOpenDialog()
+            switch (task.type)
             {
-                file = new string(new char[512]),
-                fileTitle = new string(new char[512]),
-                initialDir = Environment.GetFolderPath(Environment.SpecialFolder.MyComputer),
-                filter = ".coocoo3DScene\0*.coocoo3DScene\0\0",
-                defExt = "coocoo3DScene",
-                flags = 0x00080000 | 0x00001000 | 0x00000800 | 0x00000200 | 0x00000008,
-                structSize = Marshal.SizeOf(typeof(FileOpenDialog))
-            };
-            fileDialog.maxFile = fileDialog.file.Length;
-            fileDialog.maxFileTitle = fileDialog.fileTitle.Length;
-            if (GetSaveFileName(fileDialog))
-            {
-                caches.sceneSaveHandler.Add(new SceneSaveTask() { path = fileDialog.file, Scene = this.scene });
+                case UI.PlatformIOTaskType.SaveFile:
+                    SaveFile(task.filter, task.fileExtension, task.callback);
+                    break;
+                case UI.PlatformIOTaskType.SaveFolder:
+                    SaveFolder(task.callback);
+                    break;
+                case UI.PlatformIOTaskType.Exit:
+                    wantQuit = true;
+                    break;
             }
+        }
+    }
+
+    public void SaveFile(string filter, string defaultExt, Action<string> callback)
+    {
+        FileOpenDialog fileDialog = new FileOpenDialog()
+        {
+            dlgOwner = hwnd,
+            file = new string(new char[512]),
+            fileTitle = new string(new char[512]),
+            initialDir = Environment.GetFolderPath(Environment.SpecialFolder.MyComputer),
+            filter = filter,
+            defExt = defaultExt,
+            flags = 0x00080000 | 0x00001000 | 0x00000800 | 0x00000200 | 0x00000008,
+            structSize = Marshal.SizeOf(typeof(FileOpenDialog))
+        };
+        fileDialog.maxFile = fileDialog.file.Length;
+        fileDialog.maxFileTitle = fileDialog.fileTitle.Length;
+        if (GetSaveFileName(fileDialog))
+        {
+            callback(fileDialog.file);
+        }
+    }
+    public void SaveFolder(Action<string> callback)
+    {
+        OpenDialogDir openDialogDir = new OpenDialogDir();
+        openDialogDir.pszDisplayName = new string(new char[2000]);
+        openDialogDir.lpszTitle = "Open Project";
+        openDialogDir.hwndOwner = hwnd;
+        IntPtr pidlPtr = SHBrowseForFolder(openDialogDir);
+        char[] charArray = new char[2000];
+        Array.Fill(charArray, '\0');
+
+        if (SHGetPathFromIDList(pidlPtr, charArray))
+        {
+            int length = Array.IndexOf(charArray, '\0');
+            string fullDirPath = new String(charArray, 0, length);
+            callback(fullDirPath);
         }
     }
 
@@ -163,22 +189,6 @@ public class UIHelper
             value = default(T);
             return false;
         }
-    }
-
-    public static string OpenResourceFile(string filter)
-    {
-        FileOpenDialog dialog = new FileOpenDialog();
-        dialog.structSize = Marshal.SizeOf(typeof(FileOpenDialog));
-        dialog.filter = filter;
-        dialog.file = new string(new char[2000]);
-        dialog.maxFile = dialog.file.Length;
-
-        dialog.initialDir = Environment.GetFolderPath(Environment.SpecialFolder.MyComputer);
-        dialog.flags = 0x00000008;
-        GetOpenFileName(dialog);
-        var chars = dialog.file.ToCharArray();
-
-        return new string(chars, 0, Array.IndexOf(chars, '\0'));
     }
 
     public static string OpenResourceFolder()

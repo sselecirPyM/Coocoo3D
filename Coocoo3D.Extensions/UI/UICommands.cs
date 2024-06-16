@@ -1,0 +1,122 @@
+﻿using Caprice.Display;
+using Coocoo3D.Components;
+using Coocoo3D.Core;
+using Coocoo3D.Present;
+using Coocoo3D.RenderPipeline;
+using Coocoo3D.UI;
+using System;
+using System.ComponentModel.Composition;
+using System.Numerics;
+
+namespace Coocoo3D.Extensions.UI
+{
+    [Export(typeof(IEditorAccess))]
+    public class UICommands : IEditorAccess
+    {
+        public Scene scene;
+        public MainCaches mainCaches;
+        public WindowSystem windowSystem;
+        public UIImGui uiImGui;
+        public EngineContext engineContext;
+
+        [Export("UICommand", typeof(Action))]
+        [ExportMetadata("MenuItem", "保存场景")]
+        public void SaveScene()
+        {
+            UIImGui.UITaskQueue.Enqueue(new PlatformIOTask()
+            {
+                type = PlatformIOTaskType.SaveFile,
+                filter = ".coocoo3DScene\0*.coocoo3DScene\0\0",
+                fileExtension = "coocoo3DScene",
+                callback = (s) =>
+                {
+                    mainCaches.sceneSaveHandler.Add(new SceneSaveTask() { path = s, Scene = this.scene });
+                }
+            });
+        }
+
+        [Export("UICommand", typeof(Action))]
+        [ExportMetadata("MenuItem", "新渲染窗口")]
+        public void NewRenderWindow()
+        {
+
+            int c = 1;
+            while (true)
+            {
+                if (!windowSystem.visualChannels.ContainsKey(c.ToString()))
+                {
+                    uiImGui.OpenWindow(new SceneWindow(windowSystem.AddVisualChannel(c.ToString())));
+                    break;
+                }
+                c++;
+            }
+        }
+
+        [Export("UICommand", typeof(Action))]
+        [ExportMetadata("MenuItem", "重新加载纹理")]
+        public void ReloadTexture()
+        {
+            engineContext.BeforeFrameBegin(mainCaches._ReloadTextures);
+        }
+
+        [Export("UICommand", typeof(Action))]
+        [ExportMetadata("MenuItem", "重新加载着色器")]
+        public void ReloadShader()
+        {
+            engineContext.BeforeFrameBegin(mainCaches._ReloadShaders);
+        }
+
+        [Export("UICommand", typeof(Action))]
+        [ExportMetadata("MenuItem", "加载渲染管线")]
+        public void LoadRenderPipeLine()
+        {
+            UIImGui.requestSelectRenderPipelines = true;
+        }
+
+        [Export("UICommand", typeof(Action))]
+        [ExportMetadata("MenuItem", "退出程序")]
+        public void Exit()
+        {
+            UIImGui.UITaskQueue.Enqueue(new PlatformIOTask()
+            {
+                type = PlatformIOTaskType.Exit
+            });
+        }
+
+        [Export("UISceneCommand", typeof(Action))]
+        [ExportMetadata("MenuItem", "创建贴花")]
+        public void CreateDecal()
+        {
+            var world = scene.recorder.Record(scene.world);
+            var gameObject = world.CreateEntity();
+
+            VisualComponent decalComponent = new VisualComponent();
+            decalComponent.material.Type = UIShowType.Decal;
+            gameObject.Set(decalComponent);
+            gameObject.Set(new ObjectDescription
+            {
+                Name = "贴花",
+                Description = ""
+            });
+            gameObject.Set(new Transform(new Vector3(0, 0, 0), Quaternion.CreateFromYawPitchRoll(0, -1.5707963267948966192313216916398f, 0), new Vector3(1, 1, 0.1f)));
+        }
+
+        [Export("UISceneCommand", typeof(Action))]
+        [ExportMetadata("MenuItem", "创建光照")]
+        public void CreateLighting()
+        {
+            var world = scene.recorder.Record(scene.world);
+            var gameObject = world.CreateEntity();
+
+            VisualComponent lightComponent = new VisualComponent();
+            lightComponent.material.Type = UIShowType.Light;
+            gameObject.Set(lightComponent);
+            gameObject.Set(new ObjectDescription
+            {
+                Name = "光照",
+                Description = ""
+            });
+            gameObject.Set(new Transform(new Vector3(0, 0, 0), Quaternion.CreateFromYawPitchRoll(0, 1.3962634015954636615389526147909f, 0)));
+        }
+    }
+}
