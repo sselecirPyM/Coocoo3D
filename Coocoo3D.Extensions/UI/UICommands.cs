@@ -15,9 +15,10 @@ namespace Coocoo3D.Extensions.UI
     {
         public Scene scene;
         public MainCaches mainCaches;
-        public WindowSystem windowSystem;
+        public RenderSystem renderSystem;
         public UIImGui uiImGui;
         public EngineContext engineContext;
+        public EditorContext editorContext;
 
         [Export("UICommand", typeof(Action))]
         [ExportMetadata("MenuItem", "保存场景")]
@@ -39,17 +40,29 @@ namespace Coocoo3D.Extensions.UI
         [ExportMetadata("MenuItem", "新渲染窗口")]
         public void NewRenderWindow()
         {
-
             int c = 1;
             while (true)
             {
-                if (!windowSystem.visualChannels.ContainsKey(c.ToString()))
+                if (!renderSystem.visualChannels.ContainsKey(c.ToString()))
                 {
-                    uiImGui.OpenWindow(new SceneWindow(windowSystem.AddVisualChannel(c.ToString())));
+                    uiImGui.OpenWindow(new SceneWindow(renderSystem.AddVisualChannel(c.ToString())));
                     break;
                 }
                 c++;
             }
+        }
+
+        [Export("UICommand", typeof(Action))]
+        [ExportMetadata("MenuItem", "重设相机")]
+        public void ResetCamera()
+        {
+            if (editorContext.currentChannel == null)
+                return;
+            var camera = editorContext.currentChannel.camera;
+            camera.LookAtPoint = new Vector3(0, 1, 0);
+            camera.Distance = -4.5f;
+            camera.Fov = 38.0f / 180.0f * MathF.PI;
+            camera.Angle = new Vector3();
         }
 
         [Export("UICommand", typeof(Action))]

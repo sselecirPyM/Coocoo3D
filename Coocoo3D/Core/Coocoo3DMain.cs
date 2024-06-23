@@ -29,7 +29,6 @@ public class Coocoo3DMain : IDisposable
 
     public SceneExtensionsSystem sceneExtensions;
 
-    public WindowSystem windowSystem;
     public RenderSystem renderSystem;
     public RecordSystem recordSystem;
     public UIRenderSystem uiRenderSystem;
@@ -86,8 +85,6 @@ public class Coocoo3DMain : IDisposable
         CurrentScene = e.AddSystem<Scene>();
 
         animationSystem = e.AddSystem<AnimationSystem>();
-
-        windowSystem = e.AddSystem<WindowSystem>();
 
         sceneExtensions = e.AddSystem<SceneExtensionsSystem>();
 
@@ -175,7 +172,6 @@ public class Coocoo3DMain : IDisposable
         }
 
         platformIO.Update();
-        windowSystem.Update();
         UIImGui.GUI();
         RPContext.FrameBegin();
 

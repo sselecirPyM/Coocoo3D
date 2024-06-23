@@ -12,8 +12,6 @@ public class CommonWindow : IWindow2
 {
     public bool Removing { get; private set; }
 
-    public RecordSystem recordSystem;
-
     public GameDriverContext gameDriverContext;
 
     public GameDriver gameDriver;
@@ -72,22 +70,7 @@ public class CommonWindow : IWindow2
             ImGui.Checkbox("使用镜头运动文件", ref camera.CameraMotionOn);
             ImGui.TreePop();
         }
-        if (ImGui.TreeNode("录制"))
-        {
-            if (recordSystem.ffmpegInstalled)
-            {
-                ImGui.Text("已安装FFmpeg。输出文件名output.mp4");
-                ImGui.Checkbox("使用FFmpeg", ref recordSystem.useFFmpeg);
-            }
-            var recordSettings = recordSystem.recordSettings;
-            UIImGui.ShowObject(recordSettings);
 
-            if (ImGui.Button("开始录制"))
-            {
-                UIImGui.requestRecord = true;
-            }
-            ImGui.TreePop();
-        }
         if (ImGui.Button("播放"))
         {
             Play();

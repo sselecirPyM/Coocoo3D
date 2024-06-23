@@ -20,8 +20,6 @@ public class UIImGui
 {
     public PlatformIO platformIO;
 
-    public WindowSystem windowSystem;
-
     public UIRenderSystem uiRenderSystem;
 
     public MainCaches mainCaches;
@@ -31,6 +29,8 @@ public class UIImGui
     public EditorContext editorContext;
 
     public EngineContext engineContext;
+
+    public RenderSystem renderSystem;
 
     public void GUI()
     {
@@ -101,7 +101,6 @@ public class UIImGui
         _OpenWindow();
 
 
-        windowSystem.UpdateChannels();
         ImGui.Render();
         if (selectedObject.IsAlive)
         {
@@ -725,7 +724,7 @@ public class UIImGui
         OpenWindow(typeof(PopupsWindow));
         OpenWindow(typeof(ResourceWindow));
 
-        editorContext.currentChannel = windowSystem.AddVisualChannel("main");
+        editorContext.currentChannel = renderSystem.AddVisualChannel("main");
         OpenWindow(new SceneWindow(editorContext.currentChannel));
 
         _OpenWindow();

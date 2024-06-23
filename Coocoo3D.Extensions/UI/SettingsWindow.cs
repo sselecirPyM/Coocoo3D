@@ -70,7 +70,7 @@ public class SettingsWindow : IWindow
 
             if (ImGui.Combo("渲染管线", ref renderPipelineIndex, newRPs, rps.Count))
             {
-                currentChannel.DelaySetRenderPipeline(rps[renderPipelineIndex]);
+                currentChannel.SetRenderPipeline(rps[renderPipelineIndex]);
             }
         }
     }

@@ -23,6 +23,7 @@ public class RenderPipelineContext : IDisposable
     public double Time;
     public double DeltaTime;
     public double RealDeltaTime;
+    public CameraData CameraData;
     #region Collect data
 
     public List<MMDRendererComponent> renderers = new();

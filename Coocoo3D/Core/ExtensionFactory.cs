@@ -11,10 +11,6 @@ namespace Coocoo3D.Core
         [ImportMany]
         public IEnumerable<Lazy<IWindow, IUIMeta>> Windows { get; set; }
 
-        //[ImportMany("UICommand")]
-        //public IEnumerable<Lazy<Action, IUIMeta>> Commands { get; set; }
-        //[ImportMany("UISceneCommand")]
-        //public IEnumerable<Lazy<Action, IUIMeta>> SceneCommands { get; set; }
         [ImportMany]
         public IEnumerable<IEditorAccess> EditorAccess { get; set; }
     }

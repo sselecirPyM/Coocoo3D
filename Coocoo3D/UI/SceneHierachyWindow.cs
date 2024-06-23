@@ -52,16 +52,16 @@ public class SceneHierachyWindow : IWindow2
             }
             ImGui.EndMenuBar();
         }
+        bool copyObject = false;
+        if (ImGui.Button("复制物体"))
+        {
+            copyObject = true;
+        }
+        ImGui.SameLine();
         bool removeObject = false;
         if (ImGui.Button("移除物体") || (ImGui.IsKeyPressed((int)ImGuiKey.Delete) && ImGui.IsWindowHovered()))
         {
             removeObject = true;
-        }
-        bool copyObject = false;
-        ImGui.SameLine();
-        if (ImGui.Button("复制物体"))
-        {
-            copyObject = true;
         }
         string filter = ImGuiExt.ImFilter("查找物体", "查找名称");
         var gameObjects = CurrentScene.world;

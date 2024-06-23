@@ -368,10 +368,7 @@ public static class ImGuiExt
 
     public static void CommandMenu(string contractName)
     {
-        if (commands.TryGetValue(contractName, out var dict))
-        {
-        }
-        else
+        if (!commands.TryGetValue(contractName, out var dict))
         {
             dict = CreateMenuItems(EngineContext.compositionContainer.GetExports<Action, IUIMeta>(contractName));
             commands[contractName] = dict;

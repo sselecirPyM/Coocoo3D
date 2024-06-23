@@ -20,7 +20,7 @@ public class SceneWindow : IWindow2
 
     public UIRenderSystem uiRenderSystem;
 
-    public WindowSystem windowSystem;
+    public RenderSystem renderSystem;
 
     public PlatformIO platformIO;
 
@@ -205,7 +205,7 @@ public class SceneWindow : IWindow2
     void Remove()
     {
         Removing = true;
-        windowSystem.DelayRemoveVisualChannel(channel.Name);
+        renderSystem.RemoveVisualChannel(channel.Name);
     }
 
     static bool TryGetComponent<T>(Entity obj, out T value)
