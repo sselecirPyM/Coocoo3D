@@ -1,6 +1,4 @@
 ﻿using Coocoo3D.Core;
-using Coocoo3D.FileFormat;
-using Coocoo3D.Present;
 using Coocoo3D.RenderPipeline;
 using DefaultEcs;
 using System;
@@ -17,11 +15,7 @@ public class UIHelper
 
     public GameDriver gameDriver;
 
-    public Scene scene;
-
-    public EditorContext editorContext;
-
-    public Entity selectedObject;
+    public SceneExtensionsSystem sceneExtensions;
 
     public nint hwnd;
 
@@ -29,12 +23,6 @@ public class UIHelper
 
     public void Initialize()
     {
-        editorContext.OnSelectObject += EditorContext_OnSelectObject;
-    }
-
-    private void EditorContext_OnSelectObject(Entity obj)
-    {
-        selectedObject = obj;
     }
 
     public void OnFrame()
@@ -58,29 +46,7 @@ public class UIHelper
             SetViewFolder(view.GetFileSystemInfos());
             gameDriver.RequireRender(false);
         }
-        if (UIImGui.openRequest != null)
-        {
-            var file = UIImGui.openRequest;
-            UIImGui.openRequest = null;
 
-            string ext = file.Extension.ToLower();
-            switch (ext)
-            {
-                case ".pmx":
-                case ".gltf":
-                case ".glb":
-                    caches.modelLoadHandler.Add(new ModelLoadTask() { path = file.FullName, scene = scene });
-                    break;
-                case ".vmd":
-                    OpenVMDFile(file);
-                    break;
-                case ".coocoo3dscene":
-                    caches.sceneLoadHandler.Add(new SceneLoadTask { path = file.FullName, Scene = scene });
-                    break;
-            }
-
-            gameDriver.RequireRender(true);
-        }
         if (UIImGui.requestRecord)
         {
             UIImGui.requestRecord = false;
@@ -145,35 +111,6 @@ public class UIHelper
             int length = Array.IndexOf(charArray, '\0');
             string fullDirPath = new String(charArray, 0, length);
             callback(fullDirPath);
-        }
-    }
-
-    void OpenVMDFile(FileInfo file)
-    {
-        using var stream = file.OpenRead();
-        using BinaryReader reader = new BinaryReader(stream);
-        VMDFormat motionSet = VMDFormat.Load(reader);
-        if (motionSet.CameraKeyFrames.Count != 0)
-        {
-            var camera = editorContext.currentChannel.camera;
-            var cameraKeyFrames = new List<CameraKeyFrame>();
-            cameraKeyFrames.AddRange(motionSet.CameraKeyFrames);
-            camera.cameraMotion.cameraKeyFrames = cameraKeyFrames;
-            for (int i = 0; i < cameraKeyFrames.Count; i++)
-            {
-                CameraKeyFrame frame = cameraKeyFrames[i];
-                frame.distance *= 0.1f;
-                frame.position *= 0.1f;
-                cameraKeyFrames[i] = frame;
-            }
-            camera.CameraMotionOn = true;
-        }
-        else
-        {
-            if (selectedObject.IsAlive && TryGetComponent(selectedObject, out Components.AnimationStateComponent animationState))
-            {
-                animationState.motionPath = file.FullName;
-            }
         }
     }
 

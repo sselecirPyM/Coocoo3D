@@ -38,8 +38,6 @@ public class MainCaches : IDisposable
     public CacheHandler cacheHandler = new();
     public SyncHandler<GpuUploadTask> uploadHandler = new();
     public SyncHandler<ModelLoadTask> modelLoadHandler = new();
-    public SyncHandler<SceneLoadTask> sceneLoadHandler = new();
-    public SyncHandler<SceneSaveTask> sceneSaveHandler = new();
 
     public GameDriverContext gameDriverContext;
 
@@ -82,12 +80,9 @@ public class MainCaches : IDisposable
     public void OnFrame(GraphicsContext graphicsContext)
     {
         cacheHandler.mainCaches = this;
-        sceneLoadHandler.state = this;
         modelLoadHandler.state = this;
         modelLoadHandler.maxProcessingCount = 8;
 
-        HandlerUpdate1(sceneLoadHandler);
-        HandlerUpdate1(sceneSaveHandler);
         HandlerUpdate1(modelLoadHandler);
 
         foreach (var notLoad in TextureOnDemand)

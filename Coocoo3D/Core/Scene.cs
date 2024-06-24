@@ -11,7 +11,6 @@ public class Scene
 {
     public World world;
     public EntityCommandRecorder recorder;
-    public MainCaches MainCaches;
 
     public Dictionary<int, Entity> gameObjects = new Dictionary<int, Entity>();
 

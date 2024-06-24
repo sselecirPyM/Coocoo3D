@@ -4,8 +4,10 @@ using Coocoo3D.Core;
 using Coocoo3D.Present;
 using Coocoo3D.RenderPipeline;
 using Coocoo3D.UI;
+using Newtonsoft.Json;
 using System;
 using System.ComponentModel.Composition;
+using System.IO;
 using System.Numerics;
 
 namespace Coocoo3D.Extensions.UI
@@ -31,7 +33,8 @@ namespace Coocoo3D.Extensions.UI
                 fileExtension = "coocoo3DScene",
                 callback = (s) =>
                 {
-                    mainCaches.sceneSaveHandler.Add(new SceneSaveTask() { path = s, Scene = this.scene });
+                    var scene1 = FileFormat.Coocoo3DScene.SaveScene(scene, mainCaches);
+                    SaveJsonStream(new FileInfo(s).Create(), scene1);
                 }
             });
         }
@@ -97,6 +100,24 @@ namespace Coocoo3D.Extensions.UI
         }
 
         [Export("UISceneCommand", typeof(Action))]
+        [ExportMetadata("MenuItem", "创建光照")]
+        public void CreateLighting()
+        {
+            var world = scene.recorder.Record(scene.world);
+            var gameObject = world.CreateEntity();
+
+            VisualComponent lightComponent = new VisualComponent();
+            lightComponent.material.Type = UIShowType.Light;
+            gameObject.Set(lightComponent);
+            gameObject.Set(new ObjectDescription
+            {
+                Name = "光照",
+                Description = ""
+            });
+            gameObject.Set(new Transform(new Vector3(0, 0, 0), Quaternion.CreateFromYawPitchRoll(0, 1.3962634015954636615389526147909f, 0)));
+        }
+
+        [Export("UISceneCommand", typeof(Action))]
         [ExportMetadata("MenuItem", "创建贴花")]
         public void CreateDecal()
         {
@@ -114,22 +135,12 @@ namespace Coocoo3D.Extensions.UI
             gameObject.Set(new Transform(new Vector3(0, 0, 0), Quaternion.CreateFromYawPitchRoll(0, -1.5707963267948966192313216916398f, 0), new Vector3(1, 1, 0.1f)));
         }
 
-        [Export("UISceneCommand", typeof(Action))]
-        [ExportMetadata("MenuItem", "创建光照")]
-        public void CreateLighting()
+        static void SaveJsonStream<T>(Stream stream, T val)
         {
-            var world = scene.recorder.Record(scene.world);
-            var gameObject = world.CreateEntity();
-
-            VisualComponent lightComponent = new VisualComponent();
-            lightComponent.material.Type = UIShowType.Light;
-            gameObject.Set(lightComponent);
-            gameObject.Set(new ObjectDescription
-            {
-                Name = "光照",
-                Description = ""
-            });
-            gameObject.Set(new Transform(new Vector3(0, 0, 0), Quaternion.CreateFromYawPitchRoll(0, 1.3962634015954636615389526147909f, 0)));
+            JsonSerializer jsonSerializer = new JsonSerializer();
+            jsonSerializer.NullValueHandling = NullValueHandling.Ignore;
+            using StreamWriter writer = new StreamWriter(stream);
+            jsonSerializer.Serialize(writer, val);
         }
     }
 }

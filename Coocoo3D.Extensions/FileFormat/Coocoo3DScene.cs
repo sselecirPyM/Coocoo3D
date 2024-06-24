@@ -1,16 +1,16 @@
 ﻿using Caprice.Display;
 using Coocoo3D.Components;
 using Coocoo3D.Core;
+using Coocoo3D.FileFormat;
 using Coocoo3D.Present;
 using Coocoo3D.RenderPipeline;
 using Coocoo3D.ResourceWrap;
 using Coocoo3DGraphics;
 using DefaultEcs;
-using System;
 using System.Collections.Generic;
 using System.Numerics;
 
-namespace Coocoo3D.FileFormat;
+namespace Coocoo3D.Extensions.FileFormat;
 
 public class CooSceneObject
 {
@@ -72,7 +72,7 @@ public class CooSceneObject
         }
         else
         {
-            value = default(T);
+            value = default;
             return false;
         }
     }
@@ -132,13 +132,12 @@ public class Coocoo3DScene
         }
         return false;
     }
-    public static Coocoo3DScene SaveScene(Scene saveScene)
+    public static Coocoo3DScene SaveScene(Scene saveScene, MainCaches mainCaches)
     {
         Coocoo3DScene scene = new Coocoo3DScene();
         scene.objects = new List<CooSceneObject>();
         var world = saveScene.world;
 
-        MainCaches mainCaches = saveScene.MainCaches;
         Dictionary<Texture2D, string> invert = new Dictionary<Texture2D, string>();
         foreach (var pair in mainCaches.TextureCaches)
         {
@@ -248,17 +247,17 @@ public class Coocoo3DScene
             }
             else
             {
-                Caprice.Display.UIShowType uiShowType = default;
+                UIShowType uiShowType = default;
                 switch (obj.type)
                 {
                     case "lighting":
-                        uiShowType = Caprice.Display.UIShowType.Light;
+                        uiShowType = UIShowType.Light;
                         break;
                     case "decal":
-                        uiShowType = Caprice.Display.UIShowType.Decal;
+                        uiShowType = UIShowType.Decal;
                         break;
                     case "particle":
-                        uiShowType = Caprice.Display.UIShowType.Particle;
+                        uiShowType = UIShowType.Particle;
                         break;
                     default:
                         continue;

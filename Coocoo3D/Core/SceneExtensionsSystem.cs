@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel.Composition.Hosting;
 using System.IO;
@@ -15,6 +16,8 @@ public class SceneExtensionsSystem : IDisposable
 {
     public EngineContext engineContext;
 
+    public ConcurrentQueue<string> loadFiles = new ConcurrentQueue<string>();
+
     public void Initialize()
     {
         sceneExtensions = new List<ISceneExtension>();
@@ -24,6 +27,25 @@ public class SceneExtensionsSystem : IDisposable
         {
             engineContext.FillProperties(system);
             engineContext.InitializeObject(system);
+        }
+    }
+
+    public void OpenFile(string path)
+    {
+        loadFiles.Enqueue(path);
+    }
+
+    public void ProcessFileLoad()
+    {
+        while(loadFiles.TryDequeue(out var file))
+        {
+            foreach(var loader in engineContext.extensionFactory.FileLoaders)
+            {
+                if (loader.Load(file))
+                {
+                    break;
+                }
+            }
         }
     }
 

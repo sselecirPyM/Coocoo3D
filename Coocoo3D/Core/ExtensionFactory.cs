@@ -13,6 +13,9 @@ namespace Coocoo3D.Core
 
         [ImportMany]
         public IEnumerable<IEditorAccess> EditorAccess { get; set; }
+
+        [ImportMany]
+        public IEnumerable<IFileLoader> FileLoaders { get; set; }
     }
     public interface IUIMeta
     {
@@ -20,5 +23,9 @@ namespace Coocoo3D.Core
     }
     public interface IEditorAccess
     {
+    }
+    public interface IFileLoader
+    {
+        public bool Load(string path);
     }
 }

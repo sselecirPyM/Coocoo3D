@@ -10,10 +10,8 @@ public class AnimationSystem
 {
     public World world;
 
-    //public float playTime;
-    public float deltaTime;
-
     public MainCaches caches;
+    public GameDriverContext gdc;
 
     EntitySet set;
 
@@ -40,7 +38,7 @@ public class AnimationSystem
             var renderer = animationRenderers[i].Item1;
             var animationState = animationRenderers[i].Item2;
             //animationState.Time = playTime;
-            animationState.Time += deltaTime;
+            animationState.Time = (float)gdc.PlayTime;
             animationState.ComputeMotion(caches.GetMotion(animationState.motionPath), renderer);
             renderer.ComputeMotion();
         });

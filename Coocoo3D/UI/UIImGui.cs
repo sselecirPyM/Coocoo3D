@@ -675,7 +675,6 @@ public class UIImGui
     public static DirectoryInfo currentFolder;
     public static DirectoryInfo viewRequest;
     public static DirectoryInfo loadRPRequest;
-    public static FileInfo openRequest;
     //public static List<bool> gameObjectSelected = new List<bool>();
 
     static Vector3 QuaternionToEularYXZ(Quaternion quaternion)

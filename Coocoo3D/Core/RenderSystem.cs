@@ -7,40 +7,17 @@ namespace Coocoo3D.Core;
 
 public class RenderSystem
 {
-    public RenderPipelineContext renderPipelineContext;
     public MainCaches mainCaches;
+
+    public EngineContext engineContext;
 
     public List<Type> RenderPipelineTypes = new();
 
     public Dictionary<string, VisualChannel> visualChannels = new();
 
-    public EngineContext engineContext;
-
     public void Initialize()
     {
         LoadRenderPipelines(new DirectoryInfo("Effects"));
-
-    }
-
-    List<VisualChannel> channels = new();
-    public void Update()
-    {
-        var context = renderPipelineContext;
-
-        foreach (var channel in visualChannels.Values)
-        {
-            if (channel.renderPipelineView == null)
-            {
-                channel.SetRenderPipeline(RenderPipelineTypes[0]);
-            }
-            channels.Add(channel);
-        }
-
-        foreach (var visualChannel in channels)
-        {
-            visualChannel.Render();
-        }
-        channels.Clear();
     }
 
 

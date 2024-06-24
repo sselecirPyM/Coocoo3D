@@ -28,6 +28,7 @@ public class EditorContext
     public void SelectObjectMessage(Entity entity)
     {
         OnSelectObject?.Invoke(entity);
+        selectedObject = entity;
     }
 
     public void RemoveObjectMessage(Entity entity)
@@ -39,6 +40,8 @@ public class EditorContext
     {
         OnMounseMoveDelta?.Invoke(delta);
     }
+
+    public Entity selectedObject;
 
     public event Action<Entity> OnSelectObject;
     public event Action<Entity> OnDeselectObject;

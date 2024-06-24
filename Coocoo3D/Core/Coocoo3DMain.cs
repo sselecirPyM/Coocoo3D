@@ -54,7 +54,7 @@ public class Coocoo3DMain : IDisposable
         Launch();
         if (launchOption.openFile != null)
         {
-            UI.UIImGui.openRequest = new FileInfo(launchOption.openFile);
+            sceneExtensions.OpenFile(launchOption.openFile);
         }
     }
 
@@ -146,7 +146,6 @@ public class Coocoo3DMain : IDisposable
 
         if (gdc.Playing || gdc.RefreshScene)
         {
-            animationSystem.deltaTime = (float)gdc.DeltaTime;
             animationSystem.Update();
 
             sceneExtensions.Update();
@@ -162,6 +161,7 @@ public class Coocoo3DMain : IDisposable
             return false;
         }
         EngineContext._BeforeFrameBegin();
+        sceneExtensions.ProcessFileLoad();
         timeManager.RealCounter("fps", 1, out statistics.FramePerSecond);
         Simulation();
 
@@ -172,13 +172,12 @@ public class Coocoo3DMain : IDisposable
         }
 
         platformIO.Update();
+        graphicsContext.Begin();
         UIImGui.GUI();
         RPContext.FrameBegin();
 
-        graphicsContext.Begin();
         mainCaches.OnFrame(graphicsContext);
 
-        renderSystem.Update();
         uiRenderSystem.Update();
         recordSystem.Update();
 
@@ -204,7 +203,6 @@ public class Coocoo3DMain : IDisposable
 
     public void SetWindow(IntPtr hwnd, int width, int height)
     {
-        //swapChain.Initialize(graphicsDevice, hwnd, width, height);
         InitializeSwapChain(swapChain, hwnd, width, height);
         platformIO.windowSize = (width, height);
     }

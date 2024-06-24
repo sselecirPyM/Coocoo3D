@@ -5,7 +5,6 @@ using Coocoo3D.RenderPipeline;
 using DefaultEcs;
 using ImGuiNET;
 using System;
-using System.IO;
 using System.Numerics;
 
 namespace Coocoo3D.UI;
@@ -23,6 +22,8 @@ public class SceneWindow : IWindow2
     public RenderSystem renderSystem;
 
     public PlatformIO platformIO;
+
+    public SceneExtensionsSystem sceneExtensions;
 
     public void Initialize()
     {
@@ -94,6 +95,11 @@ public class SceneWindow : IWindow2
         Vector2 spaceSize = Vector2.Max(ImGui.GetWindowSize() - new Vector2(20, 40), new Vector2(100, 100));
         channel.sceneViewSize = ((int)spaceSize.X, (int)spaceSize.Y);
         channel.UpdateSize();
+        if (channel.renderPipelineView == null)
+        {
+            channel.SetRenderPipeline(renderSystem.RenderPipelineTypes[0]);
+        }
+        channel.Render();
 
         Vector2 texSize;
         (int x, int y) = channel.outputSize;
@@ -134,7 +140,7 @@ public class SceneWindow : IWindow2
             camera.Distance += mouseWheelDelta * 0.6f;
             if (platformIO.dropFile != null)
             {
-                UIImGui.openRequest = new FileInfo(platformIO.dropFile);
+                sceneExtensions.OpenFile(platformIO.dropFile);
             }
         }
     }

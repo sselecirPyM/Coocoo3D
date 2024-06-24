@@ -9,7 +9,7 @@ namespace Coocoo3D.UI;
 
 public class ResourceWindow : IWindow2
 {
-    GameDriver gameDriver;
+    public SceneExtensionsSystem sceneExtensions;
     public bool Removing { get; private set; }
 
     public void OnGUI()
@@ -19,8 +19,8 @@ public class ResourceWindow : IWindow2
         if (ImGui.Begin("资源"))
         {
             var _openRequest = Resources();
-            if (UIImGui.openRequest == null)
-                UIImGui.openRequest = _openRequest;
+            if (_openRequest != null)
+                sceneExtensions.OpenFile(_openRequest.FullName);
         }
         ImGui.End();
     }
