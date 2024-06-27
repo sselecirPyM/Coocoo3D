@@ -106,10 +106,6 @@ public class CommonWindow : IWindow2
             MoveTime(-5);
             gameDriverContext.RequireRender(true);
         }
-        foreach (var input in mainCaches.textureDecodeHandler.inputs)
-        {
-            ImGui.Text(((TextureLoadTask)input).KnownFile.fullPath);
-        }
     }
 
     public void Play()

@@ -81,6 +81,10 @@ public class EngineContext : IDisposable
         {
             FillProperties(o);
         }
+        foreach (var o in extensionFactory.EditorAccess)
+        {
+            o.Initialize();
+        }
     }
 
     public void BeforeFrameBegin(Action action)
@@ -109,6 +113,13 @@ public class EngineContext : IDisposable
         {
             object system = systems[i];
             if (system is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+        }
+        foreach(var editorAccess in extensionFactory.EditorAccess)
+        {
+            if (editorAccess is IDisposable disposable)
             {
                 disposable.Dispose();
             }

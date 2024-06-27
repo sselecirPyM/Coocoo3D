@@ -69,13 +69,6 @@ namespace Coocoo3D.Extensions.UI
         }
 
         [Export("UICommand", typeof(Action))]
-        [ExportMetadata("MenuItem", "重新加载纹理")]
-        public void ReloadTexture()
-        {
-            engineContext.BeforeFrameBegin(mainCaches._ReloadTextures);
-        }
-
-        [Export("UICommand", typeof(Action))]
         [ExportMetadata("MenuItem", "重新加载着色器")]
         public void ReloadShader()
         {

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System;
 using System.ComponentModel.Composition;
+using System.Threading.Tasks;
 
 namespace Coocoo3D.Core
 {
@@ -16,6 +17,9 @@ namespace Coocoo3D.Core
 
         [ImportMany]
         public IEnumerable<IFileLoader> FileLoaders { get; set; }
+
+        [ImportMany("ResourceLoader")]
+        public IEnumerable<object> ResourceLoaders { get; set; }
     }
     public interface IUIMeta
     {
@@ -23,9 +27,23 @@ namespace Coocoo3D.Core
     }
     public interface IEditorAccess
     {
+        public virtual void Initialize()
+        {
+
+        }
     }
     public interface IFileLoader
     {
         public bool Load(string path);
+    }
+    public interface IResourceLoader<T>
+    {
+        public bool TryLoad(string path,out T value);
+    }
+
+    public class AsyncProxy
+    {
+        public Func<Task> calls;
+        public long cost;
     }
 }

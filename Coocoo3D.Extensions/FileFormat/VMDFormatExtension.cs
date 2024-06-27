@@ -2,7 +2,7 @@
 using Coocoo3D.Present;
 using System.Collections.Generic;
 
-namespace Coocoo3D.FileFormat;
+namespace Coocoo3D.Extensions.FileFormat;
 
 public static class VMDFormatExtension
 {

@@ -100,6 +100,7 @@ public class Coocoo3DMain : IDisposable
         UIImGui = e.AddSystem<UI.UIImGui>();
 
         e.InitializeSystems();
+        mainCaches.Initialize1();
 
         statistics.DeviceDescription = graphicsDevice.GetDeviceDescription();
 
@@ -160,6 +161,7 @@ public class Coocoo3DMain : IDisposable
         {
             return false;
         }
+        graphicsContext.Begin();
         EngineContext._BeforeFrameBegin();
         sceneExtensions.ProcessFileLoad();
         timeManager.RealCounter("fps", 1, out statistics.FramePerSecond);
@@ -172,7 +174,6 @@ public class Coocoo3DMain : IDisposable
         }
 
         platformIO.Update();
-        graphicsContext.Begin();
         UIImGui.GUI();
         RPContext.FrameBegin();
 

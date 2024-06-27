@@ -714,7 +714,11 @@ public class UIImGui
 
         var texture2D = uiRenderSystem.uiTexture = new Coocoo3DGraphics.Texture2D();
         io.Fonts.TexID = new IntPtr(UIRenderSystem.uiTextureIndex);
-        caches.uploadHandler.Add(new GpuUploadTask(texture2D, uploader));
+        //caches.uploadHandler.Add(new GpuUploadTask(texture2D, uploader));
+        caches.ProxyCall(() =>
+        {
+            mainCaches.graphicsContext1.UploadTexture(texture2D, uploader);
+        });
         editorContext.OnSelectObject += EditorContext_OnSelectObject;
         InitKeyMap();
         OpenWindow(typeof(CommonWindow));
