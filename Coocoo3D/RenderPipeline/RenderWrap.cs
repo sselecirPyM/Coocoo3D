@@ -99,7 +99,7 @@ public class RenderWrap
 
     public Texture2D GetTex2DLoaded(string name)
     {
-        return rpc.mainCaches.GetTextureLoaded(Path.GetFullPath(name, BasePath), graphicsContext);
+        return rpc.mainCaches.GetTextureLoaded(Path.GetFullPath(name, BasePath));
     }
 
     public void SetShader(string path, PSODesc desc, IReadOnlyList<(string, string)> keywords = null)

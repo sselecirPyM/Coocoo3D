@@ -3,6 +3,7 @@ using Coocoo3D.Extensions.FileFormat;
 using Coocoo3D.FileFormat;
 using Coocoo3D.Present;
 using Coocoo3D.RenderPipeline;
+using Coocoo3D.ResourceWrap;
 using DefaultEcs;
 using Newtonsoft.Json;
 using System.Collections.Generic;
@@ -27,7 +28,24 @@ public class DefaultLoader : IFileLoader, IEditorAccess
             case ".pmx":
             case ".gltf":
             case ".glb":
-                mainCaches.modelLoadHandler.Add(new ModelLoadTask() { path = path, scene = scene });
+                //mainCaches.modelLoadHandler.Add(new ModelLoadTask() { path = path, scene = scene });
+                mainCaches.ProxyCall(() =>
+                {
+                    ModelPack modelPack = mainCaches.GetModel(path);
+
+                    var world = scene.recorder.Record(scene.world);
+
+                    if (modelPack.pmx != null)
+                    {
+                        var entity = world.CreateEntity();
+                        modelPack.LoadPmx(entity);
+                    }
+                    else
+                    {
+                        var entity = world.CreateEntity();
+                        modelPack.LoadMesh(entity);
+                    }
+                });
                 break;
             case ".vmd":
                 OpenVMDFile(path);

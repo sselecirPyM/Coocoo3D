@@ -79,44 +79,35 @@ public class MyTextureLoader : IResourceLoader<Texture2D>, IEditorAccess, IDispo
     {
         if (string.IsNullOrEmpty(path))
             return null;
-        var texturePack1 = new Texture2DPack();
-        texturePack1.fullPath = path;
+        var texture2D = new Texture2D();
         Uploader uploader = new Uploader();
         using var stream = File.OpenRead(path);
         Texture2DPack.LoadTexture(path, stream, uploader);
         mainCaches.ProxyCall(() =>
         {
-            graphicsContext.UploadTexture(texturePack1.texture2D, uploader);
+            graphicsContext.UploadTexture(texture2D, uploader);
         });
-        texturePack1.Status = GraphicsObjectStatus.loaded;
-        texturePack1.texture2D.Status = GraphicsObjectStatus.loaded;
-        return texturePack1.texture2D;
+        texture2D.Status = GraphicsObjectStatus.loaded;
+        return texture2D;
     }
-    Texture2D GetTextureLoaded(string path)
-    {
-        if (string.IsNullOrEmpty(path))
-            return null;
-        var texturePack1 = new Texture2DPack();
-        texturePack1.fullPath = path;
-        Uploader uploader = new Uploader();
-        using var stream = File.OpenRead(path);
-        Texture2DPack.LoadTexture(path, stream, uploader);
-        graphicsContext.UploadTexture(texturePack1.texture2D, uploader);
-        texturePack1.Status = GraphicsObjectStatus.loaded;
-        texturePack1.texture2D.Status = GraphicsObjectStatus.loaded;
-        return texturePack1.texture2D;
-    }
+
 
     static bool LoadTexture(string fileName, out Uploader uploader)
     {
-        Stream stream = File.OpenRead(fileName);
-        Texture2DPack texturePack = new Texture2DPack();
         uploader = null;
-        Uploader uploader1 = new Uploader();
-        if (Texture2DPack.LoadTexture(fileName, stream, uploader1))
+        try
         {
-            uploader = uploader1;
-            return true;
+            Stream stream = File.OpenRead(fileName);
+            Uploader uploader1 = new Uploader();
+            if (Texture2DPack.LoadTexture(fileName, stream, uploader1))
+            {
+                uploader = uploader1;
+                return true;
+            }
+        }
+        catch
+        {
+
         }
         return false;
     }

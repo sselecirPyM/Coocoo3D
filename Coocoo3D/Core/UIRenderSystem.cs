@@ -45,7 +45,7 @@ public sealed class UIRenderSystem : IDisposable
     public void Update()
     {
         viewTextures[new IntPtr(uiTextureIndex)] = uiTexture;
-        Texture2D texError = caches.GetTextureLoaded(errorTexturePath, graphicsContext);
+        Texture2D texError = caches.GetTextureLoaded(errorTexturePath);
 
         graphicsContext.SetRenderTargetSwapChain(swapChain, new Vector4(0, 0.3f, 0.3f, 0), true);
 

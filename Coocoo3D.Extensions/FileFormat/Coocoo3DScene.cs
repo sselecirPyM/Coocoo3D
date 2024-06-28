@@ -139,9 +139,9 @@ public class Coocoo3DScene
         var world = saveScene.world;
 
         Dictionary<Texture2D, string> invert = new Dictionary<Texture2D, string>();
-        foreach (var pair in mainCaches.TextureCaches)
+        foreach (var pair in mainCaches.textureCaches)
         {
-            invert[pair.Value.texture2D] = pair.Key;
+            invert[pair.Value] = pair.Key;
         }
 
         foreach (var obj in world)

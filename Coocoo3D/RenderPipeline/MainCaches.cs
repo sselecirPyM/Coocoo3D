@@ -22,19 +22,15 @@ public class MainCaches : IDisposable
 {
     public Dictionary<string, KnownFile> KnownFiles = new();
 
-    public VersionedDictionary<string, Texture2DPack> TextureCaches = new();
-
-    public VersionedDictionary<string, ModelPack> ModelPackCaches = new();
-
     public VersionedDictionary<string, PSO> PipelineStateObjects = new();
     public VersionedDictionary<string, Assembly> Assemblies = new();
 
-    public SyncHandler<ModelLoadTask> modelLoadHandler = new();
-
+    List<IResourceLoader<ModelPack>> modelLoaders = new List<IResourceLoader<ModelPack>>();
+    public Dictionary<string, ModelPack> modelCaches = new Dictionary<string, ModelPack>();
     List<IResourceLoader<Texture2D>> texture2DLoaders = new List<IResourceLoader<Texture2D>>();
-    Dictionary<string, Texture2D> textureCaches = new Dictionary<string, Texture2D>();
+    public Dictionary<string, Texture2D> textureCaches = new Dictionary<string, Texture2D>();
     List<IResourceLoader<MMDMotion>> motionLoaders = new List<IResourceLoader<MMDMotion>>();
-    Dictionary<string, MMDMotion> motionCaches = new Dictionary<string, MMDMotion>();
+    public Dictionary<string, MMDMotion> motionCaches = new Dictionary<string, MMDMotion>();
 
     public GameDriverContext gameDriverContext;
 
@@ -45,7 +41,7 @@ public class MainCaches : IDisposable
     ConcurrentQueue<AsyncProxy> asyncProxyQueue = new ConcurrentQueue<AsyncProxy>();
     ConcurrentQueue<Action> syncProxyQueue = new ConcurrentQueue<Action>();
 
-    string workDir = System.Environment.CurrentDirectory;
+    public string workDir = System.Environment.CurrentDirectory;
     public MainCaches()
     {
 
@@ -62,6 +58,10 @@ public class MainCaches : IDisposable
             if (resourceLoader is IResourceLoader<MMDMotion> mo)
             {
                 motionLoaders.Add(mo);
+            }
+            if (resourceLoader is IResourceLoader<ModelPack> modelLoader)
+            {
+                modelLoaders.Add(modelLoader);
             }
         }
     }
@@ -88,10 +88,6 @@ public class MainCaches : IDisposable
     Queue<string> textureLoadQueue = new();
     public void OnFrame(GraphicsContext graphicsContext)
     {
-        modelLoadHandler.state = this;
-        modelLoadHandler.maxProcessingCount = 8;
-
-        HandlerUpdate1(modelLoadHandler);
 
         while (asyncProxyQueue.TryDequeue(out var proxy))
         {
@@ -101,23 +97,6 @@ public class MainCaches : IDisposable
         {
             call();
         }
-    }
-
-    void HandlerUpdate1<T>(SyncHandler<T> handler) where T : ISyncTask
-    {
-        handler.Update();
-        if (handler.Output.Count > 0)
-            gameDriverContext.RequireRender(true);
-
-        handler.Output.Clear();
-    }
-
-    void TextureReplace(Texture2D texture, GraphicsContext graphicsContext)
-    {
-        if (texture.Status == GraphicsObjectStatus.loading)
-            GetTextureLoaded(Path.GetFullPath("Assets/Textures/loading.png", workDir), graphicsContext).RefCopyTo(texture);
-        else if (texture.Status != GraphicsObjectStatus.loaded)
-            GetTextureLoaded(Path.GetFullPath("Assets/Textures/error.png", workDir), graphicsContext).RefCopyTo(texture);
     }
 
     public KnownFile GetFileInfo(string path)
@@ -176,65 +155,58 @@ public class MainCaches : IDisposable
     }
 
 
-    public Texture2D GetTextureLoaded(string path, GraphicsContext graphicsContext)
+    public Texture2D GetTextureLoaded(string path)
     {
+        path = Path.GetFullPath(path);
         if (string.IsNullOrEmpty(path))
             return null;
-        var a = GetT(TextureCaches, path, file =>
+        if (textureCaches.TryGetValue(path, out var val))
         {
-            var texturePack1 = new Texture2DPack();
-            texturePack1.fullPath = path;
-            Uploader uploader = new Uploader();
-            using var stream = file.OpenRead();
-            Texture2DPack.LoadTexture(file.FullName, stream, uploader);
-            graphicsContext.UploadTexture(texturePack1.texture2D, uploader);
-            texturePack1.Status = GraphicsObjectStatus.loaded;
-            texturePack1.texture2D.Status = GraphicsObjectStatus.loaded;
-            return texturePack1;
-        });
-        return a.texture2D;
+            return val;
+        }
+        try
+        {
+            var texture2D = new Texture2D();
+            var uploader = new Uploader();
+            using var stream = File.OpenRead(path);
+            Texture2DPack.LoadTexture(path, stream, uploader);
+            graphicsContext1.UploadTexture(texture2D, uploader);
+            texture2D.Status = GraphicsObjectStatus.loaded;
+            textureCaches[path] = texture2D;
+
+            return texture2D;
+        }
+        catch
+        {
+
+        }
+        return null;
     }
 
     public ModelPack GetModel(string path)
     {
-        if (string.IsNullOrEmpty(path))
-            return null;
-        lock (ModelPackCaches)
-            return GetT(ModelPackCaches, path, file =>
+        path = Path.GetFullPath(path, workDir);
+        if (modelCaches.TryGetValue(path, out var model))
+        {
+            return model;
+        }
+        foreach (var loader in modelLoaders)
+        {
+            try
             {
-                var modelPack = new ModelPack();
-                modelPack.fullPath = path;
-
-                if (".pmx".Equals(file.Extension, StringComparison.CurrentCultureIgnoreCase))
+                if (loader.TryLoad(path, out var value))
                 {
-                    modelPack.LoadPMX(path);
+                    modelCaches[path] = value;
+                    return value;
                 }
-                else
-                {
-                    modelPack.LoadModel(path);
-                }
+            }
+            catch
+            {
 
-                var paths = new HashSet<string>(modelPack.textures);
-                foreach (var material in modelPack.Materials)
-                {
-                    var keys = new List<string>(material.Parameters.Keys);
-                    foreach (var key in keys)
-                    {
-                        object o = material.Parameters[key];
-                        if (o as string == ModelPack.whiteTextureReplace)
-                        {
-                            material.Parameters[key] = GetTexturePreloaded(Path.GetFullPath("Assets/Textures/white.png", workDir));
-                        }
-                        else if (o is string path && paths.Contains(path))
-                        {
-                            material.Parameters[key] = GetTexturePreloaded(path);
-                        }
-                    }
-                }
-
-                graphicsContext1.UploadMesh(modelPack.GetMesh());
-                return modelPack;
-            });
+            }
+        }
+        modelCaches[path] = null;
+        return null;
     }
 
     public MMDMotion GetMotion(string path)
@@ -246,10 +218,17 @@ public class MainCaches : IDisposable
         }
         foreach (var loader in motionLoaders)
         {
-            if (loader.TryLoad(path, out var value))
+            try
             {
-                motionCaches[path] = value;
-                return value;
+                if (loader.TryLoad(path, out var value))
+                {
+                    motionCaches[path] = value;
+                    return value;
+                }
+            }
+            catch
+            {
+
             }
         }
         motionCaches[path] = null;
@@ -412,17 +391,6 @@ public class MainCaches : IDisposable
 
     public void Dispose()
     {
-        foreach (var m in ModelPackCaches)
-        {
-            m.Value.Dispose();
-        }
-        ModelPackCaches.Clear();
-        foreach (var t in TextureCaches)
-        {
-            t.Value?.Dispose();
-        }
-        TextureCaches.Clear();
-
         foreach (var t in PipelineStateObjects)
         {
             t.Value?.Dispose();
@@ -431,6 +399,15 @@ public class MainCaches : IDisposable
 
         motionCaches.Clear();
 
+        foreach (var t in textureCaches)
+        {
+            t.Value?.Dispose();
+        }
         textureCaches.Clear();
+        foreach (var t in modelCaches)
+        {
+            t.Value?.Dispose();
+        }
+        modelCaches.Clear();
     }
 }

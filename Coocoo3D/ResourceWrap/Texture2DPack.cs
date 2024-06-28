@@ -10,13 +10,8 @@ using System.Numerics;
 
 namespace Coocoo3D.ResourceWrap;
 
-public class Texture2DPack : IDisposable
+public static class Texture2DPack
 {
-    public Texture2D texture2D = new Texture2D();
-    public string fullPath;
-
-    public GraphicsObjectStatus Status;
-
     public static bool LoadTexture(string fileName, Stream stream, Uploader uploader)
     {
         try
@@ -219,11 +214,6 @@ public class Texture2DPack : IDisposable
             return true;
         }
         return false;
-    }
-
-    public void Dispose()
-    {
-        texture2D.Dispose();
     }
 }
 
