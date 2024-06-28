@@ -41,6 +41,8 @@ public class MainCaches : IDisposable
     ConcurrentQueue<AsyncProxy> asyncProxyQueue = new ConcurrentQueue<AsyncProxy>();
     ConcurrentQueue<Action> syncProxyQueue = new ConcurrentQueue<Action>();
 
+    List<AsyncProxy> runningTasks = new List<AsyncProxy>();
+
     public string workDir = System.Environment.CurrentDirectory;
     public MainCaches()
     {
@@ -88,10 +90,22 @@ public class MainCaches : IDisposable
     Queue<string> textureLoadQueue = new();
     public void OnFrame(GraphicsContext graphicsContext)
     {
-
-        while (asyncProxyQueue.TryDequeue(out var proxy))
+        long cost = 0;
+        runningTasks.RemoveAll((t) =>
         {
-            proxy.calls();
+            cost += t.cost;
+            if (t.runningTask == null || t.runningTask.Status != System.Threading.Tasks.TaskStatus.Running)
+            {
+                return true;
+            }
+            return false;
+        });
+
+        while (cost < 8 && asyncProxyQueue.TryDequeue(out var proxy))
+        {
+            proxy.runningTask = proxy.calls();
+            runningTasks.Add(proxy);
+            cost += proxy.cost;
         }
         while (syncProxyQueue.TryDequeue(out var call))
         {
@@ -212,26 +226,29 @@ public class MainCaches : IDisposable
     public MMDMotion GetMotion(string path)
     {
         path = Path.GetFullPath(path, workDir);
-        if (motionCaches.TryGetValue(path, out var motion))
+        lock (modelCaches)
         {
-            return motion;
-        }
-        foreach (var loader in motionLoaders)
-        {
-            try
+            if (motionCaches.TryGetValue(path, out var motion))
             {
-                if (loader.TryLoad(path, out var value))
+                return motion;
+            }
+            foreach (var loader in motionLoaders)
+            {
+                try
                 {
-                    motionCaches[path] = value;
-                    return value;
+                    if (loader.TryLoad(path, out var value))
+                    {
+                        motionCaches[path] = value;
+                        return value;
+                    }
+                }
+                catch
+                {
+
                 }
             }
-            catch
-            {
-
-            }
+            motionCaches[path] = null;
         }
-        motionCaches[path] = null;
         return null;
     }
 

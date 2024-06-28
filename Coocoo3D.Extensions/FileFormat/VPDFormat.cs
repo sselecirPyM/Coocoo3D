@@ -1,13 +1,10 @@
-﻿using System;
+﻿using Coocoo3D.Present;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.IO;
 using System.Numerics;
-using Coocoo3D.Present;
+using System.Text;
 
-namespace Coocoo3D.FileFormat
+namespace Coocoo3D.Extensions.FileFormat
 {
     public class VPDFormat
     {

@@ -9,7 +9,7 @@ namespace Coocoo3D.Extensions.FileLoader;
 [Export("ResourceLoader")]
 public class MMDMotionLoader : IResourceLoader<MMDMotion>
 {
-    public bool TryLoad(string path,out MMDMotion motion)
+    public bool TryLoad(string path, out MMDMotion motion)
     {
         motion = default;
         var ext = Path.GetExtension(path).ToLower();
@@ -23,6 +23,7 @@ public class MMDMotionLoader : IResourceLoader<MMDMotion>
 
         motion = new MMDMotion();
         motion.Load(motionSet);
+        motion.fullPath = path;
         return true;
     }
 }

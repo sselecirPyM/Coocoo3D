@@ -1,11 +1,14 @@
 ﻿using Caprice.Display;
 using Coocoo3D.Components;
 using Coocoo3D.Core;
+using Coocoo3D.Extensions.Utility;
 using Coocoo3D.Present;
 using Coocoo3D.RenderPipeline;
 using Coocoo3D.UI;
+using Coocoo3DGraphics;
 using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
 using System.ComponentModel.Composition;
 using System.IO;
 using System.Numerics;
@@ -66,6 +69,53 @@ namespace Coocoo3D.Extensions.UI
             camera.Distance = -4.5f;
             camera.Fov = 38.0f / 180.0f * MathF.PI;
             camera.Angle = new Vector3();
+        }
+
+        [Export("UICommand", typeof(Action))]
+        [ExportMetadata("MenuItem", "重新加载纹理")]
+        public void ReloadTexture()
+        {
+            mainCaches.ProxyCall(() =>
+            {
+                Dictionary<Texture2D, string> reverse = CacheUtil.MakeReverse(mainCaches);
+                foreach (var texture in mainCaches.textureCaches.Values)
+                {
+                    texture.Dispose();
+                }
+                mainCaches.textureCaches.Clear();
+
+                foreach(var obj in scene.gameObjects.Values)
+                {
+                    if (obj.Has<MMDRendererComponent>())
+                    {
+                        var r1 = obj.Get<MMDRendererComponent>();
+                        foreach(var mat in r1.Materials)
+                        {
+                            foreach(var p in mat.Parameters.Keys)
+                            {
+                                if (mat.Parameters[p] is Texture2D t1)
+                                {
+                                    mat.Parameters[p] = mainCaches.GetTexturePreloaded(reverse[t1]);
+                                }
+                            }
+                        }
+                    }
+                    if (obj.Has<MeshRendererComponent>())
+                    {
+                        var r1 = obj.Get<MeshRendererComponent>();
+                        foreach (var mat in r1.Materials)
+                        {
+                            foreach (var p in mat.Parameters.Keys)
+                            {
+                                if (mat.Parameters[p] is Texture2D t1)
+                                {
+                                    mat.Parameters[p] = mainCaches.GetTexturePreloaded(reverse[t1]);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
         }
 
         [Export("UICommand", typeof(Action))]

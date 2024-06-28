@@ -8,6 +8,12 @@
     <ProjectReference Include="..\Coocoo3D\Coocoo3D.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Reference Include="glTFLoader">
+      <HintPath>..\GLTFLoader\glTFLoader.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
 
 	<Target Name="PostBuild" AfterTargets="PostBuildEvent">
 		<Exec Command="xcopy &quot;$(TargetDir)\Coocoo3D.Extensions.dll&quot; &quot;$(SolutionDir)\Coocoo3D.Windows\bin\$(Configuration)\net8.0\Extension\&quot; /y" />

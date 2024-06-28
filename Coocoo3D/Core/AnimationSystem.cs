@@ -38,13 +38,11 @@ public class AnimationSystem
             var renderer = animationRenderers[i].Item1;
             var animationState = animationRenderers[i].Item2;
             //animationState.Time = playTime;
-            animationState.Time = (float)gdc.PlayTime;
-            animationState.ComputeMotion(caches.GetMotion(animationState.motionPath), renderer);
+            if (gdc.Playing)
+                animationState.Time += (float)gdc.DeltaTime;
+            animationState.ComputeMotion(animationState.motion, renderer);
             renderer.ComputeMotion();
-        });
-        Parallel.For(0, animationRenderers.Count, i =>
-        {
-            var renderer = animationRenderers[i].Item1;
+
             renderer.ComputeVertexMorph(renderer.model.position);
         });
     }

@@ -111,11 +111,11 @@ public class GameObjectWindow : IWindow2
         }
         if (ImGui.TreeNode("动画"))
         {
-            ImGui.Text(string.Format("动作文件：{0}", animationState.motionPath));
+            ImGui.Text(string.Format("动作文件：{0}", animationState.motion?.fullPath??""));
             if (ImGui.Button("清除动画"))
             {
                 gameDriverContext.RefreshScene = true;
-                animationState.motionPath = "";
+                animationState.motion = null;
             }
             ImGui.Checkbox("蒙皮", ref renderer.skinning);
             if (ImGui.IsItemHovered())

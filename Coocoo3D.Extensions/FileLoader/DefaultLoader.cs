@@ -1,6 +1,5 @@
 ﻿using Coocoo3D.Core;
 using Coocoo3D.Extensions.FileFormat;
-using Coocoo3D.FileFormat;
 using Coocoo3D.Present;
 using Coocoo3D.RenderPipeline;
 using Coocoo3D.ResourceWrap;
@@ -26,32 +25,36 @@ public class DefaultLoader : IFileLoader, IEditorAccess
         switch (ext)
         {
             case ".pmx":
-            case ".gltf":
-            case ".glb":
-                //mainCaches.modelLoadHandler.Add(new ModelLoadTask() { path = path, scene = scene });
                 mainCaches.ProxyCall(() =>
                 {
                     ModelPack modelPack = mainCaches.GetModel(path);
+                    if (modelPack == null)
+                        return;
 
                     var world = scene.recorder.Record(scene.world);
 
-                    if (modelPack.pmx != null)
-                    {
-                        var entity = world.CreateEntity();
-                        modelPack.LoadPmx(entity);
-                    }
-                    else
-                    {
-                        var entity = world.CreateEntity();
-                        modelPack.LoadMesh(entity);
-                    }
+                    var entity = world.CreateEntity();
+                    modelPack.LoadPmx(entity);
+                });
+                break;
+            case ".gltf":
+            case ".glb":
+                mainCaches.ProxyCall(() =>
+                {
+                    ModelPack modelPack = mainCaches.GetModel(path);
+                    if (modelPack == null)
+                        return;
+
+                    var world = scene.recorder.Record(scene.world);
+
+                    var entity = world.CreateEntity();
+                    modelPack.LoadMesh(entity);
                 });
                 break;
             case ".vmd":
                 OpenVMDFile(path);
                 break;
             case ".coocoo3dscene":
-                //mainCaches.sceneLoadHandler.Add(new SceneLoadTask { path = path, Scene = scene });
                 LoadScene(path);
                 break;
             default:
@@ -85,7 +88,7 @@ public class DefaultLoader : IFileLoader, IEditorAccess
         {
             if (editorContext.selectedObject.IsAlive && TryGetComponent(editorContext.selectedObject, out Components.AnimationStateComponent animationState))
             {
-                animationState.motionPath = path;
+                animationState.motion = mainCaches.GetMotion(path);
             }
         }
     }

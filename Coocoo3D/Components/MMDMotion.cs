@@ -7,6 +7,7 @@ namespace Coocoo3D.Components;
 
 public class MMDMotion
 {
+    public string fullPath;
     public Dictionary<string, List<BoneKeyFrame>> BoneKeyFrameSet { get; set; } = new();
     public Dictionary<string, List<MorphKeyFrame>> MorphKeyFrameSet { get; set; } = new();
     public Dictionary<string, List<IKKeyFrame>> IKKeyFrameSet { get; set; } = new();

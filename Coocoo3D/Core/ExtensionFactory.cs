@@ -45,5 +45,6 @@ namespace Coocoo3D.Core
     {
         public Func<Task> calls;
         public long cost;
+        internal Task runningTask;
     }
 }

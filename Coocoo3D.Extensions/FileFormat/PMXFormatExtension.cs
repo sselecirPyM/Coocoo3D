@@ -6,7 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Numerics;
 
-namespace Coocoo3D.FileFormat;
+namespace Coocoo3D.Extensions.FileFormat;
 
 public static class PMXFormatExtension
 {

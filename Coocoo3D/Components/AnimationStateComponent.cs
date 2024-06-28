@@ -7,7 +7,7 @@ namespace Coocoo3D.Components;
 
 public class AnimationStateComponent
 {
-    public string motionPath = "";
+    public MMDMotion motion;
     public bool LockMotion;
     public WeightGroup Weights = new();
 

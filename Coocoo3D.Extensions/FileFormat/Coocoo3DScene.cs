@@ -1,7 +1,6 @@
 ﻿using Caprice.Display;
 using Coocoo3D.Components;
 using Coocoo3D.Core;
-using Coocoo3D.FileFormat;
 using Coocoo3D.Present;
 using Coocoo3D.RenderPipeline;
 using Coocoo3D.ResourceWrap;
@@ -138,10 +137,10 @@ public class Coocoo3DScene
         scene.objects = new List<CooSceneObject>();
         var world = saveScene.world;
 
-        Dictionary<Texture2D, string> invert = new Dictionary<Texture2D, string>();
+        Dictionary<Texture2D, string> reverse = new Dictionary<Texture2D, string>();
         foreach (var pair in mainCaches.textureCaches)
         {
-            invert[pair.Value] = pair.Key;
+            reverse[pair.Value] = pair.Key;
         }
 
         foreach (var obj in world)
@@ -154,12 +153,13 @@ public class Coocoo3DScene
                 sceneObject.type = "mmdModel";
                 sceneObject.path = renderer.meshPath;
                 sceneObject.properties = new Dictionary<string, string>();
-                sceneObject.properties.Add("motion", animationState.motionPath);
+                if (animationState.motion?.fullPath != null)
+                    sceneObject.properties.Add("motion", animationState.motion?.fullPath);
                 sceneObject.materials = new Dictionary<string, _cooMaterial>();
                 sceneObject.skinning = renderer.skinning;
                 foreach (var material in renderer.Materials)
                 {
-                    sceneObject.materials[material.Name] = ToDTO(invert, material);
+                    sceneObject.materials[material.Name] = ToDTO(reverse, material);
                 }
                 scene.objects.Add(sceneObject);
             }
@@ -172,7 +172,7 @@ public class Coocoo3DScene
                 sceneObject.materials = new Dictionary<string, _cooMaterial>();
                 foreach (var material in meshRenderer.Materials)
                 {
-                    sceneObject.materials[material.Name] = ToDTO(invert, material);
+                    sceneObject.materials[material.Name] = ToDTO(reverse, material);
                 }
                 scene.objects.Add(sceneObject);
             }
@@ -180,7 +180,7 @@ public class Coocoo3DScene
             if (visual != null)
             {
                 CooSceneObject decalObject = new CooSceneObject(obj);
-                decalObject.visual = new CooSceneObjectVisual(ToDTO(invert, visual.material));
+                decalObject.visual = new CooSceneObjectVisual(ToDTO(reverse, visual.material));
                 scene.objects.Add(decalObject);
             }
         }
@@ -225,7 +225,7 @@ public class Coocoo3DScene
                 {
                     if (obj.properties.TryGetValue("motion", out string motion))
                     {
-                        animationState.motionPath = motion;
+                        animationState.motion = caches.GetMotion(motion);
                     }
                 }
                 if (obj.materials != null)

@@ -4,7 +4,7 @@ using System.IO;
 using System.Numerics;
 using System.Text;
 
-namespace Coocoo3D.FileFormat
+namespace Coocoo3D.Extensions.FileFormat
 {
     enum PMX_BoneWeightDeformType
     {
