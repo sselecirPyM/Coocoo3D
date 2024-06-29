@@ -31,10 +31,4 @@
     <ProjectReference Include="..\Coocoo3DGraphics\Coocoo3DGraphics.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Reference Include="glTFLoader">
-      <HintPath>..\GLTFLoader\glTFLoader.dll</HintPath>
-    </Reference>
-  </ItemGroup>
-
 </Project>

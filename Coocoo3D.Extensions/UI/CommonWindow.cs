@@ -1,17 +1,20 @@
 ﻿using Coocoo3D.Components;
 using Coocoo3D.Core;
 using Coocoo3D.RenderPipeline;
+using Coocoo3D.UI;
 using DefaultEcs;
 using ImGuiNET;
 using System;
+using System.ComponentModel.Composition;
 using System.Numerics;
 
-namespace Coocoo3D.UI;
+namespace Coocoo3D.Extensions.UI;
 
-public class CommonWindow : IWindow2
+[Export(typeof(IWindow))]
+[Export(typeof(IEditorAccess))]
+[ExportMetadata("MenuItem", "常用")]
+public class CommonWindow : IWindow, IEditorAccess
 {
-    public bool Removing { get; private set; }
-
     public GameDriverContext gameDriverContext;
 
     public GameDriver gameDriver;
@@ -23,16 +26,11 @@ public class CommonWindow : IWindow2
     public EditorContext editorContext;
 
     public World world;
+    public string Title { get => "常用"; }
 
     public void OnGUI()
     {
-        ImGui.SetNextWindowPos(new Vector2(0, 0), ImGuiCond.FirstUseEver);
-        ImGui.SetNextWindowSize(new Vector2(300, 400), ImGuiCond.FirstUseEver);
-        if (ImGui.Begin("常用"))
-        {
-            Common();
-        }
-        ImGui.End();
+        Common();
     }
 
     void Common()

@@ -4,19 +4,25 @@ using DefaultEcs;
 using DefaultEcs.Command;
 using ImGuiNET;
 using System;
+using System.ComponentModel.Composition;
 using System.Numerics;
 
 namespace Coocoo3D.UI;
 
-public class SceneHierachyWindow : IWindow2
+[Export(typeof(IWindow))]
+[Export(typeof(IEditorAccess))]
+[ExportMetadata("MenuItem", "场景层级")]
+public class SceneHierachyWindow : IWindow, IEditorAccess
 {
-    public bool Removing { get; private set; }
-    public Scene CurrentScene;
+    public Scene scene;
 
     public EntityCommandRecorder recorder;
 
     public EditorContext editorContext;
     public EngineContext engineContext;
+
+    public string Title { get => "场景层级"; }
+    public bool SimpleWindow { get => false; }
 
     public void Initialize()
     {
@@ -30,11 +36,8 @@ public class SceneHierachyWindow : IWindow2
 
     public void OnGUI()
     {
-        ImGui.SetNextWindowPos(new Vector2(750, 0), ImGuiCond.FirstUseEver);
-        ImGui.SetNextWindowSize(new Vector2(350, 300), ImGuiCond.FirstUseEver);
         if (ImGui.Begin("场景层级", ImGuiWindowFlags.MenuBar))
         {
-
             SceneHierarchy();
         }
         ImGui.End();
@@ -52,19 +55,8 @@ public class SceneHierachyWindow : IWindow2
             }
             ImGui.EndMenuBar();
         }
-        bool copyObject = false;
-        if (ImGui.Button("复制物体"))
-        {
-            copyObject = true;
-        }
-        ImGui.SameLine();
-        bool removeObject = false;
-        if (ImGui.Button("移除物体") || (ImGui.IsKeyPressed((int)ImGuiKey.Delete) && ImGui.IsWindowHovered()))
-        {
-            removeObject = true;
-        }
         string filter = ImGuiExt.ImFilter("查找物体", "查找名称");
-        var gameObjects = CurrentScene.world;
+        var gameObjects = scene.world;
         foreach (var gameObject in gameObjects)
         {
             TryGetComponent(gameObject, out ObjectDescription objectDescription);
@@ -91,19 +83,13 @@ public class SceneHierachyWindow : IWindow2
                 editorContext.SelectObjectMessage(gameObject);
             }
         }
-        if (removeObject)
+        if((ImGui.IsKeyPressed((int)ImGuiKey.Delete) && ImGui.IsWindowHovered()))
         {
-            if (selectedObject.IsAlive)
+            if (editorContext.selectedObject.IsAlive)
             {
-                recorder.Record(selectedObject).Dispose();
-                editorContext.RemoveObjectMessage(selectedObject);
+                recorder.Record(editorContext.selectedObject).Dispose();
+                editorContext.RemoveObjectMessage(editorContext.selectedObject);
             }
-
-        }
-        if (copyObject)
-        {
-            if (selectedObject.IsAlive)
-                CurrentScene.DuplicateObject(selectedObject);
         }
     }
 

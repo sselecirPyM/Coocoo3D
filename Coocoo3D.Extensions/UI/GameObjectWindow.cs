@@ -2,15 +2,20 @@
 using Coocoo3D.Components;
 using Coocoo3D.Core;
 using Coocoo3D.Present;
+using Coocoo3D.UI;
 using DefaultEcs;
 using ImGuiNET;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.Composition;
 using System.Numerics;
 
-namespace Coocoo3D.UI;
+namespace Coocoo3D.Extensions.UI;
 
-public class GameObjectWindow : IWindow2
+[Export(typeof(IWindow))]
+[Export(typeof(IEditorAccess))]
+[ExportMetadata("MenuItem", "物体")]
+public class GameObjectWindow : IWindow, IEditorAccess
 {
     public GameDriverContext gameDriverContext;
 
@@ -20,7 +25,7 @@ public class GameObjectWindow : IWindow2
 
     public EditorContext editorContext;
 
-    public bool Removing { get; private set; }
+    public string Title { get => "物体"; }
 
     int materialSelectIndex = 0;
 
@@ -37,16 +42,10 @@ public class GameObjectWindow : IWindow2
 
     public void OnGUI()
     {
-        ImGui.SetNextWindowPos(new Vector2(0, 400), ImGuiCond.FirstUseEver);
-        ImGui.SetNextWindowSize(new Vector2(300, 300), ImGuiCond.FirstUseEver);
-        if (ImGui.Begin("物体"))
+        if (selectedObject.IsAlive)
         {
-            if (selectedObject.IsAlive)
-            {
-                GameObjectPanel(selectedObject);
-            }
+            GameObjectPanel(selectedObject);
         }
-        ImGui.End();
     }
 
 
@@ -111,7 +110,7 @@ public class GameObjectWindow : IWindow2
         }
         if (ImGui.TreeNode("动画"))
         {
-            ImGui.Text(string.Format("动作文件：{0}", animationState.motion?.fullPath??""));
+            ImGui.Text(string.Format("动作文件：{0}", animationState.motion?.fullPath ?? ""));
             if (ImGui.Button("清除动画"))
             {
                 gameDriverContext.RefreshScene = true;

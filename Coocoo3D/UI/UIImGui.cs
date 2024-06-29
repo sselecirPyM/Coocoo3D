@@ -32,8 +32,15 @@ public class UIImGui
 
     public RenderSystem renderSystem;
 
+    bool initialized = false;
+
     public void GUI()
     {
+        if (!initialized)
+        {
+            editorContext.ReOpenWindows();
+            initialized = true;
+        }
 
         var io = ImGui.GetIO();
         Input();
@@ -720,9 +727,6 @@ public class UIImGui
         });
         editorContext.OnSelectObject += EditorContext_OnSelectObject;
         InitKeyMap();
-        OpenWindow(typeof(CommonWindow));
-        OpenWindow(typeof(SceneHierachyWindow));
-        OpenWindow(typeof(GameObjectWindow));
         OpenWindow(typeof(PopupsWindow));
         OpenWindow(typeof(ResourceWindow));
 
@@ -822,6 +826,7 @@ public class UIImGui
                 editorContext.Windows2.Remove(window);
         }
 
+        bool b1 = editorContext.OpeningWindow.Count > 0 || editorContext.RemovingWindow.Count > 0;
         foreach (var window in editorContext.OpeningWindow)
         {
             engineContext.FillProperties(window);
@@ -839,5 +844,9 @@ public class UIImGui
             }
         }
         editorContext.RemovingWindow.Clear();
+        if (b1)
+        {
+            editorContext.SaveOpenWindow();
+        }
     }
 }

@@ -6,6 +6,7 @@ using Coocoo3D.Present;
 using Coocoo3D.RenderPipeline;
 using Coocoo3D.UI;
 using Coocoo3DGraphics;
+using DefaultEcs.Command;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -24,6 +25,8 @@ namespace Coocoo3D.Extensions.UI
         public UIImGui uiImGui;
         public EngineContext engineContext;
         public EditorContext editorContext;
+
+        public EntityCommandRecorder recorder;
 
         [Export("UICommand", typeof(Action))]
         [ExportMetadata("MenuItem", "保存场景")]
@@ -84,14 +87,14 @@ namespace Coocoo3D.Extensions.UI
                 }
                 mainCaches.textureCaches.Clear();
 
-                foreach(var obj in scene.gameObjects.Values)
+                foreach (var obj in scene.gameObjects.Values)
                 {
                     if (obj.Has<MMDRendererComponent>())
                     {
                         var r1 = obj.Get<MMDRendererComponent>();
-                        foreach(var mat in r1.Materials)
+                        foreach (var mat in r1.Materials)
                         {
-                            foreach(var p in mat.Parameters.Keys)
+                            foreach (var p in mat.Parameters.Keys)
                             {
                                 if (mat.Parameters[p] is Texture2D t1)
                                 {
@@ -176,6 +179,27 @@ namespace Coocoo3D.Extensions.UI
                 Description = ""
             });
             gameObject.Set(new Transform(new Vector3(0, 0, 0), Quaternion.CreateFromYawPitchRoll(0, -1.5707963267948966192313216916398f, 0), new Vector3(1, 1, 0.1f)));
+        }
+
+        [Export("UISceneCommand", typeof(Action))]
+        [ExportMetadata("MenuItem", "复制物体")]
+        public void DuplicateObject()
+        {
+            if (editorContext.selectedObject.IsAlive)
+            {
+                scene.DuplicateObject(editorContext.selectedObject);
+            }
+        }
+
+        [Export("UISceneCommand", typeof(Action))]
+        [ExportMetadata("MenuItem", "移除物体")]
+        public void RemoveObject()
+        {
+            if (editorContext.selectedObject.IsAlive)
+            {
+                recorder.Record(editorContext.selectedObject).Dispose();
+                editorContext.RemoveObjectMessage(editorContext.selectedObject);
+            }
         }
 
         static void SaveJsonStream<T>(Stream stream, T val)
