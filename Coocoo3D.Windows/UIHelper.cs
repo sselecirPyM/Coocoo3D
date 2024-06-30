@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 using UIImGui = Coocoo3D.UI.UIImGui;
+using static SDL2.SDL;
 
 namespace Coocoo3D.Windows;
 
@@ -18,6 +19,7 @@ public class UIHelper
     public SceneExtensionsSystem sceneExtensions;
 
     public nint hwnd;
+    public nint window;
 
     public bool wantQuit;
 
@@ -57,6 +59,9 @@ public class UIHelper
                     break;
                 case UI.PlatformIOTaskType.SaveFolder:
                     SaveFolder(task.title, task.callback);
+                    break;
+                case UI.PlatformIOTaskType.SetWindowTitle:
+                    SDL_SetWindowTitle(window, task.title);
                     break;
                 case UI.PlatformIOTaskType.Exit:
                     wantQuit = true;

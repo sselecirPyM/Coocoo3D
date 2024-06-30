@@ -24,9 +24,9 @@ public class WindowSystem
         SDL_GetWindowWMInfo(window, ref info);
         IntPtr hwnd = info.info.win.window;
         coocoo3DMain.SetWindow(hwnd, Width, Height);
-        SDL_SetWindowTitle(window, "Coocoo3D GPU: " + coocoo3DMain.statistics.DeviceDescription);
         uiHelper = new UIHelper();
         uiHelper.hwnd = hwnd;
+        uiHelper.window = window;
         coocoo3DMain.EngineContext.FillProperties(uiHelper);
         coocoo3DMain.EngineContext.InitializeObject(uiHelper);
         coocoo3DMain.RequireRender();

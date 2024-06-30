@@ -8,7 +8,8 @@ namespace Coocoo3D.UI
         Exit,
         OpenFile,
         SaveFile,
-        SaveFolder
+        SaveFolder,
+        SetWindowTitle,
     }
     public class PlatformIOTask
     {

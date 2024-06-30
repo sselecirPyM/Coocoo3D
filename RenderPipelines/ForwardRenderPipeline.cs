@@ -8,6 +8,7 @@ using RenderPipelines.MaterialDefines;
 using RenderPipelines.Utility;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Numerics;
 
 namespace RenderPipelines;
@@ -82,7 +83,7 @@ public partial class ForwardRenderPipeline : RenderPipeline, IDisposable
         renderWrap.SetSize("HalfOutput", (outputWidth + 1) / 2, (outputHeight + 1) / 2);
         renderWrap.SetSize("QuarterOutput", (outputWidth + 3) / 4, (outputHeight + 3) / 4);
         renderWrap.SetSize("BloomSize", outputWidth * 256 / outputHeight, 256);
-        renderWrap.texError = renderWrap.GetTex2DLoaded("error.png");
+        renderWrap.texError = renderWrap.rpc.mainCaches.GetTextureLoaded(Path.GetFullPath("error.png", renderWrap.BasePath));
         renderHelper.PushParameters(this);
     }
 

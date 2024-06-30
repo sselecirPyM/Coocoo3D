@@ -6,97 +6,54 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 
-namespace Coocoo3D.ResourceWrap;
+namespace Coocoo3D.Extensions.Utility;
 
 public static class TextureHelper
 {
     public static void SaveToFile(ReadOnlySpan<byte> data, int width, int height, string fileName)
     {
-        var pack = FindPack();
-
-        pack.width = width;
-        pack.height = height;
-        pack.saveFileName = fileName;
-        if (pack.imageData == null || pack.imageData.Length != data.Length)
-        {
-            pack.imageData = new byte[data.Length];
-        }
-        data.CopyTo(pack.imageData);
-
-        pack.runningTask = Task.Run(pack.Save);
-
+        var data1 = data.ToArray();
+        tasks[taskIndex].Wait();
+        tasks[taskIndex] = Save(fileName, data1, width, height);
         totalCount++;
+        taskIndex = (taskIndex + 1) % tasks.Length;
     }
 
     public static void SaveToFile(ReadOnlySpan<byte> data, int width, int height, string fileName, Stream stream)
     {
-        var pack = new _TextureSavePack();
-
-        pack.width = width;
-        pack.height = height;
-        pack.saveFileName = fileName;
-        if (pack.imageData == null || pack.imageData.Length != data.Length)
-        {
-            pack.imageData = new byte[data.Length];
-        }
-        data.CopyTo(pack.imageData);
-
-        pack.StreamSave(stream);
-
+        StreamSave(fileName, data.ToArray(), stream, width, height);
         totalCount++;
     }
 
-    static _TextureSavePack FindPack()
+    static Task[] tasks = new Task[8];
+    static int taskIndex = 0;
+    static TextureHelper()
     {
-        int saveIndex = -1;
-        for (int i = 0; i < _saves.Length; i++)
+        for (int i = 0; i < 8; i++)
         {
-            if (_saves[i] == null || _saves[i].runningTask.IsCompleted)
-            {
-                saveIndex = i;
-                break;
-            }
+            tasks[i] = Task.CompletedTask;
         }
-        if (saveIndex == -1)
-            saveIndex = (totalCount + 1) % _saves.Length;
-
-        if (_saves[saveIndex] == null)
-            _saves[saveIndex] = new _TextureSavePack();
-
-        var pack = _saves[saveIndex];
-        if (pack.runningTask != null && pack.runningTask.Status != TaskStatus.RanToCompletion)
-            pack.runningTask.Wait();
-
-        return pack;
     }
 
-    internal static _TextureSavePack[] _saves = new _TextureSavePack[8];
-
     static int totalCount;
-}
-class _TextureSavePack
-{
-    public Task runningTask;
-    public byte[] imageData;
-    public int width;
-    public int height;
-    public string saveFileName;
 
-    public void Save()
+
+    static async Task Save(string saveFileName, byte[] imageData, int width, int height)
     {
+        await Task.Yield();
         Image<Rgba32> image = Image.WrapMemory<Rgba32>(imageData, width, height);
         string extension = Path.GetExtension(saveFileName).ToLower();
         switch (extension)
         {
             case ".jpg":
             case ".jpeg":
-                image.SaveAsJpeg(saveFileName);
+                await image.SaveAsJpegAsync(saveFileName);
                 break;
             case ".bmp":
-                image.SaveAsBmp(saveFileName);
+                await image.SaveAsBmpAsync(saveFileName);
                 break;
             case ".png":
-                image.SaveAsPng(saveFileName);
+                await image.SaveAsPngAsync(saveFileName);
                 break;
             case ".tga":
                 TgaEncoder encoder = new TgaEncoder
@@ -104,11 +61,11 @@ class _TextureSavePack
                     Compression = TgaCompression.None,
                     BitsPerPixel = TgaBitsPerPixel.Pixel24
                 };
-                image.SaveAsTga(saveFileName, encoder);
+                await image.SaveAsTgaAsync(saveFileName, encoder);
                 break;
         }
     }
-    public void StreamSave(Stream stream)
+    static void StreamSave(string saveFileName, byte[] imageData, Stream stream, int width, int height)
     {
         Image<Rgba32> image = Image.WrapMemory<Rgba32>(imageData, width, height);
         string extension = Path.GetExtension(saveFileName).ToLower();

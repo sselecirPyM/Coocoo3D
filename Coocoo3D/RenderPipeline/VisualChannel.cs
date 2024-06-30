@@ -1,4 +1,5 @@
 ﻿using Caprice.Attributes;
+using Coocoo3D.Core;
 using Coocoo3D.Present;
 using Coocoo3D.Utility;
 using Coocoo3DGraphics;
@@ -30,6 +31,7 @@ public class VisualChannel : IDisposable
 
     public RenderPipelineView renderPipelineView;
     public RenderPipelineContext context;
+    public EngineContext engineContext;
 
     public bool disposed;
 
@@ -53,10 +55,12 @@ public class VisualChannel : IDisposable
         string basePath = Path.GetDirectoryName(type.Assembly.Location);
 
         this.renderPipelineView = new RenderPipelineView(renderPipeline, MainCaches, basePath);
+        engineContext.FillProperties(renderPipelineView);
         var renderWrap = new RenderWrap()
         {
             RenderPipelineView = renderPipelineView,
         };
+        engineContext.FillProperties(renderWrap);
         renderPipeline.renderWrap = renderWrap;
         renderPipelineView.renderWrap = renderWrap;
     }

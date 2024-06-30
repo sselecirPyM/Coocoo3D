@@ -32,6 +32,8 @@ public class UIImGui
 
     public RenderSystem renderSystem;
 
+    public Statistics statistics;
+
     bool initialized = false;
 
     public void GUI()
@@ -39,6 +41,12 @@ public class UIImGui
         if (!initialized)
         {
             editorContext.ReOpenWindows();
+            UITaskQueue.Enqueue(new PlatformIOTask()
+            {
+                type = PlatformIOTaskType.SetWindowTitle,
+                title = "Coocoo3D GPU: " + statistics.DeviceDescription
+            });
+
             initialized = true;
         }
 

@@ -14,7 +14,7 @@ public class RenderWrap
 
     public RenderPipelineContext rpc { get; set; }
 
-    public GraphicsContext graphicsContext { get => rpc.graphicsContext; }
+    public GraphicsContext graphicsContext;
 
     public string BasePath { get => RenderPipelineView.path; }
 
@@ -95,11 +95,6 @@ public class RenderWrap
             return usage.GetTexture2D();
         }
         return null;
-    }
-
-    public Texture2D GetTex2DLoaded(string name)
-    {
-        return rpc.mainCaches.GetTextureLoaded(Path.GetFullPath(name, BasePath));
     }
 
     public void SetShader(string path, PSODesc desc, IReadOnlyList<(string, string)> keywords = null)
