@@ -41,14 +41,10 @@ public class GameDriver
 {
     public GameDriverContext gameDriverContext;
 
-    public RecordSystem recordSystem;
-
     public RenderPipelineContext renderPipelineContext;
 
     public bool Next()
     {
-        var recordSettings = recordSystem.recordSettings;
-
         if (toRecordMode)
         {
             toRecordMode = false;
@@ -58,19 +54,13 @@ public class GameDriver
             gameDriverContext.PlayTime = 0.0f;
             gameDriverContext.RefreshScene = true;
 
-            StartTime = recordSettings.StartTime;
-            StopTime = recordSettings.StopTime;
             RenderCount = 0;
-            FrameIntervalF = 1 / MathF.Max(recordSettings.FPS, 1e-3f);
-
-            recordSystem.saveDirectory = saveDirectory;
-            recordSystem.StartRecord();
         }
         if (toPlayMode)
         {
             toPlayMode = false;
             renderPipelineContext.recording = false;
-            recordSystem.StopRecord();
+            OnEnterPlayMode?.Invoke();
         }
         bool returnValue;
         if (renderPipelineContext.recording)
@@ -121,14 +111,6 @@ public class GameDriver
     {
         if (!renderPipelineContext.recording)
             return;
-        if (recordSystem.recordTarget == null || recordSystem.recordTarget.disposed)
-        {
-            ToPlayMode();
-            return;
-        }
-
-        if (gameDriverContext.PlayTime > StopTime)
-            ToPlayMode();
 
         RenderCount++;
     }
@@ -140,19 +122,16 @@ public class GameDriver
         gameDriverContext.NeedRender = 10;
     }
 
-    public float StartTime;
-    public float StopTime;
-
     public float FrameIntervalF = 1 / 60.0f;
     int RenderCount = 0;
     bool toRecordMode;
     bool toPlayMode;
-    public string saveDirectory;
 
-    public void ToRecordMode(string saveDirectory)
+    public event Action OnEnterPlayMode;
+
+    public void ToRecordMode()
     {
         toRecordMode = true;
-        this.saveDirectory = saveDirectory;
     }
     public void ToPlayMode()
     {

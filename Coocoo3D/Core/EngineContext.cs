@@ -10,7 +10,8 @@ public class EngineContext : IDisposable
     public List<object> systems = new();
     public Dictionary<Type, object> autoFills = new();
 
-    public ConcurrentQueue<Action> syncCalls = new();
+    public ConcurrentQueue<Action> frameBeginCalls = new();
+    public ConcurrentQueue<Action> frameEndCalls = new();
 
     public ExtensionFactory extensionFactory;
 
@@ -89,12 +90,32 @@ public class EngineContext : IDisposable
 
     public void BeforeFrameBegin(Action action)
     {
-        syncCalls.Enqueue(action);
+        frameBeginCalls.Enqueue(action);
     }
 
-    public void _BeforeFrameBegin()
+    public void FrameEnd(Action action)
     {
-        while (syncCalls.TryDequeue(out var action))
+        frameBeginCalls.Enqueue(action);
+    }
+
+    public void _OnFrameBegin()
+    {
+        while (frameBeginCalls.TryDequeue(out var action))
+        {
+            try
+            {
+                action();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+            }
+        }
+    }
+
+    public void _OnFrameEnd()
+    {
+        while (frameEndCalls.TryDequeue(out var action))
         {
             try
             {
@@ -117,7 +138,7 @@ public class EngineContext : IDisposable
                 disposable.Dispose();
             }
         }
-        foreach(var editorAccess in extensionFactory.EditorAccess)
+        foreach (var editorAccess in extensionFactory.EditorAccess)
         {
             if (editorAccess is IDisposable disposable)
             {

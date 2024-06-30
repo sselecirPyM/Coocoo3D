@@ -47,27 +47,16 @@ public class UIHelper
             gameDriver.RequireRender(false);
         }
 
-        if (UIImGui.requestRecord)
-        {
-            UIImGui.requestRecord = false;
-            gameDriver.gameDriverContext.NeedRender = 0;
-            string path = OpenResourceFolder();
-            if (!string.IsNullOrEmpty(path))
-            {
-                DirectoryInfo folder = new DirectoryInfo(path);
-                if (!folder.Exists) return;
-                gameDriver.ToRecordMode(folder.FullName);
-            }
-        }
         while (UIImGui.UITaskQueue.TryDequeue(out var task))
         {
             switch (task.type)
             {
+                case UI.PlatformIOTaskType.OpenFile:
                 case UI.PlatformIOTaskType.SaveFile:
-                    SaveFile(task.filter, task.fileExtension, task.callback);
+                    SaveFile(task.title, task.filter, task.fileExtension, task.callback);
                     break;
                 case UI.PlatformIOTaskType.SaveFolder:
-                    SaveFolder(task.callback);
+                    SaveFolder(task.title, task.callback);
                     break;
                 case UI.PlatformIOTaskType.Exit:
                     wantQuit = true;
@@ -76,13 +65,14 @@ public class UIHelper
         }
     }
 
-    public void SaveFile(string filter, string defaultExt, Action<string> callback)
+    public void SaveFile(string title, string filter, string defaultExt, Action<string> callback)
     {
         FileOpenDialog fileDialog = new FileOpenDialog()
         {
             dlgOwner = hwnd,
             file = new string(new char[512]),
             fileTitle = new string(new char[512]),
+            title = title,
             initialDir = Environment.GetFolderPath(Environment.SpecialFolder.MyComputer),
             filter = filter,
             defExt = defaultExt,
@@ -96,11 +86,11 @@ public class UIHelper
             callback(fileDialog.file);
         }
     }
-    public void SaveFolder(Action<string> callback)
+    public void SaveFolder(string title, Action<string> callback)
     {
         OpenDialogDir openDialogDir = new OpenDialogDir();
         openDialogDir.pszDisplayName = new string(new char[2000]);
-        openDialogDir.lpszTitle = "Open Project";
+        openDialogDir.lpszTitle = title;
         openDialogDir.hwndOwner = hwnd;
         IntPtr pidlPtr = SHBrowseForFolder(openDialogDir);
         char[] charArray = new char[2000];

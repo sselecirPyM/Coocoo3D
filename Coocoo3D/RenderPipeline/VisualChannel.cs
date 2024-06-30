@@ -3,6 +3,7 @@ using Coocoo3D.Present;
 using Coocoo3D.Utility;
 using Coocoo3DGraphics;
 using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace Coocoo3D.RenderPipeline;
@@ -11,6 +12,11 @@ public enum ResolusionSizeSource
 {
     Default = 0,
     Custom = 1,
+}
+
+public interface IVisualChannelAttach
+{
+    public void OnRender(VisualChannel visualChannel);
 }
 public class VisualChannel : IDisposable
 {
@@ -26,6 +32,18 @@ public class VisualChannel : IDisposable
     public RenderPipelineContext context;
 
     public bool disposed;
+
+    public HashSet<IVisualChannelAttach> attaches = new HashSet<IVisualChannelAttach>();
+
+    public void Attach(IVisualChannelAttach attach)
+    {
+        attaches.Remove(attach);
+        attaches.Add(attach);
+    }
+    public void Detach(IVisualChannelAttach attach)
+    {
+        attaches.Remove(attach);
+    }
 
     public void SetRenderPipeline(Type type)
     {
@@ -58,8 +76,7 @@ public class VisualChannel : IDisposable
             camera.SetCameraMotion((float)context.Time);
         cameraData = camera.GetCameraData();
 
-        if (renderPipelineView != null)
-            renderPipelineView.renderPipeline.renderWrap.outputSize = outputSize;
+        renderPipelineView.renderPipeline.renderWrap.outputSize = outputSize;
         var renderPipeline = renderPipelineView.renderPipeline;
         renderPipeline.renderWrap.rpc = context;
         foreach (var cap in renderPipelineView.sceneCaptures)
@@ -93,6 +110,11 @@ public class VisualChannel : IDisposable
         renderPipelineView.PrepareRenderResources();
         renderPipelineView.renderPipeline.Render();
         renderPipelineView.renderPipeline.AfterRender();
+
+        foreach(var attach in attaches)
+        {
+            attach.OnRender(this);
+        }
     }
 
     public Texture2D GetAOV(AOVType type)
@@ -102,7 +124,18 @@ public class VisualChannel : IDisposable
 
     public void Dispose()
     {
-        renderPipelineView?.Dispose();
+        if (disposed)
+            return;
+        foreach (var attach in attaches)
+        {
+            if (attach is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+        }
+        attaches.Clear();
+
         disposed = true;
+        renderPipelineView?.Dispose();
     }
 }

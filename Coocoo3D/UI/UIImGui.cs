@@ -674,8 +674,6 @@ public class UIImGui
     public static bool rotationChange;
     public static bool positionChange;
 
-    public static bool requestRecord;
-
     public static bool requestSelectRenderPipelines;
 
     public static List<FileSystemInfo> storageItems = new List<FileSystemInfo>();

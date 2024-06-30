@@ -30,7 +30,6 @@ public class Coocoo3DMain : IDisposable
     public SceneExtensionsSystem sceneExtensions;
 
     public RenderSystem renderSystem;
-    public RecordSystem recordSystem;
     public UIRenderSystem uiRenderSystem;
 
     public GameDriver GameDriver;
@@ -89,8 +88,6 @@ public class Coocoo3DMain : IDisposable
         sceneExtensions = e.AddSystem<SceneExtensionsSystem>();
 
         renderSystem = e.AddSystem<RenderSystem>();
-
-        recordSystem = e.AddSystem<RecordSystem>();
 
         uiRenderSystem = e.AddSystem<UIRenderSystem>();
 
@@ -162,7 +159,7 @@ public class Coocoo3DMain : IDisposable
             return false;
         }
         graphicsContext.Begin();
-        EngineContext._BeforeFrameBegin();
+        EngineContext._OnFrameBegin();
         sceneExtensions.ProcessFileLoad();
         timeManager.RealCounter("fps", 1, out statistics.FramePerSecond);
         Simulation();
@@ -177,11 +174,11 @@ public class Coocoo3DMain : IDisposable
         UIImGui.GUI();
         RPContext.FrameBegin();
 
-        mainCaches.OnFrame(graphicsContext);
+        mainCaches.OnFrame();
 
         uiRenderSystem.Update();
-        recordSystem.Update();
 
+        EngineContext._OnFrameEnd();
         graphicsContext.Execute();
 
         statistics.DrawTriangleCount = graphicsContext.TriangleCount;

@@ -15,6 +15,7 @@ namespace Coocoo3D.UI
         public PlatformIOTaskType type;
         public string filter;
         public string fileExtension;
+        public string title;
         public Action<string> callback;
     }
 }

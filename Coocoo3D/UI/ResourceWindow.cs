@@ -34,6 +34,7 @@ public class ResourceWindow : IWindow2
             UIImGui.UITaskQueue.Enqueue(new PlatformIOTask()
             {
                 type = PlatformIOTaskType.SaveFolder,
+                title = "打开文件夹",
                 callback = (s) =>
                 {
                     DirectoryInfo folder = new DirectoryInfo(s);

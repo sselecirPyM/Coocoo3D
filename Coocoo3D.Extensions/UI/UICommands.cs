@@ -35,6 +35,7 @@ namespace Coocoo3D.Extensions.UI
             UIImGui.UITaskQueue.Enqueue(new PlatformIOTask()
             {
                 type = PlatformIOTaskType.SaveFile,
+                title = "保存场景",
                 filter = ".coocoo3DScene\0*.coocoo3DScene\0\0",
                 fileExtension = "coocoo3DScene",
                 callback = (s) =>

@@ -88,7 +88,7 @@ public class MainCaches : IDisposable
     }
 
     Queue<string> textureLoadQueue = new();
-    public void OnFrame(GraphicsContext graphicsContext)
+    public void OnFrame()
     {
         long cost = 0;
         runningTasks.RemoveAll((t) =>
@@ -226,29 +226,26 @@ public class MainCaches : IDisposable
     public MMDMotion GetMotion(string path)
     {
         path = Path.GetFullPath(path, workDir);
-        lock (modelCaches)
+        if (motionCaches.TryGetValue(path, out var motion))
         {
-            if (motionCaches.TryGetValue(path, out var motion))
-            {
-                return motion;
-            }
-            foreach (var loader in motionLoaders)
-            {
-                try
-                {
-                    if (loader.TryLoad(path, out var value))
-                    {
-                        motionCaches[path] = value;
-                        return value;
-                    }
-                }
-                catch
-                {
-
-                }
-            }
-            motionCaches[path] = null;
+            return motion;
         }
+        foreach (var loader in motionLoaders)
+        {
+            try
+            {
+                if (loader.TryLoad(path, out var value))
+                {
+                    motionCaches[path] = value;
+                    return value;
+                }
+            }
+            catch
+            {
+
+            }
+        }
+        motionCaches[path] = null;
         return null;
     }
 
