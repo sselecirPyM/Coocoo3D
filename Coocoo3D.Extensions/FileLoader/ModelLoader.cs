@@ -360,7 +360,8 @@ public class ModelLoader : IResourceLoader<ModelPack>, IEditorAccess
         for (int i = 0; i < deserializedFile.Images?.Length; i++)
         {
             var image = deserializedFile.Images[i];
-            string name = Path.GetFullPath(image.Uri, dir);
+            //string name = Path.GetFullPath(image.Uri, dir);
+            string name = $"gltf://texture:{i}|{fileName}";
             modelPack.textures.Add(name);
         }
         List<RenderMaterial> _materials = new();

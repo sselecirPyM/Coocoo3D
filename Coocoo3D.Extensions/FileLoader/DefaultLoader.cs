@@ -39,6 +39,7 @@ public class DefaultLoader : IFileLoader, IEditorAccess
                 break;
             case ".gltf":
             case ".glb":
+            case ".vrm":
                 mainCaches.ProxyCall(() =>
                 {
                     ModelPack modelPack = mainCaches.GetModel(path);

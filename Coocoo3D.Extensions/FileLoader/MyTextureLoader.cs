@@ -2,6 +2,7 @@
 using Coocoo3D.RenderPipeline;
 using Coocoo3D.ResourceWrap;
 using Coocoo3DGraphics;
+using glTFLoader;
 using System;
 using System.ComponentModel.Composition;
 using System.IO;
@@ -91,23 +92,37 @@ public class MyTextureLoader : IResourceLoader<Texture2D>, IEditorAccess, IDispo
         return texture2D;
     }
 
-
+    static string gltfTextureProtocol = "gltf://texture:";
     static bool LoadTexture(string fileName, out Uploader uploader)
     {
         uploader = null;
         try
         {
-            Stream stream = File.OpenRead(fileName);
+            Stream stream;
+            string fileName1 = fileName;
+            if (fileName.StartsWith(gltfTextureProtocol))
+            {
+                int stringDivision = fileName.IndexOf('|');
+                int index = int.Parse(fileName[gltfTextureProtocol.Length..stringDivision]);
+                string gltfFileName = fileName[(stringDivision + 1)..];
+                var gltf = Interface.LoadModel(gltfFileName);
+                stream = gltf.OpenImageFile(index, gltfFileName);
+                fileName1 = ".png";
+            }
+            else
+            {
+                stream = File.OpenRead(fileName);
+            }
             Uploader uploader1 = new Uploader();
-            if (Texture2DPack.LoadTexture(fileName, stream, uploader1))
+            if (Texture2DPack.LoadTexture(fileName1, stream, uploader1))
             {
                 uploader = uploader1;
                 return true;
             }
         }
-        catch
+        catch (Exception e)
         {
-
+            Console.WriteLine(e);
         }
         return false;
     }

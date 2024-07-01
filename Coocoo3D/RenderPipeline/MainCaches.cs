@@ -199,7 +199,6 @@ public class MainCaches : IDisposable
 
     public ModelPack GetModel(string path)
     {
-        path = Path.GetFullPath(path, workDir);
         if (modelCaches.TryGetValue(path, out var model))
         {
             return model;
@@ -386,7 +385,6 @@ public class MainCaches : IDisposable
 
     public Texture2D GetTexturePreloaded(string path)
     {
-        path = Path.GetFullPath(path, workDir);
         if (textureCaches.TryGetValue(path, out var texture))
         {
             return texture;
