@@ -16,26 +16,17 @@ public class MMDMotion
     public BoneKeyFrame1 GetBoneMotion(string key, float time)
     {
         float frame = Math.Max(time * c_framePerSecond, 0);
-        bool enableIK = true;
-        if (IKKeyFrameSet.TryGetValue(key, out var iKKeyFrames))
-        {
-            for (int i = 0; i < iKKeyFrames.Count; i++)
-            {
-                if (iKKeyFrames[i].Frame <= frame)
-                    enableIK = iKKeyFrames[i].enable;
-            }
-        }
         if (!BoneKeyFrameSet.TryGetValue(key, out var keyframeSet) || keyframeSet.Count == 0)
         {
-            return new(Vector3.Zero, Quaternion.Identity, enableIK);
+            return new(Vector3.Zero, Quaternion.Identity);
         }
         if (keyframeSet.Count == 1)
-            return new(keyframeSet[0].translation, keyframeSet[0].rotation, enableIK);
+            return new(keyframeSet[0].translation, keyframeSet[0].rotation);
 
         int left = 0;
         int right = keyframeSet.Count - 1;
         if (keyframeSet[right].Frame < frame)
-            return new(keyframeSet[right].translation, keyframeSet[right].rotation, enableIK);
+            return new(keyframeSet[right].translation, keyframeSet[right].rotation);
 
         while (right - left > 1)
         {
@@ -46,7 +37,22 @@ public class MMDMotion
                 left = mid;
         }
         var value1 = ComputeKeyFrame(keyframeSet[left], keyframeSet[right], frame);
-        return new BoneKeyFrame1(value1.Item1, value1.Item2, enableIK);
+        return new BoneKeyFrame1(value1.Item1, value1.Item2);
+    }
+
+    public bool GetIKState(string key,float time)
+    {
+        float frame = Math.Max(time * c_framePerSecond, 0);
+        bool enableIK = true;
+        if (IKKeyFrameSet.TryGetValue(key, out var iKKeyFrames))
+        {
+            for (int i = 0; i < iKKeyFrames.Count; i++)
+            {
+                if (iKKeyFrames[i].Frame <= frame)
+                    enableIK = iKKeyFrames[i].enable;
+            }
+        }
+        return enableIK;
     }
 
     (Vector3, Quaternion) ComputeKeyFrame(in BoneKeyFrame _Left, in BoneKeyFrame _Right, float frame)

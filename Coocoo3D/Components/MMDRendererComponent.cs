@@ -52,6 +52,8 @@ public class MMDRendererComponent
 
     public List<BoneInstance> bones = new();
 
+    public List<IKBone> ikBones = new();
+
     public List<RigidBodyDesc> rigidBodyDescs = new();
     public List<JointDesc> jointDescs = new();
 
@@ -88,9 +90,9 @@ public class MMDRendererComponent
                 bones[morphBoneStruct.BoneIndex].translation += morphBoneStruct.Translation * computedWeight;
             }
         }
-        for (int i = 0; i < bones.Count; i++)
+        foreach (var bone in ikBones)
         {
-            IK(bones[i]);
+            IK(bone);
         }
         UpdateAppendBones();
     }
@@ -114,31 +116,29 @@ public class MMDRendererComponent
         UpdateMatrices(AppendUpdateMatIndices);
     }
 
-    void IK(BoneInstance sourceBone)
+    void IK(IKBone ikBone)
     {
-        if (!sourceBone.EnableIK)
+        if (!ikBone.EnableIK)
             return;
-        int ikTargetIndex = sourceBone.IKTargetIndex;
-        if (ikTargetIndex == -1)
-            return;
-        var ikTargetBone = bones[ikTargetIndex];
 
-        var posTargetFixed = sourceBone.GetPos();
+        var ikTargetBone = bones[ikBone.target];
+
+        var posTargetFixed = bones[ikBone.index].GetPosition();
 
 
-        int h1 = sourceBone.CCDIterateLimit / 2;
-        Vector3 posSource = ikTargetBone.GetPos();
+        int h1 = ikBone.CCDIterateLimit / 2;
+        Vector3 posSource = ikTargetBone.GetPosition();
         if ((posTargetFixed - posSource).LengthSquared() < 1e-6f)
             return;
-        for (int i = 0; i < sourceBone.CCDIterateLimit; i++)
+        for (int i = 0; i < ikBone.CCDIterateLimit; i++)
         {
             bool axis_lim = i < h1;
-            for (int j = 0; j < sourceBone.boneIKLinks.Length; j++)
+            for (int j = 0; j < ikBone.ikLinks.Length; j++)
             {
-                ref var IKLINK = ref sourceBone.boneIKLinks[j];
+                ref var IKLINK = ref ikBone.ikLinks[j];
                 BoneInstance itBone = bones[IKLINK.LinkedIndex];
 
-                var itPosition = itBone.GetPos();
+                var itPosition = itBone.GetPosition();
 
                 Vector3 targetDirection = Vector3.Normalize(posTargetFixed - itPosition);
                 Vector3 ikDirection = Vector3.Normalize(posSource - itPosition);
@@ -161,8 +161,14 @@ public class MMDRendererComponent
                             ikRotateAxis = new Vector3(0, 0, ikRotateAxis.Z >= 0 ? 1 : -1);
                             break;
                     }
-                var limit = sourceBone.CCDAngleLimit * (i + 1);
-                var itResult = Quaternion.Normalize(itBone.rotation * QAxisAngle(ikRotateAxis, -Math.Clamp((float)Math.Acos(dotV), -limit, limit)));
+                var limit = ikBone.CCDAngleLimit * (i + 1);
+                float angle1 = (float)Math.Acos(dotV);
+                if (angle1 < 1e-5f)
+                {
+                    continue;
+                }
+
+                var itResult = Quaternion.Normalize(itBone.rotation * QAxisAngle(ikRotateAxis, -Math.Clamp(angle1, -limit, limit)));
 
                 if (IKLINK.HasLimit)
                 {
@@ -196,16 +202,16 @@ public class MMDRendererComponent
                 }
                 itBone.rotation = itResult;
 
+                var parent = bones[itBone.ParentIndex];
 
                 var it2source = Vector3.TransformNormal(posSource - itPosition, matXi);
-                var parent = bones[itBone.ParentIndex];
                 var rotatedVec = Vector3.TransformNormal(Vector3.Transform(it2source, itResult), parent.GeneratedTransform);
 
                 posSource = rotatedVec + itPosition;
 
             }
-            UpdateIKMatrices(sourceBone);
-            posSource = ikTargetBone.GetPos();
+            UpdateIKMatrices(ikBone);
+            posSource = ikTargetBone.GetPosition();
             if ((posTargetFixed - posSource).LengthSquared() < 1e-6f)
                 break;
         }
@@ -259,14 +265,14 @@ public class MMDRendererComponent
         for (int i = 0; i < indices.Count; i++)
             bones[indices[i]].GetTransformMatrixG(bones);
     }
-    public void UpdateIKMatrices(BoneInstance source)
+    public void UpdateIKMatrices(IKBone source)
     {
-        var links = source.boneIKLinks;
+        var links = source.ikLinks;
         for (int i = links.Length - 1; i >= 0; i--)
         {
             bones[links[i].LinkedIndex].GetTransformMatrixG(bones);
         }
-        bones[source.IKTargetIndex].GetTransformMatrixG(bones);
+        bones[source.target].GetTransformMatrixG(bones);
     }
 
     #region helper functions
@@ -335,6 +341,7 @@ public class MMDRendererComponent
         rendererComponent.MeshPosition = (Vector3[])MeshPosition.Clone();
         rendererComponent.Materials = Materials.Select(u => u.GetClone()).ToList();
         rendererComponent.bones = bones.Select(u => u.GetClone()).ToList();
+        rendererComponent.ikBones = ikBones.Select(u => u.GetClone()).ToList();
         rendererComponent.BoneMatricesData = (Matrix4x4[])BoneMatricesData.Clone();
         rendererComponent.MorphWeights = (float[])MorphWeights.Clone();
         return rendererComponent;
@@ -344,7 +351,7 @@ public class MMDRendererComponent
 public class BoneInstance
 {
     public int index;
-    public Vector3 staticPosition;
+    public Vector3 restPosition;
     public Vector3 translation;
     public Quaternion rotation = Quaternion.Identity;
     public Vector3 appendTranslation;
@@ -358,14 +365,8 @@ public class BoneInstance
     public string Name;
     public string NameEN;
 
-    public int IKTargetIndex = -1;
-    public int CCDIterateLimit = 0;
-    public float CCDAngleLimit = 0;
-    public IKLink[] boneIKLinks;
-
     public int AppendParentIndex = -1;
     public float AppendRatio;
-    public bool EnableIK;
     public bool IsAppendRotation;
     public bool IsAppendTranslation;
     public bool IsPhysicsFreeBone;
@@ -373,7 +374,7 @@ public class BoneInstance
 
     public void GetTransformMatrixG(List<BoneInstance> list)
     {
-        var currentPosition = staticPosition + appendTranslation + translation;
+        var currentPosition = restPosition + appendTranslation + translation;
         var currentRotation = rotation * appendRotation;
 
         _generatedTransform = inverseBindMatrix * MatrixExt.Transform(currentPosition, currentRotation);
@@ -382,16 +383,36 @@ public class BoneInstance
             _generatedTransform *= list[ParentIndex]._generatedTransform;
         }
     }
-    public Vector3 GetPos()
+    public Vector3 GetPosition()
     {
-        return Vector3.Transform(staticPosition, _generatedTransform);
+        return Vector3.Transform(restPosition, _generatedTransform);
     }
 
-    public void GetPosRot(out Vector3 position, out Quaternion rotation)
+    public void GetPositionRotation(out Vector3 position, out Quaternion rotation)
     {
-        position = Vector3.Transform(staticPosition, _generatedTransform);
+        position = Vector3.Transform(restPosition, _generatedTransform);
         Matrix4x4.Decompose(_generatedTransform, out _, out rotation, out _);
     }
+    public override string ToString()
+    {
+        return string.Format("{0}_{1}", Name, NameEN);
+    }
+
+    public BoneInstance GetClone()
+    {
+        return (BoneInstance)MemberwiseClone();
+    }
+}
+
+public class IKBone
+{
+    public string Name;
+    public int index;
+    public int target;
+    public int CCDIterateLimit = 0;
+    public float CCDAngleLimit = 0;
+    public IKLink[] ikLinks;
+    public bool EnableIK;
 
     public struct IKLink
     {
@@ -402,13 +423,9 @@ public class BoneInstance
         public IKTransformOrder TransformOrder;
         public AxisFixType FixTypes;
     }
-    public override string ToString()
-    {
-        return string.Format("{0}_{1}", Name, NameEN);
-    }
 
-    public BoneInstance GetClone()
+    public IKBone GetClone()
     {
-        return (BoneInstance)MemberwiseClone();
+        return (IKBone)MemberwiseClone();
     }
 }

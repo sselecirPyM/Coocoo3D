@@ -28,21 +28,20 @@ public static class PMXFormatExtension
         gameObject.Set(animationState);
         animationState.LoadAnimationStates(modelPack.bones, modelPack.morphs);
 
-        renderer.Initialize(modelPack.bones, modelPack.rigidBodyDescs, modelPack.jointDescs);
+        renderer.Initialize(modelPack.bones, modelPack.ikBones, modelPack.rigidBodyDescs, modelPack.jointDescs);
         renderer.LoadMesh(modelPack);
         return (renderer, animationState);
     }
 
-    static void Initialize(this MMDRendererComponent renderer, IList<BoneInstance> bones, IList<RigidBodyDesc> rigidBodyDescs, IList<JointDesc> jointDescs)
+    static void Initialize(this MMDRendererComponent renderer, IList<BoneInstance> bones, IList<IKBone> ikBones, IList<RigidBodyDesc> rigidBodyDescs, IList<JointDesc> jointDescs)
     {
-        renderer.bones.Clear();
         renderer.BoneMatricesData = new Matrix4x4[bones.Count];
 
         foreach (var bone in bones)
             renderer.bones.Add(bone.GetClone());
+        foreach(var ikBone in ikBones)
+            renderer.ikBones.Add(ikBone.GetClone());
 
-
-        renderer.rigidBodyDescs.Clear();
         renderer.rigidBodyDescs.AddRange(rigidBodyDescs);
         for (int i = 0; i < rigidBodyDescs.Count; i++)
         {
@@ -50,8 +49,7 @@ public static class PMXFormatExtension
 
             if (rigidBodyDesc.Type != RigidBodyType.Kinematic && rigidBodyDesc.AssociatedBoneIndex != -1)
                 renderer.bones[rigidBodyDesc.AssociatedBoneIndex].IsPhysicsFreeBone = true;
-        }
-        renderer.jointDescs.Clear();
+        };
         renderer.jointDescs.AddRange(jointDescs);
         renderer.Precompute();
     }
@@ -178,26 +176,15 @@ public static class PMXFormatExtension
     {
         BoneInstance boneInstance = new();
         boneInstance.ParentIndex = (_bone.ParentIndex >= 0 && _bone.ParentIndex < boneCount) ? _bone.ParentIndex : -1;
-        boneInstance.staticPosition = _bone.Position * 0.1f;
+        boneInstance.restPosition = _bone.Position * 0.1f;
         boneInstance.rotation = Quaternion.Identity;
         boneInstance.index = index;
-        boneInstance.inverseBindMatrix = Matrix4x4.CreateTranslation(-boneInstance.staticPosition);
+        boneInstance.inverseBindMatrix = Matrix4x4.CreateTranslation(-boneInstance.restPosition);
 
         boneInstance.Name = _bone.Name;
         boneInstance.NameEN = _bone.NameEN;
         boneInstance.Flags = (BoneFlags)_bone.Flags;
 
-        if (boneInstance.Flags.HasFlag(BoneFlags.HasIK))
-        {
-            boneInstance.IKTargetIndex = _bone.boneIK.IKTargetIndex;
-            boneInstance.CCDIterateLimit = _bone.boneIK.CCDIterateLimit;
-            boneInstance.CCDAngleLimit = _bone.boneIK.CCDAngleLimit;
-            boneInstance.boneIKLinks = new BoneInstance.IKLink[_bone.boneIK.IKLinks.Length];
-            for (int j = 0; j < boneInstance.boneIKLinks.Length; j++)
-            {
-                boneInstance.boneIKLinks[j] = IKLink(_bone.boneIK.IKLinks[j]);
-            }
-        }
         if (_bone.AppendBoneIndex >= 0 && _bone.AppendBoneIndex < boneCount)
         {
             boneInstance.AppendParentIndex = _bone.AppendBoneIndex;
@@ -212,14 +199,32 @@ public static class PMXFormatExtension
             boneInstance.IsAppendRotation = false;
             boneInstance.IsAppendTranslation = false;
         }
-        boneInstance.EnableIK = true;
         return boneInstance;
     }
+
+    public static void AddIKBone(List<IKBone> ikBones, PMX_Bone _bone, int index)
+    {
+        if (!_bone.Flags.HasFlag(PMX_BoneFlag.HasIK))
+            return;
+        var ikBone = new IKBone();
+
+        ikBone.index = index;
+        ikBone.Name = _bone.Name;
+        ikBone.target = _bone.boneIK.IKTargetIndex;
+        ikBone.CCDIterateLimit = _bone.boneIK.CCDIterateLimit;
+        ikBone.CCDAngleLimit = _bone.boneIK.CCDAngleLimit;
+        ikBone.ikLinks = new IKBone.IKLink[_bone.boneIK.IKLinks.Length];
+        for (int j = 0; j < ikBone.ikLinks.Length; j++)
+            ikBone.ikLinks[j] = IKLink(_bone.boneIK.IKLinks[j]);
+        ikBone.EnableIK = true;
+        ikBones.Add(ikBone);
+    }
+
     static void LoadAnimationStates(this AnimationStateComponent component, IList<BoneInstance> bones, IList<MorphDesc> morphs)
     {
         component.cachedBoneKeyFrames.Clear();
         for (int i = 0; i < bones.Count; i++)
-            component.cachedBoneKeyFrames.Add(new(Vector3.Zero, Quaternion.Identity, true));
+            component.cachedBoneKeyFrames.Add(new(Vector3.Zero, Quaternion.Identity));
         int morphCount = morphs.Count;
 
         component.Weights.Load(morphCount);
@@ -228,9 +233,9 @@ public static class PMXFormatExtension
             component.stringToMorphIndex[morphs[i].Name] = i;
     }
 
-    static BoneInstance.IKLink IKLink(in PMX_BoneIKLink ikLink1)
+    static IKBone.IKLink IKLink(in PMX_BoneIKLink ikLink1)
     {
-        var ikLink = new BoneInstance.IKLink();
+        var ikLink = new IKBone.IKLink();
 
         ikLink.HasLimit = ikLink1.HasLimit;
         ikLink.LimitMax = ikLink1.LimitMax;

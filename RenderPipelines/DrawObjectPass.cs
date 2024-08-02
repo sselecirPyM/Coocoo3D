@@ -66,7 +66,7 @@ public class DrawObjectPass
         }
         Span<byte> bufferData = stackalloc byte[80];
         Mesh mesh = null;
-        foreach (var renderable in context.MeshRenderables<ModelMaterial>())
+        foreach (var renderable in context.Renderables)
         {
             var material = renderable.material;
             if (material.IsTransparent && !DrawTransparent)

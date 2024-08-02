@@ -1,5 +1,4 @@
 ﻿using Coocoo3DGraphics;
-using RenderPipelines.MaterialDefines;
 using RenderPipelines.Utility;
 using System;
 using System.Numerics;
@@ -29,7 +28,7 @@ public class DrawShadowMap
 
         Mesh mesh = null;
 
-        foreach (var renderable in context.MeshRenderables<ModelMaterial>())
+        foreach (var renderable in context.Renderables)
         {
             if (mesh != renderable.mesh)
             {

@@ -12,12 +12,12 @@ public class RayTracingShader
 
     public Dictionary<string, RayTracingShaderDescription> missShaders;
 
-    public List<SlotRes> CBVs;
-    public List<SlotRes> SRVs;
-    public List<SlotRes> UAVs;
+    public int CBVs;
+    public int SRVs;
+    public int UAVs;
 
-    public List<SlotRes> localCBVs;
-    public List<SlotRes> localSRVs;
+    public int localCBVs;
+    public int localSRVs;
 
     public string[] GetExports()
     {

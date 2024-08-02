@@ -66,7 +66,7 @@ public class RayTracingPass
 
     public DirectionalLightData directionalLight;
 
-    static readonly string[] missShaders = new[] { "miss" };
+    static readonly string[] missShaders = new string[] { "miss" };
 
     public void SetCamera(CameraData camera)
     {
@@ -108,7 +108,7 @@ public class RayTracingPass
         var tpas = new RTTopLevelAcclerationStruct();
         tpas.instances = new();
         Span<byte> bufferData = stackalloc byte[256];
-        foreach (var renderable in context.MeshRenderables<ModelMaterial>())
+        foreach (var renderable in context.Renderables)
         {
             var material = renderable.material;
 
@@ -120,16 +120,16 @@ public class RayTracingPass
             btas.indexCount = renderable.indexCount;
             btas.vertexStart = renderable.vertexStart;
             btas.vertexCount = renderable.vertexCount;
-            var inst = new RTInstance() { accelerationStruct = btas };
-            inst.transform = renderable.transform;
-            inst.hitGroupName = "rayHit";
-            inst.SRVs = new();
-            inst.CBVs = new();
+            var instance = new RTInstance() { blas = btas };
+            instance.transform = renderable.transform;
+            instance.hitGroupName = "rayHit";
+            instance.SRVs = new();
+            instance.CBVs = new();
 
-            inst.SRVs.Add(4, material._Albedo);
-            inst.SRVs.Add(5, material._Metallic);
-            inst.SRVs.Add(6, material._Roughness);
-            inst.SRVs.Add(7, material._Emissive);
+            instance.SRVs.Add(4, material._Albedo);
+            instance.SRVs.Add(5, material._Metallic);
+            instance.SRVs.Add(6, material._Roughness);
+            instance.SRVs.Add(7, material._Emissive);
 
 
             MemoryMarshal.Write(bufferData.Slice(0), Matrix4x4.Transpose(renderable.transform));
@@ -137,8 +137,8 @@ public class RayTracingPass
             MemoryMarshal.Write(bufferData.Slice(64 + 4), material.Roughness);
             MemoryMarshal.Write(bufferData.Slice(64 + 8), material.Emissive);
             MemoryMarshal.Write(bufferData.Slice(64 + 12), material.Specular);
-            inst.CBVs.Add(0, bufferData.ToArray());
-            tpas.instances.Add(inst);
+            instance.CBVs.Add(0, bufferData.ToArray());
+            tpas.instances.Add(instance);
         }
 
         int width = renderTarget.width;

@@ -79,14 +79,12 @@ public struct IKKeyFrame : IComparable<IKKeyFrame>
 public struct BoneKeyFrame1
 {
     public Vector3 Position;
-    public bool EnableIK;
     public Quaternion Rotation;
 
-    public BoneKeyFrame1(Vector3 position, Quaternion rotation, bool enableIK)
+    public BoneKeyFrame1(Vector3 position, Quaternion rotation)
     {
         this.Position = position;
         this.Rotation = rotation;
-        this.EnableIK = enableIK;
     }
 }
 

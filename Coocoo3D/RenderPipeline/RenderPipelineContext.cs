@@ -75,7 +75,7 @@ public class RenderPipelineContext : IDisposable
             if (bone == null)
                 continue;
             Vector3 pos1 = visual.transform.position;
-            bone.GetPosRot(out var pos, out var rot);
+            bone.GetPositionRotation(out var pos, out var rot);
             Vector3 pos2 = new Vector3(visual.bindX ? 0 : pos1.X, visual.bindY ? 0 : pos1.Y, visual.bindZ ? 0 : pos1.Z);
 
             Vector3 position = pos + Vector3.Transform(pos1, rot);

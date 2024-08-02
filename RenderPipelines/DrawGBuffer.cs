@@ -1,5 +1,4 @@
 ﻿using Coocoo3DGraphics;
-using RenderPipelines.MaterialDefines;
 using System;
 using System.Collections.Generic;
 using System.Numerics;
@@ -42,7 +41,7 @@ public class DrawGBuffer
         keywords2.Clear();
         Span<byte> bufferData = stackalloc byte[176];
         Mesh mesh = null;
-        foreach (var renderable in context.MeshRenderables<ModelMaterial>())
+        foreach (var renderable in context.Renderables)
         {
             var material = renderable.material;
             if (material.IsTransparent)

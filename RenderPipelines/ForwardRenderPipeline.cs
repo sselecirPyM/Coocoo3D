@@ -74,6 +74,7 @@ public partial class ForwardRenderPipeline : RenderPipeline, IDisposable
         renderHelper.renderWrap = renderWrap;
         renderHelper.renderPipeline = this;
         renderHelper.UpdateGPUResource();
+        renderHelper.UpdateRenderables();
 
         renderWrap.GetOutputSize(out outputWidth, out outputHeight);
         renderWrap.SetSize("UnscaledOutput", outputWidth, outputHeight);

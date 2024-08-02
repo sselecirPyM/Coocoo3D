@@ -40,6 +40,7 @@ public class ModelPack : IDisposable
     public List<JointDesc> jointDescs;
 
     public List<BoneInstance> bones;
+    public List<IKBone> ikBones;
     public List<MorphDesc> morphs;
 
     public const string whiteTextureReplace = ":whiteTexture";

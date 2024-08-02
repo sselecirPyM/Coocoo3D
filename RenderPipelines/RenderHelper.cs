@@ -5,6 +5,7 @@ using Coocoo3D.RenderPipeline;
 using Coocoo3D.ResourceWrap;
 using Coocoo3DGraphics;
 using Newtonsoft.Json;
+using RenderPipelines.MaterialDefines;
 using RenderPipelines.Utility;
 using System;
 using System.Collections.Generic;
@@ -38,8 +39,15 @@ public class RenderHelper
 
     public IEnumerable<MMDRendererComponent> MMDRenderers => renderWrap.rpc.renderers;
 
+    public List<MeshRenderable<ModelMaterial>> Renderables = new List<MeshRenderable<ModelMaterial>>();
 
-    public IEnumerable<MeshRenderable<T>> MeshRenderables<T>() where T : class, new()
+    public void UpdateRenderables()
+    {
+        Renderables.Clear();
+        Renderables.AddRange(MeshRenderables<ModelMaterial>());
+    }
+
+    IEnumerable<MeshRenderable<T>> MeshRenderables<T>() where T : class, new()
     {
         RenderPipelineContext rpc = renderWrap.rpc;
         foreach (var renderer in rpc.renderers)
@@ -458,27 +466,22 @@ public class RenderHelper
                 rtpso.exports = shader.GetExports();
                 List<ResourceAccessType> ShaderAccessTypes = new();
                 ShaderAccessTypes.Add(ResourceAccessType.SRV);
-                if (shader.CBVs != null)
-                    for (int i = 0; i < shader.CBVs.Count; i++)
-                        ShaderAccessTypes.Add(ResourceAccessType.CBV);
-                if (shader.SRVs != null)
-                    for (int i = 0; i < shader.SRVs.Count; i++)
-                        ShaderAccessTypes.Add(ResourceAccessType.SRVTable);
-                if (shader.UAVs != null)
-                    for (int i = 0; i < shader.UAVs.Count; i++)
-                        ShaderAccessTypes.Add(ResourceAccessType.UAVTable);
+                for (int i = 0; i < shader.CBVs; i++)
+                    ShaderAccessTypes.Add(ResourceAccessType.CBV);
+                for (int i = 0; i < shader.SRVs; i++)
+                    ShaderAccessTypes.Add(ResourceAccessType.SRVTable);
+                for (int i = 0; i < shader.UAVs; i++)
+                    ShaderAccessTypes.Add(ResourceAccessType.UAVTable);
                 rtpso.shaderAccessTypes = ShaderAccessTypes.ToArray();
                 ShaderAccessTypes.Clear();
                 ShaderAccessTypes.Add(ResourceAccessType.SRV);
                 ShaderAccessTypes.Add(ResourceAccessType.SRV);
                 ShaderAccessTypes.Add(ResourceAccessType.SRV);
                 ShaderAccessTypes.Add(ResourceAccessType.SRV);
-                if (shader.localCBVs != null)
-                    foreach (var cbv in shader.localCBVs)
-                        ShaderAccessTypes.Add(ResourceAccessType.CBV);
-                if (shader.localSRVs != null)
-                    foreach (var srv in shader.localSRVs)
-                        ShaderAccessTypes.Add(ResourceAccessType.SRVTable);
+                for (int i = 0; i < shader.localCBVs; i++)
+                    ShaderAccessTypes.Add(ResourceAccessType.CBV);
+                for (int i = 0; i < shader.localSRVs; i++)
+                    ShaderAccessTypes.Add(ResourceAccessType.SRVTable);
                 rtpso.localShaderAccessTypes = ShaderAccessTypes.ToArray();
                 return rtpso;
             }

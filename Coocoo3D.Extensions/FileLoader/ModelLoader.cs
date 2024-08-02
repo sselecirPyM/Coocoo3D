@@ -273,10 +273,12 @@ public class ModelLoader : IResourceLoader<ModelPack>, IEditorAccess
             modelPack.jointDescs.Add(PMXFormatExtension.Translate(joints[i]));
 
         modelPack.bones = new List<BoneInstance>();
+        modelPack.ikBones = new List<IKBone>();
         var _bones = pmx.Bones;
         for (int i = 0; i < _bones.Count; i++)
         {
             modelPack.bones.Add(PMXFormatExtension.Translate(_bones[i], i, _bones.Count));
+            PMXFormatExtension.AddIKBone(modelPack.ikBones, _bones[i], i);
         }
         modelPack.textures = _textures.ToList();
     }

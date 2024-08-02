@@ -5,7 +5,7 @@ namespace Coocoo3DGraphics;
 
 public class RTInstance
 {
-    public RTBottomLevelAccelerationStruct accelerationStruct;
+    public RTBottomLevelAccelerationStruct blas;
     public string hitGroupName;
     public Matrix4x4 transform = Matrix4x4.Identity;
     public Dictionary<int, object> CBVs;
