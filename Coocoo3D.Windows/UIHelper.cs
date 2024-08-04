@@ -54,8 +54,10 @@ public class UIHelper
             switch (task.type)
             {
                 case UI.PlatformIOTaskType.OpenFile:
+                    SaveFile(task.title, task.filter, task.fileExtension, 0, task.callback);
+                    break;
                 case UI.PlatformIOTaskType.SaveFile:
-                    SaveFile(task.title, task.filter, task.fileExtension, task.callback);
+                    SaveFile(task.title, task.filter, task.fileExtension, 2, task.callback);
                     break;
                 case UI.PlatformIOTaskType.SaveFolder:
                     SaveFolder(task.title, task.callback);
@@ -70,7 +72,7 @@ public class UIHelper
         }
     }
 
-    public void SaveFile(string title, string filter, string defaultExt, Action<string> callback)
+    public void SaveFile(string title, string filter, string defaultExt, int flags, Action<string> callback)
     {
         FileOpenDialog fileDialog = new FileOpenDialog()
         {
@@ -81,7 +83,7 @@ public class UIHelper
             initialDir = Environment.GetFolderPath(Environment.SpecialFolder.MyComputer),
             filter = filter,
             defExt = defaultExt,
-            flags = 0x00080000 | 0x00001000 | 0x00000800 | 0x00000200 | 0x00000008,
+            flags = 0x00080000 | 0x00001000 | 0x00000800 | 0x00000200 | 0x00000008 | flags,
             structSize = Marshal.SizeOf(typeof(FileOpenDialog))
         };
         fileDialog.maxFile = fileDialog.file.Length;

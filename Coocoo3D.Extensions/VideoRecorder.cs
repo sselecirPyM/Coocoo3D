@@ -4,6 +4,7 @@ using Coocoo3D.Extensions.Utility;
 using Coocoo3D.RenderPipeline;
 using Coocoo3DGraphics;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 
@@ -37,7 +38,7 @@ namespace Coocoo3D.Extensions
                 if (pipe == null)
                     fileName = Path.GetFullPath(string.Format("{0}.png", RecordCount), saveDirectory);
                 else
-                    fileName = Path.GetFullPath(string.Format("{0}.bmp", RecordCount), saveDirectory);
+                    fileName = "";
 
                 bool endFrame = RecordCount + 1 >= maxRecordCount || stopRecord;
                 Record(texture, pipe, fileName, endFrame);
@@ -70,7 +71,7 @@ namespace Coocoo3D.Extensions
                     }
                     else
                     {
-                        TextureHelper.SaveToFile(data, width, height, output, stream);
+                        stream.Write(data);
                         stream.Flush();
                     }
                     if (endFrame)
@@ -82,7 +83,7 @@ namespace Coocoo3D.Extensions
             });
         }
 
-        public void StartRecord(VisualChannel visualChannel, bool useFFmpeg)
+        public void StartRecord(VisualChannel visualChannel, IEnumerable<string> ffmpegArgs, bool useFFmpeg)
         {
             visualChannel.outputSize = (recordSettings.Width, recordSettings.Height);
             visualChannel.camera.AspectRatio = (float)recordSettings.Width / (float)recordSettings.Height;
@@ -93,7 +94,7 @@ namespace Coocoo3D.Extensions
 
             if (useFFmpeg)
             {
-                StartRecordFFmpeg();
+                StartRecordFFmpeg(ffmpegArgs);
             }
             else
             {
@@ -102,22 +103,8 @@ namespace Coocoo3D.Extensions
             }
         }
 
-        void StartRecordFFmpeg()
+        void StartRecordFFmpeg(IEnumerable<string> args)
         {
-            string[] args =
-            {
-                "-y",
-                "-r",
-                recordSettings.FPS.ToString(),
-                "-colorspace","bt709",
-                "-i", @"pipe:0",
-                "-c:v", "libx264",
-                "-s", recordSettings.Width + "X" + recordSettings.Height,
-                "-vf", "format=yuv420p",
-                //"-preset", "medium",
-                "-crf", "17",
-                saveDirectory + @"\output.mp4",
-            };
             var processStartInfo = new ProcessStartInfo();
             processStartInfo.FileName = "ffmpeg";
             processStartInfo.RedirectStandardInput = true;

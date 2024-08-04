@@ -180,7 +180,7 @@ public class PhysicsSystem : ISceneExtension, IDisposable
             r.bones[index].translation = translation;
             r.bones[index].rotation = rotation;
         }
-        r.UpdateMatrices(r.PhysicsUpdateMatrixIndexs);
+        r.UpdateMatrices(r.PhysicsUpdateMatrixIndice);
 
         r.UpdateAppendBones();
     }

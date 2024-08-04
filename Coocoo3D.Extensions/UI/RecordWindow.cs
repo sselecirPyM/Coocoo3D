@@ -3,6 +3,7 @@ using Coocoo3D.Core;
 using Coocoo3D.UI;
 using ImGuiNET;
 using System;
+using System.Collections.Generic;
 using System.ComponentModel.Composition;
 using System.Diagnostics;
 using System.IO;
@@ -21,6 +22,9 @@ public class RecordSettings
     public int Width;
     [UIDragInt(8, 8, 16384, name: "高度")]
     public int Height;
+
+    [UIDragFloat(0.5f, 0, 64, name: "CRF")]
+    public float Crf;
 
     public RecordSettings Clone()
     {
@@ -45,6 +49,13 @@ public class RecordWindow : IWindow, IEditorAccess
     bool useFFmpeg;
     bool testFFmepg;
 
+    int encoderIndex = 0;
+    string[] encoders = new string[]
+    {
+        "x264",
+        "h264_nvenc"
+    };
+
 
     public RecordSettings recordSettings = new RecordSettings()
     {
@@ -53,16 +64,22 @@ public class RecordWindow : IWindow, IEditorAccess
         Height = 1080,
         StartTime = 0,
         StopTime = 300,
+        Crf = 16
     };
 
     public void OnGUI()
     {
         if (ffmpegInstalled)
         {
-            ImGui.Text("已安装FFmpeg。输出文件名output.mp4");
-            ImGui.Checkbox("使用FFmpeg输出mp4", ref useFFmpeg);
+            ImGui.Text("已安装FFmpeg。");
+            ImGui.Checkbox("使用FFmpeg输出视频", ref useFFmpeg);
         }
         UIImGui.ShowObject(recordSettings);
+
+        if (ImGui.Combo("编码器", ref encoderIndex, encoders, 2))
+        {
+
+        }
 
         if (ImGui.Button("开始录制"))
         {
@@ -73,7 +90,7 @@ public class RecordWindow : IWindow, IEditorAccess
 
     void Record()
     {
-        UIImGui.UITaskQueue.Enqueue(new PlatformIOTask()
+        var task = new PlatformIOTask()
         {
             title = "录制视频",
             type = PlatformIOTaskType.SaveFolder,
@@ -82,22 +99,74 @@ public class RecordWindow : IWindow, IEditorAccess
                 recordSettings.FPS = Math.Max(recordSettings.FPS, 1);
                 gameDriver.gameDriverContext.NeedRender = 0;
                 gameDriver.FrameIntervalF = 1.0f / recordSettings.FPS;
-                DirectoryInfo folder = new DirectoryInfo(path);
-                if (!folder.Exists) return;
                 var recorder = new VideoRecorder()
                 {
                     recordSettings = recordSettings.Clone()
                 };
+                if (!useFFmpeg)
+                {
+                    DirectoryInfo folder = new DirectoryInfo(path);
+                    if (!folder.Exists)
+                        return;
+                    recorder.saveDirectory = folder.FullName;
+                }
                 var visualChannel = editorContext.currentChannel;
                 engineContext.FillProperties(recorder);
-                recorder.saveDirectory = folder.FullName;
-                recorder.StartRecord(visualChannel, useFFmpeg);
+                List<string> args = new List<string>();
+                args.AddRange(new string[]
+                {
+                    "-y",
+                    "-f","rawvideo",
+                    "-pixel_format","rgba",
+                    "-r", recordSettings.FPS.ToString(),
+                    "-colorspace","bt709",
+                    "-s", recordSettings.Width + "X" + recordSettings.Height,
+                    "-i", @"pipe:0",
+                });
+                switch (encoderIndex)
+                {
+                    case 0:
+                        Console.WriteLine("encoder x264");
+                        args.AddRange(new string[]
+                        {
+                            "-colorspace","bt709",
+                            "-c:v", "libx264",
+                            "-vf", "format=yuv420p",
+                            //"-preset", "faster",
+                            "-crf", recordSettings.Crf.ToString(),
+                             path,
+                        });
+                        break;
+                    case 1:
+                        Console.WriteLine("encoder nvenc");
+                        args.AddRange(new string[]
+                        {
+                            "-colorspace","bt709",
+                            "-vf", "format=yuv420p",
+                            "-c:v", "h264_nvenc",
+                            //"-preset", "slow",
+                            //"-preset", "lossless",
+                            "-crf", recordSettings.Crf.ToString(),
+                             path,
+                        });
+                        break;
+                }
+
+                recorder.StartRecord(visualChannel, args, useFFmpeg);
                 visualChannel.Attach(recorder);
 
                 gameDriver.ToRecordMode();
                 gameDriver.OnEnterPlayMode += _OnStopRecord;
             }
-        });
+        };
+        if (useFFmpeg)
+        {
+            task.filter = ".mp4\0*.mp4\0\0";
+            task.fileExtension = ".mp4\0\0";
+            task.type = PlatformIOTaskType.SaveFile;
+        }
+
+        UIImGui.UITaskQueue.Enqueue(task);
     }
 
     void _OnStopRecord()

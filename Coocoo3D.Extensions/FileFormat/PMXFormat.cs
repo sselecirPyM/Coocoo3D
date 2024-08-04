@@ -490,7 +490,7 @@ namespace Coocoo3D.Extensions.FileFormat
                 if (bone.Flags.HasFlag(PMX_BoneFlag.AcquireRotate) | bone.Flags.HasFlag(PMX_BoneFlag.AcquireTranslate))
                 {
                     bone.AppendBoneIndex = ReadIndex(reader, boneIndexSize);
-                    if (bone.AppendBoneIndex >= countOfBone)
+                    if (bone.AppendBoneIndex >= countOfBone || bone.AppendBoneIndex < 0)
                         bone.AppendBoneIndex = -1;
                     bone.AppendBoneRatio = reader.ReadSingle();
                 }

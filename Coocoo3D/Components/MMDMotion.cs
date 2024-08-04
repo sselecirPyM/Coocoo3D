@@ -40,7 +40,7 @@ public class MMDMotion
         return new BoneKeyFrame1(value1.Item1, value1.Item2);
     }
 
-    public bool GetIKState(string key,float time)
+    public bool GetIKState(string key, float time)
     {
         float frame = Math.Max(time * c_framePerSecond, 0);
         bool enableIK = true;
@@ -63,7 +63,7 @@ public class MMDMotion
         float amountY = GetAmount(_Right.yInterpolator, t);
         float amountZ = GetAmount(_Right.zInterpolator, t);
 
-        return (Lerp(_Left.translation, _Right.translation, new Vector3(amountX, amountY, amountZ)), Quaternion.Slerp(_Left.rotation, _Right.rotation, amountR));
+        return (Lerp(_Left.translation, _Right.translation, new Vector3(amountX, amountY, amountZ)), Quaternion.Normalize(Quaternion.Slerp(_Left.rotation, _Right.rotation, amountR)));
     }
 
     public float GetMorphWeight(string key, float time)

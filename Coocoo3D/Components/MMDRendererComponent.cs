@@ -53,6 +53,7 @@ public class MMDRendererComponent
     public List<BoneInstance> bones = new();
 
     public List<IKBone> ikBones = new();
+    public List<AppendBone> appendBones = new();
 
     public List<RigidBodyDesc> rigidBodyDescs = new();
     public List<JointDesc> jointDescs = new();
@@ -61,8 +62,8 @@ public class MMDRendererComponent
     public Matrix4x4 LocalToWorld = Matrix4x4.Identity;
     public Matrix4x4 WorldToLocal = Matrix4x4.Identity;
 
-    public List<int> AppendUpdateMatIndices = new();
-    public List<int> PhysicsUpdateMatrixIndexs = new();
+    public List<int> AppendUpdateMatrixIndice = new();
+    public List<int> PhysicsUpdateMatrixIndice = new();
 
     public void SetTransform(Transform transform)
     {
@@ -97,23 +98,32 @@ public class MMDRendererComponent
         UpdateAppendBones();
     }
 
+    public void UpdateChildrenMatrix(BoneInstance boneInstance)
+    {
+        foreach(var boneIndex in boneInstance.children)
+        {
+            boneInstance.GetTransformMatrixG(bones);
+            UpdateChildrenMatrix(bones[boneIndex]);
+        }
+    }
+
     public void UpdateAppendBones()
     {
-        for (int i = 0; i < bones.Count; i++)
+        for (int i = 0; i < appendBones.Count; i++)
         {
-            var bone = bones[i];
-            if (bone.IsAppendTranslation)
+            var appendBone = appendBones[i];
+            var appendParent = bones[appendBone.AppendParentIndex];
+            if (appendBone.IsAppendTranslation)
             {
-                var mat1 = bones[bone.AppendParentIndex].GeneratedTransform;
-                Matrix4x4.Decompose(mat1, out _, out var rotation, out var translation);
-                bone.appendTranslation = translation * bone.AppendRatio;
+                Matrix4x4.Decompose(appendParent.GeneratedTransform, out _, out var rotation, out var translation);
+                bones[appendBone.index].appendTranslation = translation * appendBone.AppendRatio;
             }
-            if (bone.IsAppendRotation)
+            if (appendBone.IsAppendRotation)
             {
-                bone.appendRotation = Quaternion.Slerp(Quaternion.Identity, bones[bone.AppendParentIndex].rotation, bone.AppendRatio);
+                bones[appendBone.index].appendRotation = Quaternion.Slerp(Quaternion.Identity, appendParent.rotation, appendBone.AppendRatio);
             }
         }
-        UpdateMatrices(AppendUpdateMatIndices);
+        UpdateMatrices(AppendUpdateMatrixIndice);
     }
 
     void IK(IKBone ikBone)
@@ -220,24 +230,28 @@ public class MMDRendererComponent
     public void Precompute()
     {
         bool[] bonesTest = new bool[bones.Count];
-
+        HashSet< int> ap1 = new HashSet<int>();
+        foreach(var appendBone in appendBones)
+        {
+            ap1.Add(appendBone.index);
+        }
         Array.Clear(bonesTest, 0, bones.Count);
-        AppendUpdateMatIndices.Clear();
+        AppendUpdateMatrixIndice.Clear();
         for (int i = 0; i < bones.Count; i++)
         {
             var bone = bones[i];
             if (bone.ParentIndex != -1)
                 bonesTest[i] |= bonesTest[bone.ParentIndex];
-            bonesTest[i] |= bone.IsAppendTranslation || bone.IsAppendRotation;
+            bonesTest[i] |= ap1.Contains(i);
             if (bone.IsPhysicsFreeBone)
                 bonesTest[i] = false;
             if (bonesTest[i])
             {
-                AppendUpdateMatIndices.Add(i);
+                AppendUpdateMatrixIndice.Add(i);
             }
         }
         Array.Clear(bonesTest, 0, bones.Count);
-        PhysicsUpdateMatrixIndexs.Clear();
+        PhysicsUpdateMatrixIndice.Clear();
         for (int i = 0; i < bones.Count; i++)
         {
             var bone = bones[i];
@@ -250,7 +264,7 @@ public class MMDRendererComponent
             bonesTest[i] |= parent.IsPhysicsFreeBone;
             if (bonesTest[i])
             {
-                PhysicsUpdateMatrixIndexs.Add(i);
+                PhysicsUpdateMatrixIndice.Add(i);
             }
         }
     }
@@ -365,12 +379,10 @@ public class BoneInstance
     public string Name;
     public string NameEN;
 
-    public int AppendParentIndex = -1;
-    public float AppendRatio;
-    public bool IsAppendRotation;
-    public bool IsAppendTranslation;
     public bool IsPhysicsFreeBone;
     public BoneFlags Flags;
+
+    public List<int> children;
 
     public void GetTransformMatrixG(List<BoneInstance> list)
     {
@@ -427,5 +439,18 @@ public class IKBone
     public IKBone GetClone()
     {
         return (IKBone)MemberwiseClone();
+    }
+}
+
+public class AppendBone
+{
+    public int index;
+    public int AppendParentIndex = -1;
+    public float AppendRatio;
+    public bool IsAppendRotation;
+    public bool IsAppendTranslation;
+    public AppendBone GetClone()
+    {
+        return (AppendBone)MemberwiseClone();
     }
 }

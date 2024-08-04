@@ -19,12 +19,6 @@ public static class TextureHelper
         taskIndex = (taskIndex + 1) % tasks.Length;
     }
 
-    public static void SaveToFile(ReadOnlySpan<byte> data, int width, int height, string fileName, Stream stream)
-    {
-        StreamSave(fileName, data.ToArray(), stream, width, height);
-        totalCount++;
-    }
-
     static Task[] tasks = new Task[8];
     static int taskIndex = 0;
     static TextureHelper()
@@ -62,37 +56,6 @@ public static class TextureHelper
                     BitsPerPixel = TgaBitsPerPixel.Pixel24
                 };
                 await image.SaveAsTgaAsync(saveFileName, encoder);
-                break;
-        }
-    }
-    static void StreamSave(string saveFileName, byte[] imageData, Stream stream, int width, int height)
-    {
-        Image<Rgba32> image = Image.WrapMemory<Rgba32>(imageData, width, height);
-        string extension = Path.GetExtension(saveFileName).ToLower();
-        switch (extension)
-        {
-            case ".jpg":
-            case ".jpeg":
-                image.SaveAsJpeg(stream);
-                break;
-            case ".bmp":
-                image.SaveAsBmp(stream);
-                break;
-            case ".png":
-                PngEncoder pngEncoder = new PngEncoder
-                {
-                    CompressionLevel = PngCompressionLevel.NoCompression,
-                    ColorType = PngColorType.Rgb
-                };
-                image.SaveAsPng(stream, pngEncoder);
-                break;
-            case ".tga":
-                TgaEncoder encoder = new TgaEncoder
-                {
-                    Compression = TgaCompression.None,
-                    BitsPerPixel = TgaBitsPerPixel.Pixel24
-                };
-                image.SaveAsTga(stream, encoder);
                 break;
         }
     }

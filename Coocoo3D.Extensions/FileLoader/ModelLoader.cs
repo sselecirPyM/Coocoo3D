@@ -274,11 +274,16 @@ public class ModelLoader : IResourceLoader<ModelPack>, IEditorAccess
 
         modelPack.bones = new List<BoneInstance>();
         modelPack.ikBones = new List<IKBone>();
+        modelPack.appendBones = new List<AppendBone>();
         var _bones = pmx.Bones;
         for (int i = 0; i < _bones.Count; i++)
         {
-            modelPack.bones.Add(PMXFormatExtension.Translate(_bones[i], i, _bones.Count));
+            var bone = PMXFormatExtension.Translate(_bones[i], i, _bones.Count);
+            if (bone.ParentIndex != -1)
+                modelPack.bones[bone.ParentIndex].children.Add(i);
+            modelPack.bones.Add(bone);
             PMXFormatExtension.AddIKBone(modelPack.ikBones, _bones[i], i);
+            PMXFormatExtension.AddAppendBone(modelPack.appendBones, _bones[i], i);
         }
         modelPack.textures = _textures.ToList();
     }

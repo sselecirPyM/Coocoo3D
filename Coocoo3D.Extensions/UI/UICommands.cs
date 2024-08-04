@@ -37,7 +37,7 @@ namespace Coocoo3D.Extensions.UI
                 type = PlatformIOTaskType.SaveFile,
                 title = "保存场景",
                 filter = ".coocoo3DScene\0*.coocoo3DScene\0\0",
-                fileExtension = "coocoo3DScene",
+                fileExtension = "coocoo3DScene\0\0",
                 callback = (s) =>
                 {
                     var scene1 = FileFormat.Coocoo3DScene.SaveScene(scene, mainCaches);

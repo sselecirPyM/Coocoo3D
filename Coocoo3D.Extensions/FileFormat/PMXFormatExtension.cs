@@ -28,30 +28,29 @@ public static class PMXFormatExtension
         gameObject.Set(animationState);
         animationState.LoadAnimationStates(modelPack.bones, modelPack.morphs);
 
-        renderer.Initialize(modelPack.bones, modelPack.ikBones, modelPack.rigidBodyDescs, modelPack.jointDescs);
-        renderer.LoadMesh(modelPack);
-        return (renderer, animationState);
-    }
+        renderer.BoneMatricesData = new Matrix4x4[modelPack.bones.Count];
 
-    static void Initialize(this MMDRendererComponent renderer, IList<BoneInstance> bones, IList<IKBone> ikBones, IList<RigidBodyDesc> rigidBodyDescs, IList<JointDesc> jointDescs)
-    {
-        renderer.BoneMatricesData = new Matrix4x4[bones.Count];
-
-        foreach (var bone in bones)
+        foreach (var bone in modelPack.bones)
             renderer.bones.Add(bone.GetClone());
-        foreach(var ikBone in ikBones)
+        foreach (var ikBone in modelPack.ikBones)
             renderer.ikBones.Add(ikBone.GetClone());
+        foreach (var appendBone in modelPack.appendBones)
+            renderer.appendBones.Add(appendBone.GetClone());
 
-        renderer.rigidBodyDescs.AddRange(rigidBodyDescs);
-        for (int i = 0; i < rigidBodyDescs.Count; i++)
+        renderer.rigidBodyDescs.AddRange(modelPack.rigidBodyDescs);
+        for (int i = 0; i < modelPack.rigidBodyDescs.Count; i++)
         {
             var rigidBodyDesc = renderer.rigidBodyDescs[i];
 
             if (rigidBodyDesc.Type != RigidBodyType.Kinematic && rigidBodyDesc.AssociatedBoneIndex != -1)
                 renderer.bones[rigidBodyDesc.AssociatedBoneIndex].IsPhysicsFreeBone = true;
         };
-        renderer.jointDescs.AddRange(jointDescs);
+        renderer.jointDescs.AddRange(modelPack.jointDescs);
         renderer.Precompute();
+
+
+        renderer.LoadMesh(modelPack);
+        return (renderer, animationState);
     }
 
     static void LoadMesh(this MMDRendererComponent renderer, ModelPack modelPack)
@@ -184,21 +183,7 @@ public static class PMXFormatExtension
         boneInstance.Name = _bone.Name;
         boneInstance.NameEN = _bone.NameEN;
         boneInstance.Flags = (BoneFlags)_bone.Flags;
-
-        if (_bone.AppendBoneIndex >= 0 && _bone.AppendBoneIndex < boneCount)
-        {
-            boneInstance.AppendParentIndex = _bone.AppendBoneIndex;
-            boneInstance.AppendRatio = _bone.AppendBoneRatio;
-            boneInstance.IsAppendRotation = boneInstance.Flags.HasFlag(BoneFlags.AcquireRotate);
-            boneInstance.IsAppendTranslation = boneInstance.Flags.HasFlag(BoneFlags.AcquireTranslate);
-        }
-        else
-        {
-            boneInstance.AppendParentIndex = -1;
-            boneInstance.AppendRatio = 0;
-            boneInstance.IsAppendRotation = false;
-            boneInstance.IsAppendTranslation = false;
-        }
+        boneInstance.children = new List<int>();
         return boneInstance;
     }
 
@@ -218,6 +203,19 @@ public static class PMXFormatExtension
             ikBone.ikLinks[j] = IKLink(_bone.boneIK.IKLinks[j]);
         ikBone.EnableIK = true;
         ikBones.Add(ikBone);
+    }
+
+    public static void AddAppendBone(List<AppendBone> appendBones, PMX_Bone _bone, int index)
+    {
+        if (_bone.AppendBoneIndex == -1)
+            return;
+        var appendBone = new AppendBone();
+        appendBone.index = index;
+        appendBone.AppendParentIndex = _bone.AppendBoneIndex;
+        appendBone.AppendRatio = _bone.AppendBoneRatio;
+        appendBone.IsAppendRotation = _bone.Flags.HasFlag(PMX_BoneFlag.AcquireRotate);
+        appendBone.IsAppendTranslation = _bone.Flags.HasFlag(PMX_BoneFlag.AcquireTranslate);
+        appendBones.Add(appendBone);
     }
 
     static void LoadAnimationStates(this AnimationStateComponent component, IList<BoneInstance> bones, IList<MorphDesc> morphs)
