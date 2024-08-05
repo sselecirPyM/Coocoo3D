@@ -19,6 +19,13 @@ public partial class DeferredRenderPipeline : RenderPipeline, IDisposable
     [UISlider(0.5f, 2.0f, name: "渲染倍数")]
     public float RenderScale = 1;
 
+    [UISlider(0.2f, 0.9f, name: "阴影近距离")]
+    public float ShadowNearDistance = 0.2f;
+    [UISlider(0.90f, 0.999f, name: "阴影中距离")]
+    public float ShadowMidDistance = 0.93f;
+    [UISlider(0.90f, 0.999f, name: "阴影远距离")]
+    public float ShadowFarDistance = 0.991f;
+
     [UIShow(name: "调试渲染")]
     public DebugRenderType DebugRenderType;
 
@@ -97,7 +104,9 @@ public partial class DeferredRenderPipeline : RenderPipeline, IDisposable
             Vector2 jitterVector = new Vector2((float)(random.NextDouble() * 2 - 1) / outputWidth, (float)(random.NextDouble() * 2 - 1) / outputHeight);
             camera = camera.GetJitter(jitterVector);
         }
-
+        deferredRenderPass.ShadowNearDistance = ShadowNearDistance;
+        deferredRenderPass.ShadowMidDistance = ShadowMidDistance;
+        deferredRenderPass.ShadowFarDistance = ShadowFarDistance;
         deferredRenderPass.Visuals = Visuals;
         deferredRenderPass.DebugRenderType = DebugRenderType;
         deferredRenderPass.pipelineMaterial = pipelineMaterial;

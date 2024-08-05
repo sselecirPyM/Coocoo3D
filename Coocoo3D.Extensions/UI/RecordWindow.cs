@@ -23,8 +23,9 @@ public class RecordSettings
     [UIDragInt(8, 8, 16384, name: "高度")]
     public int Height;
 
-    [UIDragFloat(0.5f, 0, 64, name: "CRF")]
+    public string preset;
     public float Crf;
+    public float CQ;
 
     public RecordSettings Clone()
     {
@@ -55,16 +56,26 @@ public class RecordWindow : IWindow, IEditorAccess
         "x264",
         "h264_nvenc"
     };
+    int presetIndex = 1;
+    string[] presets = new string[]
+    {
+        "fast",
+        "medium",
+        "slow",
+        "slower",
+        "veryslow"
+    };
 
 
     public RecordSettings recordSettings = new RecordSettings()
     {
         FPS = 60,
-        Width = 1920,
-        Height = 1080,
+        Width = 3840,
+        Height = 2160,
         StartTime = 0,
         StopTime = 300,
-        Crf = 16
+        Crf = 17,
+        CQ = 26,
     };
 
     public void OnGUI()
@@ -76,7 +87,20 @@ public class RecordWindow : IWindow, IEditorAccess
         }
         UIImGui.ShowObject(recordSettings);
 
-        if (ImGui.Combo("编码器", ref encoderIndex, encoders, 2))
+        if (encoderIndex == 0)
+        {
+            ImGui.DragFloat("CRF", ref recordSettings.Crf, 0.5f);
+        }
+        else
+        {
+            ImGui.DragFloat("CQ", ref recordSettings.CQ, 0.5f);
+        }
+        if (encoderIndex == 0 && ImGui.Combo("preset", ref presetIndex, presets, presets.Length))
+        {
+
+        }
+
+        if (ImGui.Combo("编码器", ref encoderIndex, encoders, encoders.Length))
         {
 
         }
@@ -132,7 +156,7 @@ public class RecordWindow : IWindow, IEditorAccess
                             "-colorspace","bt709",
                             "-c:v", "libx264",
                             "-vf", "format=yuv420p",
-                            //"-preset", "faster",
+                            "-preset", presets[presetIndex],
                             "-crf", recordSettings.Crf.ToString(),
                              path,
                         });
@@ -146,7 +170,8 @@ public class RecordWindow : IWindow, IEditorAccess
                             "-c:v", "h264_nvenc",
                             //"-preset", "slow",
                             //"-preset", "lossless",
-                            "-crf", recordSettings.Crf.ToString(),
+                            //"-crf", recordSettings.Crf.ToString(),
+                            "-cq", recordSettings.CQ.ToString(),
                              path,
                         });
                         break;

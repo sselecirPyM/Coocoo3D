@@ -22,7 +22,7 @@ public class DirectionalLightData
             for (int j = -1; j <= 1; j += 2)
                 for (int k = 0; k <= 1; k += 1)
                 {
-                    Vector4 v1 = Vector4.Transform(new Vector4(i * 0.95f, j * 0.8f, ((k == 0) ? start : end), 1), cameraInvert);
+                    Vector4 v1 = Vector4.Transform(new Vector4(i * 0.94f, j * 0.8f, ((k == 0) ? start : end), 1), cameraInvert);
                     Vector3 v2 = new Vector3(v1.X / v1.W, v1.Y / v1.W, v1.Z / v1.W);
                     Vector3 v3 = Vector3.Transform(v2, iRot);
                     whMin = Vector3.Min(v3, whMin);

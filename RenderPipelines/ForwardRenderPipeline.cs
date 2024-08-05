@@ -20,6 +20,13 @@ public partial class ForwardRenderPipeline : RenderPipeline, IDisposable
     [UISlider(0.5f, 2.0f, name: "渲染倍数")]
     public float RenderScale = 1;
 
+    [UISlider(0.2f, 0.9f, name: "阴影近距离")]
+    public float ShadowNearDistance = 0.2f;
+    [UISlider(0.90f, 0.999f, name: "阴影中距离")]
+    public float ShadowMidDistance = 0.93f;
+    [UISlider(0.90f, 0.999f, name: "阴影远距离")]
+    public float ShadowFarDistance = 0.991f;
+
     [UIShow(name: "调试渲染")]
     public DebugRenderType DebugRenderType;
 

@@ -182,8 +182,8 @@ public partial class ForwardRenderPipeline
         if (directionalLight != null)
         {
             var dl = directionalLight;
-            ShadowMapVP = dl.GetLightingMatrix(InvertViewProjection, 0, 0.93f);
-            ShadowMapVP1 = dl.GetLightingMatrix(InvertViewProjection, 0.93f, 0.991f);
+            ShadowMapVP = dl.GetLightingMatrix(InvertViewProjection, ShadowNearDistance, ShadowMidDistance);
+            ShadowMapVP1 = dl.GetLightingMatrix(InvertViewProjection, ShadowMidDistance, ShadowFarDistance);
             LightDir = dl.Direction;
             LightColor = dl.Color;
             drawObject.keywords.Add(("ENABLE_DIRECTIONAL_LIGHT", "1"));
