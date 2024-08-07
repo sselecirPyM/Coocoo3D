@@ -70,6 +70,7 @@ public class ModelLoader : IResourceLoader<ModelPack>, IEditorAccess
 
         var pmx = PMXFormat.Load(reader);
         reader.Dispose();
+        pmx.Scale(0.1f);
         modelPack.name = string.Format("{0} {1}", pmx.Name, pmx.NameEN);
         modelPack.description = string.Format("{0}\n{1}", pmx.Description, pmx.DescriptionEN);
         HashSet<string> _textures = new HashSet<string>();
@@ -142,7 +143,7 @@ public class ModelLoader : IResourceLoader<ModelPack>, IEditorAccess
                     newIndex = vertexIndicesLocal.Count + vertexOffset;
                     vertexIndicesLocal[oldIndex] = newIndex;
                     vertexIndicesAll[oldIndex] = newIndex;
-                    position[newIndex] = vert.Coordinate * 0.1f;
+                    position[newIndex] = vert.Coordinate;
                     normal[newIndex] = vert.Normal;
                     uv[newIndex] = vert.UvCoordinate;
                     boneId[newIndex * 4 + 0] = (ushort)vert.boneId0;

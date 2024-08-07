@@ -76,6 +76,7 @@ namespace Coocoo3D.Extensions
                     }
                     if (endFrame)
                     {
+                        pipe?.Flush();
                         pipe?.Dispose();
                         pipe = null;
                     }
@@ -83,7 +84,7 @@ namespace Coocoo3D.Extensions
             });
         }
 
-        public void StartRecord(VisualChannel visualChannel, IEnumerable<string> ffmpegArgs, bool useFFmpeg)
+        public void StartRecord(VisualChannel visualChannel)
         {
             visualChannel.outputSize = (recordSettings.Width, recordSettings.Height);
             visualChannel.camera.AspectRatio = (float)recordSettings.Width / (float)recordSettings.Height;
@@ -91,20 +92,11 @@ namespace Coocoo3D.Extensions
 
             maxRecordCount = (int)((recordSettings.StopTime - recordSettings.StartTime) * recordSettings.FPS);
             RecordCount = 0;
-
-            if (useFFmpeg)
-            {
-                StartRecordFFmpeg(ffmpegArgs);
-            }
-            else
-            {
-                pipe?.Dispose();
-                pipe = null;
-            }
         }
 
-        void StartRecordFFmpeg(IEnumerable<string> args)
+        public void StartRecordFFmpeg(VisualChannel visualChannel, IEnumerable<string> args)
         {
+            StartRecord(visualChannel);
             var processStartInfo = new ProcessStartInfo();
             processStartInfo.FileName = "ffmpeg";
             processStartInfo.RedirectStandardInput = true;

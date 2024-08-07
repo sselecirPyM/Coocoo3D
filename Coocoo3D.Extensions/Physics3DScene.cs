@@ -1,5 +1,4 @@
 ﻿using BulletSharp;
-using Coocoo3D.Utility;
 using System;
 using System.Numerics;
 
@@ -7,15 +6,13 @@ namespace Coocoo3D.Extensions;
 
 public class Physics3DScene : IDisposable
 {
-    DefaultCollisionConfiguration defaultCollisionConfiguration;
     DbvtBroadphase broadphase = new DbvtBroadphase();
-    SequentialImpulseConstraintSolver sequentialImpulseConstraintSolver;
+    DefaultCollisionConfiguration defaultCollisionConfiguration = new DefaultCollisionConfiguration();
+    SequentialImpulseConstraintSolver sequentialImpulseConstraintSolver = new SequentialImpulseConstraintSolver();
     Dispatcher dispatcher;
     DiscreteDynamicsWorld world;
     public void Initialize()
     {
-        defaultCollisionConfiguration = new DefaultCollisionConfiguration();
-        sequentialImpulseConstraintSolver = new SequentialImpulseConstraintSolver();
         dispatcher = new CollisionDispatcher(defaultCollisionConfiguration);
         world = new DiscreteDynamicsWorld(dispatcher, broadphase, sequentialImpulseConstraintSolver, defaultCollisionConfiguration);
         BulletSharp.Math.Vector3 gravity = new BulletSharp.Math.Vector3(0, -9.81f, 0);
@@ -28,29 +25,30 @@ public class Physics3DScene : IDisposable
     }
     public void AddRigidBody(Physics3DRigidBody rb, Components.RigidBodyDesc desc)
     {
-        MotionState motionState;
-        Matrix4x4 mat = MatrixExt.Transform(desc.Position, desc.Rotation);
-        rb.defaultPosition = desc.Position;
-        rb.defaultRotation = desc.Rotation;
+        rb.offset = desc.transform;
+        rb.invertOffset = desc.invertTransform;
 
-        motionState = new DefaultMotionState(GetMatrix(mat));
+        MotionState motionState = new DefaultMotionState(GetMatrix(desc.transform));
         CollisionShape collisionShape;
         switch (desc.Shape)
         {
             case Components.RigidBodyShape.Sphere:
-                collisionShape = new SphereShape(desc.Dimemsions.X);
+                collisionShape = new SphereShape(desc.Dimensions.X);
                 break;
             case Components.RigidBodyShape.Capsule:
-                collisionShape = new CapsuleShape(desc.Dimemsions.X, desc.Dimemsions.Y);
+                collisionShape = new CapsuleShape(desc.Dimensions.X, desc.Dimensions.Y);
                 break;
             case Components.RigidBodyShape.Box:
             default:
-                collisionShape = new BoxShape(GetVector3(desc.Dimemsions));
+                collisionShape = new BoxShape(GetVector3(desc.Dimensions));
                 break;
         }
         float mass = desc.Mass;
         BulletSharp.Math.Vector3 localInertia = new BulletSharp.Math.Vector3();
-        if (desc.Type == 0) mass = 0;
+        if (desc.Type == 0)
+        {
+            mass = 0;
+        }
         else
         {
             collisionShape.CalculateLocalInertia(mass, out localInertia);
@@ -73,26 +71,24 @@ public class Physics3DScene : IDisposable
 
     public void AddJoint(Physics3DJoint joint, Physics3DRigidBody r1, Physics3DRigidBody r2, Components.JointDesc desc)
     {
-        var t0 = MatrixExt.Transform(desc.Position, ToQuaternion(desc.Rotation));
-        //Matrix4x4.Invert(t0, out var res);
-        Matrix4x4.Invert(MatrixExt.Transform(r1.defaultPosition, r1.defaultRotation), out var t1);
-        Matrix4x4.Invert(MatrixExt.Transform(r2.defaultPosition, r2.defaultRotation), out var t2);
-        t1 = t0 * t1;
-        t2 = t0 * t2;
+        var t0 = desc.transform;
+
+        var t1 = t0 * r1.invertOffset;
+        var t2 = t0 * r2.invertOffset;
 
         var j = new Generic6DofSpringConstraint(r1.rigidBody, r2.rigidBody, GetMatrix(t1), GetMatrix(t2), true);
         joint.constraint = j;
-        j.LinearLowerLimit = GetVector3(desc.PositionMinimum);
-        j.LinearUpperLimit = GetVector3(desc.PositionMaximum);
-        j.AngularLowerLimit = GetVector3(desc.RotationMinimum);
-        j.AngularUpperLimit = GetVector3(desc.RotationMaximum);
+        j.LinearLowerLimit = GetVector3(desc.LinearMinimum);
+        j.LinearUpperLimit = GetVector3(desc.LinearMaximum);
+        j.AngularLowerLimit = GetVector3(desc.AngularMinimum);
+        j.AngularUpperLimit = GetVector3(desc.AngularMaximum);
 
-        S(0, desc.PositionSpring.X);
-        S(1, desc.PositionSpring.Y);
-        S(2, desc.PositionSpring.Z);
-        S(3, desc.RotationSpring.X);
-        S(4, desc.RotationSpring.Y);
-        S(5, desc.RotationSpring.Z);
+        S(0, desc.LinearSpring.X);
+        S(1, desc.LinearSpring.Y);
+        S(2, desc.LinearSpring.Z);
+        S(3, desc.AngularSpring.X);
+        S(4, desc.AngularSpring.Y);
+        S(5, desc.AngularSpring.Z);
         void S(int index, float f)
         {
             if (f != 0.0f)
@@ -112,21 +108,6 @@ public class Physics3DScene : IDisposable
     public void Simulation(double time)
     {
         world.StepSimulation(time);
-    }
-
-    public void ResetRigidBody(Physics3DRigidBody rb, Vector3 position, Quaternion rotation)
-    {
-        var worldTransform = GetMatrix(MatrixExt.Transform(position, rotation));
-        var rigidBody = rb.rigidBody;
-        rigidBody.MotionState.SetWorldTransform(ref worldTransform);
-        rigidBody.CenterOfMassTransform = worldTransform;
-        rigidBody.InterpolationWorldTransform = worldTransform;
-        rigidBody.InterpolationWorldTransform = worldTransform;
-        rigidBody.AngularVelocity = new BulletSharp.Math.Vector3();
-        rigidBody.LinearVelocity = new BulletSharp.Math.Vector3();
-        rigidBody.InterpolationAngularVelocity = new BulletSharp.Math.Vector3();
-        rigidBody.InterpolationLinearVelocity = new BulletSharp.Math.Vector3();
-        rigidBody.ClearForces();
     }
 
     public void ResetRigidBody(Physics3DRigidBody rb, Matrix4x4 mat)
@@ -195,9 +176,9 @@ public class Physics3DScene : IDisposable
 
     public void Dispose()
     {
+        world?.Dispose();
         defaultCollisionConfiguration?.Dispose();
         broadphase?.Dispose();
-        world?.Dispose();
         dispatcher?.Dispose();
         sequentialImpulseConstraintSolver?.Dispose();
     }

@@ -1,6 +1,7 @@
 ﻿using Coocoo3D.Components;
 using Coocoo3D.Present;
 using Coocoo3D.ResourceWrap;
+using Coocoo3D.Utility;
 using DefaultEcs.Command;
 using System;
 using System.Collections.Generic;
@@ -97,7 +98,7 @@ public static class PMXFormatExtension
     {
         return new MorphVertexDesc()
         {
-            Offset = desc.Offset * 0.1f,
+            Offset = desc.Offset,
             VertexIndex = desc.VertexIndex,
         };
     }
@@ -115,7 +116,7 @@ public static class PMXFormatExtension
         {
             BoneIndex = desc.BoneIndex,
             Rotation = desc.Rotation,
-            Translation = desc.Translation * 0.1f,
+            Translation = desc.Translation,
         };
     }
 
@@ -136,11 +137,11 @@ public static class PMXFormatExtension
                 morphMaterialDescs[i] = Translate(desc.MorphMaterials[i]);
         }
         MorphVertexDesc[] morphVertexDescs = null;
-        if (desc.MorphVertexs != null)
+        if (desc.MorphVertice != null)
         {
-            morphVertexDescs = new MorphVertexDesc[desc.MorphVertexs.Length];
-            for (int i = 0; i < desc.MorphVertexs.Length; i++)
-                morphVertexDescs[i] = Translate(desc.MorphVertexs[i]);
+            morphVertexDescs = new MorphVertexDesc[desc.MorphVertice.Length];
+            for (int i = 0; i < desc.MorphVertice.Length; i++)
+                morphVertexDescs[i] = Translate(desc.MorphVertice[i]);
         }
         MorphUVDesc[] morphUVDescs = null;
         if (desc.MorphUVs != null)
@@ -175,7 +176,7 @@ public static class PMXFormatExtension
     {
         BoneInstance boneInstance = new();
         boneInstance.ParentIndex = (_bone.ParentIndex >= 0 && _bone.ParentIndex < boneCount) ? _bone.ParentIndex : -1;
-        boneInstance.restPosition = _bone.Position * 0.1f;
+        boneInstance.restPosition = _bone.Position;
         boneInstance.rotation = Quaternion.Identity;
         boneInstance.index = index;
         boneInstance.inverseBindMatrix = Matrix4x4.CreateTranslation(-boneInstance.restPosition);
@@ -289,15 +290,16 @@ public static class PMXFormatExtension
         desc.CollisionGroup = rigidBody.CollisionGroup;
         desc.CollisionMask = rigidBody.CollisionMask;
         desc.Shape = (RigidBodyShape)rigidBody.Shape;
-        desc.Dimemsions = rigidBody.Dimemsions * 0.1f;
-        desc.Position = rigidBody.Position * 0.1f;
-        desc.Rotation = MMDRendererComponent.ToQuaternion(rigidBody.Rotation);
+        desc.Dimensions = rigidBody.Dimensions;
         desc.Mass = rigidBody.Mass;
         desc.LinearDamping = rigidBody.TranslateDamp;
         desc.AngularDamping = rigidBody.RotateDamp;
         desc.Restitution = rigidBody.Restitution;
         desc.Friction = rigidBody.Friction;
         desc.Type = (RigidBodyType)rigidBody.Type;
+
+        desc.transform = MatrixExt.Transform(rigidBody.Position, ToQuaternion(rigidBody.Rotation));
+        Matrix4x4.Invert(desc.transform, out desc.invertTransform);
         return desc;
     }
 
@@ -307,14 +309,20 @@ public static class PMXFormatExtension
         desc.Type = joint.Type;
         desc.AssociatedRigidBodyIndex1 = joint.AssociatedRigidBodyIndex1;
         desc.AssociatedRigidBodyIndex2 = joint.AssociatedRigidBodyIndex2;
-        desc.Position = joint.Position * 0.1f;
-        desc.Rotation = joint.Rotation;
-        desc.PositionMinimum = joint.PositionMinimum * 0.1f;
-        desc.PositionMaximum = joint.PositionMaximum * 0.1f;
-        desc.RotationMinimum = joint.RotationMinimum;
-        desc.RotationMaximum = joint.RotationMaximum;
-        desc.PositionSpring = joint.PositionSpring;
-        desc.RotationSpring = joint.RotationSpring;
+        desc.LinearMinimum = joint.LinearMinimum;
+        desc.LinearMaximum = joint.LinearMaximum;
+        desc.AngularMinimum = joint.AngularMinimum;
+        desc.AngularMaximum = joint.AngularMaximum;
+        desc.LinearSpring = joint.LinearSpring;
+        desc.AngularSpring = joint.RotationSpring;
+
+        desc.transform = MatrixExt.Transform(joint.Position, ToQuaternion(joint.Rotation));
+        Matrix4x4.Invert(desc.transform, out desc.invertTransform);
         return desc;
+    }
+
+    public static Quaternion ToQuaternion(Vector3 angle)
+    {
+        return Quaternion.CreateFromYawPitchRoll(angle.Y, angle.X, angle.Z);
     }
 }

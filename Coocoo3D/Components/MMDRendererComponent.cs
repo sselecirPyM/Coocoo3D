@@ -100,7 +100,7 @@ public class MMDRendererComponent
 
     public void UpdateChildrenMatrix(BoneInstance boneInstance)
     {
-        foreach(var boneIndex in boneInstance.children)
+        foreach (var boneIndex in boneInstance.children)
         {
             boneInstance.GetTransformMatrixG(bones);
             UpdateChildrenMatrix(bones[boneIndex]);
@@ -131,13 +131,13 @@ public class MMDRendererComponent
         if (!ikBone.EnableIK)
             return;
 
-        var ikTargetBone = bones[ikBone.target];
+        var ikTipBone = bones[ikBone.target];
 
         var posTargetFixed = bones[ikBone.index].GetPosition();
 
 
         int h1 = ikBone.CCDIterateLimit / 2;
-        Vector3 posSource = ikTargetBone.GetPosition();
+        Vector3 posSource = ikTipBone.GetPosition();
         if ((posTargetFixed - posSource).LengthSquared() < 1e-6f)
             return;
         for (int i = 0; i < ikBone.CCDIterateLimit; i++)
@@ -152,11 +152,17 @@ public class MMDRendererComponent
 
                 Vector3 targetDirection = Vector3.Normalize(posTargetFixed - itPosition);
                 Vector3 ikDirection = Vector3.Normalize(posSource - itPosition);
+
                 float dotV = Math.Clamp(Vector3.Dot(targetDirection, ikDirection), -1, 1);
+                float angle1 = (float)Math.Acos(dotV);
+                if (Math.Abs(angle1) < 1e-3f)
+                {
+                    continue;
+                }
 
                 Matrix4x4 matXi = Matrix4x4.Transpose(itBone.GeneratedTransform);
 
-                Vector3 ikRotateAxis = SafeNormalize(Vector3.TransformNormal(Vector3.Cross(targetDirection, ikDirection), matXi));
+                Vector3 ikRotateAxis = Vector3.TransformNormal(Vector3.Cross(targetDirection, ikDirection), matXi);
 
                 if (axis_lim)
                     switch (IKLINK.FixTypes)
@@ -172,13 +178,8 @@ public class MMDRendererComponent
                             break;
                     }
                 var limit = ikBone.CCDAngleLimit * (i + 1);
-                float angle1 = (float)Math.Acos(dotV);
-                if (angle1 < 1e-5f)
-                {
-                    continue;
-                }
 
-                var itResult = Quaternion.Normalize(itBone.rotation * QAxisAngle(ikRotateAxis, -Math.Clamp(angle1, -limit, limit)));
+                var itResult = Quaternion.Normalize(itBone.rotation * QAxisAngle(Vector3.Normalize(ikRotateAxis), -Math.Clamp(angle1, -limit, limit)));
 
                 if (IKLINK.HasLimit)
                 {
@@ -210,6 +211,7 @@ public class MMDRendererComponent
                             throw new NotImplementedException();
                     }
                 }
+                itResult = Quaternion.Normalize(itResult);
                 itBone.rotation = itResult;
 
                 var parent = bones[itBone.ParentIndex];
@@ -221,7 +223,7 @@ public class MMDRendererComponent
 
             }
             UpdateIKMatrices(ikBone);
-            posSource = ikTargetBone.GetPosition();
+            posSource = ikTipBone.GetPosition();
             if ((posTargetFixed - posSource).LengthSquared() < 1e-6f)
                 break;
         }
@@ -230,8 +232,8 @@ public class MMDRendererComponent
     public void Precompute()
     {
         bool[] bonesTest = new bool[bones.Count];
-        HashSet< int> ap1 = new HashSet<int>();
-        foreach(var appendBone in appendBones)
+        HashSet<int> ap1 = new HashSet<int>();
+        foreach (var appendBone in appendBones)
         {
             ap1.Add(appendBone.index);
         }
@@ -334,11 +336,6 @@ public class MMDRendererComponent
         return angle;
     }
 
-    Vector3 SafeNormalize(Vector3 vector3)
-    {
-        float dp3 = Math.Max(0.00001f, Vector3.Dot(vector3, vector3));
-        return vector3 / MathF.Sqrt(dp3);
-    }
     #endregion
 
     #endregion

@@ -1,7 +1,6 @@
 ﻿using Coocoo3D.Components;
 using Coocoo3D.Core;
 using Coocoo3D.Present;
-using Coocoo3D.Utility;
 using DefaultEcs;
 using System;
 using System.Collections.Generic;
@@ -88,18 +87,20 @@ public class PhysicsSystem : ISceneExtension, IDisposable
         for (int i = 0; i < renderers.Count; i++)
         {
             var r = renderers[i];
+            r.BoneMorphIKAppend();
             var phyO = GetPhysics(r);
 
-            r.UpdateAllMatrix();
             for (int j = 0; j < r.rigidBodyDescs.Count; j++)
             {
                 var desc = r.rigidBodyDescs[j];
-                if (desc.Type == 0) continue;
+                if (desc.Type == 0)
+                    continue;
                 int index = desc.AssociatedBoneIndex;
-                if (index == -1) continue;
-                var mat1 = r.bones[index].GeneratedTransform * r.LocalToWorld;
-                Matrix4x4.Decompose(mat1, out _, out var rot, out _);
-                physics3DScene.ResetRigidBody(phyO.rigidbodies[j], Vector3.Transform(desc.Position, mat1), rot * desc.Rotation);
+                if (index == -1)
+                    continue;
+
+                Matrix4x4 matrix = desc.transform * r.bones[index].GeneratedTransform * r.LocalToWorld;
+                physics3DScene.ResetRigidBody(phyO.rigidbodies[j], matrix);
             }
         }
         physics3DScene.Simulation(1 / 60.0);
@@ -149,12 +150,13 @@ public class PhysicsSystem : ISceneExtension, IDisposable
         for (int i = 0; i < r.rigidBodyDescs.Count; i++)
         {
             var desc = r.rigidBodyDescs[i];
-            if (desc.Type != 0) continue;
+            if (desc.Type != 0)
+                continue;
             int index = desc.AssociatedBoneIndex;
             if (index == -1)
                 continue;
 
-            Matrix4x4 matrix = MatrixExt.Transform(desc.Position, desc.Rotation) * r.bones[index].GeneratedTransform * r.LocalToWorld;
+            Matrix4x4 matrix = desc.transform * r.bones[index].GeneratedTransform * r.LocalToWorld;
             physics3DScene.MoveRigidBody(rigidbodies[i], matrix);
         }
     }
@@ -164,21 +166,24 @@ public class PhysicsSystem : ISceneExtension, IDisposable
         for (int i = 0; i < r.rigidBodyDescs.Count; i++)
         {
             var desc = r.rigidBodyDescs[i];
-            if (desc.Type == 0) continue;
+            if (desc.Type == 0)
+                continue;
             int index = desc.AssociatedBoneIndex;
-            if (index == -1) continue;
-            r.bones[index]._generatedTransform = MatrixExt.InverseTransform(desc.Position, desc.Rotation) *
+            if (index == -1)
+                continue;
+            var bone = r.bones[index];
+            bone._generatedTransform = desc.invertTransform *
                 rigidbodies[i].GetTransform() * r.WorldToLocal;
             Matrix4x4 invParentMatrix;
-            if (r.bones[index].ParentIndex >= 0)
-                Matrix4x4.Invert(r.bones[r.bones[index].ParentIndex]._generatedTransform, out invParentMatrix);
+            if (bone.ParentIndex >= 0)
+                Matrix4x4.Invert(r.bones[bone.ParentIndex]._generatedTransform, out invParentMatrix);
             else
                 invParentMatrix = Matrix4x4.Identity;
 
-            var localMatrix = invParentMatrix * r.bones[index]._generatedTransform;
+            var localMatrix = invParentMatrix * bone._generatedTransform;
             Matrix4x4.Decompose(localMatrix, out var scale, out var rotation, out var translation);
-            r.bones[index].translation = translation;
-            r.bones[index].rotation = rotation;
+            bone.translation = translation;
+            bone.rotation = rotation;
         }
         r.UpdateMatrices(r.PhysicsUpdateMatrixIndice);
 
@@ -208,10 +213,11 @@ public class PhysicsSystem : ISceneExtension, IDisposable
         for (int i = 0; i < r.rigidBodyDescs.Count; i++)
         {
             var desc = r.rigidBodyDescs[i];
-            if (desc.Type != RigidBodyType.Kinematic) continue;
-            int index = desc.AssociatedBoneIndex;
-            var bone = r.bones[index];
-            Matrix4x4 matrix = MatrixExt.Transform(desc.Position, desc.Rotation) * bone.GeneratedTransform * r.LocalToWorld;
+            if (desc.Type != RigidBodyType.Kinematic)
+                continue;
+
+            var bone = r.bones[desc.AssociatedBoneIndex];
+            Matrix4x4 matrix = desc.transform * bone.GeneratedTransform * r.LocalToWorld;
             physics3DScene.MoveRigidBody(rigidbodies[i], matrix);
         }
     }

@@ -78,15 +78,16 @@ public struct RigidBodyDesc
     public byte CollisionGroup;
     public ushort CollisionMask;
     public RigidBodyShape Shape;
-    public Vector3 Dimemsions;
-    public Vector3 Position;
-    public Quaternion Rotation;
+    public Vector3 Dimensions;
     public float Mass;
     public float LinearDamping;
     public float AngularDamping;
     public float Restitution;
     public float Friction;
     public RigidBodyType Type;
+
+    public Matrix4x4 transform;
+    public Matrix4x4 invertTransform;
 }
 
 public struct JointDesc
@@ -94,14 +95,14 @@ public struct JointDesc
     public byte Type;
     public int AssociatedRigidBodyIndex1;
     public int AssociatedRigidBodyIndex2;
-    public Vector3 Position;
-    public Vector3 Rotation;
-    public Vector3 PositionMinimum;
-    public Vector3 PositionMaximum;
-    public Vector3 RotationMinimum;
-    public Vector3 RotationMaximum;
-    public Vector3 PositionSpring;
-    public Vector3 RotationSpring;
+    public Vector3 LinearMinimum;
+    public Vector3 LinearMaximum;
+    public Vector3 AngularMinimum;
+    public Vector3 AngularMaximum;
+    public Vector3 LinearSpring;
+    public Vector3 AngularSpring;
+    public Matrix4x4 transform;
+    public Matrix4x4 invertTransform;
 }
 [Flags]
 public enum DrawFlag

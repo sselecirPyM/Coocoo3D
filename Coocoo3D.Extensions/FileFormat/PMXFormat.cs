@@ -207,7 +207,7 @@ namespace Coocoo3D.Extensions.FileFormat
         public PMX_MorphType Type;
 
         public PMX_MorphSubMorphDesc[] SubMorphs;
-        public PMX_MorphVertexDesc[] MorphVertexs;
+        public PMX_MorphVertexDesc[] MorphVertice;
         public PMX_MorphBoneDesc[] MorphBones;
         public PMX_MorphUVDesc[] MorphUVs;
         public PMX_MorphMaterialDesc[] MorphMaterials;
@@ -227,11 +227,11 @@ namespace Coocoo3D.Extensions.FileFormat
         public int AssociatedRigidBodyIndex2;
         public Vector3 Position;
         public Vector3 Rotation;
-        public Vector3 PositionMinimum;
-        public Vector3 PositionMaximum;
-        public Vector3 RotationMinimum;
-        public Vector3 RotationMaximum;
-        public Vector3 PositionSpring;
+        public Vector3 LinearMinimum;
+        public Vector3 LinearMaximum;
+        public Vector3 AngularMinimum;
+        public Vector3 AngularMaximum;
+        public Vector3 LinearSpring;
         public Vector3 RotationSpring;
         public override string ToString()
         {
@@ -262,7 +262,7 @@ namespace Coocoo3D.Extensions.FileFormat
         public byte CollisionGroup;
         public ushort CollisionMask;
         public PMX_RigidBodyShape Shape;
-        public Vector3 Dimemsions;
+        public Vector3 Dimensions;
         public Vector3 Position;
         public Vector3 Rotation;
         public float Mass;
@@ -561,15 +561,15 @@ namespace Coocoo3D.Extensions.FileFormat
                         }
                         break;
                     case PMX_MorphType.Vertex:
-                        morph.MorphVertexs = new PMX_MorphVertexDesc[countOfMorphData];
+                        morph.MorphVertice = new PMX_MorphVertexDesc[countOfMorphData];
                         for (int j = 0; j < countOfMorphData; j++)
                         {
                             PMX_MorphVertexDesc vertexStruct = new PMX_MorphVertexDesc();
                             vertexStruct.VertexIndex = ReadUIndex(reader, vertexIndexSize);
                             vertexStruct.Offset = ReadVector3XInv(reader);
-                            morph.MorphVertexs[j] = vertexStruct;
+                            morph.MorphVertice[j] = vertexStruct;
                         }
-                        Array.Sort(morph.MorphVertexs, _morphVertexCmp);//optimize for cpu L1 cache
+                        Array.Sort(morph.MorphVertice, _morphVertexCmp);//optimize for cpu L1 cache
                         break;
                     case PMX_MorphType.Bone:
                         morph.MorphBones = new PMX_MorphBoneDesc[countOfMorphData];
@@ -658,7 +658,7 @@ namespace Coocoo3D.Extensions.FileFormat
                 rigidBody.CollisionGroup = reader.ReadByte();
                 rigidBody.CollisionMask = reader.ReadUInt16();
                 rigidBody.Shape = (PMX_RigidBodyShape)reader.ReadByte();
-                rigidBody.Dimemsions = ReadVector3(reader);
+                rigidBody.Dimensions = ReadVector3(reader);
                 rigidBody.Position = ReadVector3XInv(reader);
                 rigidBody.Rotation = ReadVector3YZInv(reader);
                 rigidBody.Mass = reader.ReadSingle();
@@ -684,17 +684,57 @@ namespace Coocoo3D.Extensions.FileFormat
                 joint.AssociatedRigidBodyIndex2 = ReadIndex(reader, rigidBodyIndexSize);
                 joint.Position = ReadVector3XInv(reader);
                 joint.Rotation = ReadVector3YZInv(reader);
-                joint.PositionMinimum = ReadVector3(reader);
-                joint.PositionMaximum = ReadVector3(reader);
-                joint.RotationMinimum = ReadVector3(reader);
-                joint.RotationMaximum = ReadVector3(reader);
-                joint.PositionSpring = ReadVector3(reader);
+                joint.LinearMinimum = ReadVector3(reader);
+                joint.LinearMaximum = ReadVector3(reader);
+                joint.AngularMinimum = ReadVector3(reader);
+                joint.AngularMaximum = ReadVector3(reader);
+                joint.LinearSpring = ReadVector3(reader);
                 joint.RotationSpring = ReadVector3(reader);
 
                 Joints.Add(joint);
             }
             //Optimise();
 
+        }
+
+        public void Scale(float scale)
+        {
+            for (int i = 0; i < Vertices.Length; i++)
+            {
+                Vertices[i].Coordinate *= scale;
+            }
+            foreach (var bone in Bones)
+            {
+                bone.Position *= scale;
+            }
+            foreach (var rigidBody in RigidBodies)
+            {
+                rigidBody.Position *= scale;
+                rigidBody.Dimensions *= scale;
+            }
+            foreach (var joint in Joints)
+            {
+                joint.Position *= scale;
+                joint.LinearMaximum *= scale;
+                joint.LinearMinimum *= scale;
+            }
+            foreach (var morph in Morphs)
+            {
+                if (morph.MorphVertice != null)
+                {
+                    for (int i = 0; i < morph.MorphVertice.Length; i++)
+                    {
+                        morph.MorphVertice[i].Offset *= scale;
+                    }
+                }
+                if(morph.MorphBones != null)
+                {
+                    for (int i = 0; i < morph.MorphBones.Length; i++)
+                    {
+                        morph.MorphBones[i].Translation *= scale;
+                    }
+                }
+            }
         }
 
         private void Optimise()

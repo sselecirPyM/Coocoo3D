@@ -26,6 +26,7 @@ public class RecordSettings
     public string preset;
     public float Crf;
     public float CQ;
+    public float global_quality;
 
     public RecordSettings Clone()
     {
@@ -46,6 +47,8 @@ public class RecordWindow : IWindow, IEditorAccess
     public EngineContext engineContext;
     public RenderSystem renderSystem;
 
+    public string audioFile;
+
     bool ffmpegInstalled;
     bool useFFmpeg;
     bool testFFmepg;
@@ -54,7 +57,9 @@ public class RecordWindow : IWindow, IEditorAccess
     string[] encoders = new string[]
     {
         "x264",
-        "h264_nvenc"
+        "h264_nvenc",
+        "hevc_nvenc",
+        "h264_qsv"
     };
     int presetIndex = 1;
     string[] presets = new string[]
@@ -66,6 +71,15 @@ public class RecordWindow : IWindow, IEditorAccess
         "veryslow"
     };
 
+    int nvenc_presetIndex = 2;
+    string[] nvenc_presets = new string[]
+    {
+        "fast",
+        "medium",
+        "slow"
+    };
+
+    int audioBitrate = 320000;
 
     public RecordSettings recordSettings = new RecordSettings()
     {
@@ -76,33 +90,74 @@ public class RecordWindow : IWindow, IEditorAccess
         StopTime = 300,
         Crf = 17,
         CQ = 26,
+        global_quality = 18,
     };
 
+    int _f1 = 0;
     public void OnGUI()
     {
         if (ffmpegInstalled)
         {
             ImGui.Text("已安装FFmpeg。");
-            ImGui.Checkbox("使用FFmpeg输出视频", ref useFFmpeg);
-        }
-        UIImGui.ShowObject(recordSettings);
-
-        if (encoderIndex == 0)
-        {
-            ImGui.DragFloat("CRF", ref recordSettings.Crf, 0.5f);
+            ImGui.Checkbox("使用FFmpeg编码", ref useFFmpeg);
+            ImGui.Text($"选择的音频文件: {audioFile}");
+            if (ImGui.Button("选择音频文件"))
+            {
+                var task = new PlatformIOTask()
+                {
+                    title = "选择音频文件",
+                    type = PlatformIOTaskType.OpenFile,
+                    callback = (string path) =>
+                    {
+                        audioFile = path;
+                    }
+                };
+                UIImGui.UITaskQueue.Enqueue(task);
+            }
+            ImGui.SameLine();
+            if (ImGui.Button("清除音频文件"))
+            {
+                audioFile = null;
+            }
+            ImGui.DragInt("音频码率", ref audioBitrate);
         }
         else
         {
-            ImGui.DragFloat("CQ", ref recordSettings.CQ, 0.5f);
+            ImGui.Text("未安装FFmpeg，请安装FFmpeg或将FFmpeg放置在软件目录以使用FFmpeg编码。");
+            if (ImGui.Button("检测FFmpeg"))
+            {
+                TestFFmpegInstalled();
+                if (!ffmpegInstalled)
+                {
+                    _f1 = 60;
+                }
+            }
+            if (_f1 > 0)
+            {
+                _f1--;
+                ImGui.Text("未检测到FFmpeg" + new string('*', (_f1 + 19) / 20));
+            }
         }
-        if (encoderIndex == 0 && ImGui.Combo("preset", ref presetIndex, presets, presets.Length))
+        UIImGui.ShowObject(recordSettings);
+        if (ffmpegInstalled)
         {
+            if (encoderIndex == 0)
+            {
+                ImGui.DragFloat("CRF", ref recordSettings.Crf, 0.5f);
+                ImGui.Combo("preset", ref presetIndex, presets, presets.Length);
+            }
+            else if (encoderIndex == 1 || encoderIndex == 2)
+            {
+                ImGui.DragFloat("CQ", ref recordSettings.CQ, 0.5f);
+                ImGui.Combo("preset", ref nvenc_presetIndex, nvenc_presets, nvenc_presets.Length);
+            }
+            else
+            {
+                ImGui.DragFloat("global_quality", ref recordSettings.global_quality, 0.5f);
+                ImGui.Combo("preset", ref presetIndex, presets, presets.Length);
+            }
 
-        }
-
-        if (ImGui.Combo("编码器", ref encoderIndex, encoders, encoders.Length))
-        {
-
+            ImGui.Combo("编码器", ref encoderIndex, encoders, encoders.Length);
         }
 
         if (ImGui.Button("开始录制"))
@@ -134,8 +189,8 @@ public class RecordWindow : IWindow, IEditorAccess
                         return;
                     recorder.saveDirectory = folder.FullName;
                 }
-                var visualChannel = editorContext.currentChannel;
                 engineContext.FillProperties(recorder);
+                var visualChannel = editorContext.currentChannel;
                 List<string> args = new List<string>();
                 args.AddRange(new string[]
                 {
@@ -147,6 +202,16 @@ public class RecordWindow : IWindow, IEditorAccess
                     "-s", recordSettings.Width + "X" + recordSettings.Height,
                     "-i", @"pipe:0",
                 });
+                if (audioFile != null)
+                {
+                    args.AddRange(new string[]
+                    {
+                        "-i",audioFile,
+                        "-b:a",audioBitrate.ToString(),
+                        "-map","0:v",
+                        "-map","1:a",
+                    });
+                }
                 switch (encoderIndex)
                 {
                     case 0:
@@ -158,26 +223,51 @@ public class RecordWindow : IWindow, IEditorAccess
                             "-vf", "format=yuv420p",
                             "-preset", presets[presetIndex],
                             "-crf", recordSettings.Crf.ToString(),
-                             path,
                         });
                         break;
                     case 1:
-                        Console.WriteLine("encoder nvenc");
+                        Console.WriteLine("encoder h264_nvenc");
                         args.AddRange(new string[]
                         {
                             "-colorspace","bt709",
                             "-vf", "format=yuv420p",
                             "-c:v", "h264_nvenc",
-                            //"-preset", "slow",
-                            //"-preset", "lossless",
-                            //"-crf", recordSettings.Crf.ToString(),
+                            "-preset", nvenc_presets[nvenc_presetIndex],
                             "-cq", recordSettings.CQ.ToString(),
-                             path,
+                        });
+                        break;
+                    case 2:
+                        Console.WriteLine("encoder hevc_nvenc");
+                        args.AddRange(new string[]
+                        {
+                            "-colorspace","bt709",
+                            "-vf", "format=yuv420p",
+                            "-c:v", "hevc_nvenc",
+                            "-preset", nvenc_presets[nvenc_presetIndex],
+                            "-cq", recordSettings.CQ.ToString(),
+                        });
+                        break;
+                    case 3:
+                        Console.WriteLine("encoder h264_qsv");
+                        args.AddRange(new string[]
+                        {
+                            "-colorspace","bt709",
+                            "-vf", "format=yuv420p",
+                            "-c:v", "h264_qsv",
+                            "-preset", presets[presetIndex],
+                            "-global_quality", recordSettings.global_quality.ToString(),
                         });
                         break;
                 }
-
-                recorder.StartRecord(visualChannel, args, useFFmpeg);
+                args.Add(path);
+                if (useFFmpeg)
+                {
+                    recorder.StartRecordFFmpeg(visualChannel, args);
+                }
+                else
+                {
+                    recorder.StartRecord(visualChannel);
+                }
                 visualChannel.Attach(recorder);
 
                 gameDriver.ToRecordMode();
@@ -214,21 +304,26 @@ public class RecordWindow : IWindow, IEditorAccess
         if (!testFFmepg)
         {
             testFFmepg = true;
-            try
-            {
-                ProcessStartInfo processStartInfo = new ProcessStartInfo();
-                processStartInfo.UseShellExecute = false;
-                processStartInfo.FileName = "ffmpeg";
-                processStartInfo.CreateNoWindow = true;
-                var process = Process.Start(processStartInfo);
-                ffmpegInstalled = true;
-                useFFmpeg = true;
-                process.CloseMainWindow();
-                process.Dispose();
-            }
-            catch
-            {
-            }
+            TestFFmpegInstalled();
+        }
+    }
+
+    public void TestFFmpegInstalled()
+    {
+        try
+        {
+            ProcessStartInfo processStartInfo = new ProcessStartInfo();
+            processStartInfo.UseShellExecute = false;
+            processStartInfo.FileName = "ffmpeg";
+            processStartInfo.CreateNoWindow = true;
+            var process = Process.Start(processStartInfo);
+            ffmpegInstalled = true;
+            useFFmpeg = true;
+            process.CloseMainWindow();
+            process.Dispose();
+        }
+        catch
+        {
         }
     }
 }

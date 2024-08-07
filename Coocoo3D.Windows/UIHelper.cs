@@ -54,10 +54,10 @@ public class UIHelper
             switch (task.type)
             {
                 case UI.PlatformIOTaskType.OpenFile:
-                    SaveFile(task.title, task.filter, task.fileExtension, 0, task.callback);
+                    SaveFile(task.title, task.filter, task.fileExtension, 0, true, task.callback);
                     break;
                 case UI.PlatformIOTaskType.SaveFile:
-                    SaveFile(task.title, task.filter, task.fileExtension, 2, task.callback);
+                    SaveFile(task.title, task.filter, task.fileExtension, 2, false, task.callback);
                     break;
                 case UI.PlatformIOTaskType.SaveFolder:
                     SaveFolder(task.title, task.callback);
@@ -72,7 +72,7 @@ public class UIHelper
         }
     }
 
-    public void SaveFile(string title, string filter, string defaultExt, int flags, Action<string> callback)
+    public void SaveFile(string title, string filter, string defaultExt, int flags, bool openFile, Action<string> callback)
     {
         FileOpenDialog fileDialog = new FileOpenDialog()
         {
@@ -88,9 +88,19 @@ public class UIHelper
         };
         fileDialog.maxFile = fileDialog.file.Length;
         fileDialog.maxFileTitle = fileDialog.fileTitle.Length;
-        if (GetSaveFileName(fileDialog))
+        if (openFile)
         {
-            callback(fileDialog.file);
+            if (GetOpenFileName(fileDialog))
+            {
+                callback(fileDialog.file);
+            }
+        }
+        else
+        {
+            if (GetSaveFileName(fileDialog))
+            {
+                callback(fileDialog.file);
+            }
         }
     }
     public void SaveFolder(string title, Action<string> callback)
