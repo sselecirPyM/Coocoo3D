@@ -114,7 +114,9 @@ public class Physics3DScene : IDisposable
     {
         var worldTransform = GetMatrix(mat);
         var rigidBody = rb.rigidBody;
-        rigidBody.MotionState.SetWorldTransform(ref worldTransform);
+        rigidBody.ClearForces();
+        rigidBody.WorldTransform = worldTransform;
+        rigidBody.MotionState.WorldTransform = worldTransform;
         rigidBody.CenterOfMassTransform = worldTransform;
         rigidBody.InterpolationWorldTransform = worldTransform;
         rigidBody.InterpolationWorldTransform = worldTransform;
@@ -122,7 +124,6 @@ public class Physics3DScene : IDisposable
         rigidBody.LinearVelocity = new BulletSharp.Math.Vector3();
         rigidBody.InterpolationAngularVelocity = new BulletSharp.Math.Vector3();
         rigidBody.InterpolationLinearVelocity = new BulletSharp.Math.Vector3();
-        rigidBody.ClearForces();
     }
 
     public void MoveRigidBody(Physics3DRigidBody rb, Matrix4x4 mat)
@@ -167,11 +168,6 @@ public class Physics3DScene : IDisposable
         m.M43 = mat.M43;
         m.M44 = mat.M44;
         return m;
-    }
-
-    public static Quaternion ToQuaternion(Vector3 angle)
-    {
-        return Quaternion.CreateFromYawPitchRoll(angle.Y, angle.X, angle.Z);
     }
 
     public void Dispose()

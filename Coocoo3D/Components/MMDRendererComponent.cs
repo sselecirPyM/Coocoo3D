@@ -115,8 +115,7 @@ public class MMDRendererComponent
             var appendParent = bones[appendBone.AppendParentIndex];
             if (appendBone.IsAppendTranslation)
             {
-                Matrix4x4.Decompose(appendParent.GeneratedTransform, out _, out var rotation, out var translation);
-                bones[appendBone.index].appendTranslation = translation * appendBone.AppendRatio;
+                bones[appendBone.index].appendTranslation = appendParent.translation * appendBone.AppendRatio;
             }
             if (appendBone.IsAppendRotation)
             {
@@ -368,8 +367,7 @@ public class BoneInstance
     public Vector3 appendTranslation;
     public Quaternion appendRotation = Quaternion.Identity;
 
-    public Matrix4x4 _generatedTransform = Matrix4x4.Identity;
-    public Matrix4x4 GeneratedTransform { get => _generatedTransform; }
+    public Matrix4x4 GeneratedTransform = Matrix4x4.Identity;
     public Matrix4x4 inverseBindMatrix;
 
     public int ParentIndex = -1;
@@ -386,21 +384,21 @@ public class BoneInstance
         var currentPosition = restPosition + appendTranslation + translation;
         var currentRotation = rotation * appendRotation;
 
-        _generatedTransform = inverseBindMatrix * MatrixExt.Transform(currentPosition, currentRotation);
+        GeneratedTransform = inverseBindMatrix * MatrixExt.Transform(currentPosition, currentRotation);
         if (ParentIndex != -1)
         {
-            _generatedTransform *= list[ParentIndex]._generatedTransform;
+            GeneratedTransform *= list[ParentIndex].GeneratedTransform;
         }
     }
     public Vector3 GetPosition()
     {
-        return Vector3.Transform(restPosition, _generatedTransform);
+        return Vector3.Transform(restPosition, GeneratedTransform);
     }
 
     public void GetPositionRotation(out Vector3 position, out Quaternion rotation)
     {
-        position = Vector3.Transform(restPosition, _generatedTransform);
-        Matrix4x4.Decompose(_generatedTransform, out _, out rotation, out _);
+        position = Vector3.Transform(restPosition, GeneratedTransform);
+        Matrix4x4.Decompose(GeneratedTransform, out _, out rotation, out _);
     }
     public override string ToString()
     {

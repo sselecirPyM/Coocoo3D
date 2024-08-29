@@ -298,7 +298,7 @@ public static class PMXFormatExtension
         desc.Friction = rigidBody.Friction;
         desc.Type = (RigidBodyType)rigidBody.Type;
 
-        desc.transform = MatrixExt.Transform(rigidBody.Position, ToQuaternion(rigidBody.Rotation));
+        desc.transform = GetTransform(rigidBody.Position, rigidBody.Rotation);
         Matrix4x4.Invert(desc.transform, out desc.invertTransform);
         return desc;
     }
@@ -316,13 +316,13 @@ public static class PMXFormatExtension
         desc.LinearSpring = joint.LinearSpring;
         desc.AngularSpring = joint.RotationSpring;
 
-        desc.transform = MatrixExt.Transform(joint.Position, ToQuaternion(joint.Rotation));
+        desc.transform = GetTransform(joint.Position, joint.Rotation);
         Matrix4x4.Invert(desc.transform, out desc.invertTransform);
         return desc;
     }
 
-    public static Quaternion ToQuaternion(Vector3 angle)
+    public static Matrix4x4 GetTransform(Vector3 position, Vector3 rotation)
     {
-        return Quaternion.CreateFromYawPitchRoll(angle.Y, angle.X, angle.Z);
+        return Matrix4x4.CreateFromYawPitchRoll(rotation.Y, rotation.X, rotation.Z) * Matrix4x4.CreateTranslation(position);
     }
 }

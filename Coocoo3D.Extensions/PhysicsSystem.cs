@@ -103,7 +103,7 @@ public class PhysicsSystem : ISceneExtension, IDisposable
                 physics3DScene.ResetRigidBody(phyO.rigidbodies[j], matrix);
             }
         }
-        physics3DScene.Simulation(1 / 60.0);
+        //physics3DScene.Simulation(1 / 60.0);
     }
 
     _physicsObjects GetPhysics(MMDRendererComponent r)
@@ -172,22 +172,9 @@ public class PhysicsSystem : ISceneExtension, IDisposable
             if (index == -1)
                 continue;
             var bone = r.bones[index];
-            bone._generatedTransform = desc.invertTransform *
+            bone.GeneratedTransform = desc.invertTransform *
                 rigidbodies[i].GetTransform() * r.WorldToLocal;
-            Matrix4x4 invParentMatrix;
-            if (bone.ParentIndex >= 0)
-                Matrix4x4.Invert(r.bones[bone.ParentIndex]._generatedTransform, out invParentMatrix);
-            else
-                invParentMatrix = Matrix4x4.Identity;
-
-            var localMatrix = invParentMatrix * bone._generatedTransform;
-            Matrix4x4.Decompose(localMatrix, out var scale, out var rotation, out var translation);
-            bone.translation = translation;
-            bone.rotation = rotation;
         }
-        r.UpdateMatrices(r.PhysicsUpdateMatrixIndice);
-
-        r.UpdateAppendBones();
     }
 
     void BoneUpdate(float deltaTime, IReadOnlyList<MMDRendererComponent> renderers)
