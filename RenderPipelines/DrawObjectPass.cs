@@ -29,7 +29,6 @@ public class DrawObjectPass
     public Texture2D _ShadowMap;
     public Texture2D _Environment;
     public Texture2D _BRDFLUT;
-    public GPUBuffer GIBuffer;
 
     public PSODesc GetPSODesc(RenderWrap renderWrap, PSODesc desc)
     {
@@ -62,6 +61,10 @@ public class DrawObjectPass
             if (srv.Value is byte[] data)
             {
                 context.SetSRV(srv.Key, data);
+            }
+            else if (srv.Value is GPUBuffer buffer)
+            {
+                context.SetSRV(srv.Key, buffer);
             }
         }
         Span<byte> bufferData = stackalloc byte[80];
@@ -117,7 +120,6 @@ public class DrawObjectPass
             context.SetSRV(6, _ShadowMap);
             context.SetSRV(7, _Environment);
             context.SetSRV(8, _BRDFLUT);
-            context.SetSRV(9, GIBuffer);
 
             context.Draw(renderable);
             keywords2.Clear();

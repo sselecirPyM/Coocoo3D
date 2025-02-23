@@ -141,7 +141,7 @@ public class RenderWrap
         graphicsContext.SetRTVDSV(target, depth, Vector4.Zero, clearRT, clearDepth);
     }
 
-    public void SetRenderTarget(Texture2D[] target, Texture2D depth, bool clearRT, bool clearDepth)
+    public void SetRenderTarget(ReadOnlySpan<Texture2D> target, Texture2D depth, bool clearRT, bool clearDepth)
     {
         _renderTargets.Clear();
         _renderTargets.AddRange(target);

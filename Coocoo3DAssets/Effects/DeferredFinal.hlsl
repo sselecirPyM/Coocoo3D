@@ -299,7 +299,7 @@ float3 Shade1(in SurfaceInfo surface, float3 wPos, float3 V, float3 emissive, fl
 		}
 	}
 #endif//ENABLE_DIRECTIONAL_LIGHT
-#if ENABLE_POINT_LIGHT
+#if POINT_LIGHT_COUNT
 	int shadowmapIndex = 0;
 	for (int i = 0; i < POINT_LIGHT_COUNT; i++, shadowmapIndex += 6)
 	{

@@ -200,7 +200,7 @@ public class RecordWindow : IWindow, IEditorAccess
                     "-r", recordSettings.FPS.ToString(),
                     "-colorspace","bt709",
                     "-s", recordSettings.Width + "X" + recordSettings.Height,
-                    "-i", @"pipe:0",
+                    "-i", @"pipe:0"
                 });
                 if (audioFile != null)
                 {
@@ -212,47 +212,47 @@ public class RecordWindow : IWindow, IEditorAccess
                         "-map","1:a",
                     });
                 }
+                args.AddRange(new string[]
+                {
+                    "-color_primaries","bt709",
+                    "-color_trc"," bt709",
+                    "-colorspace","bt709",
+                    "-color_range", "tv",
+                    "-vf", "format=yuv420p",
+                });
                 switch (encoderIndex)
                 {
                     case 0:
-                        Console.WriteLine("encoder x264");
+                        Console.WriteLine("encoder: x264");
                         args.AddRange(new string[]
                         {
-                            "-colorspace","bt709",
                             "-c:v", "libx264",
-                            "-vf", "format=yuv420p",
                             "-preset", presets[presetIndex],
                             "-crf", recordSettings.Crf.ToString(),
                         });
                         break;
                     case 1:
-                        Console.WriteLine("encoder h264_nvenc");
+                        Console.WriteLine("encoder: h264_nvenc");
                         args.AddRange(new string[]
                         {
-                            "-colorspace","bt709",
-                            "-vf", "format=yuv420p",
                             "-c:v", "h264_nvenc",
                             "-preset", nvenc_presets[nvenc_presetIndex],
                             "-cq", recordSettings.CQ.ToString(),
                         });
                         break;
                     case 2:
-                        Console.WriteLine("encoder hevc_nvenc");
+                        Console.WriteLine("encoder: hevc_nvenc");
                         args.AddRange(new string[]
                         {
-                            "-colorspace","bt709",
-                            "-vf", "format=yuv420p",
                             "-c:v", "hevc_nvenc",
                             "-preset", nvenc_presets[nvenc_presetIndex],
                             "-cq", recordSettings.CQ.ToString(),
                         });
                         break;
                     case 3:
-                        Console.WriteLine("encoder h264_qsv");
+                        Console.WriteLine("encoder: h264_qsv");
                         args.AddRange(new string[]
                         {
-                            "-colorspace","bt709",
-                            "-vf", "format=yuv420p",
                             "-c:v", "h264_qsv",
                             "-preset", presets[presetIndex],
                             "-global_quality", recordSettings.global_quality.ToString(),

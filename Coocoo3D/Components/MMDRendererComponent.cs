@@ -132,12 +132,12 @@ public class MMDRendererComponent
 
         var ikTipBone = bones[ikBone.target];
 
-        var posTargetFixed = bones[ikBone.index].GetPosition();
+        var ikTargetPosition = bones[ikBone.index].GetPosition();
 
 
         int h1 = ikBone.CCDIterateLimit / 2;
-        Vector3 posSource = ikTipBone.GetPosition();
-        if ((posTargetFixed - posSource).LengthSquared() < 1e-6f)
+        Vector3 tipPosition = ikTipBone.GetPosition();
+        if ((ikTargetPosition - tipPosition).LengthSquared() < 1e-6f)
             return;
         for (int i = 0; i < ikBone.CCDIterateLimit; i++)
         {
@@ -149,8 +149,8 @@ public class MMDRendererComponent
 
                 var itPosition = itBone.GetPosition();
 
-                Vector3 targetDirection = Vector3.Normalize(posTargetFixed - itPosition);
-                Vector3 ikDirection = Vector3.Normalize(posSource - itPosition);
+                Vector3 targetDirection = Vector3.Normalize(ikTargetPosition - itPosition);
+                Vector3 ikDirection = Vector3.Normalize(tipPosition - itPosition);
 
                 float dotV = Math.Clamp(Vector3.Dot(targetDirection, ikDirection), -1, 1);
                 float angle1 = (float)Math.Acos(dotV);
@@ -159,9 +159,8 @@ public class MMDRendererComponent
                     continue;
                 }
 
-                Matrix4x4 matXi = Matrix4x4.Transpose(itBone.GeneratedTransform);
-
-                Vector3 ikRotateAxis = Vector3.TransformNormal(Vector3.Cross(targetDirection, ikDirection), matXi);
+                Matrix4x4 invertTransform = Matrix4x4.Transpose(itBone.GeneratedTransform);
+                Vector3 ikRotateAxis = Vector3.TransformNormal(Vector3.Cross(targetDirection, ikDirection), invertTransform);
 
                 if (axis_lim)
                     switch (IKLINK.FixTypes)
@@ -215,15 +214,15 @@ public class MMDRendererComponent
 
                 var parent = bones[itBone.ParentIndex];
 
-                var it2source = Vector3.TransformNormal(posSource - itPosition, matXi);
+                var it2source = Vector3.TransformNormal(tipPosition - itPosition, invertTransform);
                 var rotatedVec = Vector3.TransformNormal(Vector3.Transform(it2source, itResult), parent.GeneratedTransform);
 
-                posSource = rotatedVec + itPosition;
+                tipPosition = rotatedVec + itPosition;
 
             }
             UpdateIKMatrices(ikBone);
-            posSource = ikTipBone.GetPosition();
-            if ((posTargetFixed - posSource).LengthSquared() < 1e-6f)
+            tipPosition = ikTipBone.GetPosition();
+            if ((ikTargetPosition - tipPosition).LengthSquared() < 1e-6f)
                 break;
         }
     }

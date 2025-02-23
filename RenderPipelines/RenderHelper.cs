@@ -77,15 +77,17 @@ public class RenderHelper
     MeshRenderable<T> GetRenderable<T>(Submesh submesh, Mesh mesh, Matrix4x4 transform, RenderMaterial material) where T : class, new()
     {
         material.Type = Caprice.Display.UIShowType.Material;
-        MeshRenderable<T> renderable = new MeshRenderable<T>();
-        renderable.indexStart = submesh.indexOffset;
-        renderable.indexCount = submesh.indexCount;
-        renderable.vertexStart = submesh.vertexStart;
-        renderable.vertexCount = submesh.vertexCount;
-        renderable.drawDoubleFace = submesh.DrawDoubleFace;
-        renderable.mesh = mesh;
-        renderable.transform = transform;
-        renderable.material = renderPipeline.UIMaterial(material) as T;
+        MeshRenderable<T> renderable = new MeshRenderable<T>
+        {
+            indexStart = submesh.indexOffset,
+            indexCount = submesh.indexCount,
+            vertexStart = submesh.vertexStart,
+            vertexCount = submesh.vertexCount,
+            drawDoubleFace = submesh.DrawDoubleFace,
+            mesh = mesh,
+            transform = transform,
+            material = renderPipeline.UIMaterial(material) as T
+        };
         return renderable;
     }
 

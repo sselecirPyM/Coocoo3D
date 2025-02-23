@@ -7,8 +7,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="vxmls\DeferredRenderPipeline.vxml" />
-    <None Remove="vxmls\ForwardRenderPipeline.vxml" />
     <None Remove="vxmls\GenerateMip.vxml" />
     <None Remove="vxmls\HiZ.vxml" />
     <None Remove="vxmls\Skinning.vxml" />
@@ -16,8 +14,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <AdditionalFiles Include="vxmls\ForwardRenderPipeline.vxml" />
-    <AdditionalFiles Include="vxmls\DeferredRenderPipeline.vxml" />
     <AdditionalFiles Include="vxmls\GenerateMip.vxml" />
     <AdditionalFiles Include="vxmls\HiZ.vxml" />
     <AdditionalFiles Include="vxmls\Skinning.vxml" />

@@ -280,7 +280,7 @@ public class ModelLoader : IResourceLoader<ModelPack>, IEditorAccess
         for (int i = 0; i < _bones.Count; i++)
         {
             var bone = PMXFormatExtension.Translate(_bones[i], i, _bones.Count);
-            if (bone.ParentIndex != -1)
+            if (bone.ParentIndex >= 0 && bone.ParentIndex < modelPack.bones.Count)
                 modelPack.bones[bone.ParentIndex].children.Add(i);
             modelPack.bones.Add(bone);
             PMXFormatExtension.AddIKBone(modelPack.ikBones, _bones[i], i);

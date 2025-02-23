@@ -213,9 +213,9 @@ public class MainCaches : IDisposable
                     return value;
                 }
             }
-            catch
+            catch(Exception ex)
             {
-
+                Console.WriteLine(ex.ToString());
             }
         }
         modelCaches[path] = null;
