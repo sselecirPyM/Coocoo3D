@@ -1,7 +1,8 @@
-﻿using RenderPipelines.LambdaPipe;
+﻿using Newtonsoft.Json;
+using RenderPipelines.LambdaPipe;
 using RenderPipelines.Utility;
 using System;
-using System.Numerics;
+using System.IO;
 
 namespace RenderPipelines.LambdaRenderers
 {
@@ -9,7 +10,24 @@ namespace RenderPipelines.LambdaRenderers
     {
         public RenderHelper RenderHelper { get; set; }
 
+        public RayTracingShader GetRayTracingShader()
+        {
+            if (_rayTracingShader != null)
+                return _rayTracingShader;
 
+            var path1 = Path.GetFullPath("RayTracing.json", RenderHelper.renderWrap.BasePath);
+            using var filestream = File.OpenRead(path1);
+            _rayTracingShader = ReadJsonStream<RayTracingShader>(filestream);
+            return _rayTracingShader;
+        }
+
+        public RayTracingShader _rayTracingShader { get; set; }
+
+        public BloomPass bloomPass = new BloomPass();
+
+        public SRGBConvertPass srgbConvert = new SRGBConvertPass();
+
+        public GenerateMipPass generateMipPass = new GenerateMipPass();
 
         public VariantShader shader_skybox = new VariantShader(
 """
@@ -181,14 +199,238 @@ void csmain(uint3 dtid : SV_DispatchThreadID)
 }
 """, "csmain");
 
+        [Flags]
+        public enum DrawDecalFlag
+        {
+            None = 0,
+            ENABLE_DECAL_COLOR = 1,
+            ENABLE_DECAL_EMISSIVE = 2
+        }
+        public VariantShader<DrawDecalFlag> shader_drawDecal = new VariantShader<DrawDecalFlag>(
+    """
+cbuffer cb0 : register(b0)
+{
+	float4x4 g_mObjectToProj;
+	float4x4 g_mProjToObject;
+	float4 _DecalEmissivePower;
+	//float _Metallic;
+	//float _Roughness;
+	//float _Emissive;
+	//float _Specular;
+	//float _AO;
+}
+
+SamplerState s0 : register(s0);
+SamplerState s1 : register(s1);
+Texture2D Depth :register(t0);
+Texture2D Albedo :register(t1);
+Texture2D Emissive :register(t2);
+
+struct VSIn
+{
+	uint vertexId : SV_VertexID;
+};
+
+struct PSIn
+{
+	float4 position	: SV_POSITION;
+	float2 texcoord	: TEXCOORD;
+	float4 texcoord1	: TEXCOORD1;
+};
+
+PSIn vsmain(VSIn input)
+{
+	PSIn output;
+	output.position = float4((input.vertexId << 1) & 2, input.vertexId & 2, (input.vertexId >> 1) & 2, 1.0);
+	output.position.xyz -= 1;
+
+	output.position = mul(output.position, g_mObjectToProj);
+	output.texcoord1 = output.position;
+	output.texcoord = (output.position.xy / output.position.w) * 0.5f + 0.5f;
+
+	return output;
+}
+
+struct MRTOutput
+{
+	float4 color0 : COLOR0;
+	float4 color1 : COLOR1;
+};
+
+float4 albedoTexture(float2 uv)
+{
+	float width;
+	float height;
+	Albedo.GetDimensions(width, height);
+	float2 XY = uv * float2(width, height);
+	float2 alignmentXY = round(XY);
+	float2 sampleUV = (alignmentXY + clamp((XY - alignmentXY) / fwidth(XY), -0.5f, 0.5f)) / float2(width, height);
+	return Albedo.Sample(s1, sampleUV);
+}
+
+float4 emissiveTexture(float2 uv)
+{
+	float width;
+	float height;
+	Emissive.GetDimensions(width, height);
+	float2 XY = uv * float2(width, height);
+	float2 alignmentXY = round(XY);
+	float2 sampleUV = (alignmentXY + clamp((XY - alignmentXY) / fwidth(XY), -0.5f, 0.5f)) / float2(width, height);
+	return Emissive.Sample(s1, sampleUV);
+}
+
+MRTOutput psmain(PSIn input) : SV_TARGET
+{
+	MRTOutput output;
+	output.color0 = float4(0, 0, 0, 0);
+	output.color1 = float4(0, 0, 0, 0);
+
+	float2 uv1 = input.texcoord1.xy / input.texcoord1.w;
+	float2 uv = uv1 * 0.5 + 0.5;
+	uv.y = 1 - uv.y;
+	float depth = Depth.SampleLevel(s0, uv, 0);
+	float4 objectPos = mul(float4(uv1, depth, 1), g_mProjToObject);
+	objectPos /= objectPos.w;
+
+	float2 objectUV = float2(objectPos.x * 0.5 + 0.5, 1 - (objectPos.y * 0.5 + 0.5));
+
+	if (all(objectPos.xyz >= -1) && all(objectPos.xyz <= 1))
+	{
+#ifdef ENABLE_DECAL_COLOR
+		output.color0 = albedoTexture(objectUV);
+		//output.color0 = Albedo.Sample(s1, objectUV);
+		output.color0.a *= smoothstep(0, 0.1, 1 - abs(objectPos.z));
+#endif
+#ifdef ENABLE_DECAL_EMISSIVE
+		output.color1 = emissiveTexture(objectUV) * _DecalEmissivePower;
+		//output.color1 = Emissive.Sample(s1, objectUV) * _DecalEmissivePower;
+		output.color1.a *= smoothstep(0, 0.2, 1 - abs(objectPos.z));
+#endif
+		return output;
+	}
+	else
+		clip(-0.1);
+
+	return output;
+}
+""", "vsmain", null, "psmain");
+
+        public VariantComputeShader shader_hiz1 = new VariantComputeShader("""
+
+Texture2D<float> input : register(t0);
+
+RWTexture2D<float2> hiz : register(u0);
+cbuffer cb0 : register(b0) {
+	int2 inputSize;
+}
+
+bool validate(int2 position)
+{
+	return all(inputSize > position);
+}
+
+[numthreads(8, 8, 1)]
+void csmain(uint3 dtid : SV_DispatchThreadID)
+{
+	if (!validate((int2(dtid.xy))))
+		return;
+	float4 val;
+
+	val.x = input[(dtid.xy * 2) + int2(0, 0)];
+
+	for (int i = 1; i < 4; i++)
+	{
+		int2 index2 = (dtid.xy * 2) + int2((i >> 1) & 1, i & 1);
+		if (validate(index2))
+			val[i] = input[index2];
+		else
+			val[i] = val.x;
+	}
+
+	float min1 = min(min(val.x, val.y), min(val.z, val.w));
+	float max1 = max(max(val.x, val.y), max(val.z, val.w));
+	hiz[dtid.xy] = float2(min1, max1);
+}
+			
+""", "csmain", null);
+       public VariantComputeShader shader_hiz2 = new VariantComputeShader("""
+
+Texture2D<float2> input : register(t0);
+
+RWTexture2D<float2> hiz : register(u0);
+cbuffer cb0 : register(b0) {
+	int2 inputSize;
+}
+
+bool validate(int2 position)
+{
+	return all(inputSize > position);
+}
+
+[numthreads(8, 8, 1)]
+void csmain(uint3 dtid : SV_DispatchThreadID)
+{
+	if (!validate((int2(dtid.xy))))
+		return;
+
+	float2 col[4];
+	col[0].xy = input[(dtid.xy * 2) + int2(0, 0)].rg;
+
+	for (int i = 1; i < 4; i++)
+	{
+		if (validate((dtid.xy * 2) + int2((i >> 1) & 1, i & 1)))
+			col[i].rg = input[(dtid.xy * 2) + int2((i >> 1) & 1, i & 1)].rg;
+		else
+			col[i].rg = col[0].rg;
+	}
+
+	float min1 = col[0].x;
+	float max1 = col[0].y;
+	for(i=1; i < 4; i++)
+	{
+		min1 = min(min1, col[i].x);
+		max1 = max(max1, col[i].y);
+	}
+
+	hiz[dtid.xy] = float2(min1, max1);
+}
+			
+""", "csmain", null);
+
+
+        public static T ReadJsonStream<T>(Stream stream)
+        {
+            JsonSerializer jsonSerializer = new JsonSerializer();
+            jsonSerializer.NullValueHandling = NullValueHandling.Ignore;
+            using StreamReader reader1 = new StreamReader(stream);
+            return jsonSerializer.Deserialize<T>(new JsonTextReader(reader1));
+        }
+
         public void Dispose()
         {
+            bloomPass?.Dispose();
+            bloomPass = null;
+            srgbConvert?.Dispose();
+            srgbConvert = null;
+            generateMipPass?.Dispose();
+            generateMipPass = null;
+
+
             shader_skybox?.Dispose();
             shader_skybox = null;
             shader_shadow?.Dispose();
             shader_shadow = null;
             shader_TAA?.Dispose();
             shader_TAA = null;
+            shader_drawDecal?.Dispose();
+            shader_drawDecal = null;
+
+            shader_hiz1?.Dispose();
+            shader_hiz1 = null;
+            shader_hiz2?.Dispose();
+            shader_hiz2 = null;
+
+
         }
     }
 }

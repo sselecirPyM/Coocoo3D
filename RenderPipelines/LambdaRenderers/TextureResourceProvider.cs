@@ -12,26 +12,12 @@ namespace RenderPipelines.LambdaRenderers
 
         public void BeforeRender()
         {
-            if (shadowMap != null)
-                RenderHelper.renderWrap.graphicsContext.ClearDSV(shadowMap);
-        }
 
-        Texture2D shadowMap;
-        public Texture2D GetShadowMap()
-        {
-            if (shadowMap == null)
-            {
-                shadowMap = new Texture2D();
-                Texture2D(shadowMap, Format.D32_Float, 4096, 4096, 1, 1, RenderHelper.renderWrap.graphicsContext);
-            }
-
-            return shadowMap;
         }
 
         public void Dispose()
         {
-            shadowMap?.Dispose();
-            shadowMap = null;
+
         }
 
         static void Texture2D(Texture2D tex2d, Format format, int x, int y, int mips, int arraySize, GraphicsContext graphicsContext)

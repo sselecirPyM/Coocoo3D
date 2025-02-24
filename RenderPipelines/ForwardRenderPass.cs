@@ -17,50 +17,6 @@ namespace RenderPipelines;
 
 public partial class ForwardRenderPipeline
 {
-    public DrawDecalPass decalPass = new DrawDecalPass();
-    public FinalPass finalPass = new FinalPass()
-    {
-        cbvs = new object[][]
-        {
-            new object []
-            {
-                nameof(ViewProjection),
-                nameof(InvertViewProjection),
-                nameof(Far),
-                nameof(Near),
-                nameof(Fov),
-                nameof(AspectRatio),
-                nameof(CameraPosition),
-                nameof(SkyLightMultiple),
-                nameof(FogColor),
-                nameof(FogDensity),
-                nameof(FogStartDistance),
-                nameof(FogEndDistance),
-                nameof(OutputSize),
-                nameof(Brightness),
-                nameof(VolumetricLightingSampleCount),
-                nameof(VolumetricLightingDistance),
-                nameof(VolumetricLightingIntensity),
-                nameof(ShadowMapVP),
-                nameof(ShadowMapVP1),
-                nameof(LightDir),
-                0,
-                nameof(LightColor),
-                0,
-                nameof(GIVolumePosition),
-                nameof(AODistance),
-                nameof(GIVolumeSize),
-                nameof(AOLimit),
-                nameof(AORaySampleCount),
-                nameof(RandomI),
-                nameof(Split),
-            }
-        },
-    };
-    public RayTracingPass rayTracingPass = new RayTracingPass();
-
-    public HiZPass HiZPass = new HiZPass();
-
     object[] CBVPerPass = new object[]
     {
         nameof(ViewProjection),
@@ -87,6 +43,43 @@ public partial class ForwardRenderPipeline
         nameof(Split),
         nameof(GIVolumePosition),
         nameof(GIVolumeSize),
+    };
+
+    object[][] cbvsFinal = new object[][]
+    {
+        new object []
+        {
+            nameof(ViewProjection),
+            nameof(InvertViewProjection),
+            nameof(Far),
+            nameof(Near),
+            nameof(Fov),
+            nameof(AspectRatio),
+            nameof(CameraPosition),
+            nameof(SkyLightMultiple),
+            nameof(FogColor),
+            nameof(FogDensity),
+            nameof(FogStartDistance),
+            nameof(FogEndDistance),
+            nameof(OutputSize),
+            nameof(Brightness),
+            nameof(VolumetricLightingSampleCount),
+            nameof(VolumetricLightingDistance),
+            nameof(VolumetricLightingIntensity),
+            nameof(ShadowMapVP),
+            nameof(ShadowMapVP1),
+            nameof(LightDir),
+            0,
+            nameof(LightColor),
+            0,
+            nameof(GIVolumePosition),
+            nameof(AODistance),
+            nameof(GIVolumeSize),
+            nameof(AOLimit),
+            nameof(AORaySampleCount),
+            nameof(RandomI),
+            nameof(Split),
+        }
     };
 
     [Indexable]
@@ -304,6 +297,15 @@ public partial class ForwardRenderPipeline
     public int RandomI;
     #endregion
 
+
+    [UIShow(name: "启用泛光")]
+    public bool EnableBloom;
+
+    [UIDragFloat(0.01f, name: "泛光阈值")]
+    public float BloomThreshold = 1.05f;
+    [UIDragFloat(0.01f, name: "泛光强度")]
+    public float BloomIntensity = 0.1f;
+
     public List<PointLightData> pointLights = new List<PointLightData>();
 
     public void SetCamera(CameraData camera)
@@ -409,8 +411,7 @@ public partial class ForwardRenderPipeline
         Split = ShadowSize(pointLights.Count * 6);
 
         var resourceProvider = c.GetResourceProvider<TextureResourceProvider>();
-        var _ShadowMap = resourceProvider.GetShadowMap();
-        s.ShadowMap = _ShadowMap;
+
         c.ConfigRenderer<ShadowRenderConfig>(s =>
         {
             s.viewports.Clear();
@@ -471,7 +472,6 @@ public partial class ForwardRenderPipeline
                 var pointLightDatas = CollectionsMarshal.AsSpan(pointLights);
                 var rawData = MemoryMarshal.AsBytes(pointLightDatas).ToArray();
 
-                //drawObject.CBVPerObject[1] = (rawData, pointLights.Count * 32);
                 s.additionalSRV[11] = rawData;
                 s.keywords.Add(("POINT_LIGHT_COUNT", pointLights.Count.ToString()));
             }
@@ -500,33 +500,39 @@ public partial class ForwardRenderPipeline
                 cullMode = CullMode.None,
             };
         }
+
         if (DeferredRendering)
         {
             OutputSize = (noPostProcess.width, noPostProcess.height);
-            rayTracingPass.directionalLight = directionalLight;
-            rayTracingPass.SetCamera(camera);
-            if (directionalLight != null)
+
+            var pipelineMaterial = new PipelineMaterial()
             {
-                finalPass.keywords.Add(("ENABLE_DIRECTIONAL_LIGHT", "1"));
-                if (EnableVolumetricLighting)
-                {
-                    finalPass.keywords.Add(("ENABLE_VOLUME_LIGHTING", "1"));
-                }
-            }
-            if (pointLights.Count > 0)
-            {
-                finalPass.keywords.Add(("POINT_LIGHT_COUNT", pointLights.Count.ToString()));
-                finalPass.pointLightDatas.Clear();
-                finalPass.pointLightDatas.AddRange(pointLights);
-            }
-            if (EnableRayTracing)
-            {
-                finalPass.keywords.Add(("RAY_TRACING", "1"));
-            }
-            if (debugKeywords.TryGetValue(DebugRenderType, out string debugKeyword))
-            {
-                finalPass.keywords.Add((debugKeyword, "1"));
-            }
+                gbuffer0 = gbuffer0,
+                gbuffer1 = gbuffer1,
+                gbuffer2 = gbuffer2,
+                gbuffer3 = gbuffer3,
+                _SkyBox = _SkyBox,
+                AspectRatio = AspectRatio,
+                DebugRenderType = DebugRenderType,
+                depth = depth,
+                depth2 = depth2,
+                Far = Far,
+                Fov = Fov,
+                GIBuffer = GIBuffer,
+                GIBufferWrite = GIBufferWrite,
+                LightColor = LightColor,
+                LightDir = LightDir,
+                Near = Near,
+                OutputSize = OutputSize,
+                RandomI = RandomI,
+                RenderScale = RenderScale,
+                ShadowMapVP = ShadowMapVP,
+                ShadowMapVP1 = ShadowMapVP1,
+                _BRDFLUT = _BRDFLUT,
+                _Environment = _Environment,
+                _HiZBuffer = _HiZBuffer,
+                _ShadowMap = _ShadowMap,
+            };
             var random = Random.Shared;
             RandomI = random.Next();
 
@@ -538,6 +544,66 @@ public partial class ForwardRenderPipeline
                 s.RenderTargets = [gbuffer0, gbuffer1, gbuffer2, gbuffer3];
                 s.DepthStencil = depth;
             });
+            c.ConfigRenderer<DrawDecalConfig>(s =>
+            {
+                s.RenderTargets = [gbuffer0, gbuffer2];
+                s.depthStencil = depth;
+                s.ViewProjection = ViewProjection;
+                s.Visuals = Visuals;
+            });
+            c.ConfigRenderer<HizConfig>(s =>
+            {
+                s.Enable = EnableSSR;
+                s.input = depth;
+                s.output = _HiZBuffer;
+            });
+            c.ConfigRenderer<DeferredShadingConfig>(s =>
+            {
+                s.keywords.Clear();
+                if (directionalLight != null)
+                {
+                    s.keywords.Add(("ENABLE_DIRECTIONAL_LIGHT", "1"));
+                    if (EnableVolumetricLighting)
+                    {
+                        s.keywords.Add(("ENABLE_VOLUME_LIGHTING", "1"));
+                    }
+                }
+                if (pointLights.Count > 0)
+                {
+                    s.keywords.Add(("POINT_LIGHT_COUNT", pointLights.Count.ToString()));
+                    s.pointLightDatas.Clear();
+                    s.pointLightDatas.AddRange(pointLights);
+                }
+                if (EnableRayTracing)
+                {
+                    s.keywords.Add(("RAY_TRACING", "1"));
+                }
+                if (debugKeywords.TryGetValue(DebugRenderType, out string debugKeyword))
+                {
+                    s.keywords.Add((debugKeyword, "1"));
+                }
+                s.cbvs = cbvsFinal;
+                s.EnableSSR = EnableSSR;
+                s.EnableSSAO = EnableSSAO;
+                s.EnableFog = EnableFog;
+                s.UseGI = UseGI;
+                s.NoBackGround = NoBackGround;
+                s.pipelineMaterial = pipelineMaterial;
+                s.RenderTarget = noPostProcess;
+            });
+
+            c.ConfigRenderer<RayTracingConfig>(s =>
+            {
+                s.RayTracing = EnableRayTracing;
+                s.RayTracingGI = UpdateGI;
+                if (!s.RayTracing && !s.RayTracingGI)
+                    return;
+                s.UseGI = UseGI;
+                s.pipelineMaterial = pipelineMaterial;
+                s.renderTarget = gbuffer2;
+                s.directionalLight = directionalLight;
+            });
+
             c.ConfigRendererKeyed<DrawObjectConfig>("transparent", s =>
             {
                 SetDrawObjectConfig(s);
@@ -569,85 +635,35 @@ public partial class ForwardRenderPipeline
                 s.psoDesc.blendState = BlendState.Alpha;
             });
         }
+
+        c.ConfigRenderer<PostProcessingConfig>(s =>
+        {
+            s.EnableBloom = EnableBloom;
+            s.BloomIntensity = BloomIntensity;
+            s.BloomThreshold = BloomThreshold;
+
+            s.inputColor = noPostProcess;
+            s.output = output;
+            s.intermedia1 = intermedia1;
+            s.intermedia2 = intermedia2;
+            s.intermedia3 = intermedia3;
+
+        });
     }
     public void Execute(SuperPipelineConfig s, PipelineContext c)
     {
         renderHelper.PushParameters(this);
-        var s1 = c.Execute<ShadowRenderConfig>();
+        c.Execute<ShadowRenderConfig>();
 
         var p = c.GetResourceProvider<TestResourceProvider>();
 
         if (DeferredRendering)
         {
             c.Execute<DrawGBufferConfig>();
-
-            renderWrap.SetRenderTarget([gbuffer0, gbuffer2], null, false, false);
-            decalPass.viewProj = ViewProjection;
-            decalPass.depthStencil = depth;
-            decalPass.Visuals = Visuals;
-            decalPass.Execute(renderHelper);
-
-
-            var pipelineMaterial = new PipelineMaterial()
-            {
-                gbuffer0 = gbuffer0,
-                gbuffer1 = gbuffer1,
-                gbuffer2 = gbuffer2,
-                gbuffer3 = gbuffer3,
-                _SkyBox = _SkyBox,
-                AspectRatio = AspectRatio,
-                DebugRenderType = DebugRenderType,
-                depth = depth,
-                depth2 = depth2,
-                Far = Far,
-                Fov = Fov,
-                GIBuffer = GIBuffer,
-                GIBufferWrite = GIBufferWrite,
-                LightColor = LightColor,
-                LightDir = LightDir,
-                Near = Near,
-                OutputSize = OutputSize,
-                RandomI = RandomI,
-                RenderScale = RenderScale,
-                ShadowMapVP = ShadowMapVP,
-                ShadowMapVP1 = ShadowMapVP1,
-                _BRDFLUT = _BRDFLUT,
-                _Environment = _Environment,
-                _HiZBuffer = _HiZBuffer,
-                _ShadowMap = s.ShadowMap,
-            };
-
-            if (EnableSSR)
-            {
-                HiZPass.input = depth;
-                HiZPass.output = pipelineMaterial._HiZBuffer;
-                HiZPass.context = renderHelper;
-                HiZPass.Execute();
-            }
-
-
-            if (EnableRayTracing || UpdateGI)
-            {
-                rayTracingPass.RayTracing = EnableRayTracing;
-                rayTracingPass.RayTracingGI = UpdateGI;
-                rayTracingPass.UseGI = UseGI;
-                rayTracingPass.pipelineMaterial = pipelineMaterial;
-                rayTracingPass.renderTarget = gbuffer2;
-                rayTracingPass.Execute(renderHelper);
-            }
-
-            finalPass.EnableSSR = EnableSSR;
-            finalPass.EnableSSAO = EnableSSAO;
-            finalPass.EnableFog = EnableFog;
-            finalPass.UseGI = UseGI;
-            finalPass.NoBackGround = NoBackGround;
-            finalPass.pipelineMaterial = pipelineMaterial;
-            renderWrap.SetRenderTarget(noPostProcess, null, false, false);
-            finalPass.Execute(renderHelper);
-            finalPass.keywords.Clear();
-
-
-
+            c.Execute<DrawDecalConfig>();
+            c.Execute<HizConfig>();
+            c.Execute<RayTracingConfig>();
+            c.Execute<DeferredShadingConfig>();
             c.ExecuteKeyed<DrawObjectConfig>("transparent");
         }
         else
@@ -658,8 +674,7 @@ public partial class ForwardRenderPipeline
         }
 
         c.Execute<TAAConfig>();
-
-        postProcess.Execute(renderHelper);
+        c.Execute<PostProcessingConfig>();
         historyCamera = this.camera;
         renderHelper.PopParameters();
     }

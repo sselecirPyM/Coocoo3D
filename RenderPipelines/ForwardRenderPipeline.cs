@@ -11,26 +11,24 @@ using RenderPipelines.Utility;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Numerics;
 
 namespace RenderPipelines;
 
 [Text(text: "前向渲染")]
 public partial class ForwardRenderPipeline : RenderPipeline, IDisposable
 {
-    //[Size(4096, 4096)]
-    //[Format(ResourceFormat.D32_Float)]
-    //[AutoClear]
-    //public Texture2D _ShadowMap
-    //{
-    //    get => x__ShadowMap;
-    //    set
-    //    {
-    //        x__ShadowMap = value;
-    //        drawObject._ShadowMap = value;
-    //    }
-    //}
-    //Texture2D x__ShadowMap;
+    [Size(4096, 4096)]
+    [Format(ResourceFormat.D32_Float)]
+    [AutoClear]
+    public Texture2D _ShadowMap
+    {
+        get => x__ShadowMap;
+        set
+        {
+            x__ShadowMap = value;
+        }
+    }
+    Texture2D x__ShadowMap;
 
     [Size("Output")]
     [Format(ResourceFormat.R16G16B16A16_Float)]
@@ -40,7 +38,6 @@ public partial class ForwardRenderPipeline : RenderPipeline, IDisposable
         set
         {
             x_noPostProcess = value;
-            postProcess.inputColor = value;
         }
     }
     Texture2D x_noPostProcess;
@@ -65,7 +62,6 @@ public partial class ForwardRenderPipeline : RenderPipeline, IDisposable
         set
         {
             x_intermedia1 = value;
-            postProcess.intermedia1 = value;
         }
     }
     Texture2D x_intermedia1;
@@ -79,7 +75,6 @@ public partial class ForwardRenderPipeline : RenderPipeline, IDisposable
         set
         {
             x_intermedia2 = value;
-            postProcess.intermedia2 = value;
         }
     }
     Texture2D x_intermedia2;
@@ -93,7 +88,6 @@ public partial class ForwardRenderPipeline : RenderPipeline, IDisposable
         set
         {
             x_intermedia3 = value;
-            postProcess.intermedia3 = value;
         }
     }
     Texture2D x_intermedia3;
@@ -134,7 +128,6 @@ public partial class ForwardRenderPipeline : RenderPipeline, IDisposable
         set
         {
             x_output = value;
-            postProcess.output = value;
         }
     }
     Texture2D x_output;
@@ -191,17 +184,6 @@ public partial class ForwardRenderPipeline : RenderPipeline, IDisposable
         }
     }
     Texture2D x_skyboxTexture;
-
-    [UITree()]
-    public PostProcessPass postProcess
-    {
-        get => x_postProcess;
-        set
-        {
-            x_postProcess = value;
-        }
-    }
-    PostProcessPass x_postProcess = new();
 
 
     public RenderHelper context;
@@ -351,13 +333,7 @@ public partial class ForwardRenderPipeline : RenderPipeline, IDisposable
     {
         renderHelper?.Dispose();
         renderHelper = null;
-        postProcess?.Dispose();
-        postProcess = null;
         pipelineContext?.Dispose();
         pipelineContext = null;
-        HiZPass?.Dispose();
-        HiZPass = null;
-        decalPass?.Dispose();
-        decalPass = null;
     }
 }

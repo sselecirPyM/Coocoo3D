@@ -274,16 +274,4 @@ public class RenderPipelineView : IDisposable
             graphicsContext.UpdateDynamicBuffer(dynamicBuffer);
         }
     }
-    public class Texture2DTransfer
-    {
-        public Texture2D texture2D;
-        public Texture2DTransfer(Texture2D texture2D)
-        {
-            this.texture2D = texture2D;
-        }
-        public static implicit operator Texture2D(Texture2DTransfer texture2DTransfer)
-        {
-            return texture2DTransfer.texture2D;
-        }
-    }
 }

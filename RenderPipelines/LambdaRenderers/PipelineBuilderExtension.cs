@@ -1,9 +1,14 @@
 ﻿using Coocoo3D.RenderPipeline;
 using Coocoo3DGraphics;
 using RenderPipelines.LambdaPipe;
+using RenderPipelines.MaterialDefines;
+using RenderPipelines.Utility;
 using System;
+using System.IO;
 using System.Numerics;
 using System.Runtime.InteropServices;
+using Vortice.DXGI;
+using Vortice.Mathematics;
 using static RenderPipelines.LambdaRenderers.TestResourceProvider;
 
 namespace RenderPipelines.LambdaRenderers
@@ -263,6 +268,313 @@ namespace RenderPipelines.LambdaRenderers
 
                     context.Draw(renderable);
                     s.keywords2.Clear();
+                }
+            });
+
+            builder.AddRenderer<DrawDecalConfig>((s, c) =>
+            {
+
+            }, (s, c) =>
+            {
+                var p = c.GetResourceProvider<TestResourceProvider>();
+                var context = p.RenderHelper;
+                var renderWrap = context.renderWrap;
+                renderWrap.SetRenderTarget(CollectionsMarshal.AsSpan(s.RenderTargets), null, false, false);
+
+
+                BoundingFrustum frustum = new(s.ViewProjection);
+
+                Span<byte> bufferData = stackalloc byte[64 + 64 + 16];
+
+                foreach (var visual in s.Visuals)
+                {
+                    if (visual.material.Type != Caprice.Display.UIShowType.Decal)
+                        continue;
+
+                    ref var transform = ref visual.transform;
+
+                    if (!frustum.Intersects(new BoundingSphere(transform.position, transform.scale.Length())))
+                        continue;
+
+                    var decalMaterial = DictExt.ConvertToObject<DecalMaterial>(visual.material.Parameters, context);
+
+                    DrawDecalFlag flag = DrawDecalFlag.None;
+
+                    if (decalMaterial.EnableDecalColor)
+                        flag |= DrawDecalFlag.ENABLE_DECAL_COLOR;
+                    if (decalMaterial.EnableDecalEmissive)
+                        flag |= DrawDecalFlag.ENABLE_DECAL_EMISSIVE;
+
+                    context.SetPSO(p.shader_drawDecal.Get(flag), s.psoDesc);
+
+
+                    Matrix4x4 m = transform.GetMatrix() * s.ViewProjection;
+                    Matrix4x4.Invert(m, out var im);
+                    MemoryMarshal.Write(bufferData.Slice(0), Matrix4x4.Transpose(m));
+                    MemoryMarshal.Write(bufferData.Slice(64), Matrix4x4.Transpose(im));
+                    MemoryMarshal.Write(bufferData.Slice(128), decalMaterial._DecalEmissivePower);
+                    context.SetCBV<byte>(0, bufferData);
+
+                    context.SetSRV(0, s.depthStencil);
+                    context.SetSRV(1, decalMaterial.DecalColorTexture);
+                    context.SetSRV(2, decalMaterial.DecalEmissiveTexture);
+
+                    context.DrawCube();
+                }
+            });
+
+            builder.AddRenderer<HizConfig>((s, c) =>
+            {
+
+            }, (s, c) =>
+            {
+                if (!s.Enable)
+                    return;
+                var p = c.GetResourceProvider<TestResourceProvider>();
+                var context = p.RenderHelper;
+                var renderWrap = context.renderWrap;
+
+
+                context.SetPSO(p.shader_hiz1);
+
+
+                int x = s.input.width;
+                int y = s.input.height;
+                context.SetCBV<int>(0, [x, y]);
+                context.SetSRV(0, s.input);
+                context.SetUAV(0, s.output);
+
+                context.Dispatch((x + 15) / 16, (y + 15) / 16, 1);
+                context.SetPSO(p.shader_hiz2);
+                for (int i = 1; i < 9; i++)
+                {
+                    x = (x + 1) / 2;
+                    y = (y + 1) / 2;
+
+                    context.SetCBV<int>(0, [x, y]);
+                    context.SetSRV(0, s.output, i - 1);
+                    context.SetUAV(0, s.output, i);
+
+                    context.Dispatch((x + 15) / 16, (y + 15) / 16, 1);
+                }
+            });
+
+            builder.AddRenderer<DeferredShadingConfig>((s, c) =>
+            {
+
+            }, (s, c) =>
+            {
+                var p = c.GetResourceProvider<TestResourceProvider>();
+                var context = p.RenderHelper;
+                var renderWrap = context.renderWrap;
+
+                renderWrap.SetRenderTarget(s.RenderTarget, null, false, false);
+
+                var pipelineMaterial = s.pipelineMaterial;
+                var keywords2 = s.keywords2;
+                keywords2.Clear();
+                keywords2.AddRange(s.keywords);
+
+                if (s.EnableFog)
+                    keywords2.Add(("ENABLE_FOG", "1"));
+                if (s.EnableSSAO)
+                    keywords2.Add(("ENABLE_SSAO", "1"));
+                if (s.EnableSSR)
+                    keywords2.Add(("ENABLE_SSR", "1"));
+                if (s.UseGI)
+                    keywords2.Add(("ENABLE_GI", "1"));
+                if (s.NoBackGround)
+                    keywords2.Add(("DISABLE_BACKGROUND", "1"));
+
+                var desc = s.GetPSODesc(renderWrap, s.psoDesc);
+                renderWrap.SetShader(s.shader, desc, keywords2);
+
+                context.SetSRV(0, pipelineMaterial.gbuffer0);
+                context.SetSRV(1, pipelineMaterial.gbuffer1);
+                context.SetSRV(2, pipelineMaterial.gbuffer2);
+                context.SetSRV(3, pipelineMaterial.gbuffer3);
+                context.SetSRV(4, pipelineMaterial._Environment);
+                context.SetSRV(5, pipelineMaterial.depth);
+                context.SetSRV(6, pipelineMaterial._ShadowMap);
+                context.SetSRV(7, pipelineMaterial._SkyBox);
+                context.SetSRV(8, pipelineMaterial._BRDFLUT);
+                context.SetSRV(9, pipelineMaterial._HiZBuffer);
+                context.SetSRV(10, pipelineMaterial.GIBuffer);
+
+
+                context.SetSRV<PointLightData>(11, CollectionsMarshal.AsSpan(s.pointLightDatas));
+
+                var writer = context.Writer;
+                if (s.cbvs != null)
+                    for (int i = 0; i < s.cbvs.Length; i++)
+                    {
+                        object[] cbv1 = s.cbvs[i];
+                        if (cbv1 == null)
+                            continue;
+                        context.Write(cbv1, writer);
+                        writer.SetCBV(i);
+                    }
+                context.DrawQuad();
+                writer.Clear();
+                keywords2.Clear();
+            });
+
+            builder.AddRenderer<PostProcessingConfig>((s, c) =>
+            {
+
+            }, (s, c) =>
+            {
+
+                var p = c.GetResourceProvider<TestResourceProvider>();
+                var context = p.RenderHelper;
+                var renderWrap = context.renderWrap;
+
+                var generateMipPass = p.generateMipPass;
+                var bloomPass = p.bloomPass;
+                var srgbConvert = p.srgbConvert;
+
+                if (s.EnableBloom)
+                {
+                    generateMipPass.input = s.inputColor;
+                    generateMipPass.output = s.intermedia3;
+                    generateMipPass.context = context;
+                    generateMipPass.Execute();
+
+                    int r = 0;
+                    uint n = (uint)(s.inputColor.height / 1024);
+                    while (n > 0)
+                    {
+                        r++;
+                        n >>= 1;
+                    }
+                    bloomPass.intermediaTexture = s.intermedia1;
+                    bloomPass.mipLevel = r;
+                    bloomPass.inputSize = (s.inputColor.width / 2, s.inputColor.height / 2);
+
+                    bloomPass.input = s.intermedia3;
+                    bloomPass.output = s.intermedia2;
+                    bloomPass.BloomThreshold = s.BloomThreshold;
+                    bloomPass.BloomIntensity = s.BloomIntensity;
+                    bloomPass.Execute(context);
+                }
+
+                srgbConvert.inputColor = s.inputColor;//srgbConvert.srvs[0] = inputColor;
+                srgbConvert.inputColor1 = s.intermedia2;//srgbConvert.srvs[1] = "intermedia2";
+
+                renderWrap.SetRenderTarget(s.output, false);
+                srgbConvert.context = context;
+                srgbConvert.Execute();
+            });
+
+            builder.AddRenderer<RayTracingConfig>((s, t) =>
+            {
+
+            }, (s, c) =>
+            {
+                if (!s.RayTracing && !s.RayTracingGI)
+                    return;
+                var p = c.GetResourceProvider<TestResourceProvider>();
+                var context = p.RenderHelper;
+                var renderWrap = context.renderWrap;
+                var pipelineMaterial = s.pipelineMaterial;
+
+                var graphicsContext = renderWrap.graphicsContext;
+
+                var keywords1 = s.keywords1;
+
+                var rayTracingShader = p.GetRayTracingShader();
+
+                keywords1.Clear();
+                if (s.directionalLight != null)
+                {
+                    keywords1.Add(new("ENABLE_DIRECTIONAL_LIGHT", "1"));
+                }
+                if (s.UseGI)
+                {
+                    keywords1.Add(new("ENABLE_GI", "1"));
+                }
+                var rtpso = context.GetRTPSO(keywords1, rayTracingShader,
+                    Path.GetFullPath(rayTracingShader.hlslFile, renderWrap.BasePath));
+
+                if (!graphicsContext.SetPSO(rtpso))
+                    return;
+                var writer = context.Writer;
+
+                var tpas = new RTTopLevelAcclerationStruct();
+                tpas.instances = new();
+                Span<byte> bufferData = stackalloc byte[256];
+                foreach (var renderable in context.Renderables)
+                {
+                    var material = renderable.material;
+
+                    var btas = new RTBottomLevelAccelerationStruct();
+
+                    btas.mesh = renderable.mesh;
+
+                    btas.indexStart = renderable.indexStart;
+                    btas.indexCount = renderable.indexCount;
+                    btas.vertexStart = renderable.vertexStart;
+                    btas.vertexCount = renderable.vertexCount;
+                    var instance = new RTInstance() { blas = btas };
+                    instance.transform = renderable.transform;
+                    instance.hitGroupName = "rayHit";
+                    instance.SRVs = new();
+                    instance.CBVs = new();
+
+                    instance.SRVs.Add(4, material._Albedo);
+                    instance.SRVs.Add(5, material._Metallic);
+                    instance.SRVs.Add(6, material._Roughness);
+                    instance.SRVs.Add(7, material._Emissive);
+
+
+                    MemoryMarshal.Write(bufferData.Slice(0), Matrix4x4.Transpose(renderable.transform));
+                    MemoryMarshal.Write(bufferData.Slice(64), material.Metallic);
+                    MemoryMarshal.Write(bufferData.Slice(64 + 4), material.Roughness);
+                    MemoryMarshal.Write(bufferData.Slice(64 + 8), material.Emissive);
+                    MemoryMarshal.Write(bufferData.Slice(64 + 12), material.Specular);
+                    instance.CBVs.Add(0, bufferData.ToArray());
+                    tpas.instances.Add(instance);
+                }
+
+                int width = s.renderTarget.width;
+                int height = s.renderTarget.height;
+
+                context.Write(RayTracingConfig.cbv0, writer);
+                var cbvData0 = writer.GetData();
+
+
+                RayTracingCall call = new RayTracingCall();
+                call.tpas = tpas;
+                call.UAVs = new();
+                call.SRVs = new();
+                call.CBVs = new();
+                call.missShaders = RayTracingConfig.missShaders;
+
+                call.UAVs[0] = s.renderTarget;
+                call.UAVs[1] = pipelineMaterial.GIBufferWrite;
+
+                call.SRVs[1] = pipelineMaterial._Environment;
+                call.SRVs[2] = pipelineMaterial._BRDFLUT;
+                call.SRVs[3] = pipelineMaterial.depth;
+                call.SRVs[4] = pipelineMaterial.gbuffer0;
+                call.SRVs[5] = pipelineMaterial.gbuffer1;
+                call.SRVs[6] = pipelineMaterial.gbuffer2;
+                call.SRVs[7] = pipelineMaterial._ShadowMap;
+                call.SRVs[8] = pipelineMaterial.GIBuffer;
+
+                call.CBVs.Add(0, cbvData0);
+
+                graphicsContext.BuildAccelerationStruct(tpas);
+                if (s.RayTracingGI)
+                {
+                    call.rayGenShader = "rayGenGI";
+                    graphicsContext.DispatchRays(16, 16, 16, call);
+                    renderWrap.Swap("GIBuffer", "GIBufferWrite");
+                }
+                if (s.RayTracing)
+                {
+                    call.rayGenShader = "rayGen";
+                    graphicsContext.DispatchRays(width, height, 1, call);
                 }
             });
         }

@@ -4,7 +4,6 @@ using Coocoo3D.Present;
 using Coocoo3D.RenderPipeline;
 using Coocoo3D.ResourceWrap;
 using Coocoo3DGraphics;
-using Newtonsoft.Json;
 using RenderPipelines.MaterialDefines;
 using RenderPipelines.Utility;
 using System;
@@ -515,14 +514,6 @@ public class RenderHelper
             }
         }
         return file;
-    }
-
-    public static T ReadJsonStream<T>(Stream stream)
-    {
-        JsonSerializer jsonSerializer = new JsonSerializer();
-        jsonSerializer.NullValueHandling = NullValueHandling.Ignore;
-        using StreamReader reader1 = new StreamReader(stream);
-        return jsonSerializer.Deserialize<T>(new JsonTextReader(reader1));
     }
 
     #endregion
