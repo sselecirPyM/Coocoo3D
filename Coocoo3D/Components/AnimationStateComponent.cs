@@ -7,7 +7,7 @@ namespace Coocoo3D.Components;
 
 public class AnimationStateComponent
 {
-    public string motionPath = "";
+    public MMDMotion motion;
     public bool LockMotion;
     public WeightGroup Weights = new();
 
@@ -70,31 +70,36 @@ public class AnimationStateComponent
     }
 
 
-    void SetBonePoseMotion(List<BoneInstance> bones, float time, MMDMotion motion)
+    void SetBonePoseMotion(MMDRendererComponent renderer, float time, MMDMotion motion)
     {
-        foreach (var bone in bones)
+        foreach (var bone in renderer.bones)
         {
             var keyframe = motion.GetBoneMotion(bone.Name, time);
             bone.rotation = keyframe.Rotation;
             bone.translation = keyframe.Position;
-            bone.EnableIK = keyframe.EnableIK;
             cachedBoneKeyFrames[bone.index] = keyframe;
         }
+        foreach(var bone in renderer.ikBones)
+        {
+            bone.EnableIK = motion.GetIKState(bone.Name, time);
+        }
     }
-    void SetBonePoseDefault(List<BoneInstance> bones)
+    void SetBonePoseDefault(MMDRendererComponent renderer)
     {
-        foreach (var bone in bones)
+        foreach (var bone in renderer.bones)
         {
             var keyframe = new BoneKeyFrame1
             {
                 Position = Vector3.Zero,
-                Rotation = Quaternion.Identity,
-                EnableIK = true
+                Rotation = Quaternion.Identity
             };
             bone.rotation = keyframe.Rotation;
             bone.translation = keyframe.Position;
-            bone.EnableIK = keyframe.EnableIK;
             cachedBoneKeyFrames[bone.index] = keyframe;
+        }
+        foreach (var bone in renderer.ikBones)
+        {
+            bone.EnableIK = true;
         }
     }
     void SetBoneDefaultPose(List<BoneInstance> bones)
@@ -125,9 +130,9 @@ public class AnimationStateComponent
         if (!LockMotion)
         {
             if (motion != null)
-                SetBonePoseMotion(bones, Time, motion);
+                SetBonePoseMotion(renderer, Time, motion);
             else
-                SetBonePoseDefault(bones);
+                SetBonePoseDefault(renderer);
         }
         else
         {

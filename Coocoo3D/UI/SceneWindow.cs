@@ -5,12 +5,11 @@ using Coocoo3D.RenderPipeline;
 using DefaultEcs;
 using ImGuiNET;
 using System;
-using System.IO;
 using System.Numerics;
 
 namespace Coocoo3D.UI;
 
-public class SceneWindow : IWindow
+public class SceneWindow : IWindow2
 {
     public bool Removing { get; private set; }
 
@@ -20,9 +19,11 @@ public class SceneWindow : IWindow
 
     public UIRenderSystem uiRenderSystem;
 
-    public WindowSystem windowSystem;
+    public RenderSystem renderSystem;
 
     public PlatformIO platformIO;
+
+    public SceneExtensionsSystem sceneExtensions;
 
     public void Initialize()
     {
@@ -50,14 +51,25 @@ public class SceneWindow : IWindow
         channel = visualChannel;
     }
 
-    public void OnGui()
+    public void OnGUI()
     {
         bool show = true;
-        if (ImGui.Begin(channel.Name, ref show))
+        if (channel.Name == "main")
         {
-            SceneView(ImGui.GetIO().MouseWheel, mouseMoveDelta);
+            if (ImGui.Begin(channel.Name))
+            {
+                SceneView(ImGui.GetIO().MouseWheel, mouseMoveDelta);
+            }
+            ImGui.End();
         }
-        ImGui.End();
+        else
+        {
+            if (ImGui.Begin(channel.Name, ref show))
+            {
+                SceneView(ImGui.GetIO().MouseWheel, mouseMoveDelta);
+            }
+            ImGui.End();
+        }
         mouseMoveDelta = default(Vector2);
         if (!show)
         {
@@ -83,6 +95,11 @@ public class SceneWindow : IWindow
         Vector2 spaceSize = Vector2.Max(ImGui.GetWindowSize() - new Vector2(20, 40), new Vector2(100, 100));
         channel.sceneViewSize = ((int)spaceSize.X, (int)spaceSize.Y);
         channel.UpdateSize();
+        if (channel.renderPipelineView == null)
+        {
+            channel.SetRenderPipeline(renderSystem.RenderPipelineTypes[0]);
+        }
+        channel.Render();
 
         Vector2 texSize;
         (int x, int y) = channel.outputSize;
@@ -123,7 +140,7 @@ public class SceneWindow : IWindow
             camera.Distance += mouseWheelDelta * 0.6f;
             if (platformIO.dropFile != null)
             {
-                UIImGui.openRequest = new FileInfo(platformIO.dropFile);
+                sceneExtensions.OpenFile(platformIO.dropFile);
             }
         }
     }
@@ -170,7 +187,7 @@ public class SceneWindow : IWindow
                     hasDrag = true;
                 }
             }
-            if (TryGetComponent(obj, out VisualComponent visual) && UIImGui.showBounding)
+            if (TryGetComponent(obj, out VisualComponent visual) && editorContext.showBoundingBox)
             {
                 viewport.mvp = transform.GetMatrix() * vpMatrix;
                 ImGuiExt.DrawCube(drawList, viewport);
@@ -194,7 +211,7 @@ public class SceneWindow : IWindow
     void Remove()
     {
         Removing = true;
-        windowSystem.DelayRemoveVisualChannel(channel.Name);
+        renderSystem.RemoveVisualChannel(channel.Name);
     }
 
     static bool TryGetComponent<T>(Entity obj, out T value)

@@ -1,4 +1,6 @@
-﻿namespace Coocoo3DGraphics;
+﻿using Vortice.Direct3D12;
+
+namespace Coocoo3DGraphics;
 
 public class RTBottomLevelAccelerationStruct
 {
@@ -9,5 +11,5 @@ public class RTBottomLevelAccelerationStruct
     public int indexStart;
     public int indexCount;
     public Mesh mesh;
-    internal int size;
+    internal RaytracingAccelerationStructurePrebuildInfo prebuildInfo;
 }

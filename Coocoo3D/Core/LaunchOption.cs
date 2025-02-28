@@ -3,6 +3,4 @@
 public class LaunchOption
 {
     public string openFile;
-
-    public bool AddLight;
 }

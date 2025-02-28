@@ -7,12 +7,40 @@ namespace Coocoo3D.Components;
 
 public class MMDMotion
 {
+    public string fullPath;
     public Dictionary<string, List<BoneKeyFrame>> BoneKeyFrameSet { get; set; } = new();
     public Dictionary<string, List<MorphKeyFrame>> MorphKeyFrameSet { get; set; } = new();
     public Dictionary<string, List<IKKeyFrame>> IKKeyFrameSet { get; set; } = new();
 
     const float c_framePerSecond = 30;
     public BoneKeyFrame1 GetBoneMotion(string key, float time)
+    {
+        float frame = Math.Max(time * c_framePerSecond, 0);
+        if (!BoneKeyFrameSet.TryGetValue(key, out var keyframeSet) || keyframeSet.Count == 0)
+        {
+            return new(Vector3.Zero, Quaternion.Identity);
+        }
+        if (keyframeSet.Count == 1)
+            return new(keyframeSet[0].translation, keyframeSet[0].rotation);
+
+        int left = 0;
+        int right = keyframeSet.Count - 1;
+        if (keyframeSet[right].Frame < frame)
+            return new(keyframeSet[right].translation, keyframeSet[right].rotation);
+
+        while (right - left > 1)
+        {
+            int mid = (right + left) / 2;
+            if (keyframeSet[mid].Frame > frame)
+                right = mid;
+            else
+                left = mid;
+        }
+        var value1 = ComputeKeyFrame(keyframeSet[left], keyframeSet[right], frame);
+        return new BoneKeyFrame1(value1.Item1, value1.Item2);
+    }
+
+    public bool GetIKState(string key, float time)
     {
         float frame = Math.Max(time * c_framePerSecond, 0);
         bool enableIK = true;
@@ -24,28 +52,7 @@ public class MMDMotion
                     enableIK = iKKeyFrames[i].enable;
             }
         }
-        if (!BoneKeyFrameSet.TryGetValue(key, out var keyframeSet) || keyframeSet.Count == 0)
-        {
-            return new(Vector3.Zero, Quaternion.Identity, enableIK);
-        }
-        if (keyframeSet.Count == 1)
-            return new(keyframeSet[0].translation, keyframeSet[0].rotation, enableIK);
-
-        int left = 0;
-        int right = keyframeSet.Count - 1;
-        if (keyframeSet[right].Frame < frame)
-            return new(keyframeSet[right].translation, keyframeSet[right].rotation, enableIK);
-
-        while (right - left > 1)
-        {
-            int mid = (right + left) / 2;
-            if (keyframeSet[mid].Frame > frame)
-                right = mid;
-            else
-                left = mid;
-        }
-        var value1 = ComputeKeyFrame(keyframeSet[left], keyframeSet[right], frame);
-        return new BoneKeyFrame1(value1.Item1, value1.Item2, enableIK);
+        return enableIK;
     }
 
     (Vector3, Quaternion) ComputeKeyFrame(in BoneKeyFrame _Left, in BoneKeyFrame _Right, float frame)
@@ -56,7 +63,7 @@ public class MMDMotion
         float amountY = GetAmount(_Right.yInterpolator, t);
         float amountZ = GetAmount(_Right.zInterpolator, t);
 
-        return (Lerp(_Left.translation, _Right.translation, new Vector3(amountX, amountY, amountZ)), Quaternion.Slerp(_Left.rotation, _Right.rotation, amountR));
+        return (Lerp(_Left.translation, _Right.translation, new Vector3(amountX, amountY, amountZ)), Quaternion.Normalize(Quaternion.Slerp(_Left.rotation, _Right.rotation, amountR)));
     }
 
     public float GetMorphWeight(string key, float time)

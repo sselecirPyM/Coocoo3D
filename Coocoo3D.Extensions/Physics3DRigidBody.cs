@@ -6,25 +6,9 @@ namespace Coocoo3D.Extensions;
 public class Physics3DRigidBody
 {
     public RigidBody rigidBody;
-    public Vector3 defaultPosition;
-    public Quaternion defaultRotation;
 
-    public Vector3 GetPosition()
-    {
-        rigidBody.MotionState.GetWorldTransform(out var m);
-
-        var matrix = GetMatrix(m);
-        Matrix4x4.Decompose(matrix, out _, out var rot, out var pos);
-        return pos;
-    }
-    public Quaternion GetRotation()
-    {
-        rigidBody.MotionState.GetWorldTransform(out var m);
-
-        var matrix = GetMatrix(m);
-        Matrix4x4.Decompose(matrix, out _, out var rot, out var pos);
-        return rot;
-    }
+    public Matrix4x4 offset;
+    public Matrix4x4 invertOffset;
 
     public Matrix4x4 GetTransform()
     {

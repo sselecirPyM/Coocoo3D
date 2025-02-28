@@ -239,7 +239,7 @@ float4 psmain(PSSkinnedIn input) : SV_TARGET
 		outputColor += NdotL * lightStrength * inShadow * shadeLight(surface, LdotH, NdotH, NdotL, NdotV);
 	}
 #endif //ENABLE_DIRECTIONAL_LIGHT
-#if ENABLE_POINT_LIGHT
+#if POINT_LIGHT_COUNT
 	int shadowmapIndex = 0;
 	for (int i = 0; i < POINT_LIGHT_COUNT; i++, shadowmapIndex += 6)
 	{
@@ -295,7 +295,7 @@ float4 psmain(PSSkinnedIn input) : SV_TARGET
 
 		outputColor += NdotL * lightStrength * inShadow * shadeLight(surface, LdotH, NdotH, NdotL, NdotV);
 	}
-#endif //ENABLE_POINT_LIGHT
+#endif //POINT_LIGHT_COUNT
 #if ENABLE_FOG
 	outputColor = lerp(pow(max(_fogColor , 1e-6),2.2f), outputColor,1 / exp(max((camDist - _startDistance) / 10,0.00001) * _fogDensity));
 #endif

@@ -1,4 +1,5 @@
-﻿using ImGuiNET;
+﻿using Coocoo3D.Core;
+using ImGuiNET;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -6,19 +7,20 @@ using System.Numerics;
 
 namespace Coocoo3D.UI;
 
-public class ResourceWindow : IWindow
+public class ResourceWindow : IWindow2
 {
+    public SceneExtensionsSystem sceneExtensions;
     public bool Removing { get; private set; }
 
-    public void OnGui()
+    public void OnGUI()
     {
         ImGui.SetNextWindowPos(new Vector2(300, 400), ImGuiCond.FirstUseEver);
         ImGui.SetNextWindowSize(new Vector2(500, 300), ImGuiCond.FirstUseEver);
         if (ImGui.Begin("资源"))
         {
             var _openRequest = Resources();
-            if (UIImGui.openRequest == null)
-                UIImGui.openRequest = _openRequest;
+            if (_openRequest != null)
+                sceneExtensions.OpenFile(_openRequest.FullName);
         }
         ImGui.End();
     }
@@ -29,7 +31,16 @@ public class ResourceWindow : IWindow
     {
         if (ImGui.Button("打开文件夹"))
         {
-            UIImGui.requireOpenFolder = true;
+            UIImGui.UITaskQueue.Enqueue(new PlatformIOTask()
+            {
+                type = PlatformIOTaskType.SaveFolder,
+                title = "打开文件夹",
+                callback = (s) =>
+                {
+                    DirectoryInfo folder = new DirectoryInfo(s);
+                    UIImGui.viewRequest = folder;
+                }
+            });
         }
         ImGui.SameLine();
         if (ImGui.Button("刷新"))

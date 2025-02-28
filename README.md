@@ -5,6 +5,8 @@
 
 (远古版本)视频[https://www.bilibili.com/video/BV1p54y127ig/](https://www.bilibili.com/video/BV1p54y127ig/)
 
+联系请在Bilibili上私信或评论
+
 ## 基本功能
 * 加载pmx、glTF模型
 * 加载vmd动作

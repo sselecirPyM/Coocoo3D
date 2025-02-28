@@ -2,6 +2,8 @@
 using Caprice.Display;
 using Coocoo3D.RenderPipeline;
 using Coocoo3DGraphics;
+using RenderPipelines.LambdaPipe;
+using RenderPipelines.LambdaRenderers;
 using RenderPipelines.MaterialDefines;
 using RenderPipelines.Utility;
 using System;
@@ -15,43 +17,69 @@ namespace RenderPipelines;
 
 public partial class ForwardRenderPipeline
 {
-    public DrawSkyBoxPass drawSkyBox = new DrawSkyBoxPass();
-
-    public DrawShadowMap drawShadowMap = new DrawShadowMap();
-
-    public DrawObjectPass drawObject = new DrawObjectPass()
+    object[] CBVPerPass = new object[]
     {
-        shader = "ForwardRender.hlsl",
-        psoDesc = new PSODesc()
-        {
-            blendState = BlendState.None,
-            cullMode = CullMode.None,
-        },
-        CBVPerPass = new object[]
+        nameof(ViewProjection),
+        nameof(View),
+        nameof(CameraPosition),
+        nameof(Brightness),
+        nameof(Far),
+        nameof(Near),
+        nameof(Fov),
+        nameof(AspectRatio),
+        nameof(ShadowMapVP),
+        nameof(ShadowMapVP1),
+        nameof(LightDir),
+        0,
+        nameof(LightColor),
+        0,
+        nameof(SkyLightMultiple),
+        nameof(FogColor),
+        nameof(FogDensity),
+        nameof(FogStartDistance),
+        nameof(FogEndDistance),
+        nameof(CameraLeft),
+        nameof(CameraDown),
+        nameof(Split),
+        nameof(GIVolumePosition),
+        nameof(GIVolumeSize),
+    };
+
+    object[][] cbvsFinal = new object[][]
+    {
+        new object []
         {
             nameof(ViewProjection),
-            nameof(View),
-            nameof(CameraPosition),
-            nameof(Brightness),
+            nameof(InvertViewProjection),
             nameof(Far),
             nameof(Near),
             nameof(Fov),
             nameof(AspectRatio),
+            nameof(CameraPosition),
+            nameof(SkyLightMultiple),
+            nameof(FogColor),
+            nameof(FogDensity),
+            nameof(FogStartDistance),
+            nameof(FogEndDistance),
+            nameof(OutputSize),
+            nameof(Brightness),
+            nameof(VolumetricLightingSampleCount),
+            nameof(VolumetricLightingDistance),
+            nameof(VolumetricLightingIntensity),
             nameof(ShadowMapVP),
             nameof(ShadowMapVP1),
             nameof(LightDir),
             0,
             nameof(LightColor),
             0,
-            nameof(SkyLightMultiple),
-            nameof(FogColor),
-            nameof(FogDensity),
-            nameof(FogStartDistance),
-            nameof(FogEndDistance),
-            nameof(CameraLeft),
-            nameof(CameraDown),
+            nameof(GIVolumePosition),
+            nameof(AODistance),
+            nameof(GIVolumeSize),
+            nameof(AOLimit),
+            nameof(AORaySampleCount),
+            nameof(RandomI),
             nameof(Split),
-        },
+        }
     };
 
     [Indexable]
@@ -90,6 +118,13 @@ public partial class ForwardRenderPipeline
     [Indexable]
     public float FogEndDistance = 100000;
 
+
+    [UIShow(name: "启用TAA抗锯齿")]
+    public bool EnableTAA;
+
+    [UIDragFloat(0.01f, name: "TAA混合系数")]
+    public float TAAFactor = 0.3f;
+
     [Indexable]
     public float Far;
     [Indexable]
@@ -113,6 +148,164 @@ public partial class ForwardRenderPipeline
     [Indexable]
     public int Split;
 
+
+    [UIShow(name: "延迟渲染"), Indexable]
+    public bool DeferredRendering;
+    #region deferred
+
+    [Size("Output")]
+    [Format(ResourceFormat.R16G16B16A16_Float)]
+    [AutoClear]
+    public Texture2D gbuffer0
+    {
+        get => x_gbuffer0;
+        set
+        {
+            x_gbuffer0 = value;
+        }
+    }
+    Texture2D x_gbuffer0;
+
+    [Size("Output")]
+    [Format(ResourceFormat.R16G16B16A16_Float)]
+    [AutoClear]
+    public Texture2D gbuffer1
+    {
+        get => x_gbuffer1;
+        set
+        {
+            x_gbuffer1 = value;
+        }
+    }
+    Texture2D x_gbuffer1;
+
+    [Size("Output")]
+    [Format(ResourceFormat.R16G16B16A16_Float)]
+    [AutoClear]
+    public Texture2D gbuffer2
+    {
+        get => x_gbuffer2;
+        set
+        {
+            x_gbuffer2 = value;
+        }
+    }
+    Texture2D x_gbuffer2;
+
+    [Size("Output")]
+    [Format(ResourceFormat.R16G16B16A16_Float)]
+    [AutoClear]
+    public Texture2D gbuffer3
+    {
+        get => x_gbuffer3;
+        set
+        {
+            x_gbuffer3 = value;
+        }
+    }
+    Texture2D x_gbuffer3;
+
+    [Size(2048, 2048, 9)]
+    [Format(ResourceFormat.R32G32_Float)]
+    [AutoClear]
+    public Texture2D _HiZBuffer
+    {
+        get => x__HiZBuffer;
+        set
+        {
+            x__HiZBuffer = value;
+        }
+    }
+    Texture2D x__HiZBuffer;
+
+    [Size("GIBufferSize")]
+    public GPUBuffer GIBuffer
+    {
+        get => x_GIBuffer;
+        set
+        {
+            x_GIBuffer = value;
+        }
+    }
+    GPUBuffer x_GIBuffer = new();
+
+    [Size("GIBufferSize")]
+    public GPUBuffer GIBufferWrite
+    {
+        get => x_GIBufferWrite;
+        set
+        {
+            x_GIBufferWrite = value;
+        }
+    }
+    GPUBuffer x_GIBufferWrite = new();
+
+    [UIShow(name: "启用体积光"), Indexable]
+    public bool EnableVolumetricLighting;
+
+    [UIDragInt(1, 1, 256, name: "体积光采样次数"), Indexable]
+    public int VolumetricLightingSampleCount = 16;
+
+    [UIDragFloat(0.1f, name: "体积光距离"), Indexable]
+    public float VolumetricLightingDistance = 12;
+
+    [UIDragFloat(0.1f, name: "体积光强度"), Indexable]
+    public float VolumetricLightingIntensity = 0.001f;
+
+    [UIShow(name: "启用SSAO"), Indexable]
+    public bool EnableSSAO;
+
+    [UIDragFloat(0.1f, 0, name: "AO距离"), Indexable]
+    public float AODistance = 1;
+
+    [UIDragFloat(0.01f, 0.1f, name: "AO限制"), Indexable]
+    public float AOLimit = 0.3f;
+
+    [UIDragInt(1, 0, 128, name: "AO光线采样次数"), Indexable]
+    public int AORaySampleCount = 32;
+
+    [UIShow(name: "启用屏幕空间反射"), Indexable]
+    public bool EnableSSR;
+
+
+    [UIShow(name: "启用光线追踪")]
+    public bool EnableRayTracing;
+
+    [UIDragFloat(0.01f, 0, 5, name: "光线追踪反射质量"), Indexable]
+    public float RayTracingReflectionQuality = 1.0f;
+
+    [UIDragFloat(0.01f, 0, 1.0f, name: "光线追踪反射阈值"), Indexable]
+    public float RayTracingReflectionThreshold = 0.5f;
+
+    [UIShow(name: "更新全局光照")]
+    public bool UpdateGI;
+
+    [UIDragFloat(1.0f, name: "全局光照位置"), Indexable]
+    public Vector3 GIVolumePosition = new Vector3(0, 2.5f, 0);
+
+    [UIDragFloat(1.0f, name: "全局光照范围"), Indexable]
+    public Vector3 GIVolumeSize = new Vector3(20, 5, 20);
+
+    [UIShow(name: "使用全局光照"), Indexable]
+    public bool UseGI;
+    [UIShow(name: "无背景"), Indexable]
+    public bool NoBackGround;
+
+    [Indexable]
+    public (int, int) OutputSize;
+    [Indexable]
+    public int RandomI;
+    #endregion
+
+
+    [UIShow(name: "启用泛光")]
+    public bool EnableBloom;
+
+    [UIDragFloat(0.01f, name: "泛光阈值")]
+    public float BloomThreshold = 1.05f;
+    [UIDragFloat(0.01f, name: "泛光强度")]
+    public float BloomIntensity = 0.1f;
+
     public List<PointLightData> pointLights = new List<PointLightData>();
 
     public void SetCamera(CameraData camera)
@@ -134,11 +327,31 @@ public partial class ForwardRenderPipeline
         CameraBack = Vector3.Transform(-Vector3.UnitZ, rotateMatrix);
     }
 
-    public void Execute(RenderHelper renderHelper)
+
+    public void Config(SuperPipelineConfig s, PipelineContext c)
     {
-        RenderWrap renderWrap = renderHelper.renderWrap;
+        var camera = this.camera;
+        if (EnableTAA)
+        {
+            Vector2 jitterVector = new Vector2((float)(random.NextDouble() * 2 - 1) / outputWidth, (float)(random.NextDouble() * 2 - 1) / outputHeight);
+            camera = camera.GetJitter(jitterVector);
+        }
+        c.ConfigRenderer<TAAConfig>(s =>
+        {
+            s.EnableTAA = EnableTAA;
+            s.target = noPostProcess;
+            s.depth = depth;
+            s.history = noPostProcess2;
+            s.historyDepth = depth2;
+            s.DebugRenderType = DebugRenderType;
+            s.camera = this.camera;
+            s.historyCamera = historyCamera;
+        });
+
+        this.SetCamera(camera);
 
         BoundingFrustum frustum = new BoundingFrustum(ViewProjection);
+
 
         pointLights.Clear();
 
@@ -182,11 +395,10 @@ public partial class ForwardRenderPipeline
         if (directionalLight != null)
         {
             var dl = directionalLight;
-            ShadowMapVP = dl.GetLightingMatrix(InvertViewProjection, 0, 0.93f);
-            ShadowMapVP1 = dl.GetLightingMatrix(InvertViewProjection, 0.93f, 0.991f);
+            ShadowMapVP = dl.GetLightingMatrix(InvertViewProjection, ShadowNearDistance, ShadowMidDistance);
+            ShadowMapVP1 = dl.GetLightingMatrix(InvertViewProjection, ShadowMidDistance, ShadowFarDistance);
             LightDir = dl.Direction;
             LightColor = dl.Color;
-            drawObject.keywords.Add(("ENABLE_DIRECTIONAL_LIGHT", "1"));
         }
         else
         {
@@ -196,62 +408,275 @@ public partial class ForwardRenderPipeline
             LightColor = Vector3.Zero;
         }
 
-        //renderHelper.PushParameters(this);
-        if (directionalLight != null)
-        {
-            var shadowMap = _ShadowMap;
-            drawShadowMap.viewProjection = ShadowMapVP;
-            var rect = new Rectangle(0, 0, shadowMap.width / 2, shadowMap.height / 2);
-            renderWrap.SetRenderTargetDepth(shadowMap, false);
-            renderHelper.SetScissorRectAndViewport(rect.Left, rect.Top, rect.Right, rect.Bottom);
-
-            drawShadowMap.Execute(renderHelper);
-            drawShadowMap.viewProjection = ShadowMapVP1;
-            rect = new Rectangle(shadowMap.width / 2, 0, shadowMap.width / 2, shadowMap.height / 2);
-            renderHelper.SetScissorRectAndViewport(rect.Left, rect.Top, rect.Right, rect.Bottom);
-
-            drawShadowMap.Execute(renderHelper);
-        }
         Split = ShadowSize(pointLights.Count * 6);
 
-        if (pointLights.Count > 0)
-        {
-            var pointLightDatas = CollectionsMarshal.AsSpan(pointLights);
-            var rawData = MemoryMarshal.AsBytes(pointLightDatas).ToArray();
-            DrawPointShadow(renderHelper, pointLightDatas);
+        var resourceProvider = c.GetResourceProvider<TextureResourceProvider>();
 
-            //drawObject.CBVPerObject[1] = (rawData, pointLights.Count * 32);
-            drawObject.additionalSRV[11] = rawData;
-            drawObject.keywords.Add(("ENABLE_POINT_LIGHT", "1"));
-            drawObject.keywords.Add(("POINT_LIGHT_COUNT", pointLights.Count.ToString()));
+        c.ConfigRenderer<ShadowRenderConfig>(s =>
+        {
+            s.viewports.Clear();
+            s.renderables.Clear();
+            s.renderables.AddRange(renderHelper.Renderables);
+
+            if (directionalLight != null)
+            {
+                s.viewports.Add(new RenderDepthToViewport()
+                {
+                    viewProjection = ShadowMapVP,
+                    RenderTarget = _ShadowMap,
+                    Rectangle = new Rectangle(0, 0, _ShadowMap.width / 2, _ShadowMap.height / 2)
+                });
+                s.viewports.Add(new RenderDepthToViewport()
+                {
+                    viewProjection = ShadowMapVP1,
+                    RenderTarget = _ShadowMap,
+                    Rectangle = new Rectangle(_ShadowMap.width / 2, 0, _ShadowMap.width / 2, _ShadowMap.height / 2)
+                });
+            }
+
+            if (pointLights.Count > 0)
+            {
+                int index = 0;
+                int width = _ShadowMap.width;
+                int height = _ShadowMap.height;
+                foreach (var pl in pointLights)
+                {
+                    var lightRange = pl.Range;
+                    float near = lightRange * 0.001f;
+                    float far = lightRange;
+
+                    foreach (var val in directions)
+                    {
+                        s.viewports.Add(new RenderDepthToViewport()
+                        {
+                            viewProjection = GetShadowMapMatrix(pl.Position, val.Item1, val.Item2, near, far),
+                            RenderTarget = _ShadowMap,
+                            Rectangle = GetViewportScissorRectangle(index, Split, width, height)
+                        });
+                        index++;
+                    }
+                }
+            }
+        });
+
+
+        void SetDrawObjectConfig(DrawObjectConfig s)
+        {
+            s.keywords.Clear();
+            s.keywords2.Clear();
+            s.additionalSRV.Clear();
+            if (directionalLight != null)
+                s.keywords.Add(("ENABLE_DIRECTIONAL_LIGHT", "1"));
+            if (pointLights.Count > 0)
+            {
+                var pointLightDatas = CollectionsMarshal.AsSpan(pointLights);
+                var rawData = MemoryMarshal.AsBytes(pointLightDatas).ToArray();
+
+                s.additionalSRV[11] = rawData;
+                s.keywords.Add(("POINT_LIGHT_COUNT", pointLights.Count.ToString()));
+            }
+            if (debugKeywords.TryGetValue(DebugRenderType, out string debugKeyword))
+            {
+                s.keywords.Add((debugKeyword, "1"));
+            }
+            if (UseGI)
+            {
+                s.keywords.Add(("ENABLE_GI", "1"));
+                s.additionalSRV[9] = GIBuffer;
+            }
+            if (EnableFog)
+                s.keywords.Add(("ENABLE_FOG", "1"));
+
+            s.shader = "ForwardRender.hlsl";
+            s.CBVPerPass = CBVPerPass;
+            s._ShadowMap = _ShadowMap;
+            s._BRDFLUT = _BRDFLUT;
+            s._Environment = _Environment;
+            s.RenderTargets = [noPostProcess];
+            s.DepthStencil = depth;
+            s.psoDesc = new PSODesc()
+            {
+                blendState = BlendState.None,
+                cullMode = CullMode.None,
+            };
         }
 
-        if (debugKeywords.TryGetValue(DebugRenderType, out string debugKeyword))
+        if (DeferredRendering)
         {
-            drawObject.keywords.Add((debugKeyword, "1"));
+            OutputSize = (noPostProcess.width, noPostProcess.height);
+
+            var pipelineMaterial = new PipelineMaterial()
+            {
+                gbuffer0 = gbuffer0,
+                gbuffer1 = gbuffer1,
+                gbuffer2 = gbuffer2,
+                gbuffer3 = gbuffer3,
+                _SkyBox = _SkyBox,
+                AspectRatio = AspectRatio,
+                DebugRenderType = DebugRenderType,
+                depth = depth,
+                depth2 = depth2,
+                Far = Far,
+                Fov = Fov,
+                GIBuffer = GIBuffer,
+                GIBufferWrite = GIBufferWrite,
+                LightColor = LightColor,
+                LightDir = LightDir,
+                Near = Near,
+                OutputSize = OutputSize,
+                RandomI = RandomI,
+                RenderScale = RenderScale,
+                ShadowMapVP = ShadowMapVP,
+                ShadowMapVP1 = ShadowMapVP1,
+                _BRDFLUT = _BRDFLUT,
+                _Environment = _Environment,
+                _HiZBuffer = _HiZBuffer,
+                _ShadowMap = _ShadowMap,
+            };
+            var random = Random.Shared;
+            RandomI = random.Next();
+
+            c.ConfigRenderer<DrawGBufferConfig>(s =>
+            {
+                s.CameraLeft = CameraLeft;
+                s.CameraDown = CameraDown;
+                s.viewProjection = ViewProjection;
+                s.RenderTargets = [gbuffer0, gbuffer1, gbuffer2, gbuffer3];
+                s.DepthStencil = depth;
+            });
+            c.ConfigRenderer<DrawDecalConfig>(s =>
+            {
+                s.RenderTargets = [gbuffer0, gbuffer2];
+                s.depthStencil = depth;
+                s.ViewProjection = ViewProjection;
+                s.Visuals = Visuals;
+            });
+            c.ConfigRenderer<HizConfig>(s =>
+            {
+                s.Enable = EnableSSR;
+                s.input = depth;
+                s.output = _HiZBuffer;
+            });
+            c.ConfigRenderer<DeferredShadingConfig>(s =>
+            {
+                s.keywords.Clear();
+                if (directionalLight != null)
+                {
+                    s.keywords.Add(("ENABLE_DIRECTIONAL_LIGHT", "1"));
+                    if (EnableVolumetricLighting)
+                    {
+                        s.keywords.Add(("ENABLE_VOLUME_LIGHTING", "1"));
+                    }
+                }
+                if (pointLights.Count > 0)
+                {
+                    s.keywords.Add(("POINT_LIGHT_COUNT", pointLights.Count.ToString()));
+                    s.pointLightDatas.Clear();
+                    s.pointLightDatas.AddRange(pointLights);
+                }
+                if (EnableRayTracing)
+                {
+                    s.keywords.Add(("RAY_TRACING", "1"));
+                }
+                if (debugKeywords.TryGetValue(DebugRenderType, out string debugKeyword))
+                {
+                    s.keywords.Add((debugKeyword, "1"));
+                }
+                s.cbvs = cbvsFinal;
+                s.EnableSSR = EnableSSR;
+                s.EnableSSAO = EnableSSAO;
+                s.EnableFog = EnableFog;
+                s.UseGI = UseGI;
+                s.NoBackGround = NoBackGround;
+                s.pipelineMaterial = pipelineMaterial;
+                s.RenderTarget = noPostProcess;
+            });
+
+            c.ConfigRenderer<RayTracingConfig>(s =>
+            {
+                s.RayTracing = EnableRayTracing;
+                s.RayTracingGI = UpdateGI;
+                if (!s.RayTracing && !s.RayTracingGI)
+                    return;
+                s.UseGI = UseGI;
+                s.pipelineMaterial = pipelineMaterial;
+                s.renderTarget = gbuffer2;
+                s.directionalLight = directionalLight;
+            });
+
+            c.ConfigRendererKeyed<DrawObjectConfig>("transparent", s =>
+            {
+                SetDrawObjectConfig(s);
+                s.DrawOpaque = false;
+                s.DrawTransparent = true;
+                s.psoDesc.blendState = BlendState.Alpha;
+            });
         }
-        renderWrap.SetRenderTarget(noPostProcess, false);
-        drawSkyBox.InvertViewProjection = InvertViewProjection;
-        drawSkyBox.CameraPosition = CameraPosition;
-        drawSkyBox.SkyLightMultiple = SkyLightMultiple * Brightness;
-        drawSkyBox.skybox = _SkyBox;
-        drawSkyBox.Execute(renderHelper);
+        else
+        {
+            c.ConfigRenderer<SkyboxRenderConfig>(s =>
+            {
+                s.skybox = _SkyBox;
+                s.RenderTarget = noPostProcess;
+                s.SkyLightMultiple = SkyLightMultiple * Brightness;
+                s.camera = this.camera;
+            });
+            c.ConfigRendererKeyed<DrawObjectConfig>("opaque", s =>
+            {
+                SetDrawObjectConfig(s);
+                s.DrawOpaque = true;
+                s.DrawTransparent = false;
+            });
+            c.ConfigRendererKeyed<DrawObjectConfig>("transparent", s =>
+            {
+                SetDrawObjectConfig(s);
+                s.DrawOpaque = false;
+                s.DrawTransparent = true;
+                s.psoDesc.blendState = BlendState.Alpha;
+            });
+        }
 
-        drawObject.EnableFog = EnableFog;
-        renderWrap.SetRenderTarget(noPostProcess, depth, false, false);
-        drawObject.DrawOpaque = true;
-        drawObject.DrawTransparent = false;
-        drawObject.psoDesc.blendState = BlendState.None;
-        drawObject.Execute(renderHelper);
+        c.ConfigRenderer<PostProcessingConfig>(s =>
+        {
+            s.EnableBloom = EnableBloom;
+            s.BloomIntensity = BloomIntensity;
+            s.BloomThreshold = BloomThreshold;
 
-        drawObject.DrawOpaque = false;
-        drawObject.DrawTransparent = true;
-        drawObject.psoDesc.blendState = BlendState.Alpha;
-        drawObject.Execute(renderHelper);
+            s.inputColor = noPostProcess;
+            s.output = output;
+            s.intermedia1 = intermedia1;
+            s.intermedia2 = intermedia2;
+            s.intermedia3 = intermedia3;
 
-        //renderHelper.PopParameters();
+        });
+    }
+    public void Execute(SuperPipelineConfig s, PipelineContext c)
+    {
+        renderHelper.PushParameters(this);
+        c.Execute<ShadowRenderConfig>();
 
-        drawObject.keywords.Clear();
+        var p = c.GetResourceProvider<TestResourceProvider>();
+
+        if (DeferredRendering)
+        {
+            c.Execute<DrawGBufferConfig>();
+            c.Execute<DrawDecalConfig>();
+            c.Execute<HizConfig>();
+            c.Execute<RayTracingConfig>();
+            c.Execute<DeferredShadingConfig>();
+            c.ExecuteKeyed<DrawObjectConfig>("transparent");
+        }
+        else
+        {
+            c.Execute<SkyboxRenderConfig>();
+            c.ExecuteKeyed<DrawObjectConfig>("opaque");
+            c.ExecuteKeyed<DrawObjectConfig>("transparent");
+        }
+
+        c.Execute<TAAConfig>();
+        c.Execute<PostProcessingConfig>();
+        historyCamera = this.camera;
+        renderHelper.PopParameters();
     }
 
     static Matrix4x4 GetShadowMapMatrix(Vector3 pos, Vector3 dir, Vector3 up, float near, float far)
@@ -260,7 +685,7 @@ public partial class ForwardRenderPipeline
          * Matrix4x4.CreatePerspectiveFieldOfView(1.57079632679f, 1, near, far);
     }
 
-    static void SetViewportScissorRectangle(RenderHelper context, int index, int split, int width, int height)
+    static Rectangle GetViewportScissorRectangle(int index, int split, int width, int height)
     {
         float xOffset = (float)(index % split) / split;
         float yOffset = (float)(index / split) / split;
@@ -272,10 +697,10 @@ public partial class ForwardRenderPipeline
         int sizeY1 = (int)(height * size);
 
         var rect = new Rectangle(x, y, sizeX1, sizeY1);
-        context.SetScissorRectAndViewport(rect.Left, rect.Top, rect.Right, rect.Bottom);
+        return rect;
     }
 
-    static readonly (Vector3, Vector3)[] table =
+    static readonly (Vector3, Vector3)[] directions =
     {
         (new Vector3(1, 0, 0), new Vector3(0, -1, 0)),
         (new Vector3(-1, 0, 0), new Vector3(0, 1, 0)),
@@ -284,29 +709,6 @@ public partial class ForwardRenderPipeline
         (new Vector3(0, 0, 1), new Vector3(-1, 0, 0)),
         (new Vector3(0, 0, -1), new Vector3(1, 0, 0))
     };
-    void DrawPointShadow(RenderHelper renderHelper, Span<PointLightData> pointLightDatas)
-    {
-        RenderWrap renderWrap = renderHelper.renderWrap;
-        int index = 0;
-        var shadowMap = _ShadowMap;
-        renderWrap.SetRenderTargetDepth(shadowMap, false);
-        int width = shadowMap.width;
-        int height = shadowMap.height;
-        foreach (var pl in pointLightDatas)
-        {
-            var lightRange = pl.Range;
-            float near = lightRange * 0.001f;
-            float far = lightRange;
-
-            foreach (var val in table)
-            {
-                drawShadowMap.viewProjection = GetShadowMapMatrix(pl.Position, val.Item1, val.Item2, near, far);
-                SetViewportScissorRectangle(renderHelper, index, Split, width, height);
-                drawShadowMap.Execute(renderHelper);
-                index++;
-            }
-        }
-    }
 
     static int ShadowSize(int v)
     {
@@ -318,7 +720,7 @@ public partial class ForwardRenderPipeline
         return pointLightSplit;
     }
 
-    static Dictionary<DebugRenderType, string> debugKeywords = new Dictionary<DebugRenderType, string>()
+    static readonly Dictionary<DebugRenderType, string> debugKeywords = new Dictionary<DebugRenderType, string>()
     {
         { DebugRenderType.Albedo,"DEBUG_ALBEDO"},
         { DebugRenderType.AO,"DEBUG_AO"},

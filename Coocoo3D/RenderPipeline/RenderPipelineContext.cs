@@ -23,20 +23,46 @@ public class RenderPipelineContext : IDisposable
     public double Time;
     public double DeltaTime;
     public double RealDeltaTime;
+    public CameraData CameraData;
     #region Collect data
 
     public List<MMDRendererComponent> renderers = new();
     public List<MeshRendererComponent> meshRenderers = new();
     public List<VisualComponent> visuals = new();
 
+    public List<Entity> entities = new List<Entity>();
+
     public void FrameBegin()
     {
+        entities.Clear();
+        entities.AddRange(scene.gameObjects.Values);
+
         renderers.Clear();
-        renderers.AddRange(scene.renderers);
+        //renderers.AddRange(scene.renderers);
         meshRenderers.Clear();
-        meshRenderers.AddRange(scene.meshRenderers);
+        //meshRenderers.AddRange(scene.meshRenderers);
         visuals.Clear();
-        visuals.AddRange(scene.visuals);
+        //visuals.AddRange(scene.visuals);
+        foreach(var entity in entities)
+        {
+            if (TryGetComponent(entity, out MMDRendererComponent renderer))
+            {
+                renderer.SetTransform(entity.Get<Transform>());
+                renderers.Add(renderer);
+            }
+            if (TryGetComponent(entity, out MeshRendererComponent meshRenderer))
+            {
+                meshRenderer.transform = entity.Get<Transform>();
+                meshRenderers.Add(meshRenderer);
+            }
+            if (TryGetComponent(entity, out VisualComponent visual))
+            {
+                visual.transform = entity.Get<Transform>();
+                visuals.Add(visual);
+            }
+        }
+
+
 
         foreach (var visual in visuals)
         {
@@ -49,7 +75,7 @@ public class RenderPipelineContext : IDisposable
             if (bone == null)
                 continue;
             Vector3 pos1 = visual.transform.position;
-            bone.GetPosRot(out var pos, out var rot);
+            bone.GetPositionRotation(out var pos, out var rot);
             Vector3 pos2 = new Vector3(visual.bindX ? 0 : pos1.X, visual.bindY ? 0 : pos1.Y, visual.bindZ ? 0 : pos1.Z);
 
             Vector3 position = pos + Vector3.Transform(pos1, rot);

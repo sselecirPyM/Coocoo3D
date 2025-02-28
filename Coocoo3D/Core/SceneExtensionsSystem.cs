@@ -1,7 +1,9 @@
-﻿using Coocoo3D.RenderPipeline;
-using System;
+﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.ComponentModel.Composition.Hosting;
 using System.IO;
+using System.Reflection;
 
 namespace Coocoo3D.Core;
 
@@ -12,8 +14,9 @@ public abstract class ISceneExtension
 }
 public class SceneExtensionsSystem : IDisposable
 {
-    public MainCaches mainCaches;
     public EngineContext engineContext;
+
+    public ConcurrentQueue<string> loadFiles = new ConcurrentQueue<string>();
 
     public void Initialize()
     {
@@ -24,6 +27,25 @@ public class SceneExtensionsSystem : IDisposable
         {
             engineContext.FillProperties(system);
             engineContext.InitializeObject(system);
+        }
+    }
+
+    public void OpenFile(string path)
+    {
+        loadFiles.Enqueue(path);
+    }
+
+    public void ProcessFileLoad()
+    {
+        while(loadFiles.TryDequeue(out var file))
+        {
+            foreach(var loader in engineContext.extensionFactory.FileLoaders)
+            {
+                if (loader.Load(file))
+                {
+                    break;
+                }
+            }
         }
     }
 
@@ -50,16 +72,26 @@ public class SceneExtensionsSystem : IDisposable
     {
         try
         {
-            var extensions = mainCaches.GetDerivedTypes(Path.GetFullPath(path), typeof(ISceneExtension));
+            var extensions = GetInstances<ISceneExtension>(Path.GetFullPath(path));
             foreach (var ext in extensions)
             {
-                sceneExtensions.Add((ISceneExtension)Activator.CreateInstance(ext));
+                sceneExtensions.Add((ISceneExtension)ext);
             }
         }
         catch (Exception e)
         {
 
         }
+    }
+
+    private List<T> GetInstances<T>(string path)
+    {
+        var cat = new AssemblyCatalog(Assembly.LoadFrom(path));
+        CompositionContainer container = new CompositionContainer(cat);
+
+        var exports = container.GetExportedValues<T>();
+        List<T> instances = new List<T>(exports);
+        return instances;
     }
 
     public void Dispose()

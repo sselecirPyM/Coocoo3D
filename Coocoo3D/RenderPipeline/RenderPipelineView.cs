@@ -26,7 +26,7 @@ public class RenderPipelineView : IDisposable
     }
 
     internal Dictionary<AOVType, Texture2D> AOVs = new();
-    internal Dictionary<string, RenderTextureUsage> RenderTextures = new();
+    public Dictionary<string, RenderTextureUsage> RenderTextures = new();
     internal HashSet<Texture2D> internalTextures = new();
 
     internal Dictionary<string, (MemberInfo, SceneCaptureAttribute)> sceneCaptures = new();
@@ -272,18 +272,6 @@ public class RenderPipelineView : IDisposable
         {
             dynamicBuffer.size = width;
             graphicsContext.UpdateDynamicBuffer(dynamicBuffer);
-        }
-    }
-    public class Texture2DTransfer
-    {
-        public Texture2D texture2D;
-        public Texture2DTransfer(Texture2D texture2D)
-        {
-            this.texture2D = texture2D;
-        }
-        public static implicit operator Texture2D(Texture2DTransfer texture2DTransfer)
-        {
-            return texture2DTransfer.texture2D;
         }
     }
 }

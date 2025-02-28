@@ -66,10 +66,10 @@ internal sealed class RingBuffer : IDisposable
         var range = GetUploadRegion(_size, out var srcOffset);
         data.CopyTo(range);
 
-        DelayCopyTo(resource, srcOffset, _size, dst, dstOffset);
+        CopyCommand(resource, srcOffset, _size, dst, dstOffset);
     }
 
-    public void DelayCopyTo(ID3D12Resource src, int srcOffset, int _size, ID3D12Resource dst, int dstOffset)
+    public void CopyCommand(ID3D12Resource src, int srcOffset, int _size, ID3D12Resource dst, int dstOffset)
     {
         var copyCommanding = new CopyCommanding
         {
@@ -93,7 +93,6 @@ internal sealed class RingBuffer : IDisposable
 
     unsafe Span<byte> GetUploadRegion(int size, out int offset)
     {
-        //size = (size + 255) & ~255;
         size = (size + 63) & ~63;
         offset = RingBufferAllocate(size);
         IntPtr result = mapped + offset;

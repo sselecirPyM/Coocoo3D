@@ -299,7 +299,7 @@ float3 Shade1(in SurfaceInfo surface, float3 wPos, float3 V, float3 emissive, fl
 		}
 	}
 #endif//ENABLE_DIRECTIONAL_LIGHT
-#if ENABLE_POINT_LIGHT
+#if POINT_LIGHT_COUNT
 	int shadowmapIndex = 0;
 	for (int i = 0; i < POINT_LIGHT_COUNT; i++, shadowmapIndex += 6)
 	{
@@ -618,8 +618,12 @@ float4 psmain(PSIn input) : SV_TARGET
 		surface.diffuse = diffuse;
 		surface.specular = specular;
 		surface.roughness = roughness;
-		surface.alpha = roughness * roughness;
-		surface.normal = N;
+        surface.alpha = roughness * roughness;
+        surface.normal = N;
+   //     if (dot(N, V) > 0)
+			//surface.normal = N;
+   //     else
+   //         surface.normal = -N;
 #if ENABLE_SSAO
 		uint randomState = RNG::RandomSeed(sx.x + sx.y * 2048 + g_RandomI);
 		if (AOFactor != 0)

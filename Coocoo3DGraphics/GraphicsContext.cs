@@ -88,6 +88,11 @@ public sealed class GraphicsContext
         return true;
     }
 
+    public void BuildBLAS(RTBottomLevelAccelerationStruct blas)
+    {
+
+    }
+
     public void BuildAccelerationStruct(RTTopLevelAcclerationStruct accelerationStruct)
     {
         if (accelerationStruct.initialized)
@@ -113,7 +118,7 @@ public sealed class GraphicsContext
 
         foreach (var instance in instances)
         {
-            var inputs = GetBLASInputs(instance);
+            var inputs = GetBLASInputs(instance.blas);
             var info = graphicsDevice.device.GetRaytracingAccelerationStructurePrebuildInfo(inputs);
             info.ScratchDataSizeInBytes = (info.ScratchDataSizeInBytes + 255) & ~255uL;
             info.ResultDataMaxSizeInBytes = (info.ResultDataMaxSizeInBytes + 255) & ~255uL;
@@ -137,8 +142,8 @@ public sealed class GraphicsContext
                 m_commandList.ResourceBarrierUnorderedAccessView(resource);
             }
 
-            instance.accelerationStruct.GPUVirtualAddress = startAddress;
-            BuildAS(inputs.Item1, graphicsDevice.scratchResource.GPUVirtualAddress + scratchSizeUsed, instance.accelerationStruct.GPUVirtualAddress);
+            instance.blas.GPUVirtualAddress = startAddress;
+            BuildAS(inputs.Item1, graphicsDevice.scratchResource.GPUVirtualAddress + scratchSizeUsed, instance.blas.GPUVirtualAddress);
             startAddress += inputs.Item2.ResultDataMaxSizeInBytes;
             scratchSizeUsed += inputs.Item2.ScratchDataSizeInBytes;
         }
@@ -149,7 +154,7 @@ public sealed class GraphicsContext
         for (int i = 0; i < instances.Count; i++)
         {
             var instance = instances[i];
-            var btas = instance.accelerationStruct;
+            var btas = instance.blas;
             int instantID = i;
             raytracingInstanceDescriptions[i] = new RaytracingInstanceDescription
             {
@@ -167,16 +172,15 @@ public sealed class GraphicsContext
         BuildAS(tlInputs, graphicsDevice.scratchResource.GPUVirtualAddress, accelerationStruct.GPUVirtualAddress);
     }
 
-    BuildRaytracingAccelerationStructureInputs GetBLASInputs(RTInstance instance)
+    BuildRaytracingAccelerationStructureInputs GetBLASInputs(RTBottomLevelAccelerationStruct blas)
     {
         string POSITION = "POSITION0";
-        var btas = instance.accelerationStruct;
-        var mesh = btas.mesh;
+        var mesh = blas.mesh;
 
         var indexBuffer = mesh.GetIndexBuffer();
         var positionBuffer = mesh.GetVertexBuffer(POSITION);
 
-        ulong position = positionBuffer.vertexBufferView.BufferLocation + (ulong)btas.vertexStart * 12;
+        ulong position = positionBuffer.vertexBufferView.BufferLocation + (ulong)blas.vertexStart * 12;
 
 
         if (positionBuffer.resource != null)
@@ -192,11 +196,11 @@ public sealed class GraphicsContext
                 new RaytracingGeometryDescription(new RaytracingGeometryTrianglesDescription(
                     new GpuVirtualAddressAndStride(position, 12),
                     Format.R32G32B32_Float,
-                    btas.vertexCount,
+                    blas.vertexCount,
                     0,
-                    indexBuffer.GPUVirtualAddress + (ulong)btas.indexStart * 4,
+                    indexBuffer.GPUVirtualAddress + (ulong)blas.indexStart * 4,
                     Format.R32_UInt,
-                    btas.indexCount),RaytracingGeometryFlags.Opaque),
+                    blas.indexCount),RaytracingGeometryFlags.Opaque),
             }
         };
     }
@@ -244,7 +248,7 @@ public sealed class GraphicsContext
         {
             if (inst.hitGroupName != null)
             {
-                var blas = inst.accelerationStruct;
+                var blas = inst.blas;
                 var mesh = blas.mesh;
                 var indexBuffer = mesh.GetIndexBuffer();
                 writer.Write(GetShaderIdentifier(pRtsoProps, inst.hitGroupName));

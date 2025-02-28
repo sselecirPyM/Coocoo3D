@@ -14,7 +14,7 @@ public class RenderWrap
 
     public RenderPipelineContext rpc { get; set; }
 
-    public GraphicsContext graphicsContext { get => rpc.graphicsContext; }
+    public GraphicsContext graphicsContext;
 
     public string BasePath { get => RenderPipelineView.path; }
 
@@ -97,11 +97,6 @@ public class RenderWrap
         return null;
     }
 
-    public Texture2D GetTex2DLoaded(string name)
-    {
-        return rpc.mainCaches.GetTextureLoaded(Path.GetFullPath(name, BasePath), graphicsContext);
-    }
-
     public void SetShader(string path, PSODesc desc, IReadOnlyList<(string, string)> keywords = null)
     {
         var cache = rpc.mainCaches;
@@ -146,7 +141,7 @@ public class RenderWrap
         graphicsContext.SetRTVDSV(target, depth, Vector4.Zero, clearRT, clearDepth);
     }
 
-    public void SetRenderTarget(Texture2D[] target, Texture2D depth, bool clearRT, bool clearDepth)
+    public void SetRenderTarget(ReadOnlySpan<Texture2D> target, Texture2D depth, bool clearRT, bool clearDepth)
     {
         _renderTargets.Clear();
         _renderTargets.AddRange(target);

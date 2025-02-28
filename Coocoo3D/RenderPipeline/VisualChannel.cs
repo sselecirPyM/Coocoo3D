@@ -1,7 +1,10 @@
 ﻿using Caprice.Attributes;
+using Coocoo3D.Core;
 using Coocoo3D.Present;
+using Coocoo3D.Utility;
 using Coocoo3DGraphics;
 using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace Coocoo3D.RenderPipeline;
@@ -10,6 +13,11 @@ public enum ResolusionSizeSource
 {
     Default = 0,
     Custom = 1,
+}
+
+public interface IVisualChannelAttach
+{
+    public void OnRender(VisualChannel visualChannel);
 }
 public class VisualChannel : IDisposable
 {
@@ -22,44 +30,37 @@ public class VisualChannel : IDisposable
     public (int, int) sceneViewSize = (100, 100);
 
     public RenderPipelineView renderPipelineView;
-
-    public Type newRenderPipelineType;
-    public string newRenderPipelinePath;
+    public RenderPipelineContext context;
+    public EngineContext engineContext;
 
     public bool disposed;
 
-    public void Onframe(float time)
+    public HashSet<IVisualChannelAttach> attaches = new HashSet<IVisualChannelAttach>();
+
+    public void Attach(IVisualChannelAttach attach)
     {
-        if (newRenderPipelineType != null)
-        {
-            renderPipelineView?.Dispose();
-
-            SetRenderPipeline((RenderPipeline)Activator.CreateInstance(newRenderPipelineType), newRenderPipelinePath);
-            newRenderPipelineType = null;
-        }
-
-        if (camera.CameraMotionOn)
-            camera.SetCameraMotion(time);
-        cameraData = camera.GetCameraData();
-
-        if (renderPipelineView != null)
-            renderPipelineView.renderPipeline.renderWrap.outputSize = outputSize;
+        attaches.Remove(attach);
+        attaches.Add(attach);
+    }
+    public void Detach(IVisualChannelAttach attach)
+    {
+        attaches.Remove(attach);
     }
 
-    public void DelaySetRenderPipeline(Type type)
+    public void SetRenderPipeline(Type type)
     {
-        newRenderPipelinePath = Path.GetDirectoryName(type.Assembly.Location);
-        this.newRenderPipelineType = type;
-    }
+        this.renderPipelineView?.Dispose();
 
-    void SetRenderPipeline(RenderPipeline renderPipeline, string basePath)
-    {
-        var renderPipelineView = new RenderPipelineView(renderPipeline, MainCaches, basePath);
-        this.renderPipelineView = renderPipelineView;
+        RenderPipeline renderPipeline = (RenderPipeline)Activator.CreateInstance(type);
+        string basePath = Path.GetDirectoryName(type.Assembly.Location);
+
+        this.renderPipelineView = new RenderPipelineView(renderPipeline, MainCaches, basePath);
+        engineContext.FillProperties(renderPipelineView);
         var renderWrap = new RenderWrap()
         {
             RenderPipelineView = renderPipelineView,
         };
+        engineContext.FillProperties(renderWrap);
         renderPipeline.renderWrap = renderWrap;
         renderPipelineView.renderWrap = renderWrap;
     }
@@ -73,6 +74,53 @@ public class VisualChannel : IDisposable
         camera.AspectRatio = x / y;
     }
 
+    public void Render()
+    {
+        if (camera.CameraMotionOn)
+            camera.SetCameraMotion((float)context.Time);
+        cameraData = camera.GetCameraData();
+
+        renderPipelineView.renderPipeline.renderWrap.outputSize = outputSize;
+        var renderPipeline = renderPipelineView.renderPipeline;
+        renderPipeline.renderWrap.rpc = context;
+        foreach (var cap in renderPipelineView.sceneCaptures)
+        {
+            var member = cap.Value.Item1;
+            var captureAttribute = cap.Value.Item2;
+            switch (captureAttribute.Capture)
+            {
+                case "Camera":
+                    member.SetValue(renderPipeline, cameraData);
+                    break;
+                case "Time":
+                    member.SetValue(renderPipeline, context.Time);
+                    break;
+                case "DeltaTime":
+                    member.SetValue(renderPipeline, context.DeltaTime);
+                    break;
+                case "RealDeltaTime":
+                    member.SetValue(renderPipeline, context.RealDeltaTime);
+                    break;
+                case "Recording":
+                    member.SetValue(renderPipeline, context.recording);
+                    break;
+                case "Visual":
+                    member.SetValue(renderPipeline, context.visuals);
+                    break;
+            }
+        }
+
+        renderPipelineView.renderPipeline.BeforeRender();
+        renderPipelineView.PrepareRenderResources();
+        renderPipelineView.renderPipeline.Render();
+        renderPipelineView.renderPipeline.AfterRender();
+
+        foreach(var attach in attaches)
+        {
+            attach.OnRender(this);
+        }
+    }
+
     public Texture2D GetAOV(AOVType type)
     {
         return renderPipelineView?.GetAOV(type);
@@ -80,7 +128,18 @@ public class VisualChannel : IDisposable
 
     public void Dispose()
     {
-        renderPipelineView?.Dispose();
+        if (disposed)
+            return;
+        foreach (var attach in attaches)
+        {
+            if (attach is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+        }
+        attaches.Clear();
+
         disposed = true;
+        renderPipelineView?.Dispose();
     }
 }

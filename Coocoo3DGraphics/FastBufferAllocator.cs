@@ -175,7 +175,7 @@ class FastBufferAllocator : IDisposable
         _offset = dstOffset;
     }
 
-    internal void GetTemporaryBuffer(int size,out ID3D12Resource resource, out int _offset, out ulong gpuAddress)
+    internal void GetTemporaryBuffer(int size, out ID3D12Resource resource, out int _offset, out ulong gpuAddress)
     {
         var buffer = buffers[frameIndex];
         Allocate(buffer, size, 4, out _offset, out gpuAddress);

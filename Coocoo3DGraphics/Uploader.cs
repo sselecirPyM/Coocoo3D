@@ -12,12 +12,6 @@ public class Uploader
 
     public byte[] m_data;
 
-    public void Texture2DRaw(Span<byte> rawData, Format format, int width, int height, int mipLevel = 1)
-    {
-        m_data = new byte[rawData.Length];
-        rawData.CopyTo(m_data);
-        Texture2DRawLessCopy(m_data, format, width, height, mipLevel);
-    }
     public void Texture2DRawLessCopy(byte[] rawData, Format format, int width, int height, int mipLevel)
     {
         m_width = width;
