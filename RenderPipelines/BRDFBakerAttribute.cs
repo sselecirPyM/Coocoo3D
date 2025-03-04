@@ -8,13 +8,13 @@ namespace RenderPipelines;
 
 public class BRDFBakerAttribute : RuntimeBakeAttribute, ITexture2DBaker, IDisposable
 {
-    public bool Bake(Texture2D texture, RenderWrap renderWrap, ref object tag)
+    public bool Bake(Texture2D texture, RenderPipelineView view, ref object tag)
     {
-        renderWrap.SetRenderTarget(texture, true);
-        renderWrap.graphicsContext.SetCBVRSlot(0, [texture.width, texture.height]);
-        renderWrap.SetUAV(0, texture);
-        renderWrap.SetPSO(shader_BRDFLUT);
-        renderWrap.Dispatch((texture.width + 7) / 8, (texture.height + 7) / 8, 6);
+        view.SetRenderTarget(texture, true);
+        view.graphicsContext.SetCBVRSlot(0, [texture.width, texture.height]);
+        view.SetUAV(0, texture);
+        view.SetPSO(shader_BRDFLUT);
+        view.Dispatch((texture.width + 7) / 8, (texture.height + 7) / 8, 6);
         return true;
     }
 

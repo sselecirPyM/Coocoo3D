@@ -92,7 +92,6 @@ public partial class ForwardRenderPipeline : RenderPipeline, IDisposable
     }
     Texture2D x_intermedia3;
 
-    [AOV(AOVType.Depth)]
     [Size("Output")]
     [Format(ResourceFormat.D32_Float)]
     [AutoClear]
@@ -118,7 +117,6 @@ public partial class ForwardRenderPipeline : RenderPipeline, IDisposable
     }
     Texture2D x_depth2;
 
-    [AOV(AOVType.Color)]
     [Size("UnscaledOutput")]
     [Format(ResourceFormat.R8G8B8A8_UNorm)]
     [AutoClear]
@@ -253,7 +251,7 @@ public partial class ForwardRenderPipeline : RenderPipeline, IDisposable
     {
 
         renderHelper ??= new RenderHelper();
-        renderHelper.renderWrap = renderWrap;
+        renderHelper.renderPipelineView = renderPipelineView;
         renderHelper.renderPipeline = this;
         renderHelper.UpdateGPUResource();
         renderHelper.UpdateRenderables();
@@ -278,16 +276,19 @@ public partial class ForwardRenderPipeline : RenderPipeline, IDisposable
         }
         pipelineContext.BeforeRender();
 
-        renderWrap.GetOutputSize(out outputWidth, out outputHeight);
-        renderWrap.SetSize("UnscaledOutput", outputWidth, outputHeight);
+        renderPipelineView.GetOutputSize(out outputWidth, out outputHeight);
+        renderPipelineView.SetSize("UnscaledOutput", outputWidth, outputHeight);
         outputWidth = (int)(outputWidth * RenderScale);
         outputHeight = (int)(outputHeight * RenderScale);
-        renderWrap.SetSize("Output", outputWidth, outputHeight);
-        renderWrap.SetSize("HalfOutput", (outputWidth + 1) / 2, (outputHeight + 1) / 2);
-        renderWrap.SetSize("QuarterOutput", (outputWidth + 3) / 4, (outputHeight + 3) / 4);
-        renderWrap.SetSize("BloomSize", outputWidth * 256 / outputHeight, 256);
-        renderWrap.SetSize("GIBufferSize", 589824, 1);
-        renderWrap.texError = renderWrap.rpc.mainCaches.GetTextureLoaded(Path.GetFullPath("error.png", renderWrap.BasePath));
+        renderPipelineView.SetSize("Output", outputWidth, outputHeight);
+        renderPipelineView.SetSize("HalfOutput", (outputWidth + 1) / 2, (outputHeight + 1) / 2);
+        renderPipelineView.SetSize("QuarterOutput", (outputWidth + 3) / 4, (outputHeight + 3) / 4);
+        renderPipelineView.SetSize("BloomSize", outputWidth * 256 / outputHeight, 256);
+        renderPipelineView.SetSize("GIBufferSize", 589824, 1);
+        renderPipelineView.texError = renderPipelineView.rpc.mainCaches.GetTextureLoaded(Path.GetFullPath("error.png", renderPipelineView.BasePath));
+
+        renderPipelineView.SetAOV(AOVType.Color, output);
+        renderPipelineView.SetAOV(AOVType.Depth, depth);
     }
 
     public override void Render()

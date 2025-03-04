@@ -15,7 +15,7 @@ namespace RenderPipelines.LambdaRenderers
             if (_rayTracingShader != null)
                 return _rayTracingShader;
 
-            var path1 = Path.GetFullPath("RayTracing.json", RenderHelper.renderWrap.BasePath);
+            var path1 = Path.GetFullPath("RayTracing.json", RenderHelper.renderPipelineView.BasePath);
             using var filestream = File.OpenRead(path1);
             _rayTracingShader = ReadJsonStream<RayTracingShader>(filestream);
             return _rayTracingShader;

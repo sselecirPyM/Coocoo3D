@@ -8,17 +8,8 @@ using System.Numerics;
 
 namespace Coocoo3D.RenderPipeline;
 
-public class RenderWrap
+partial class RenderPipelineView
 {
-    public RenderPipelineView RenderPipelineView { get; set; }
-
-    public RenderPipelineContext rpc { get; set; }
-
-    public GraphicsContext graphicsContext;
-
-    public string BasePath { get => RenderPipelineView.path; }
-
-    public (int, int) outputSize;
 
     public void GetOutputSize(out int width, out int height)
     {
@@ -27,7 +18,7 @@ public class RenderWrap
 
     public void SetSize(string key, int width, int height)
     {
-        var texs = RenderPipelineView.RenderTextures.Values.Where(u =>
+        var texs = RenderTextures.Values.Where(u =>
         {
             return u.sizeAttribute != null && u.sizeAttribute.Source == key;
         });
@@ -90,7 +81,7 @@ public class RenderWrap
     {
         if (string.IsNullOrEmpty(name))
             return null;
-        if (RenderPipelineView.RenderTextures.TryGetValue(name, out var usage) && usage.memberInfo.GetGetterType() == typeof(Texture2D))
+        if (RenderTextures.TryGetValue(name, out var usage) && usage.memberInfo.GetGetterType() == typeof(Texture2D))
         {
             return usage.GetTexture2D();
         }
@@ -159,29 +150,5 @@ public class RenderWrap
     public void Dispatch(int x = 1, int y = 1, int z = 1)
     {
         graphicsContext.Dispatch(x, y, z);
-    }
-
-    public void Swap(string renderTexture1, string renderTexture2)
-    {
-        var rts = RenderPipelineView.RenderTextures;
-        rts.TryGetValue(renderTexture1, out var rt1);
-        rts.TryGetValue(renderTexture2, out var rt2);
-        if (rt1.width == rt2.width && rt1.height == rt2.height && rt1.resourceFormat == rt2.resourceFormat
-            && rt1.depth == rt2.depth && rt1.mips == rt2.mips && rt1.arraySize == rt2.arraySize)
-        {
-            Texture2D tex1 = rt1.GetTexture2D();
-            Texture2D tex2 = rt2.GetTexture2D();
-            if (tex1 != null && tex2 != null)
-            {
-                rt1.memberInfo.SetValue(RenderPipelineView.renderPipeline, tex2);
-                rt2.memberInfo.SetValue(RenderPipelineView.renderPipeline, tex1);
-            }
-            else if (rt1.gpuBuffer != null && rt2.gpuBuffer != null)
-            {
-                (rt1.gpuBuffer, rt2.gpuBuffer) = (rt2.gpuBuffer, rt1.gpuBuffer);
-                rt1.memberInfo.SetValue(RenderPipelineView.renderPipeline, rt1.gpuBuffer);
-                rt2.memberInfo.SetValue(RenderPipelineView.renderPipeline, rt2.gpuBuffer);
-            }
-        }
     }
 }

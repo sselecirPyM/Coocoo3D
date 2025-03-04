@@ -26,8 +26,8 @@ namespace RenderPipelines.LambdaRenderers
 
         public PSODesc GetPSODesc(RenderHelper renderHelper, PSODesc desc)
         {
-            var rtvs = renderHelper.renderWrap.RenderTargets;
-            var dsv = renderHelper.renderWrap.depthStencil;
+            var rtvs = renderHelper.renderPipelineView.RenderTargets;
+            var dsv = renderHelper.renderPipelineView.depthStencil;
             desc.rtvFormat = rtvs.Count > 0 ? rtvs[0].GetFormat() : Vortice.DXGI.Format.Unknown;
             desc.dsvFormat = dsv == null ? Vortice.DXGI.Format.Unknown : dsv.GetFormat();
             desc.renderTargetCount = rtvs.Count;

@@ -30,13 +30,11 @@ public class RenderHelper
 
     public Dictionary<MMDRendererComponent, Mesh> meshOverrides = new();
 
-    public RenderWrap renderWrap;
+    public RenderPipelineView renderPipelineView;
 
-    GraphicsContext graphicsContext => renderWrap.graphicsContext;
+    GraphicsContext graphicsContext => renderPipelineView.graphicsContext;
 
     bool resourcesInitialized;
-
-    public IEnumerable<MMDRendererComponent> MMDRenderers => renderWrap.rpc.renderers;
 
     public List<MeshRenderable<ModelMaterial>> Renderables = new List<MeshRenderable<ModelMaterial>>();
 
@@ -48,7 +46,7 @@ public class RenderHelper
 
     IEnumerable<MeshRenderable<T>> MeshRenderables<T>() where T : class, new()
     {
-        RenderPipelineContext rpc = renderWrap.rpc;
+        RenderPipelineContext rpc = renderPipelineView.rpc;
         foreach (var renderer in rpc.renderers)
         {
             var model = renderer.model;
@@ -109,15 +107,15 @@ public class RenderHelper
             4,7,5,
             4,6,7,
         });
-        var graphicsContext = renderWrap.graphicsContext;
+        var graphicsContext = renderPipelineView.graphicsContext;
         graphicsContext.UploadMesh(quadMesh);
         graphicsContext.UploadMesh(cubeMesh);
-        _BasePath = renderWrap.BasePath;
+        _BasePath = renderPipelineView.BasePath;
     }
 
     public void UpdateGPUResource()
     {
-        Writer.graphicsContext = renderWrap.graphicsContext;
+        Writer.graphicsContext = renderPipelineView.graphicsContext;
         Writer.Clear();
         if (!resourcesInitialized)
             InitializeResources();
@@ -128,7 +126,7 @@ public class RenderHelper
     SkinningCompute skinningCompute = new SkinningCompute();
     void Morph()
     {
-        RenderPipelineContext rpc = renderWrap.rpc;
+        RenderPipelineContext rpc = renderPipelineView.rpc;
         var renderers = rpc.renderers;
 
         for (int i = 0; i < renderers.Count; i++)
@@ -136,7 +134,7 @@ public class RenderHelper
             renderers[i].WriteMatriticesData();
         }
 
-        var graphicsContext = rpc.graphicsContext;
+        var graphicsContext = renderPipelineView.graphicsContext;
         meshPool.Reset();
         meshOverrides.Clear();
 
@@ -184,7 +182,7 @@ public class RenderHelper
     {
         if (!resourcesInitialized)
             InitializeResources();
-        var graphicsContext = renderWrap.graphicsContext;
+        var graphicsContext = renderPipelineView.graphicsContext;
         graphicsContext.SetMesh(quadMesh);
         graphicsContext.DrawIndexedInstanced(6, instanceCount, 0, 0, 0);
     }
@@ -193,14 +191,14 @@ public class RenderHelper
     {
         if (!resourcesInitialized)
             InitializeResources();
-        var graphicsContext = renderWrap.graphicsContext;
+        var graphicsContext = renderPipelineView.graphicsContext;
         graphicsContext.SetMesh(cubeMesh);
         graphicsContext.DrawIndexedInstanced(36, instanceCount, 0, 0, 0);
     }
 
     public void Draw<T>(MeshRenderable<T> renderable)
     {
-        renderWrap.graphicsContext.DrawIndexed(renderable.indexCount, renderable.indexStart, renderable.vertexStart);
+        renderPipelineView.graphicsContext.DrawIndexed(renderable.indexCount, renderable.indexStart, renderable.vertexStart);
     }
 
     public void DrawIndexedInstanced(int indexCountPerInstance, int instanceCount, int startIndexLocation, int baseVertexLocation, int startInstanceLocation)
@@ -522,7 +520,7 @@ public class RenderHelper
 
     public void SetPSO(PSO pso, PSODesc desc)
     {
-        var renderTargets = renderWrap.RenderTargets;
+        var renderTargets = renderPipelineView.RenderTargets;
         if (pso.pixelShader != null && renderTargets.Count > 0)
             desc.rtvFormat = renderTargets[0].GetFormat();
         else

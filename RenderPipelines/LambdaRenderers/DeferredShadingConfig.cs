@@ -7,9 +7,9 @@ namespace RenderPipelines.LambdaRenderers
 {
     public class DeferredShadingConfig
     {
-        public PSODesc GetPSODesc(RenderWrap renderWrap, PSODesc desc)
+        public PSODesc GetPSODesc(RenderPipelineView view, PSODesc desc)
         {
-            var rtvs = renderWrap.RenderTargets;
+            var rtvs = view.RenderTargets;
             desc.rtvFormat = rtvs[0].GetFormat();
             desc.renderTargetCount = rtvs.Count;
 

@@ -4,7 +4,7 @@ namespace Coocoo3D.RenderPipeline;
 
 public abstract class RenderPipeline
 {
-    public RenderWrap renderWrap;
+    public RenderPipelineView renderPipelineView;
 
     public abstract void BeforeRender();
     public abstract void Render();

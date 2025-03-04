@@ -32,8 +32,6 @@ public class MainCaches : IDisposable
     List<IResourceLoader<MMDMotion>> motionLoaders = new List<IResourceLoader<MMDMotion>>();
     public Dictionary<string, MMDMotion> motionCaches = new Dictionary<string, MMDMotion>();
 
-    public GameDriverContext gameDriverContext;
-
     public EngineContext engineContext;
 
     public GraphicsContext graphicsContext1;
@@ -87,7 +85,6 @@ public class MainCaches : IDisposable
         syncProxyQueue.Enqueue(call);
     }
 
-    Queue<string> textureLoadQueue = new();
     public void OnFrame()
     {
         long cost = 0;

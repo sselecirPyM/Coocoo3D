@@ -8,34 +8,34 @@ namespace RenderPipelines;
 
 internal class CubeFrom2DAttribute : RuntimeBakeAttribute, ITexture2DBaker, IDisposable
 {
-    public bool Bake(Texture2D texture, RenderWrap renderWrap, ref object tag)
+    public bool Bake(Texture2D texture, RenderPipelineView view, ref object tag)
     {
-        var input = renderWrap.GetRenderTexture2D(Source);
+        var input = view.GetRenderTexture2D(Source);
         if (input == null || input.Status != GraphicsObjectStatus.loaded)
             return false;
 
         int width = texture.width;
         int height = texture.height;
 
-        renderWrap.graphicsContext.SetCBVRSlot<int>(0, [width, height]);
+        view.graphicsContext.SetCBVRSlot<int>(0, [width, height]);
 
-        renderWrap.SetSRV(0, input);
-        renderWrap.SetUAV(0, texture, 0);
-        renderWrap.SetPSO(shader_ConvertToCube);
-        renderWrap.Dispatch(width / 8, height / 8, 6);
+        view.SetSRV(0, input);
+        view.SetUAV(0, texture, 0);
+        view.SetPSO(shader_ConvertToCube);
+        view.Dispatch(width / 8, height / 8, 6);
 
         int x = width;
         int y = height;
-        renderWrap.SetPSO(shader_GenerateCubeMipMap);
+        view.SetPSO(shader_GenerateCubeMipMap);
         for (int i = 1; i < texture.mipLevels; i++)
         {
             x /= 2;
             y /= 2;
-            renderWrap.SetSRVMip(0, texture, i - 1);
-            renderWrap.SetUAV(0, texture, i);
+            view.SetSRVMip(0, texture, i - 1);
+            view.SetUAV(0, texture, i);
 
-            renderWrap.graphicsContext.SetCBVRSlot<int>(0, [x, y]);
-            renderWrap.Dispatch(x / 8, y / 8, 6);
+            view.graphicsContext.SetCBVRSlot<int>(0, [x, y]);
+            view.Dispatch(x / 8, y / 8, 6);
         }
         return true;
     }

@@ -8,9 +8,9 @@ namespace RenderPipelines;
 
 public class EnvironmentReflectionAttribute : RuntimeBakeAttribute, ITexture2DBaker, IDisposable
 {
-    public bool Bake(Texture2D texture, RenderWrap renderWrap, ref object tag)
+    public bool Bake(Texture2D texture, RenderPipelineView renderPipelineView, ref object tag)
     {
-        var tex = renderWrap.GetRenderTexture2D(Source);
+        var tex = renderPipelineView.GetRenderTexture2D(Source);
         if (tex == null || tex.Status != GraphicsObjectStatus.loaded)
             return false;
 
@@ -23,7 +23,7 @@ public class EnvironmentReflectionAttribute : RuntimeBakeAttribute, ITexture2DBa
         int width = texture.width;
         int height = texture.height;
         var writer = new GPUWriter();
-        writer.graphicsContext = renderWrap.graphicsContext;
+        writer.graphicsContext = renderPipelineView.graphicsContext;
 
         int roughnessLevel = 5;
 
@@ -42,22 +42,16 @@ public class EnvironmentReflectionAttribute : RuntimeBakeAttribute, ITexture2DBa
             writer.Write(face);
             writer.SetCBV(0);
 
-            renderWrap.SetSRV(0, tex);
-            renderWrap.SetUAV(0, texture, mipLevel);
-
-
-            //if (mipLevel != roughnessLevel)
-            //    renderWrap.Dispatch("PreFilterEnv.hlsl", null, width / 8 / pow2a, height / 8 / pow2a, 6);
-            //else
-            //    renderWrap.Dispatch("IrradianceMap.hlsl", null, width / 8 / pow2a, height / 8 / pow2a, 6);
+            renderPipelineView.SetSRV(0, tex);
+            renderPipelineView.SetUAV(0, texture, mipLevel);
 
 
             if (mipLevel != roughnessLevel)
-                renderWrap.SetPSO(shader_PreFilterEnv);
+                renderPipelineView.SetPSO(shader_PreFilterEnv);
             else
-                renderWrap.SetPSO(shader_IrradianceMap);
+                renderPipelineView.SetPSO(shader_IrradianceMap);
 
-            renderWrap.Dispatch(width / 8 / pow2a, height / 8 / pow2a, 6);
+            renderPipelineView.Dispatch(width / 8 / pow2a, height / 8 / pow2a, 6);
 
             currentQuality++;
         }

@@ -1,7 +1,6 @@
 ﻿using Coocoo3D.Components;
 using Coocoo3D.Core;
 using Coocoo3D.Present;
-using Coocoo3DGraphics;
 using DefaultEcs;
 using System;
 using System.Collections.Generic;
@@ -14,9 +13,6 @@ public class RenderPipelineContext : IDisposable
     public Scene scene;
 
     public MainCaches mainCaches;
-
-    public GraphicsDevice graphicsDevice;
-    public GraphicsContext graphicsContext = new();
 
     public bool recording = false;
 
@@ -106,10 +102,6 @@ public class RenderPipelineContext : IDisposable
     }
 
     #endregion
-    public void Initialize()
-    {
-        graphicsContext.Initialize(graphicsDevice);
-    }
 
     public void Dispose()
     {

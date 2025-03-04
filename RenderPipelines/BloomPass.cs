@@ -1,4 +1,5 @@
-﻿using Coocoo3DGraphics;
+﻿using Coocoo3D.RenderPipeline;
+using Coocoo3DGraphics;
 using RenderPipelines.Utility;
 using System;
 using System.Numerics;
@@ -180,9 +181,9 @@ void csmain(uint3 dtid : SV_DispatchThreadID, uint groupIndex : SV_GroupIndex)
 //#endif
 """, "csmain");
 
-    public void Execute(RenderHelper renderHelper)
+    public void Execute(RenderPipelineView renderPipelineView)
     {
-        var renderWrap = renderHelper.renderWrap;
+        var view = renderPipelineView;
 
         Span<float> cbv1 = stackalloc float[6];
 
@@ -194,25 +195,25 @@ void csmain(uint3 dtid : SV_DispatchThreadID, uint groupIndex : SV_GroupIndex)
         cbv1[1] = 0;
         cbv1[2] = x;
         cbv1[3] = (float)inputSize.Item2 / input.height / intermediaSize.Y;
-        renderWrap.graphicsContext.SetCBVRSlot<float>(0, cbv1);
+        view.graphicsContext.SetCBVRSlot<float>(0, cbv1);
 
 
-        renderWrap.SetSRVMip(0, input, mipLevel);
-        renderWrap.SetUAV(0, intermediaTexture);
-        renderWrap.SetPSO(shader_bloom.Get(Keyword_Bloom.BLOOM_1));
-        renderWrap.Dispatch((intermediaTexture.width + 63) / 64, intermediaTexture.height);
+        view.SetSRVMip(0, input, mipLevel);
+        view.SetUAV(0, intermediaTexture);
+        view.SetPSO(shader_bloom.Get(Keyword_Bloom.BLOOM_1));
+        view.Dispatch((intermediaTexture.width + 63) / 64, intermediaTexture.height);
 
         cbv1[0] = 0;
         cbv1[1] = 1.0f / intermediaSize.Y;
         cbv1[2] = 1.0f / (float)output.width;
         cbv1[3] = 1.0f / (float)output.height;
-        renderWrap.graphicsContext.SetCBVRSlot<float>(0, cbv1);
+        view.graphicsContext.SetCBVRSlot<float>(0, cbv1);
 
 
-        renderWrap.SetSRV(0, intermediaTexture);
-        renderWrap.SetUAV(0, output);
-        renderWrap.SetPSO(shader_bloom.Get(Keyword_Bloom.BLOOM_2));
-        renderWrap.Dispatch(output.width, (output.height + 63) / 64);
+        view.SetSRV(0, intermediaTexture);
+        view.SetUAV(0, output);
+        view.SetPSO(shader_bloom.Get(Keyword_Bloom.BLOOM_2));
+        view.Dispatch(output.width, (output.height + 63) / 64);
     }
 
     public void Dispose()

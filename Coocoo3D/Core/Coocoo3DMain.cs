@@ -37,7 +37,7 @@ public class Coocoo3DMain : IDisposable
     public PlatformIO platformIO;
     public UI.UIImGui UIImGui;
 
-    GraphicsContext graphicsContext { get => RPContext.graphicsContext; }
+    GraphicsContext graphicsContext;
 
     public EngineContext EngineContext = new EngineContext();
 
@@ -77,7 +77,11 @@ public class Coocoo3DMain : IDisposable
         EditorContext = e.AddSystem<EditorContext>();
 
         RPContext = e.AddSystem<RenderPipelineContext>();
-        e.AddSystem(RPContext.graphicsContext);
+
+
+        graphicsContext = new();
+        graphicsContext.Initialize(graphicsDevice);
+        e.AddSystem(graphicsContext);
 
         GameDriverContext = e.AddSystem<GameDriverContext>();
 

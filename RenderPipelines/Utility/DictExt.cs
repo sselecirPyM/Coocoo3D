@@ -49,7 +49,7 @@ namespace RenderPipelines.Utility
                 {
                     if (type == typeof(Texture2D))
                     {
-                        member.SetValue(inst, renderHelper.renderWrap.texError);
+                        member.SetValue(inst, renderHelper.renderPipelineView.texError);
                     }
                 }
             }

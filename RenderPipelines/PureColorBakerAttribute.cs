@@ -11,10 +11,10 @@ namespace RenderPipelines;
 public class PureColorBakerAttribute : RuntimeBakeAttribute, ITexture2DBaker, IDisposable
 {
     static ushort[] quad = new ushort[] { 0, 1, 2, 2, 1, 3 };
-    public bool Bake(Texture2D texture, RenderWrap renderWrap, ref object tag)
+    public bool Bake(Texture2D texture, RenderPipelineView view, ref object tag)
     {
 
-        renderWrap.SetRenderTarget(texture, true);
+        view.SetRenderTarget(texture, true);
         var psoDesc = new PSODesc()
         {
             blendState = BlendState.None,
@@ -25,11 +25,11 @@ public class PureColorBakerAttribute : RuntimeBakeAttribute, ITexture2DBaker, ID
 
         Span<float> cbvData = stackalloc float[4];
         Color.CopyTo(cbvData);
-        renderWrap.graphicsContext.SetCBVRSlot<float>(0, cbvData);
+        view.graphicsContext.SetCBVRSlot<float>(0, cbvData);
 
-        renderWrap.SetPSO(shader_pureColor, psoDesc);
-        renderWrap.graphicsContext.SetSimpleMesh(null, MemoryMarshal.AsBytes<ushort>(quad), 0, 2);
-        renderWrap.Draw(6, 0, 0);
+        view.SetPSO(shader_pureColor, psoDesc);
+        view.graphicsContext.SetSimpleMesh(null, MemoryMarshal.AsBytes<ushort>(quad), 0, 2);
+        view.Draw(6, 0, 0);
         return true;
     }
 

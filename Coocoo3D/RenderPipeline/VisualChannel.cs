@@ -56,13 +56,7 @@ public class VisualChannel : IDisposable
 
         this.renderPipelineView = new RenderPipelineView(renderPipeline, MainCaches, basePath);
         engineContext.FillProperties(renderPipelineView);
-        var renderWrap = new RenderWrap()
-        {
-            RenderPipelineView = renderPipelineView,
-        };
-        engineContext.FillProperties(renderWrap);
-        renderPipeline.renderWrap = renderWrap;
-        renderPipelineView.renderWrap = renderWrap;
+        renderPipeline.renderPipelineView = renderPipelineView;
     }
 
     public void UpdateSize()
@@ -80,9 +74,9 @@ public class VisualChannel : IDisposable
             camera.SetCameraMotion((float)context.Time);
         cameraData = camera.GetCameraData();
 
-        renderPipelineView.renderPipeline.renderWrap.outputSize = outputSize;
+        renderPipelineView.outputSize = outputSize;
         var renderPipeline = renderPipelineView.renderPipeline;
-        renderPipeline.renderWrap.rpc = context;
+        renderPipelineView.rpc = context;
         foreach (var cap in renderPipelineView.sceneCaptures)
         {
             var member = cap.Value.Item1;

@@ -1,5 +1,4 @@
-﻿using Coocoo3D.RenderPipeline;
-using Coocoo3DGraphics;
+﻿using Coocoo3DGraphics;
 using RenderPipelines.LambdaPipe;
 using RenderPipelines.MaterialDefines;
 using RenderPipelines.Utility;
@@ -7,7 +6,6 @@ using System;
 using System.IO;
 using System.Numerics;
 using System.Runtime.InteropServices;
-using Vortice.DXGI;
 using Vortice.Mathematics;
 using static RenderPipelines.LambdaRenderers.TestResourceProvider;
 
@@ -35,7 +33,7 @@ namespace RenderPipelines.LambdaRenderers
                 Span<byte> bufferData = stackalloc byte[64];
                 foreach (var viewport in s.viewports)
                 {
-                    context.renderWrap.SetRenderTargetDepth(viewport.RenderTarget, false);
+                    context.renderPipelineView.SetRenderTargetDepth(viewport.RenderTarget, false);
                     var Rectangle = viewport.Rectangle;
                     context.SetScissorRectAndViewport(Rectangle.Left, Rectangle.Top, Rectangle.Right, Rectangle.Bottom);
                     var desc = s.psoDesc;
@@ -72,7 +70,7 @@ namespace RenderPipelines.LambdaRenderers
             {
                 var p = c.GetResourceProvider<TestResourceProvider>();
                 var context = p.RenderHelper;
-                context.renderWrap.SetRenderTarget(s.RenderTarget, false);
+                context.renderPipelineView.SetRenderTarget(s.RenderTarget, false);
                 context.SetPSO(p.shader_skybox, s.psoDesc);
                 context.SetSRV(0, s.skybox);
 
@@ -99,8 +97,8 @@ namespace RenderPipelines.LambdaRenderers
             {
                 var p = c.GetResourceProvider<TestResourceProvider>();
                 var context = p.RenderHelper;
-                RenderWrap renderWrap = context.renderWrap;
-                renderWrap.SetRenderTarget(CollectionsMarshal.AsSpan(s.RenderTargets), s.DepthStencil, false, false);
+                var view = context.renderPipelineView;
+                view.SetRenderTarget(CollectionsMarshal.AsSpan(s.RenderTargets), s.DepthStencil, false, false);
 
                 var desc = s.GetPSODesc(s.psoDesc);
 
@@ -153,7 +151,7 @@ namespace RenderPipelines.LambdaRenderers
                         desc.cullMode = CullMode.None;
                     else
                         desc.cullMode = CullMode.Back;
-                    renderWrap.SetShader(s.shader, desc, s.keywords2);
+                    view.SetShader(s.shader, desc, s.keywords2);
 
                     MemoryMarshal.Write(bufferData.Slice(0), Matrix4x4.Transpose(renderable.transform));
                     //MemoryMarshal.Write(bufferData.Slice(64), material.Metallic);
@@ -163,7 +161,6 @@ namespace RenderPipelines.LambdaRenderers
                     s.WriteCBuffer(bufferData.Slice(64), material);
                     context.SetCBV(1, bufferData);
 
-                    //renderWrap.SetSRVs(srvs, renderable.material);
                     context.SetSRV(0, material._Albedo);
                     context.SetSRV(1, material._Metallic);
                     context.SetSRV(2, material._Roughness);
@@ -218,8 +215,8 @@ namespace RenderPipelines.LambdaRenderers
             {
                 var p = c.GetResourceProvider<TestResourceProvider>();
                 var context = p.RenderHelper;
-                var renderWrap = context.renderWrap;
-                renderWrap.SetRenderTarget(CollectionsMarshal.AsSpan(s.RenderTargets), s.DepthStencil, false, false);
+                var view = context.renderPipelineView;
+                view.SetRenderTarget(CollectionsMarshal.AsSpan(s.RenderTargets), s.DepthStencil, false, false);
                 var desc = s.GetPSODesc(context, s.psoDesc);
 
                 s.keywords2.Clear();
@@ -245,7 +242,7 @@ namespace RenderPipelines.LambdaRenderers
                         desc.cullMode = CullMode.None;
                     else
                         desc.cullMode = CullMode.Back;
-                    context.renderWrap.SetShader(s.shader, desc, s.keywords2);
+                    context.renderPipelineView.SetShader(s.shader, desc, s.keywords2);
 
 
                     MemoryMarshal.Write(bufferData.Slice(0), Matrix4x4.Transpose(renderable.transform));
@@ -278,8 +275,8 @@ namespace RenderPipelines.LambdaRenderers
             {
                 var p = c.GetResourceProvider<TestResourceProvider>();
                 var context = p.RenderHelper;
-                var renderWrap = context.renderWrap;
-                renderWrap.SetRenderTarget(CollectionsMarshal.AsSpan(s.RenderTargets), null, false, false);
+                var view = context.renderPipelineView;
+                view.SetRenderTarget(CollectionsMarshal.AsSpan(s.RenderTargets), null, false, false);
 
 
                 BoundingFrustum frustum = new(s.ViewProjection);
@@ -332,7 +329,7 @@ namespace RenderPipelines.LambdaRenderers
                     return;
                 var p = c.GetResourceProvider<TestResourceProvider>();
                 var context = p.RenderHelper;
-                var renderWrap = context.renderWrap;
+                var view = context.renderPipelineView;
 
 
                 context.SetPSO(p.shader_hiz1);
@@ -366,9 +363,9 @@ namespace RenderPipelines.LambdaRenderers
             {
                 var p = c.GetResourceProvider<TestResourceProvider>();
                 var context = p.RenderHelper;
-                var renderWrap = context.renderWrap;
+                var view = context.renderPipelineView;
 
-                renderWrap.SetRenderTarget(s.RenderTarget, null, false, false);
+                view.SetRenderTarget(s.RenderTarget, null, false, false);
 
                 var pipelineMaterial = s.pipelineMaterial;
                 var keywords2 = s.keywords2;
@@ -386,8 +383,8 @@ namespace RenderPipelines.LambdaRenderers
                 if (s.NoBackGround)
                     keywords2.Add(("DISABLE_BACKGROUND", "1"));
 
-                var desc = s.GetPSODesc(renderWrap, s.psoDesc);
-                renderWrap.SetShader(s.shader, desc, keywords2);
+                var desc = s.GetPSODesc(view, s.psoDesc);
+                view.SetShader(s.shader, desc, keywords2);
 
                 context.SetSRV(0, pipelineMaterial.gbuffer0);
                 context.SetSRV(1, pipelineMaterial.gbuffer1);
@@ -427,7 +424,7 @@ namespace RenderPipelines.LambdaRenderers
 
                 var p = c.GetResourceProvider<TestResourceProvider>();
                 var context = p.RenderHelper;
-                var renderWrap = context.renderWrap;
+                var view = context.renderPipelineView;
 
                 var generateMipPass = p.generateMipPass;
                 var bloomPass = p.bloomPass;
@@ -455,13 +452,13 @@ namespace RenderPipelines.LambdaRenderers
                     bloomPass.output = s.intermedia2;
                     bloomPass.BloomThreshold = s.BloomThreshold;
                     bloomPass.BloomIntensity = s.BloomIntensity;
-                    bloomPass.Execute(context);
+                    bloomPass.Execute(view);
                 }
 
                 srgbConvert.inputColor = s.inputColor;//srgbConvert.srvs[0] = inputColor;
                 srgbConvert.inputColor1 = s.intermedia2;//srgbConvert.srvs[1] = "intermedia2";
 
-                renderWrap.SetRenderTarget(s.output, false);
+                view.SetRenderTarget(s.output, false);
                 srgbConvert.context = context;
                 srgbConvert.Execute();
             });
@@ -475,10 +472,10 @@ namespace RenderPipelines.LambdaRenderers
                     return;
                 var p = c.GetResourceProvider<TestResourceProvider>();
                 var context = p.RenderHelper;
-                var renderWrap = context.renderWrap;
+                var view = context.renderPipelineView;
                 var pipelineMaterial = s.pipelineMaterial;
 
-                var graphicsContext = renderWrap.graphicsContext;
+                var graphicsContext = view.graphicsContext;
 
                 var keywords1 = s.keywords1;
 
@@ -494,7 +491,7 @@ namespace RenderPipelines.LambdaRenderers
                     keywords1.Add(new("ENABLE_GI", "1"));
                 }
                 var rtpso = context.GetRTPSO(keywords1, rayTracingShader,
-                    Path.GetFullPath(rayTracingShader.hlslFile, renderWrap.BasePath));
+                    Path.GetFullPath(rayTracingShader.hlslFile, view.BasePath));
 
                 if (!graphicsContext.SetPSO(rtpso))
                     return;
@@ -569,7 +566,7 @@ namespace RenderPipelines.LambdaRenderers
                 {
                     call.rayGenShader = "rayGenGI";
                     graphicsContext.DispatchRays(16, 16, 16, call);
-                    renderWrap.Swap("GIBuffer", "GIBufferWrite");
+                    s.afterGI?.Invoke();
                 }
                 if (s.RayTracing)
                 {

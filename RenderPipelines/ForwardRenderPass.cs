@@ -602,6 +602,10 @@ public partial class ForwardRenderPipeline
                 s.pipelineMaterial = pipelineMaterial;
                 s.renderTarget = gbuffer2;
                 s.directionalLight = directionalLight;
+                s.afterGI = () =>
+                {
+                    (this.GIBuffer, this.GIBufferWrite) = (this.GIBufferWrite, this.GIBuffer);
+                };
             });
 
             c.ConfigRendererKeyed<DrawObjectConfig>("transparent", s =>

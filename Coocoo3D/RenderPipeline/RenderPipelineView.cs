@@ -10,20 +10,26 @@ using Vortice.DXGI;
 
 namespace Coocoo3D.RenderPipeline;
 
-public class RenderPipelineView : IDisposable
+public partial class RenderPipelineView : IDisposable
 {
     public RenderPipeline renderPipeline;
     public MainCaches mainCaches;
 
-    public string path;
+    public GraphicsContext graphicsContext;
+
+    public RenderPipelineContext rpc;
+
+    public string BasePath;
 
     public RenderPipelineView(RenderPipeline renderPipeline, MainCaches mainCaches, string path)
     {
         this.renderPipeline = renderPipeline;
-        this.path = path;
+        this.BasePath = path;
         this.mainCaches = mainCaches;
         GetMetaData();
     }
+
+    public (int, int) outputSize;
 
     internal Dictionary<AOVType, Texture2D> AOVs = new();
     public Dictionary<string, RenderTextureUsage> RenderTextures = new();
@@ -32,8 +38,6 @@ public class RenderPipelineView : IDisposable
     internal Dictionary<string, (MemberInfo, SceneCaptureAttribute)> sceneCaptures = new();
 
     internal Dictionary<string, List<string>> dependents = new();
-
-    internal RenderWrap renderWrap;
 
     List<RenderTextureUsage> bakes = new();
 
@@ -82,7 +86,6 @@ public class RenderPipelineView : IDisposable
 
     void RenderResource(MemberInfo member)
     {
-        var aovAttribute = member.GetCustomAttribute<AOVAttribute>();
         var autoClearAttribute = member.GetCustomAttribute<AutoClearAttribute>();
         var formatAttribute = member.GetCustomAttribute<FormatAttribute>();
         var resourceAttribute = member.GetCustomAttribute<ResourceAttribute>();
@@ -135,7 +138,7 @@ public class RenderPipelineView : IDisposable
         {
             if (resourceAttribute != null)
             {
-                string fullPath = Path.GetFullPath(resourceAttribute.Resource, path);
+                string fullPath = Path.GetFullPath(resourceAttribute.Resource, BasePath);
                 var tex = mainCaches.GetTexturePreloaded(fullPath);
                 member.SetValue(renderPipeline, tex);
             }
@@ -144,13 +147,6 @@ public class RenderPipelineView : IDisposable
                 Texture2D texture2D = new Texture2D();
                 texture2D.Name = member.Name;
                 internalTextures.Add(texture2D);
-                if (aovAttribute != null)
-                {
-                    if (AOVs.ContainsKey(aovAttribute.AOVType))
-                        Console.WriteLine(member.Name + ". Duplicate AOV bindings.");
-
-                    AOVs[aovAttribute.AOVType] = texture2D;
-                }
                 member.SetValue(renderPipeline, texture2D);
             }
         }
@@ -176,7 +172,6 @@ public class RenderPipelineView : IDisposable
 
     internal void PrepareRenderResources()
     {
-        var graphicsContext = renderWrap.graphicsContext;
         foreach (var rt in RenderTextures.Values)
         {
             var texture2d = rt.GetTexture2D();
@@ -222,7 +217,7 @@ public class RenderPipelineView : IDisposable
 
         if (rt.memberInfo.GetGetterType() == typeof(Texture2D) && rt.runtimeBakeAttribute is ITexture2DBaker baker1)
         {
-            rt.ready = baker1.Bake(rt.memberInfo.GetValue2<Texture2D>(renderPipeline), renderWrap, ref rt.bakeTag);
+            rt.ready = baker1.Bake(rt.memberInfo.GetValue2<Texture2D>(renderPipeline), this, ref rt.bakeTag);
         }
     }
 
@@ -230,6 +225,11 @@ public class RenderPipelineView : IDisposable
     {
         AOVs.TryGetValue(type, out Texture2D texture);
         return texture;
+    }
+
+    public void SetAOV(AOVType type, Texture2D texture)
+    {
+        AOVs[type] = texture;
     }
 
     public void Dispose()
