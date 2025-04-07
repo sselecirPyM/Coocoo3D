@@ -229,17 +229,12 @@ public partial class ForwardRenderPipeline : RenderPipeline, IDisposable
 
     #endregion
 
-    [SceneCapture("Camera")]
-    public CameraData camera;
-
-    [SceneCapture("Visual")]
-    public IEnumerable<VisualComponent> Visuals;
-
     Random random = new Random(0);
 
     public int outputWidth;
     public int outputHeight;
 
+    CameraData camera;
     CameraData historyCamera;
 
     RenderHelper renderHelper;

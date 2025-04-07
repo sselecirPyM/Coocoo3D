@@ -64,6 +64,15 @@ public class EngineContext : IDisposable
         return system;
     }
 
+    public T GetSystem<T>()
+    {
+        if (autoFills.TryGetValue(typeof(T), out var sys))
+        {
+            return (T)sys;
+        }
+        throw new KeyNotFoundException();
+    }
+
     public void InitializeSystems()
     {
         foreach (var system in systems)
@@ -88,7 +97,7 @@ public class EngineContext : IDisposable
         }
     }
 
-    public void BeforeFrameBegin(Action action)
+    public void OnFrameBegin(Action action)
     {
         frameBeginCalls.Enqueue(action);
     }

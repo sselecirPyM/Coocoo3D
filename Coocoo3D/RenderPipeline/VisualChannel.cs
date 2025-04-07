@@ -73,36 +73,37 @@ public class VisualChannel : IDisposable
         if (camera.CameraMotionOn)
             camera.SetCameraMotion((float)context.Time);
         cameraData = camera.GetCameraData();
+        renderPipelineView.cameraData = cameraData;
 
         renderPipelineView.outputSize = outputSize;
         var renderPipeline = renderPipelineView.renderPipeline;
         renderPipelineView.rpc = context;
-        foreach (var cap in renderPipelineView.sceneCaptures)
-        {
-            var member = cap.Value.Item1;
-            var captureAttribute = cap.Value.Item2;
-            switch (captureAttribute.Capture)
-            {
-                case "Camera":
-                    member.SetValue(renderPipeline, cameraData);
-                    break;
-                case "Time":
-                    member.SetValue(renderPipeline, context.Time);
-                    break;
-                case "DeltaTime":
-                    member.SetValue(renderPipeline, context.DeltaTime);
-                    break;
-                case "RealDeltaTime":
-                    member.SetValue(renderPipeline, context.RealDeltaTime);
-                    break;
-                case "Recording":
-                    member.SetValue(renderPipeline, context.recording);
-                    break;
-                case "Visual":
-                    member.SetValue(renderPipeline, context.visuals);
-                    break;
-            }
-        }
+        //foreach (var cap in renderPipelineView.sceneCaptures)
+        //{
+        //    var member = cap.Value.Item1;
+        //    var captureAttribute = cap.Value.Item2;
+        //    switch (captureAttribute.Capture)
+        //    {
+        //        case "Camera":
+        //            member.SetValue(renderPipeline, cameraData);
+        //            break;
+        //        case "Time":
+        //            member.SetValue(renderPipeline, context.Time);
+        //            break;
+        //        case "DeltaTime":
+        //            member.SetValue(renderPipeline, context.DeltaTime);
+        //            break;
+        //        case "RealDeltaTime":
+        //            member.SetValue(renderPipeline, context.RealDeltaTime);
+        //            break;
+        //        case "Recording":
+        //            member.SetValue(renderPipeline, context.recording);
+        //            break;
+        //        case "Visual":
+        //            member.SetValue(renderPipeline, context.visuals);
+        //            break;
+        //    }
+        //}
 
         renderPipelineView.renderPipeline.BeforeRender();
         renderPipelineView.PrepareRenderResources();

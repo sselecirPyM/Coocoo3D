@@ -2,11 +2,9 @@
 using Coocoo3D.RenderPipeline;
 using Coocoo3D.UI;
 using Coocoo3DGraphics;
-using Coocoo3DGraphics.Management;
 using DefaultEcs.Command;
-using Newtonsoft.Json;
 using System;
-using System.IO;
+using System.Collections.Concurrent;
 using System.Threading;
 
 namespace Coocoo3D.Core;
@@ -43,21 +41,20 @@ public class Coocoo3DMain : IDisposable
 
     public TimeManager timeManagerUpdate = new TimeManager();
     public TimeManager timeManager = new TimeManager();
-    DX12Resource DX12Resource;
 
     Thread renderWorkThread;
     CancellationTokenSource cancelRenderThread;
 
-    public Coocoo3DMain(LaunchOption launchOption)
+
+    Action OnRender;
+    public ConcurrentQueue<Action> OnRenderOnce = new ConcurrentQueue<Action>();
+    public Action<EngineContext> launchCallback;
+
+    public Coocoo3DMain()
     {
-        Launch();
-        if (launchOption.openFile != null)
-        {
-            sceneExtensions.OpenFile(launchOption.openFile);
-        }
     }
 
-    void Launch()
+    public void Launch()
     {
         var e = EngineContext;
         world = e.AddSystem<DefaultEcs.World>();
@@ -66,9 +63,6 @@ public class Coocoo3DMain : IDisposable
         statistics = e.AddSystem<Statistics>();
 
         graphicsDevice = e.AddSystem<GraphicsDevice>();
-
-        DX12Resource = JsonConvert.DeserializeObject<DX12Resource>(File.ReadAllText("Assets/DX12Launch.json"),
-            new JsonSerializerSettings { PreserveReferencesHandling = PreserveReferencesHandling.All });
 
         swapChain = e.AddSystem<SwapChain>();
 
@@ -109,16 +103,24 @@ public class Coocoo3DMain : IDisposable
         GameDriverContext.FrameInterval = 1 / 240.0f;
 
         cancelRenderThread = new CancellationTokenSource();
-        renderWorkThread = new Thread(RenderTask);
+        renderWorkThread = new Thread(Loop);
         renderWorkThread.IsBackground = true;
         renderWorkThread.Start();
+
+        launchCallback?.Invoke(EngineContext);
     }
 
-    void RenderTask()
+    void Loop()
     {
         var token = cancelRenderThread.Token;
         while (!token.IsCancellationRequested)
         {
+            OnRender?.Invoke();
+            while (OnRenderOnce.TryDequeue(out var action))
+            {
+                action.Invoke();
+            }
+
             long time = stopwatch1.ElapsedTicks;
             timeManagerUpdate.AbsoluteTimeInput(time);
             if (timeManagerUpdate.RealTimerCorrect("render", GameDriverContext.FrameInterval, out _))
@@ -168,12 +170,6 @@ public class Coocoo3DMain : IDisposable
         timeManager.RealCounter("fps", 1, out statistics.FramePerSecond);
         Simulation();
 
-        if ((swapChain.width, swapChain.height) != platformIO.windowSize)
-        {
-            (int x, int y) = platformIO.windowSize;
-            swapChain.Resize(x, y);
-        }
-
         platformIO.Update();
         UIImGui.GUI();
         RPContext.FrameBegin();
@@ -201,18 +197,5 @@ public class Coocoo3DMain : IDisposable
         graphicsDevice.WaitForGpu();
 
         EngineContext.Dispose();
-    }
-
-    public void SetWindow(IntPtr hwnd, int width, int height)
-    {
-        InitializeSwapChain(swapChain, hwnd, width, height);
-        platformIO.windowSize = (width, height);
-    }
-    public void InitializeSwapChain(SwapChain swapChain, IntPtr hwnd, int width, int height)
-    {
-        var desc = DX12Resource.SwapChainDescriptions[0].GetSwapChainDescription1();
-        desc.Width = width;
-        desc.Height = height;
-        swapChain.Initialize(graphicsDevice, hwnd, desc);
     }
 }

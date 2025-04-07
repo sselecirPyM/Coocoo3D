@@ -1,7 +1,11 @@
 ﻿using Coocoo3D.Core;
+using Coocoo3DGraphics;
+using Coocoo3DGraphics.Management;
 using ImGuiNET;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Runtime.InteropServices;
 using static SDL2.SDL;
 
@@ -16,14 +20,36 @@ public class WindowSystem
 
     UIHelper uiHelper;
     IntPtr window;
+
+    event Action<int, int> onResize;
+    event Action<string> onDropFile;
+
     public void Initialize()
     {
+        onResize += (width, height) =>
+        {
+            coocoo3DMain.OnRenderOnce.Enqueue(() =>
+            {
+                var swapChain = coocoo3DMain.EngineContext.GetSystem<SwapChain>();
+                if ((swapChain.width, swapChain.height) != (width, height))
+                {
+                    swapChain.Resize(width, height);
+                }
+                var io = ImGui.GetIO();
+                io.DisplaySize = new(width, height);
+            });
+        };
+        onDropFile += (fileName) =>
+        {
+            coocoo3DMain.platformIO.dropFile = fileName;
+        };
+
         window = SDL_CreateWindow("Coocoo3D", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 1024, 768, SDL_WindowFlags.SDL_WINDOW_RESIZABLE);
         SDL_GetWindowSize(window, out int Width, out int Height);
         SDL_SysWMinfo info = new SDL_SysWMinfo();
         SDL_GetWindowWMInfo(window, ref info);
         IntPtr hwnd = info.info.win.window;
-        coocoo3DMain.SetWindow(hwnd, Width, Height);
+        SetWindow(coocoo3DMain.EngineContext, hwnd, Width, Height);
         uiHelper = new UIHelper();
         uiHelper.hwnd = hwnd;
         uiHelper.window = window;
@@ -64,7 +90,7 @@ public class WindowSystem
         }
     }
 
-    static bool EventProcess(PlatformIO platformIO, Dictionary<SDL_Keycode, int> sdlKeycode2ImguiKey)
+    bool EventProcess(PlatformIO platformIO, Dictionary<SDL_Keycode, int> sdlKeycode2ImguiKey)
     {
         SDL_WaitEvent(out var sdlEvent);
         bool quitRequested = false;
@@ -78,7 +104,7 @@ public class WindowSystem
                 case SDL_EventType.SDL_WINDOWEVENT:
                     if (sdlEvent.window.windowEvent == SDL_WindowEventID.SDL_WINDOWEVENT_RESIZED)
                     {
-                        platformIO.windowSize = new(sdlEvent.window.data1, sdlEvent.window.data2);
+                        onResize?.Invoke(sdlEvent.window.data1, sdlEvent.window.data2);
                     }
                     if (sdlEvent.window.windowEvent == SDL_WindowEventID.SDL_WINDOWEVENT_FOCUS_GAINED)
                     {
@@ -136,12 +162,26 @@ public class WindowSystem
                     {
                         IntPtr file = sdlEvent.drop.file;
                         string file1 = Marshal.PtrToStringUTF8(file);
-                        platformIO.dropFile = file1;
+                        onDropFile?.Invoke(file1);
                     }
                     break;
             }
         } while (SDL_PollEvent(out sdlEvent) == 1);
         return !quitRequested;
+    }
+
+
+    static void SetWindow(EngineContext engineContext, IntPtr hwnd, int width, int height)
+    {
+        DX12Resource DX12Resource = JsonConvert.DeserializeObject<DX12Resource>(File.ReadAllText("Assets/DX12Launch.json"),
+             new JsonSerializerSettings { PreserveReferencesHandling = PreserveReferencesHandling.All });
+        var desc = DX12Resource.SwapChainDescriptions[0].GetSwapChainDescription1();
+        desc.Width = width;
+        desc.Height = height;
+        engineContext.GetSystem<SwapChain>().Initialize(engineContext.GetSystem<GraphicsDevice>(), hwnd, desc);
+
+        var io = ImGuiNET.ImGui.GetIO();
+        io.DisplaySize = new(width, height);
     }
 
     static Dictionary<SDL_Keycode, int> SDLKey()

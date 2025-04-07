@@ -29,13 +29,13 @@ public partial class RenderPipelineView : IDisposable
         GetMetaData();
     }
 
+    public CameraData cameraData;
+
     public (int, int) outputSize;
 
     internal Dictionary<AOVType, Texture2D> AOVs = new();
     public Dictionary<string, RenderTextureUsage> RenderTextures = new();
     internal HashSet<Texture2D> internalTextures = new();
-
-    internal Dictionary<string, (MemberInfo, SceneCaptureAttribute)> sceneCaptures = new();
 
     internal Dictionary<string, List<string>> dependents = new();
 
@@ -55,11 +55,6 @@ public partial class RenderPipelineView : IDisposable
             if (type2 == typeof(Texture2D) || type2 == typeof(GPUBuffer))
             {
                 RenderResource(memberInfo);
-            }
-            var sceneCapture = memberInfo.GetCustomAttribute<SceneCaptureAttribute>();
-            if (sceneCapture != null)
-            {
-                sceneCaptures[memberInfo.Name] = (memberInfo, sceneCapture);
             }
         }
 

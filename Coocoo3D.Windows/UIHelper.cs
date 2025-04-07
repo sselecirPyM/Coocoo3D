@@ -1,22 +1,16 @@
 ﻿using Coocoo3D.Core;
-using Coocoo3D.RenderPipeline;
-using DefaultEcs;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
-using UIImGui = Coocoo3D.UI.UIImGui;
 using static SDL2.SDL;
+using UIImGui = Coocoo3D.UI.UIImGui;
 
 namespace Coocoo3D.Windows;
 
 public class UIHelper
 {
-    public MainCaches caches;
-
     public GameDriver gameDriver;
-
-    public SceneExtensionsSystem sceneExtensions;
 
     public nint hwnd;
     public nint window;
@@ -118,20 +112,6 @@ public class UIHelper
             int length = Array.IndexOf(charArray, '\0');
             string fullDirPath = new String(charArray, 0, length);
             callback(fullDirPath);
-        }
-    }
-
-    static bool TryGetComponent<T>(Entity obj, out T value)
-    {
-        if (obj.Has<T>())
-        {
-            value = obj.Get<T>();
-            return true;
-        }
-        else
-        {
-            value = default(T);
-            return false;
         }
     }
 

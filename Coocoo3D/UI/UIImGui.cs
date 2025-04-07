@@ -61,7 +61,6 @@ public class UIImGui
         editorContext.MouseMoveDeltaMessage(mouseMoveDelta);
 
         var context = renderPipelineContext;
-        io.DisplaySize = new Vector2(platformIO.windowSize.Item1, platformIO.windowSize.Item2);
         io.DeltaTime = (float)context.RealDeltaTime;
 
         positionChange = false;

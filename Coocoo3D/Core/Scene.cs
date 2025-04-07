@@ -1,8 +1,8 @@
 ﻿using Coocoo3D.Components;
 using Coocoo3D.Present;
-using Coocoo3D.RenderPipeline;
 using DefaultEcs;
 using DefaultEcs.Command;
+using System;
 using System.Collections.Generic;
 
 namespace Coocoo3D.Core;
@@ -15,6 +15,9 @@ public class Scene
     public Dictionary<int, Entity> gameObjects = new Dictionary<int, Entity>();
 
     public int idAllocated = 1;
+
+    public event Action<Entity> OnObjectEnter;
+    public event Action<Entity> OnObjectRemove;
 
     public void Initialize()
     {

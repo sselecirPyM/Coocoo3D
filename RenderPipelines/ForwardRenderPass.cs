@@ -330,7 +330,8 @@ public partial class ForwardRenderPipeline
 
     public void Config(SuperPipelineConfig s, PipelineContext c)
     {
-        var camera = this.camera;
+        var camera = this.renderPipelineView.cameraData;
+        this.camera = camera;
         if (EnableTAA)
         {
             Vector2 jitterVector = new Vector2((float)(random.NextDouble() * 2 - 1) / outputWidth, (float)(random.NextDouble() * 2 - 1) / outputHeight);
@@ -356,7 +357,7 @@ public partial class ForwardRenderPipeline
         pointLights.Clear();
 
         DirectionalLightData directionalLight = null;
-        foreach (var visual in Visuals)
+        foreach (var visual in this.renderPipelineView.rpc.visuals)
         {
             var material = visual.material;
             if (visual.material.Type != UIShowType.Light)
@@ -549,7 +550,7 @@ public partial class ForwardRenderPipeline
                 s.RenderTargets = [gbuffer0, gbuffer2];
                 s.depthStencil = depth;
                 s.ViewProjection = ViewProjection;
-                s.Visuals = Visuals;
+                s.Visuals = this.renderPipelineView.rpc.visuals;
             });
             c.ConfigRenderer<HizConfig>(s =>
             {

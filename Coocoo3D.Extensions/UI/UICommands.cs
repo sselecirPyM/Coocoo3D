@@ -126,7 +126,7 @@ namespace Coocoo3D.Extensions.UI
         [ExportMetadata("MenuItem", "重新加载着色器")]
         public void ReloadShader()
         {
-            engineContext.BeforeFrameBegin(mainCaches._ReloadShaders);
+            engineContext.OnFrameBegin(mainCaches._ReloadShaders);
         }
 
         [Export("UICommand", typeof(Action))]

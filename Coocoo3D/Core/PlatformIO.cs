@@ -40,7 +40,6 @@ public class PlatformIO
     #region SystemInput
     public string dropFile;
 
-    public (int, int) windowSize;
     #endregion
 
     public void Update()
