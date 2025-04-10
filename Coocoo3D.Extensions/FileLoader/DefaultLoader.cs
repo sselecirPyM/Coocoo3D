@@ -1,9 +1,10 @@
-﻿using Coocoo3D.Core;
+﻿using Arch.Core;
+using Arch.Core.Extensions;
+using Coocoo3D.Core;
 using Coocoo3D.Extensions.FileFormat;
 using Coocoo3D.Present;
 using Coocoo3D.RenderPipeline;
 using Coocoo3D.ResourceWrap;
-using DefaultEcs;
 using Newtonsoft.Json;
 using System.Collections.Generic;
 using System.ComponentModel.Composition;
@@ -31,10 +32,8 @@ public class DefaultLoader : IFileLoader, IEditorAccess
                     if (modelPack == null)
                         return;
 
-                    var world = scene.recorder.Record(scene.world);
 
-                    var entity = world.CreateEntity();
-                    modelPack.LoadPmx(entity);
+                    modelPack.LoadPmx(scene);
                 });
                 break;
             case ".gltf":
@@ -46,9 +45,8 @@ public class DefaultLoader : IFileLoader, IEditorAccess
                     if (modelPack == null)
                         return;
 
-                    var world = scene.recorder.Record(scene.world);
 
-                    var entity = world.CreateEntity();
+                    var entity = scene.CreateEntity();
                     modelPack.LoadMesh(entity);
                 });
                 break;
@@ -87,7 +85,7 @@ public class DefaultLoader : IFileLoader, IEditorAccess
         }
         else
         {
-            if (editorContext.selectedObject.IsAlive && TryGetComponent(editorContext.selectedObject, out Components.AnimationStateComponent animationState))
+            if (editorContext.selectedObject.IsAlive() && TryGetComponent(editorContext.selectedObject, out Components.AnimationStateComponent animationState))
             {
                 animationState.motion = mainCaches.GetMotion(path);
             }

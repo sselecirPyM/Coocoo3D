@@ -1,10 +1,10 @@
-﻿using Coocoo3D.Components;
+﻿using Arch.Core;
+using Arch.Core.Extensions;
+using Coocoo3D.Components;
 using Coocoo3D.Core;
 using Coocoo3D.Present;
-using DefaultEcs;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel.Composition;
 using System.Numerics;
 
 namespace Coocoo3D.Extensions;
@@ -14,101 +14,88 @@ public class _physicsObjects
     public List<Physics3DRigidBody> rigidbodies = new();
     public List<Physics3DJoint> joints = new();
 }
-[Export(typeof(ISceneExtension))]
-public class PhysicsSystem : ISceneExtension, IDisposable
+public class PhysicsSystem
 {
     public GameDriverContext gameDriverContext;
-    public World world;
-    EntitySet set;
+    //public World world;
+    public Scene scene;
 
     public Physics3DScene physics3DScene = new();
 
-    public Dictionary<MMDRendererComponent, _physicsObjects> physicsObjects = new();
-
-    List<MMDRendererComponent> rendererComponents = new();
-
-    public override void Initialize()
+    public void Initialize()
     {
         physics3DScene.Initialize();
         physics3DScene.SetGravitation(new Vector3(0, -9.801f, 0));
-        world.SubscribeComponentAdded<MMDRendererComponent>(OnAdd);
-        world.SubscribeComponentRemoved<MMDRendererComponent>(OnRemove);
-        world.SubscribeComponentChanged<Transform>(OnChange);
-        set = world.GetEntities().With<MMDRendererComponent>().AsSet();
+        //world.SubscribeComponentAdded<MMDRendererComponent>(OnAdd);
+        //world.SubscribeComponentRemoved<MMDRendererComponent>(OnRemove);
+        //world.SubscribeComponentSet<Transform>(OnChange);
+        scene.SubscribeComponentAdded<MMDRendererComponent>(OnAdd);
+        scene.SubscribeComponentRemoved<MMDRendererComponent>(OnRemove);
+        //scene.SubscribeComponentSet<Transform>(OnChange);
     }
 
     public void OnAdd(in Entity entity, in MMDRendererComponent component)
     {
         component.SetTransform(entity.Get<Transform>());
-        physicsObjects[component] = AddPhysics(component);
+        var _physicsObjects = AddPhysics(component);
+        entity.Add(_physicsObjects);
     }
 
     public void OnRemove(in Entity entity, in MMDRendererComponent component)
     {
-        if (physicsObjects.Remove(component, out var phyObj))
-            RemovePhysics(phyObj);
+        if(entity.TryGet<_physicsObjects>(out var _PhysicsObjects))
+        {
+            RemovePhysics(_PhysicsObjects);
+        }
     }
 
-    public void OnChange(in Entity entity, in Transform oldValue, in Transform newValue)
+    public void OnChange(in Entity entity, in Transform newValue)
     {
-        if (entity.Has<MMDRendererComponent>())
+        if (entity.TryGet<MMDRendererComponent>(out var renderer) && entity.TryGet<_physicsObjects>(out var _PhysicsObjects))
         {
-            var renderer = entity.Get<MMDRendererComponent>();
             renderer.SetTransform(newValue);
 
-            var phyObj = GetPhysics(renderer);
-            TransformToNew(renderer, phyObj.rigidbodies);
+            TransformToNew(renderer, _PhysicsObjects.rigidbodies);
             gameDriverContext.RefreshScene = true;
         }
     }
 
-    public override void Update()
+    QueryDescription q2 = new QueryDescription().WithAll<MMDRendererComponent, _physicsObjects>();
+    public void Update()
     {
-        foreach (var gameObject in set.GetEntities())
-        {
-            var render = gameObject.Get<MMDRendererComponent>();
-            rendererComponents.Add(render);
-        }
+
         var resetPhysics = gameDriverContext.RefreshScene;
         var deltaTime = gameDriverContext.DeltaTime;
         if (resetPhysics)
         {
-            _ResetPhysics(rendererComponents);
-            BoneUpdate((float)deltaTime, rendererComponents);
-            _ResetPhysics(rendererComponents);
+            _ResetPhysics();
+            BoneUpdate((float)deltaTime);
+            _ResetPhysics();
         }
 
-        BoneUpdate((float)deltaTime, rendererComponents);
-        rendererComponents.Clear();
+        BoneUpdate((float)deltaTime);
     }
 
-    void _ResetPhysics(IReadOnlyList<MMDRendererComponent> renderers)
+    void _ResetPhysics()
     {
-        for (int i = 0; i < renderers.Count; i++)
+        scene.world.Query(q2, (Entity entity, ref MMDRendererComponent render, ref _physicsObjects physicsObjects) =>
         {
-            var r = renderers[i];
-            r.BoneMorphIKAppend();
-            var phyO = GetPhysics(r);
+            render.BoneMorphIKAppend();
 
-            for (int j = 0; j < r.rigidBodyDescs.Count; j++)
+            for (int j = 0; j < render.rigidBodyDescs.Count; j++)
             {
-                var desc = r.rigidBodyDescs[j];
+                var desc = render.rigidBodyDescs[j];
                 if (desc.Type == 0)
                     continue;
                 int index = desc.AssociatedBoneIndex;
                 if (index == -1)
                     continue;
 
-                Matrix4x4 matrix = desc.transform * r.bones[index].GeneratedTransform * r.LocalToWorld;
-                physics3DScene.ResetRigidBody(phyO.rigidbodies[j], matrix);
+                Matrix4x4 matrix = desc.transform * render.bones[index].GeneratedTransform * render.LocalToWorld;
+                physics3DScene.ResetRigidBody(physicsObjects.rigidbodies[j], matrix);
             }
-        }
+        });
         //physics3DScene.Simulation(1 / 60.0);
-    }
-
-    _physicsObjects GetPhysics(MMDRendererComponent r)
-    {
-        return physicsObjects[r];
     }
 
     _physicsObjects AddPhysics(MMDRendererComponent r)
@@ -177,22 +164,18 @@ public class PhysicsSystem : ISceneExtension, IDisposable
         }
     }
 
-    void BoneUpdate(float deltaTime, IReadOnlyList<MMDRendererComponent> renderers)
+    void BoneUpdate(float deltaTime)
     {
         float t1 = Math.Clamp(deltaTime, -0.17f, 0.17f);
-        for (int i = 0; i < renderers.Count; i++)
+        scene.world.Query(q2, (Entity entity, ref MMDRendererComponent render, ref _physicsObjects physicsObjects) =>
         {
-            var r = renderers[i];
-            var _PhysicsObjects = GetPhysics(r);
-            PrePhysicsSync(r, _PhysicsObjects.rigidbodies);
-        }
+            PrePhysicsSync(render, physicsObjects.rigidbodies);
+        });
         physics3DScene.Simulation(t1 >= 0 ? t1 : -t1);
-        for (int i = 0; i < renderers.Count; i++)
+        scene.world.Query(q2, (Entity entity, ref MMDRendererComponent render, ref _physicsObjects physicsObjects) =>
         {
-            var r = renderers[i];
-            physicsObjects.TryGetValue(r, out var _PhysicsObjects);
-            PhysicsSyncBack(r, _PhysicsObjects.rigidbodies);
-        }
+            PhysicsSyncBack(render, physicsObjects.rigidbodies);
+        });
     }
 
     void TransformToNew(MMDRendererComponent r, IReadOnlyList<Physics3DRigidBody> rigidbodies)
@@ -211,17 +194,17 @@ public class PhysicsSystem : ISceneExtension, IDisposable
 
     public void Dispose()
     {
-        foreach (var physicsObject in physicsObjects.Values)
+        scene.world.Query(q2, (Entity entity, ref MMDRendererComponent render, ref _physicsObjects physicsObjects) =>
         {
-            foreach (var joint in physicsObject.joints)
+            foreach (var joint in physicsObjects.joints)
             {
                 physics3DScene.RemoveJoint(joint);
             }
-            foreach (var rigidBody in physicsObject.rigidbodies)
+            foreach (var rigidBody in physicsObjects.rigidbodies)
             {
                 physics3DScene.RemoveRigidBody(rigidBody);
             }
-        }
+        });
         physics3DScene.Dispose();
     }
 }

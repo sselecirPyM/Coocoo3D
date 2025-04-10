@@ -1,4 +1,5 @@
-﻿using Coocoo3D.Present;
+﻿using Arch.Core;
+using Coocoo3D.Present;
 
 namespace Coocoo3D.Components;
 
@@ -6,9 +7,8 @@ public class VisualComponent
 {
     public RenderMaterial material = new RenderMaterial();
     public Transform transform;
-    public int id;
 
-    public int bindId;
+    public Entity bind;
     public string bindBone;
     public bool bindX = true;
     public bool bindY = true;

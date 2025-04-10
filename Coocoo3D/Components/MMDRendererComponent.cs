@@ -20,11 +20,12 @@ public class MMDRendererComponent
     public float[] MorphWeights;
     public List<MorphDesc> Morphs = new();
 
-    internal bool meshNeedUpdate;
+    public bool meshNeedUpdate;
     public bool skinning;
 
-    public void ComputeVertexMorph(Vector3[] origin)
+    public void ComputeVertexMorph()
     {
+        var origin = model.position;
         if (!meshNeedUpdate)
             return;
         meshNeedUpdate = false;
@@ -34,14 +35,20 @@ public class MMDRendererComponent
         {
             if (Morphs[i].Type != MorphType.Vertex)
                 continue;
-            MorphVertexDesc[] morphVertices = Morphs[i].MorphVertexs;
+            Span<MorphVertexDesc> morphVertices = Morphs[i].MorphVertexs;
 
             float computedWeight = MorphWeights[i];
             if (computedWeight != 0)
-                for (int j = 0; j < morphVertices.Length; j++)
+            {
+                //for (int j = 0; j < morphVertices.Length; j++)
+                //{
+                //    MeshPosition[morphVertices[j].VertexIndex] += morphVertices[j].Offset * computedWeight;
+                //}
+                foreach (ref var m in morphVertices)
                 {
-                    MeshPosition[morphVertices[j].VertexIndex] += morphVertices[j].Offset * computedWeight;
+                    MeshPosition[m.VertexIndex] += m.Offset * computedWeight;
                 }
+            }
         }
     }
 
@@ -447,4 +454,65 @@ public class AppendBone
     {
         return (AppendBone)MemberwiseClone();
     }
+}
+
+public class MorphDesc
+{
+    public string Name;
+    public string NameEN;
+    public MorphCategory Category;
+    public MorphType Type;
+
+    public MorphSubMorphDesc[] SubMorphs;
+    public MorphVertexDesc[] MorphVertexs;
+    public MorphBoneDesc[] MorphBones;
+    public MorphUVDesc[] MorphUVs;
+    public MorphMaterialDesc[] MorphMaterials;
+
+    public override string ToString()
+    {
+        return string.Format("{0}", Name);
+    }
+}
+
+public enum MorphCategory
+{
+    System = 0,
+    Eyebrow = 1,
+    Eye = 2,
+    Mouth = 3,
+    Other = 4,
+};
+public enum MorphMaterialMethon
+{
+    Mul = 0,
+    Add = 1,
+};
+
+public struct MorphSubMorphDesc
+{
+    public int GroupIndex;
+    public float Rate;
+    public override string ToString()
+    {
+        return string.Format("{0},{1}", GroupIndex, Rate);
+    }
+}
+public struct MorphMaterialDesc
+{
+    public int MaterialIndex;
+    public MorphMaterialMethon MorphMethon;
+    public Vector4 Diffuse;
+    public Vector4 Specular;
+    public Vector3 Ambient;
+    public Vector4 EdgeColor;
+    public float EdgeSize;
+    public Vector4 Texture;
+    public Vector4 SubTexture;
+    public Vector4 ToonTexture;
+}
+public struct MorphUVDesc
+{
+    public int VertexIndex;
+    public Vector4 Offset;
 }

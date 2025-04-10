@@ -14,8 +14,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Arch" Version="2.0.0" />
     <PackageReference Include="BulletSharp.x64" Version="0.12.0" />
-    <PackageReference Include="DefaultEcs" Version="0.17.2" />
     <PackageReference Include="ImGui.NET" Version="1.86.0" />
     <PackageReference Include="Magick.NET-Q16-AnyCPU" Version="13.6.0" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.10.0" />

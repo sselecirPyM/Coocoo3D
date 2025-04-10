@@ -1,8 +1,9 @@
-﻿using Coocoo3D.Components;
+﻿using Arch.Core;
+using Arch.Core.Extensions;
+using Coocoo3D.Components;
 using Coocoo3D.Core;
 using Coocoo3D.Present;
 using Coocoo3D.RenderPipeline;
-using DefaultEcs;
 using ImGuiNET;
 using System;
 using System.Numerics;
@@ -164,7 +165,8 @@ public class SceneWindow : IWindow2
         var drawList = ImGui.GetWindowDrawList();
         bool hasDrag = false;
 
-        foreach (var obj in scene.world)
+        QueryDescription q = new QueryDescription().WithAll<Transform>();
+        scene.world.Query(in q, (Entity obj) =>
         {
             ref var transform = ref obj.Get<Transform>();
             var objectDescription = obj.Get<ObjectDescription>();
@@ -192,11 +194,12 @@ public class SceneWindow : IWindow2
                 viewport.mvp = transform.GetMatrix() * vpMatrix;
                 ImGuiExt.DrawCube(drawList, viewport);
             }
-        }
+
+        });
         ImGui.PopClipRect();
 
         if (ImGui.IsItemHovered() && io.MouseReleased[0] && ImGui.IsItemFocused() && !hasDrag
-            && hoveredObject.IsAlive)
+            && hoveredObject.IsAlive())
         {
             editorContext.SelectObjectMessage(hoveredObject);
         }

@@ -1,5 +1,8 @@
-﻿using Caprice.Attributes;
+﻿using Arch.Core;
+using Caprice.Attributes;
 using Caprice.Display;
+using Coocoo3D.Components;
+using Coocoo3D.Present;
 using Coocoo3D.RenderPipeline;
 using Coocoo3DGraphics;
 using RenderPipelines.LambdaPipe;
@@ -330,6 +333,24 @@ public partial class ForwardRenderPipeline
 
     public void Config(SuperPipelineConfig s, PipelineContext c)
     {
+
+
+        var q = new QueryDescription().WithAll<VisualComponent>();
+        var world = renderPipelineView.rpc.scene.world;
+        List<VisualComponent> visualComponents = new List<VisualComponent>();
+        world.Query(q, (Entity entity, ref VisualComponent visualComponent, ref Transform transform) =>
+        {
+            visualComponent.transform = transform;
+            visualComponents.Add(visualComponent);
+        });
+        var q2 = new QueryDescription().WithAll<MMDRendererComponent, Transform>();
+        world.Query(q2, (Entity entity, ref MMDRendererComponent renderer, ref Transform transform) =>
+        {
+            renderer.SetTransform(transform);
+        });
+
+
+
         var camera = this.renderPipelineView.cameraData;
         this.camera = camera;
         if (EnableTAA)
@@ -357,7 +378,7 @@ public partial class ForwardRenderPipeline
         pointLights.Clear();
 
         DirectionalLightData directionalLight = null;
-        foreach (var visual in this.renderPipelineView.rpc.visuals)
+        foreach (var visual in visualComponents)
         {
             var material = visual.material;
             if (visual.material.Type != UIShowType.Light)
@@ -537,6 +558,7 @@ public partial class ForwardRenderPipeline
             var random = Random.Shared;
             RandomI = random.Next();
 
+
             c.ConfigRenderer<DrawGBufferConfig>(s =>
             {
                 s.CameraLeft = CameraLeft;
@@ -550,7 +572,7 @@ public partial class ForwardRenderPipeline
                 s.RenderTargets = [gbuffer0, gbuffer2];
                 s.depthStencil = depth;
                 s.ViewProjection = ViewProjection;
-                s.Visuals = this.renderPipelineView.rpc.visuals;
+                s.Visuals = visualComponents;
             });
             c.ConfigRenderer<HizConfig>(s =>
             {

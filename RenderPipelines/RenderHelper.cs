@@ -58,17 +58,17 @@ public class RenderHelper
                 yield return GetRenderable<T>(submesh, meshOverride, renderer.LocalToWorld, material);
             }
         }
-        foreach (var renderer in rpc.meshRenderers)
-        {
-            var model = renderer.model;
-            var mesh = model.GetMesh();
-            for (int i = 0; i < renderer.Materials.Count; i++)
-            {
-                var material = renderer.Materials[i];
-                var submesh = model.Submeshes[i];
-                yield return GetRenderable<T>(submesh, mesh, renderer.transform.GetMatrix(), material);
-            }
-        }
+        //foreach (var renderer in rpc.meshRenderers)
+        //{
+        //    var model = renderer.model;
+        //    var mesh = model.GetMesh();
+        //    for (int i = 0; i < renderer.Materials.Count; i++)
+        //    {
+        //        var material = renderer.Materials[i];
+        //        var submesh = model.Submeshes[i];
+        //        yield return GetRenderable<T>(submesh, mesh, renderer.transform.GetMatrix(), material);
+        //    }
+        //}
     }
 
     MeshRenderable<T> GetRenderable<T>(Submesh submesh, Mesh mesh, Matrix4x4 transform, RenderMaterial material) where T : class, new()

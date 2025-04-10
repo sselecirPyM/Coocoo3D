@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Arch.Core;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel.Composition.Hosting;
@@ -10,13 +11,17 @@ namespace Coocoo3D.Core;
 public abstract class ISceneExtension
 {
     public abstract void Initialize();
-    public abstract void Update();
 }
 public class SceneExtensionsSystem : IDisposable
 {
     public EngineContext engineContext;
 
     public ConcurrentQueue<string> loadFiles = new ConcurrentQueue<string>();
+
+    public World world;
+
+    List<ISceneExtension> sceneExtensions;
+    List<Action> calls = new List<Action>();
 
     public void Initialize()
     {
@@ -30,6 +35,41 @@ public class SceneExtensionsSystem : IDisposable
         }
     }
 
+
+    public void AddSystem<T>(ForEachWithEntity<T> call)
+    {
+        QueryDescription q = new QueryDescription().WithAll<T>();
+        Action action = () =>
+        {
+            world.Query(in q, call);
+        };
+        calls.Add(action);
+    }
+    public void AddSystem<T0, T1>(ForEachWithEntity<T0, T1> call)
+    {
+        QueryDescription q = new QueryDescription().WithAll<T0, T1>();
+        Action action = () =>
+        {
+            world.Query(in q, call);
+        };
+        calls.Add(action);
+    }
+    public void AddSystem<T0, T1, T2>(ForEachWithEntity<T0, T1, T2> call)
+    {
+        QueryDescription q = new QueryDescription().WithAll<T0, T1, T2>();
+        Action action = () =>
+        {
+            world.Query(in q, call);
+        };
+        calls.Add(action);
+    }
+
+    public void AddCall(Action call)
+    {
+        calls.Add(call);
+    }
+
+
     public void OpenFile(string path)
     {
         loadFiles.Enqueue(path);
@@ -37,9 +77,9 @@ public class SceneExtensionsSystem : IDisposable
 
     public void ProcessFileLoad()
     {
-        while(loadFiles.TryDequeue(out var file))
+        while (loadFiles.TryDequeue(out var file))
         {
-            foreach(var loader in engineContext.extensionFactory.FileLoaders)
+            foreach (var loader in engineContext.extensionFactory.FileLoaders)
             {
                 if (loader.Load(file))
                 {
@@ -51,13 +91,11 @@ public class SceneExtensionsSystem : IDisposable
 
     public void Update()
     {
-        foreach (var sceneExtension in sceneExtensions)
+        foreach(var call in calls)
         {
-            sceneExtension.Update();
+            call();
         }
     }
-
-    List<ISceneExtension> sceneExtensions;
 
     public void LoadExtDir(DirectoryInfo dir)
     {

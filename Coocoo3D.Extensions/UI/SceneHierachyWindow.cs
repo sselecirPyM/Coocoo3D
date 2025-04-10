@@ -1,9 +1,10 @@
-﻿using Coocoo3D.Components;
+﻿using Arch.Core;
+using Arch.Core.Extensions;
+using Coocoo3D.Components;
 using Coocoo3D.Core;
-using DefaultEcs;
-using DefaultEcs.Command;
 using ImGuiNET;
 using System;
+using System.Collections.Generic;
 using System.ComponentModel.Composition;
 using System.Numerics;
 
@@ -15,8 +16,7 @@ namespace Coocoo3D.UI;
 public class SceneHierachyWindow : IWindow, IEditorAccess
 {
     public Scene scene;
-
-    public EntityCommandRecorder recorder;
+    public Coocoo3DMain main;
 
     public EditorContext editorContext;
     public EngineContext engineContext;
@@ -56,7 +56,13 @@ public class SceneHierachyWindow : IWindow, IEditorAccess
             ImGui.EndMenuBar();
         }
         string filter = ImGuiExt.ImFilter("查找物体", "查找名称");
-        var gameObjects = scene.world;
+        //var gameObjects = scene.world;
+        var gameObjects = new List<Entity>();
+        scene.world.Query(new QueryDescription(), (Entity entity) =>
+        {
+            gameObjects.Add(entity);
+        });
+
         foreach (var gameObject in gameObjects)
         {
             TryGetComponent(gameObject, out ObjectDescription objectDescription);
@@ -78,17 +84,22 @@ public class SceneHierachyWindow : IWindow, IEditorAccess
             //        ImGui.ResetMouseDragDelta();
             //    }
             //}
-            if (selecting || !selectedObject.IsAlive)
+            if (selecting || !selectedObject.IsAlive())
             {
                 editorContext.SelectObjectMessage(gameObject);
             }
         }
-        if((ImGui.IsKeyPressed((int)ImGuiKey.Delete) && ImGui.IsWindowHovered()))
+        if ((ImGui.IsKeyPressed((int)ImGuiKey.Delete) && ImGui.IsWindowHovered()))
         {
-            if (editorContext.selectedObject.IsAlive)
+            if (editorContext.selectedObject.IsAlive())
             {
-                recorder.Record(editorContext.selectedObject).Dispose();
-                editorContext.RemoveObjectMessage(editorContext.selectedObject);
+                //recorder.Record(editorContext.selectedObject).Dispose();
+                main.OnRenderOnce.Enqueue(() =>
+                {
+                    scene.DestroyEntity(editorContext.selectedObject);
+                    editorContext.RemoveObjectMessage(editorContext.selectedObject);
+
+                });
             }
         }
     }

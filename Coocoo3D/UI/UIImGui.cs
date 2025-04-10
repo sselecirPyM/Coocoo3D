@@ -1,9 +1,10 @@
-﻿using Caprice.Display;
+﻿using Arch.Core;
+using Arch.Core.Extensions;
+using Caprice.Display;
 using Coocoo3D.Core;
 using Coocoo3D.Present;
 using Coocoo3D.RenderPipeline;
 using Coocoo3D.Utility;
-using DefaultEcs;
 using ImGuiNET;
 using System;
 using System.Collections.Concurrent;
@@ -66,7 +67,7 @@ public class UIImGui
         positionChange = false;
         rotationChange = false;
 
-        if (selectedObject.IsAlive)
+        if (selectedObject.IsAlive())
         {
             ref var transform = ref selectedObject.Get<Transform>();
             position = transform.position;
@@ -116,7 +117,7 @@ public class UIImGui
 
 
         ImGui.Render();
-        if (selectedObject.IsAlive)
+        if (selectedObject.IsAlive())
         {
             bool transformChange = rotationChange || positionChange;
             if (rotationChange)

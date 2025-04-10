@@ -1,7 +1,5 @@
-﻿using Coocoo3D.Components;
-using Coocoo3D.Present;
-using DefaultEcs;
-using DefaultEcs.Command;
+﻿using Arch.Core;
+using Arch.Core.Extensions;
 using System;
 using System.Collections.Generic;
 
@@ -10,81 +8,72 @@ namespace Coocoo3D.Core;
 public class Scene
 {
     public World world;
-    public EntityCommandRecorder recorder;
 
-    public Dictionary<int, Entity> gameObjects = new Dictionary<int, Entity>();
-
-    public int idAllocated = 1;
+    public Coocoo3D.Core.Coocoo3DMain main;
 
     public event Action<Entity> OnObjectEnter;
     public event Action<Entity> OnObjectRemove;
 
-    public void Initialize()
-    {
-        world.SubscribeComponentAdded<VisualComponent>(OnAdd);
-    }
+    public Dictionary<Type, Action<Entity>> OnComponentAdd = new Dictionary<Type, Action<Entity>>();
+    public Dictionary<Type, Action<Entity>> OnComponentRemove = new Dictionary<Type, Action<Entity>>();
 
     public void OnFrame()
     {
-        recorder.Execute();
-        recorder.Clear();
 
-        gameObjects.Clear();
-
-
-        foreach (Entity gameObject in world)
-        {
-            this.gameObjects[gameObject.GetHashCode()] = gameObject;
-        }
-    }
-
-    public void OnAdd(in Entity entity, in VisualComponent visual)
-    {
-        visual.id = GetNewId();
     }
 
     public void DuplicateObject(Entity obj)
     {
-        var world = recorder.Record(obj.World);
-        var newObj = world.CreateEntity();
+        main.OnRenderOnce.Enqueue(() =>
+        {
+            var newObj = world.Create();
 
-        if (TryGetComponent(obj, out VisualComponent visual))
-            newObj.Set(visual.GetClone());
-        if (TryGetComponent(obj, out MeshRendererComponent meshRenderer))
-            newObj.Set(meshRenderer.GetClone());
-        if (TryGetComponent(obj, out MMDRendererComponent mmdRenderer))
-        {
-            newObj.Set(obj.Get<Transform>());
-            newObj.Set(mmdRenderer.GetClone());
-        }
-        if (TryGetComponent(obj, out AnimationStateComponent animationState))
-        {
-            newObj.Set(animationState.GetClone());
-        }
-        if (TryGetComponent(obj, out ObjectDescription description))
-        {
-            newObj.Set(description.GetClone());
-        }
-        newObj.Set(obj.Get<Transform>());
+            foreach (var component in obj.GetAllComponents())
+            {
+                var methodInfo = component.GetType().GetMethod("GetClone");
+                object c = component;
+                if (methodInfo != null)
+                {
+                    c = methodInfo.Invoke(component, null);
+                }
+                newObj.Add(c);
+            }
+        });
     }
 
-    static bool TryGetComponent<T>(Entity obj, out T value)
+    public Entity CreateEntity()
     {
-        if (obj.Has<T>())
+        return world.Create();
+    }
+
+    public void SubscribeComponentAdded<T>(Arch.Core.Events.ComponentAddedHandler<T> action)
+    {
+        OnComponentAdd[typeof(T)] = (entity) => action(entity, ref entity.Get<T>());
+    }
+
+    public void SubscribeComponentRemoved<T>(Arch.Core.Events.ComponentAddedHandler<T> action)
+    {
+        OnComponentRemove[typeof(T)] = (entity) => action(entity, ref entity.Get<T>());
+    }
+
+    public void AddComponent<T>(Entity entity, T component)
+    {
+        entity.Add(component);
+        if (OnComponentAdd.TryGetValue(typeof(T), out var action))
         {
-            value = obj.Get<T>();
-            return true;
-        }
-        else
-        {
-            value = default(T);
-            return false;
+            action(entity);
         }
     }
 
-    int GetNewId()
+    public void DestroyEntity(Entity entity)
     {
-        idAllocated++;
-        return idAllocated - 1;
+        foreach (var component in entity.GetAllComponents())
+        {
+            if (OnComponentRemove.TryGetValue(component.GetType(), out var action))
+            {
+                action(entity);
+            }
+        }
+        world.Destroy(entity);
     }
 }

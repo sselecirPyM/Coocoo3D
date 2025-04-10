@@ -4,13 +4,6 @@ using System;
 
 namespace Coocoo3D.Core;
 
-public enum RendererWorkMode
-{
-    None,
-    Playing,
-    Recording,
-}
-
 public class GameDriverContext
 {
     public int NeedRender;
@@ -26,8 +19,6 @@ public class GameDriverContext
 
     public bool SaveCpuPower = true;
     public bool VSync = false;
-
-    public RendererWorkMode workMode;
 
     public void RequireRender(bool updateEntities)
     {

@@ -1,7 +1,8 @@
-﻿using Coocoo3D.Components;
+﻿using Arch.Core;
+using Arch.Core.Extensions;
+using Coocoo3D.Components;
 using Coocoo3D.Core;
 using Coocoo3D.Present;
-using DefaultEcs;
 using System;
 using System.Collections.Generic;
 using System.Numerics;
@@ -23,68 +24,66 @@ public class RenderPipelineContext : IDisposable
     #region Collect data
 
     public List<MMDRendererComponent> renderers = new();
-    public List<MeshRendererComponent> meshRenderers = new();
-    public List<VisualComponent> visuals = new();
+    //public List<MeshRendererComponent> meshRenderers = new();
 
-    public List<Entity> entities = new List<Entity>();
+    //QueryDescription visualQuery = new QueryDescription().WithAll<VisualComponent, Transform>();
+    QueryDescription rendererQuery = new QueryDescription().WithAll<MMDRendererComponent, Transform>();
 
     public void FrameBegin()
     {
-        entities.Clear();
-        entities.AddRange(scene.gameObjects.Values);
+
+        //meshRenderers.Clear();
+        //meshRenderers.AddRange(scene.meshRenderers);
+        //foreach(var entity in entities)
+        //{
+        //    if (TryGetComponent(entity, out MMDRendererComponent renderer))
+        //    {
+        //        renderer.SetTransform(entity.Get<Transform>());
+        //        renderers.Add(renderer);
+        //    }
+        //    if (TryGetComponent(entity, out MeshRendererComponent meshRenderer))
+        //    {
+        //        meshRenderer.transform = entity.Get<Transform>();
+        //        meshRenderers.Add(meshRenderer);
+        //    }
+        //}
+
 
         renderers.Clear();
+        scene.world.Query(rendererQuery, (ref MMDRendererComponent renderer,ref Transform transform) =>
+        {
+            //renderer.SetTransform(transform);
+            renderers.Add(renderer);
+        });
         //renderers.AddRange(scene.renderers);
-        meshRenderers.Clear();
-        //meshRenderers.AddRange(scene.meshRenderers);
-        visuals.Clear();
-        //visuals.AddRange(scene.visuals);
-        foreach(var entity in entities)
-        {
-            if (TryGetComponent(entity, out MMDRendererComponent renderer))
-            {
-                renderer.SetTransform(entity.Get<Transform>());
-                renderers.Add(renderer);
-            }
-            if (TryGetComponent(entity, out MeshRendererComponent meshRenderer))
-            {
-                meshRenderer.transform = entity.Get<Transform>();
-                meshRenderers.Add(meshRenderer);
-            }
-            if (TryGetComponent(entity, out VisualComponent visual))
-            {
-                visual.transform = entity.Get<Transform>();
-                visuals.Add(visual);
-            }
-        }
 
+        //scene.world.Query(visualQuery, (ref VisualComponent visual, ref Transform transform) =>
+        //{
+        //    if (visual.bindBone == null || !visual.bind.IsAlive() ||
+        //        !TryGetComponent<MMDRendererComponent>(visual.bind, out var renderer))
+        //    {
+        //        return;
+        //    }
+        //    var v = visual;
+        //    var bone = renderer.bones.Find(u => u.Name == v.bindBone);
+        //    if (bone == null)
+        //        return;
+        //    Vector3 pos1 = visual.transform.position;
+        //    bone.GetPositionRotation(out var pos, out var rot);
+        //    Vector3 pos2 = new Vector3(visual.bindX ? 0 : pos1.X, visual.bindY ? 0 : pos1.Y, visual.bindZ ? 0 : pos1.Z);
 
+        //    Vector3 position = pos + Vector3.Transform(pos1, rot);
 
-        foreach (var visual in visuals)
-        {
-            if (visual.bindBone == null || !scene.gameObjects.TryGetValue(visual.bindId, out var gameObject) ||
-                !TryGetComponent<MMDRendererComponent>(gameObject, out var renderer))
-            {
-                continue;
-            }
-            var bone = renderer.bones.Find(u => u.Name == visual.bindBone);
-            if (bone == null)
-                continue;
-            Vector3 pos1 = visual.transform.position;
-            bone.GetPositionRotation(out var pos, out var rot);
-            Vector3 pos2 = new Vector3(visual.bindX ? 0 : pos1.X, visual.bindY ? 0 : pos1.Y, visual.bindZ ? 0 : pos1.Z);
+        //    position = Vector3.Transform(position, renderer.LocalToWorld);
+        //    if (!visual.bindX)
+        //        position.X = pos1.X;
+        //    if (!visual.bindY)
+        //        position.Y = pos1.Y;
+        //    if (!visual.bindZ)
+        //        position.Z = pos1.Z;
+        //    visual.transform = new Transform(position, visual.transform.rotation * (visual.bindRot ? rot : Quaternion.Identity), visual.transform.scale);
+        //});
 
-            Vector3 position = pos + Vector3.Transform(pos1, rot);
-
-            position = Vector3.Transform(position, renderer.LocalToWorld);
-            if (!visual.bindX)
-                position.X = pos1.X;
-            if (!visual.bindY)
-                position.Y = pos1.Y;
-            if (!visual.bindZ)
-                position.Z = pos1.Z;
-            visual.transform = new Transform(position, visual.transform.rotation * (visual.bindRot ? rot : Quaternion.Identity), visual.transform.scale);
-        }
     }
 
     bool TryGetComponent<T>(in Entity entity, out T value)

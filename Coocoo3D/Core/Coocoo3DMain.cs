@@ -2,7 +2,7 @@
 using Coocoo3D.RenderPipeline;
 using Coocoo3D.UI;
 using Coocoo3DGraphics;
-using DefaultEcs.Command;
+using Arch.Core;
 using System;
 using System.Collections.Concurrent;
 using System.Threading;
@@ -11,8 +11,7 @@ namespace Coocoo3D.Core;
 
 public class Coocoo3DMain : IDisposable
 {
-    DefaultEcs.World world;
-    public EntityCommandRecorder recorder;
+    World world;
     public Statistics statistics;
 
     GraphicsDevice graphicsDevice;
@@ -23,7 +22,6 @@ public class Coocoo3DMain : IDisposable
 
     public Scene CurrentScene;
     public EditorContext EditorContext;
-    public AnimationSystem animationSystem;
 
     public SceneExtensionsSystem sceneExtensions;
 
@@ -57,8 +55,8 @@ public class Coocoo3DMain : IDisposable
     public void Launch()
     {
         var e = EngineContext;
-        world = e.AddSystem<DefaultEcs.World>();
-        recorder = e.AddSystem<EntityCommandRecorder>();
+        world = World.Create();
+        e.AddSystem<Arch.Core.World>(world);
 
         statistics = e.AddSystem<Statistics>();
 
@@ -81,8 +79,6 @@ public class Coocoo3DMain : IDisposable
 
         CurrentScene = e.AddSystem<Scene>();
 
-        animationSystem = e.AddSystem<AnimationSystem>();
-
         sceneExtensions = e.AddSystem<SceneExtensionsSystem>();
 
         renderSystem = e.AddSystem<RenderSystem>();
@@ -93,7 +89,7 @@ public class Coocoo3DMain : IDisposable
 
         platformIO = e.AddSystem<PlatformIO>();
         UIImGui = e.AddSystem<UI.UIImGui>();
-
+        e.AddAutoFill(this);
         e.InitializeSystems();
         mainCaches.Initialize1();
 
@@ -150,8 +146,6 @@ public class Coocoo3DMain : IDisposable
 
         if (gdc.Playing || gdc.RefreshScene)
         {
-            animationSystem.Update();
-
             sceneExtensions.Update();
 
             gdc.RefreshScene = false;

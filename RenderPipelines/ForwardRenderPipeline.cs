@@ -1,6 +1,5 @@
 ﻿using Caprice.Attributes;
 using Caprice.Display;
-using Coocoo3D.Components;
 using Coocoo3D.Present;
 using Coocoo3D.RenderPipeline;
 using Coocoo3DGraphics;
@@ -9,7 +8,6 @@ using RenderPipelines.LambdaRenderers;
 using RenderPipelines.MaterialDefines;
 using RenderPipelines.Utility;
 using System;
-using System.Collections.Generic;
 using System.IO;
 
 namespace RenderPipelines;

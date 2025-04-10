@@ -1,9 +1,10 @@
-﻿using Caprice.Display;
+﻿using Arch.Core;
+using Arch.Core.Extensions;
+using Caprice.Display;
 using Coocoo3D.Components;
 using Coocoo3D.Core;
 using Coocoo3D.Present;
 using Coocoo3D.UI;
-using DefaultEcs;
 using ImGuiNET;
 using System;
 using System.Collections.Generic;
@@ -42,7 +43,7 @@ public class GameObjectWindow : IWindow, IEditorAccess
 
     public void OnGUI()
     {
-        if (selectedObject.IsAlive)
+        if (selectedObject.IsAlive())
         {
             GameObjectPanel(selectedObject);
         }

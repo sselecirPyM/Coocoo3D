@@ -1,4 +1,6 @@
-﻿using Caprice.Display;
+﻿using Arch.Core;
+using Arch.Core.Extensions;
+using Caprice.Display;
 using Coocoo3D.Components;
 using Coocoo3D.Core;
 using Coocoo3D.Extensions.Utility;
@@ -6,7 +8,6 @@ using Coocoo3D.Present;
 using Coocoo3D.RenderPipeline;
 using Coocoo3D.UI;
 using Coocoo3DGraphics;
-using DefaultEcs.Command;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -25,8 +26,7 @@ namespace Coocoo3D.Extensions.UI
         public UIImGui uiImGui;
         public EngineContext engineContext;
         public EditorContext editorContext;
-
-        public EntityCommandRecorder recorder;
+        public Coocoo3D.Core.Coocoo3DMain main;
 
         [Export("UICommand", typeof(Action))]
         [ExportMetadata("MenuItem", "保存场景")]
@@ -88,37 +88,34 @@ namespace Coocoo3D.Extensions.UI
                 }
                 mainCaches.textureCaches.Clear();
 
-                foreach (var obj in scene.gameObjects.Values)
+                var q1 = new QueryDescription().WithAll<MMDRendererComponent>();
+                scene.world.Query(q1, (ref MMDRendererComponent r1) =>
                 {
-                    if (obj.Has<MMDRendererComponent>())
+                    foreach (var mat in r1.Materials)
                     {
-                        var r1 = obj.Get<MMDRendererComponent>();
-                        foreach (var mat in r1.Materials)
+                        foreach (var p in mat.Parameters.Keys)
                         {
-                            foreach (var p in mat.Parameters.Keys)
+                            if (mat.Parameters[p] is Texture2D t1)
                             {
-                                if (mat.Parameters[p] is Texture2D t1)
-                                {
-                                    mat.Parameters[p] = mainCaches.GetTexturePreloaded(reverse[t1]);
-                                }
+                                mat.Parameters[p] = mainCaches.GetTexturePreloaded(reverse[t1]);
                             }
                         }
                     }
-                    if (obj.Has<MeshRendererComponent>())
+                });
+                var q2 = new QueryDescription().WithAll<MeshRendererComponent>();
+                scene.world.Query(q2, (ref MeshRendererComponent r1) =>
+                {
+                    foreach (var mat in r1.Materials)
                     {
-                        var r1 = obj.Get<MeshRendererComponent>();
-                        foreach (var mat in r1.Materials)
+                        foreach (var p in mat.Parameters.Keys)
                         {
-                            foreach (var p in mat.Parameters.Keys)
+                            if (mat.Parameters[p] is Texture2D t1)
                             {
-                                if (mat.Parameters[p] is Texture2D t1)
-                                {
-                                    mat.Parameters[p] = mainCaches.GetTexturePreloaded(reverse[t1]);
-                                }
+                                mat.Parameters[p] = mainCaches.GetTexturePreloaded(reverse[t1]);
                             }
                         }
                     }
-                }
+                });
             });
         }
 
@@ -150,43 +147,41 @@ namespace Coocoo3D.Extensions.UI
         [ExportMetadata("MenuItem", "创建光照")]
         public void CreateLighting()
         {
-            var world = scene.recorder.Record(scene.world);
-            var gameObject = world.CreateEntity();
+            var gameObject = scene.CreateEntity();
 
             VisualComponent lightComponent = new VisualComponent();
             lightComponent.material.Type = UIShowType.Light;
-            gameObject.Set(lightComponent);
-            gameObject.Set(new ObjectDescription
+            gameObject.Add(lightComponent);
+            gameObject.Add(new ObjectDescription
             {
                 Name = "光照",
                 Description = ""
             });
-            gameObject.Set(new Transform(new Vector3(0, 0, 0), Quaternion.CreateFromYawPitchRoll(0, 1.3962634015954636615389526147909f, 0)));
+            gameObject.Add(new Transform(new Vector3(0, 0, 0), Quaternion.CreateFromYawPitchRoll(0, 1.3962634015954636615389526147909f, 0)));
         }
 
         [Export("UISceneCommand", typeof(Action))]
         [ExportMetadata("MenuItem", "创建贴花")]
         public void CreateDecal()
         {
-            var world = scene.recorder.Record(scene.world);
-            var gameObject = world.CreateEntity();
+            var gameObject = scene.CreateEntity();
 
             VisualComponent decalComponent = new VisualComponent();
             decalComponent.material.Type = UIShowType.Decal;
-            gameObject.Set(decalComponent);
-            gameObject.Set(new ObjectDescription
+            gameObject.Add(decalComponent);
+            gameObject.Add(new ObjectDescription
             {
                 Name = "贴花",
                 Description = ""
             });
-            gameObject.Set(new Transform(new Vector3(0, 0, 0), Quaternion.CreateFromYawPitchRoll(0, -1.5707963267948966192313216916398f, 0), new Vector3(1, 1, 0.1f)));
+            gameObject.Add(new Transform(new Vector3(0, 0, 0), Quaternion.CreateFromYawPitchRoll(0, -1.5707963267948966192313216916398f, 0), new Vector3(1, 1, 0.1f)));
         }
 
         [Export("UISceneCommand", typeof(Action))]
         [ExportMetadata("MenuItem", "复制物体")]
         public void DuplicateObject()
         {
-            if (editorContext.selectedObject.IsAlive)
+            if (editorContext.selectedObject.IsAlive())
             {
                 scene.DuplicateObject(editorContext.selectedObject);
             }
@@ -196,10 +191,13 @@ namespace Coocoo3D.Extensions.UI
         [ExportMetadata("MenuItem", "移除物体")]
         public void RemoveObject()
         {
-            if (editorContext.selectedObject.IsAlive)
+            if (editorContext.selectedObject.IsAlive())
             {
-                recorder.Record(editorContext.selectedObject).Dispose();
-                editorContext.RemoveObjectMessage(editorContext.selectedObject);
+                main.OnRenderOnce.Enqueue(() =>
+                {
+                    scene.DestroyEntity(editorContext.selectedObject);
+                    editorContext.RemoveObjectMessage(editorContext.selectedObject);
+                });
             }
         }
 

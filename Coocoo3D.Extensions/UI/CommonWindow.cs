@@ -1,8 +1,8 @@
-﻿using Coocoo3D.Components;
+﻿using Arch.Core;
+using Coocoo3D.Components;
 using Coocoo3D.Core;
 using Coocoo3D.RenderPipeline;
 using Coocoo3D.UI;
-using DefaultEcs;
 using ImGuiNET;
 using System;
 using System.ComponentModel.Composition;
@@ -150,19 +150,19 @@ public class CommonWindow : IWindow, IEditorAccess
         ResetTime(9999);
         gameDriverContext.RequireRender(true);
     }
-
+    QueryDescription q = new QueryDescription().WithAll<AnimationStateComponent>();
     void ResetTime(float time)
     {
-        foreach (var obj in world.GetEntities().With<AnimationStateComponent>().AsEnumerable())
+        world.Query(q, (ref AnimationStateComponent ani) =>
         {
-            obj.Get<AnimationStateComponent>().Time = time;
-        }
+            ani.Time = time;
+        });
     }
     void MoveTime(float time)
     {
-        foreach (var obj in world.GetEntities().With<AnimationStateComponent>().AsEnumerable())
+        world.Query(q, (ref AnimationStateComponent ani) =>
         {
-            obj.Get<AnimationStateComponent>().Time += time;
-        }
+            ani.Time += time;
+        });
     }
 }

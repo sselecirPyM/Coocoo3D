@@ -1,8 +1,10 @@
-﻿using Coocoo3D.Components;
+﻿using Arch.Core;
+using Arch.Core.Extensions;
+using Coocoo3D.Components;
+using Coocoo3D.Core;
 using Coocoo3D.Present;
 using Coocoo3D.ResourceWrap;
-using Coocoo3D.Utility;
-using DefaultEcs.Command;
+using ImageMagick;
 using System;
 using System.Collections.Generic;
 using System.Numerics;
@@ -11,23 +13,19 @@ namespace Coocoo3D.Extensions.FileFormat;
 
 public static class PMXFormatExtension
 {
-    public static (MMDRendererComponent, AnimationStateComponent) LoadPmx(this EntityRecord gameObject, ModelPack modelPack, Transform transform)
+    public static MMDRendererComponent LoadPmx(this Entity entity, Scene scene, ModelPack modelPack, Transform transform)
     {
-        gameObject.Set(new ObjectDescription
+        entity.Add(new ObjectDescription
         {
             Name = modelPack.name,
             Description = modelPack.description,
         });
-        gameObject.Set(transform);
+        entity.Add(transform);
 
         var renderer = new MMDRendererComponent();
-        gameObject.Set(renderer);
         renderer.skinning = true;
         renderer.Morphs.Clear();
         renderer.Morphs.AddRange(modelPack.morphs);
-        var animationState = new AnimationStateComponent();
-        gameObject.Set(animationState);
-        animationState.LoadAnimationStates(modelPack.bones, modelPack.morphs);
 
         renderer.BoneMatricesData = new Matrix4x4[modelPack.bones.Count];
 
@@ -45,13 +43,25 @@ public static class PMXFormatExtension
 
             if (rigidBodyDesc.Type != RigidBodyType.Kinematic && rigidBodyDesc.AssociatedBoneIndex != -1)
                 renderer.bones[rigidBodyDesc.AssociatedBoneIndex].IsPhysicsFreeBone = true;
-        };
+        }
         renderer.jointDescs.AddRange(modelPack.jointDescs);
         renderer.Precompute();
 
 
         renderer.LoadMesh(modelPack);
-        return (renderer, animationState);
+        scene.AddComponent(entity, renderer);
+        //entity.Add(renderer);
+        return renderer;
+    }
+
+    public static AnimationStateComponent LoadAnimationState(this Entity entity)
+    {
+        entity.TryGet<MMDRendererComponent>(out var renderer);
+
+        var animationState = new AnimationStateComponent();
+        entity.Add(animationState);
+        animationState.LoadAnimationStates(renderer.model.bones, renderer.model.morphs);
+        return animationState;
     }
 
     static void LoadMesh(this MMDRendererComponent renderer, ModelPack modelPack)

@@ -63,6 +63,11 @@ public class EngineContext : IDisposable
         autoFills[typeof(T)] = system;
         return system;
     }
+    public T AddAutoFill<T>(T system) where T : class
+    {
+        autoFills[typeof(T)] = system;
+        return system;
+    }
 
     public T GetSystem<T>()
     {

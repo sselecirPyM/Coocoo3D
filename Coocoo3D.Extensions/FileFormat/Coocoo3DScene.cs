@@ -1,11 +1,12 @@
-﻿using Caprice.Display;
+﻿using Arch.Core;
+using Arch.Core.Extensions;
+using Caprice.Display;
 using Coocoo3D.Components;
 using Coocoo3D.Core;
 using Coocoo3D.Present;
 using Coocoo3D.RenderPipeline;
 using Coocoo3D.ResourceWrap;
 using Coocoo3DGraphics;
-using DefaultEcs;
 using System.Collections.Generic;
 using System.Numerics;
 
@@ -142,8 +143,7 @@ public class Coocoo3DScene
         {
             reverse[pair.Value] = pair.Key;
         }
-
-        foreach (var obj in world)
+        world.Query(new QueryDescription(), (Entity obj) =>
         {
             var renderer = GetComponent<MMDRendererComponent>(obj);
             var animationState = GetComponent<AnimationStateComponent>(obj);
@@ -183,7 +183,8 @@ public class Coocoo3DScene
                 decalObject.visual = new CooSceneObjectVisual(ToDTO(reverse, visual.material));
                 scene.objects.Add(decalObject);
             }
-        }
+
+        });
 
         return scene;
     }
@@ -204,79 +205,85 @@ public class Coocoo3DScene
     }
 
 
-    public void ToScene(Scene currentScene, MainCaches caches)
+    public void ToScene(Scene scene, MainCaches caches)
     {
-        var world = currentScene.recorder.Record(currentScene.world);
-
-        foreach (var obj in objects)
+        var world = scene.world;
+        caches.ProxyCall(() =>
         {
-            var entity = world.CreateEntity();
-            var transform = new Transform(obj.position, obj.rotation, obj.scale);
-            if (obj.type == "mmdModel")
+            foreach (var obj in objects)
             {
-                string pmxPath = obj.path;
-                ModelPack modelPack = caches.GetModel(pmxPath);
-
-                (var renderer, var animationState) = entity.LoadPmx(modelPack, transform);
-
-                if (obj.skinning != null)
-                    renderer.skinning = (bool)obj.skinning;
-                if (obj.properties != null)
+                var entity = scene.CreateEntity();
+                var transform = new Transform(obj.position, obj.rotation, obj.scale);
+                if (obj.type == "mmdModel")
                 {
-                    if (obj.properties.TryGetValue("motion", out string motion))
+                    string pmxPath = obj.path;
+                    ModelPack modelPack = caches.GetModel(pmxPath);
+
+                    var renderer = entity.LoadPmx(scene, modelPack, transform);
+
+                    var animationState = entity.LoadAnimationState();
+
+                    if (obj.skinning != null)
+                        renderer.skinning = (bool)obj.skinning;
+                    if (obj.properties != null)
                     {
-                        animationState.motion = caches.GetMotion(motion);
+                        if (obj.properties.TryGetValue("motion", out string motion))
+                        {
+                            animationState.motion = caches.GetMotion(motion);
+                        }
+                    }
+                    if (obj.materials != null)
+                    {
+                        Mat2Mat(caches, obj.materials, renderer.Materials);
                     }
                 }
-                if (obj.materials != null)
+                else if (obj.type == "model")
                 {
-                    Mat2Mat(caches, obj.materials, renderer.Materials);
-                }
-            }
-            else if (obj.type == "model")
-            {
-                string path = obj.path;
-                ModelPack modelPack = caches.GetModel(path);
+                    string path = obj.path;
+                    ModelPack modelPack = caches.GetModel(path);
 
-                var renderer = modelPack.LoadMesh(entity, transform);
+                    var renderer = modelPack.LoadMesh(entity, transform);
 
-                if (obj.materials != null)
-                {
-                    Mat2Mat(caches, obj.materials, renderer.Materials);
+                    if (obj.materials != null)
+                    {
+                        Mat2Mat(caches, obj.materials, renderer.Materials);
+                    }
                 }
+                else
+                {
+                    UIShowType uiShowType = default;
+                    switch (obj.type)
+                    {
+                        case "lighting":
+                            uiShowType = UIShowType.Light;
+                            break;
+                        case "decal":
+                            uiShowType = UIShowType.Decal;
+                            break;
+                        case "particle":
+                            uiShowType = UIShowType.Particle;
+                            break;
+                        default:
+                            continue;
+                    }
+                    VisualComponent component = new VisualComponent();
+                    component.material.Type = uiShowType;
+                    entity.Set(component);
+                    entity.Set(transform);
+                    if (obj.visual != null)
+                    {
+                        component.material = FromDTO(caches, obj.visual.material);
+                    }
+                }
+                entity.Set(new ObjectDescription
+                {
+                    Name = obj.name ?? string.Empty,
+                    Description = ""
+                });
             }
-            else
-            {
-                UIShowType uiShowType = default;
-                switch (obj.type)
-                {
-                    case "lighting":
-                        uiShowType = UIShowType.Light;
-                        break;
-                    case "decal":
-                        uiShowType = UIShowType.Decal;
-                        break;
-                    case "particle":
-                        uiShowType = UIShowType.Particle;
-                        break;
-                    default:
-                        continue;
-                }
-                VisualComponent component = new VisualComponent();
-                component.material.Type = uiShowType;
-                entity.Set(component);
-                entity.Set(transform);
-                if (obj.visual != null)
-                {
-                    component.material = FromDTO(caches, obj.visual.material);
-                }
-            }
-            entity.Set(new ObjectDescription
-            {
-                Name = obj.name ?? string.Empty,
-                Description = ""
-            });
-        }
+
+        });
+
     }
     void Mat2Mat(MainCaches mainCaches, Dictionary<string, _cooMaterial> materials, List<RenderMaterial> renderMaterials)
     {
