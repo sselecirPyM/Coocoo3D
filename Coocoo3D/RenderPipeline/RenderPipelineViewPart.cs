@@ -20,7 +20,7 @@ partial class RenderPipelineView
     {
         var texs = RenderTextures.Values.Where(u =>
         {
-            return u.sizeAttribute != null && u.sizeAttribute.Source == key;
+            return u.sizeSource != null && u.sizeSource == key;
         });
         foreach (var tex in texs)
         {
@@ -37,44 +37,6 @@ partial class RenderPipelineView
     public void Draw(int indexCount, int instanceCount, int startIndexLocation, int baseVertexLocation, int startInstanceLocation)
     {
         graphicsContext.DrawIndexedInstanced(indexCount, instanceCount, startIndexLocation, baseVertexLocation, startInstanceLocation);
-    }
-
-    public void SetSRVs(params Texture2D[] textures)
-    {
-        for (int i = 0; i < textures.Length; i++)
-        {
-            graphicsContext.SetSRVTSlot(i, textures[i]);
-        }
-    }
-
-    public void SetUAV(int slot, Texture2D texture2D)
-    {
-        graphicsContext.SetUAVTSlot(slot, texture2D);
-    }
-
-    public void SetUAV(int slot, GPUBuffer buffer)
-    {
-        graphicsContext.SetUAVTSlot(slot, buffer);
-    }
-
-    public void SetUAV(int slot, Texture2D texture2D, int mipIndex)
-    {
-        graphicsContext.SetUAVTSlot(slot, texture2D, mipIndex);
-    }
-
-    public void SetSRV(int slot, Texture2D texture)
-    {
-        graphicsContext.SetSRVTSlot(slot, texture);
-    }
-
-    public void SetSRV(int slot, GPUBuffer buffer)
-    {
-        graphicsContext.SetSRVTSlot(slot, buffer);
-    }
-
-    public void SetSRVMip(int slot, Texture2D texture, int mip)
-    {
-        graphicsContext.SetSRVTMip(slot, texture, mip);
     }
 
     public Texture2D GetRenderTexture2D(string name)
@@ -145,10 +107,5 @@ partial class RenderPipelineView
         _renderTargets.Clear();
         depthStencil = depth;
         graphicsContext.SetDSV(depth, clearDepth);
-    }
-
-    public void Dispatch(int x = 1, int y = 1, int z = 1)
-    {
-        graphicsContext.Dispatch(x, y, z);
     }
 }

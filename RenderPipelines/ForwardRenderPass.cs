@@ -156,57 +156,10 @@ public partial class ForwardRenderPipeline
     public bool DeferredRendering;
     #region deferred
 
-    [Size("Output")]
-    [Format(ResourceFormat.R16G16B16A16_Float)]
-    [AutoClear]
-    public Texture2D gbuffer0
-    {
-        get => x_gbuffer0;
-        set
-        {
-            x_gbuffer0 = value;
-        }
-    }
-    Texture2D x_gbuffer0;
-
-    [Size("Output")]
-    [Format(ResourceFormat.R16G16B16A16_Float)]
-    [AutoClear]
-    public Texture2D gbuffer1
-    {
-        get => x_gbuffer1;
-        set
-        {
-            x_gbuffer1 = value;
-        }
-    }
-    Texture2D x_gbuffer1;
-
-    [Size("Output")]
-    [Format(ResourceFormat.R16G16B16A16_Float)]
-    [AutoClear]
-    public Texture2D gbuffer2
-    {
-        get => x_gbuffer2;
-        set
-        {
-            x_gbuffer2 = value;
-        }
-    }
-    Texture2D x_gbuffer2;
-
-    [Size("Output")]
-    [Format(ResourceFormat.R16G16B16A16_Float)]
-    [AutoClear]
-    public Texture2D gbuffer3
-    {
-        get => x_gbuffer3;
-        set
-        {
-            x_gbuffer3 = value;
-        }
-    }
-    Texture2D x_gbuffer3;
+    Texture2D gbuffer0 { get; set; }
+    Texture2D gbuffer1 { get; set; }
+    Texture2D gbuffer2 { get; set; }
+    Texture2D gbuffer3 { get; set; }
 
     [Size(2048, 2048, 9)]
     [Format(ResourceFormat.R32G32_Float)]

@@ -22,7 +22,7 @@ public class EnvironmentReflectionAttribute : RuntimeBakeAttribute, ITexture2DBa
 
         int width = texture.width;
         int height = texture.height;
-        var writer = new GPUWriter();
+        var writer = new CBufferWriter();
         writer.graphicsContext = renderPipelineView.graphicsContext;
 
         int roughnessLevel = 5;
@@ -40,10 +40,8 @@ public class EnvironmentReflectionAttribute : RuntimeBakeAttribute, ITexture2DBa
             writer.Write(quality);
             writer.Write(Math.Max(mipLevel * mipLevel / (4.0f * 4.0f), 5e-3f));
             writer.Write(face);
-            writer.SetCBV(0);
-
-            renderPipelineView.SetSRV(0, tex);
-            renderPipelineView.SetUAV(0, texture, mipLevel);
+            var data = writer.GetData();
+            writer.Clear();
 
 
             if (mipLevel != roughnessLevel)
@@ -51,7 +49,14 @@ public class EnvironmentReflectionAttribute : RuntimeBakeAttribute, ITexture2DBa
             else
                 renderPipelineView.SetPSO(shader_IrradianceMap);
 
-            renderPipelineView.Dispatch(width / 8 / pow2a, height / 8 / pow2a, 6);
+            renderPipelineView.graphicsContext.SetComputeResources((s) =>
+            {
+                s.SetCBV(0, data);
+                s.SetSRV(0, tex);
+                s.SetUAVMip(0, texture, mipLevel);
+            });
+
+            renderPipelineView.graphicsContext.Dispatch(width / 8 / pow2a, height / 8 / pow2a, 6);
 
             currentQuality++;
         }

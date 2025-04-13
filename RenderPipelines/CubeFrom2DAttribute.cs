@@ -17,12 +17,14 @@ internal class CubeFrom2DAttribute : RuntimeBakeAttribute, ITexture2DBaker, IDis
         int width = texture.width;
         int height = texture.height;
 
-        view.graphicsContext.SetCBVRSlot<int>(0, [width, height]);
-
-        view.SetSRV(0, input);
-        view.SetUAV(0, texture, 0);
         view.SetPSO(shader_ConvertToCube);
-        view.Dispatch(width / 8, height / 8, 6);
+        view.graphicsContext.SetComputeResources(s =>
+        {
+            s.SetCBV(0, [width, height]);
+            s.SetSRV(0, input);
+            s.SetUAVMip(0, texture, 0);
+        });
+        view.graphicsContext.Dispatch(width / 8, height / 8, 6);
 
         int x = width;
         int y = height;
@@ -31,11 +33,13 @@ internal class CubeFrom2DAttribute : RuntimeBakeAttribute, ITexture2DBaker, IDis
         {
             x /= 2;
             y /= 2;
-            view.SetSRVMip(0, texture, i - 1);
-            view.SetUAV(0, texture, i);
-
-            view.graphicsContext.SetCBVRSlot<int>(0, [x, y]);
-            view.Dispatch(x / 8, y / 8, 6);
+            view.graphicsContext.SetComputeResources(s =>
+            {
+                s.SetCBV(0, [x, y]);
+                s.SetSRVMip(0, texture, i - 1);
+                s.SetUAVMip(0, texture, i);
+            });
+            view.graphicsContext.Dispatch(x / 8, y / 8, 6);
         }
         return true;
     }

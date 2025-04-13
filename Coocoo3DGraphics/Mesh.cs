@@ -82,7 +82,7 @@ public class Mesh : IDisposable
         return m_vertexCount;
     }
 
-    internal ID3D12Resource GetIndexBuffer()
+    public ID3D12Resource GetIndexBuffer()
     {
         return indexBuffer ?? baseMesh?.GetIndexBuffer();
     }
@@ -94,6 +94,15 @@ public class Mesh : IDisposable
             return buf;
         }
         return baseMesh?.GetVertexBuffer(name);
+    }
+
+    public VertexBufferView GetVertexBufferView(string name)
+    {
+        if (vtBuffers.TryGetValue(name, out var buf))
+        {
+            return buf.vertexBufferView;
+        }
+        return baseMesh.GetVertexBufferView(name);
     }
 
     public void Dispose()

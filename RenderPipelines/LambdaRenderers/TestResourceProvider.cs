@@ -1,12 +1,11 @@
 ﻿using Newtonsoft.Json;
-using RenderPipelines.LambdaPipe;
 using RenderPipelines.Utility;
 using System;
 using System.IO;
 
 namespace RenderPipelines.LambdaRenderers
 {
-    public class TestResourceProvider : IPipelineResourceProvider, IDisposable
+    public class TestResourceProvider : IDisposable
     {
         public RenderHelper RenderHelper { get; set; }
 

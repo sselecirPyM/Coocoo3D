@@ -193,6 +193,7 @@ namespace RenderPipelines.LambdaRenderers
                     return;
                 var p = c.GetResourceProvider<TestResourceProvider>();
                 var context = p.RenderHelper;
+                var graphicsContext = context.renderPipelineView.graphicsContext;
 
                 Keyword_shader_TAA flags = new Keyword_shader_TAA();
                 if (s.DebugRenderType == DebugRenderType.TAA)
@@ -200,12 +201,15 @@ namespace RenderPipelines.LambdaRenderers
 
                 var writer = context.Writer;
                 context.Write(s.cbv, writer);
-                writer.SetCBV(0);
-
-                context.SetSRVs(s.depth, s.history, s.historyDepth);
-                context.SetUAV(0, s.target);
+                var data = writer.GetData();
                 context.SetPSO(p.shader_TAA.Get(flags));
-                context.Dispatch((s.target.width + 7) / 8, (s.target.height + 7) / 8);
+                graphicsContext.SetComputeResources((ct) =>
+                {
+                    ct.SetCBV<byte>(0, data);
+                    ct.SetSRVs(s.depth, s.history, s.historyDepth);
+                    ct.SetUAV(0, s.target);
+                });
+                graphicsContext.Dispatch((s.target.width + 7) / 8, (s.target.height + 7) / 8,1);
             });
 
             builder.AddRenderer<DrawGBufferConfig>((s, c) =>
@@ -337,22 +341,27 @@ namespace RenderPipelines.LambdaRenderers
 
                 int x = s.input.width;
                 int y = s.input.height;
-                context.SetCBV<int>(0, [x, y]);
-                context.SetSRV(0, s.input);
-                context.SetUAV(0, s.output);
-
-                context.Dispatch((x + 15) / 16, (y + 15) / 16, 1);
+                view.graphicsContext.SetComputeResources(ct =>
+                {
+                    ct.SetCBV(0, [x, y]);
+                    ct.SetSRV(0, s.input);
+                    ct.SetUAV(0, s.output);
+                });
+                view.graphicsContext.Dispatch((x + 15) / 16, (y + 15) / 16, 1);
                 context.SetPSO(p.shader_hiz2);
                 for (int i = 1; i < 9; i++)
                 {
                     x = (x + 1) / 2;
                     y = (y + 1) / 2;
 
-                    context.SetCBV<int>(0, [x, y]);
-                    context.SetSRV(0, s.output, i - 1);
-                    context.SetUAV(0, s.output, i);
+                    view.graphicsContext.SetComputeResources(ct =>
+                    {
+                        ct.SetCBV<int>(0, [x, y]);
+                        ct.SetSRVMip(0, s.output, i - 1);
+                        ct.SetUAVMip(0, s.output, i);
+                    });
 
-                    context.Dispatch((x + 15) / 16, (y + 15) / 16, 1);
+                    view.graphicsContext.Dispatch((x + 15) / 16, (y + 15) / 16, 1);
                 }
             });
 
@@ -463,7 +472,7 @@ namespace RenderPipelines.LambdaRenderers
                 srgbConvert.Execute();
             });
 
-            builder.AddRenderer<RayTracingConfig>((s, t) =>
+            builder.AddRenderer<RayTracingConfig>((s, c) =>
             {
 
             }, (s, c) =>
@@ -497,31 +506,28 @@ namespace RenderPipelines.LambdaRenderers
                     return;
                 var writer = context.Writer;
 
-                var tpas = new RTTopLevelAcclerationStruct();
-                tpas.instances = new();
+                var tlas = new RTTopLevelAcclerationStruct();
+                tlas.instances = new();
                 Span<byte> bufferData = stackalloc byte[256];
+                string[] nameIndex = new string[] { "POSITION0", "NORMAL0", "TEXCOORD0" };
                 foreach (var renderable in context.Renderables)
                 {
                     var material = renderable.material;
 
-                    var btas = new RTBottomLevelAccelerationStruct();
+                    var blas = new RTBottomLevelAccelerationStruct();
 
-                    btas.mesh = renderable.mesh;
+                    blas.mesh = renderable.mesh;
 
-                    btas.indexStart = renderable.indexStart;
-                    btas.indexCount = renderable.indexCount;
-                    btas.vertexStart = renderable.vertexStart;
-                    btas.vertexCount = renderable.vertexCount;
-                    var instance = new RTInstance() { blas = btas };
+                    blas.indexStart = renderable.indexStart;
+                    blas.indexCount = renderable.indexCount;
+                    blas.vertexStart = renderable.vertexStart;
+                    blas.vertexCount = renderable.vertexCount;
+
+
+                    var instance = new RTInstance() { blas = blas };
                     instance.transform = renderable.transform;
-                    instance.hitGroupName = "rayHit";
-                    instance.SRVs = new();
-                    instance.CBVs = new();
 
-                    instance.SRVs.Add(4, material._Albedo);
-                    instance.SRVs.Add(5, material._Metallic);
-                    instance.SRVs.Add(6, material._Roughness);
-                    instance.SRVs.Add(7, material._Emissive);
+                    var indexBuffer = renderable.mesh.GetIndexBuffer();
 
 
                     MemoryMarshal.Write(bufferData.Slice(0), Matrix4x4.Transpose(renderable.transform));
@@ -529,8 +535,28 @@ namespace RenderPipelines.LambdaRenderers
                     MemoryMarshal.Write(bufferData.Slice(64 + 4), material.Roughness);
                     MemoryMarshal.Write(bufferData.Slice(64 + 8), material.Emissive);
                     MemoryMarshal.Write(bufferData.Slice(64 + 12), material.Specular);
-                    instance.CBVs.Add(0, bufferData.ToArray());
-                    tpas.instances.Add(instance);
+
+                    var bufferData1 = bufferData.ToArray();
+                    instance.SetLocalResource = (ct) =>
+                    {
+                        ct.SetShader("rayHit");
+                        ct.SetSRV(0, indexBuffer.GPUVirtualAddress + (ulong)renderable.indexStart * 4);
+                        for (int i = 0; i < nameIndex.Length; i++)
+                        {
+                            string name = nameIndex[i];
+                            var vertexBufferView = renderable.mesh.GetVertexBufferView(name);
+                            ulong address = vertexBufferView.BufferLocation + (ulong)(vertexBufferView.StrideInBytes * renderable.vertexStart);
+                            ct.SetSRV(i + 1, address);
+                        }
+                        ct.SetSRV(4, material._Albedo);
+                        ct.SetSRV(5, material._Metallic);
+                        ct.SetSRV(6, material._Roughness);
+                        ct.SetSRV(7, material._Emissive);
+                        ct.SetCBV(0, bufferData1);
+                    };
+
+
+                    tlas.instances.Add(instance);
                 }
 
                 int width = s.renderTarget.width;
@@ -541,27 +567,26 @@ namespace RenderPipelines.LambdaRenderers
 
 
                 RayTracingCall call = new RayTracingCall();
-                call.tpas = tpas;
-                call.UAVs = new();
-                call.SRVs = new();
-                call.CBVs = new();
+                call.tpas = tlas;
                 call.missShaders = RayTracingConfig.missShaders;
 
-                call.UAVs[0] = s.renderTarget;
-                call.UAVs[1] = pipelineMaterial.GIBufferWrite;
+                call.SetResources = (ct) =>
+                {
+                    ct.SetCBV(0, cbvData0);
+                    ct.SetSRV(0, tlas);
+                    ct.SetSRV(1, pipelineMaterial._Environment, true);
+                    ct.SetSRV(2, pipelineMaterial._BRDFLUT, true);
+                    ct.SetSRV(3, pipelineMaterial.depth, true);
+                    ct.SetSRV(4, pipelineMaterial.gbuffer0, true);
+                    ct.SetSRV(5, pipelineMaterial.gbuffer1, true);
+                    ct.SetSRV(6, pipelineMaterial.gbuffer2, true);
+                    ct.SetSRV(7, pipelineMaterial._ShadowMap, true);
+                    ct.SetSRV(8, pipelineMaterial.GIBuffer);
+                    ct.SetUAV(0, s.renderTarget);
+                    ct.SetUAV(1, pipelineMaterial.GIBufferWrite);
+                };
 
-                call.SRVs[1] = pipelineMaterial._Environment;
-                call.SRVs[2] = pipelineMaterial._BRDFLUT;
-                call.SRVs[3] = pipelineMaterial.depth;
-                call.SRVs[4] = pipelineMaterial.gbuffer0;
-                call.SRVs[5] = pipelineMaterial.gbuffer1;
-                call.SRVs[6] = pipelineMaterial.gbuffer2;
-                call.SRVs[7] = pipelineMaterial._ShadowMap;
-                call.SRVs[8] = pipelineMaterial.GIBuffer;
-
-                call.CBVs.Add(0, cbvData0);
-
-                graphicsContext.BuildAccelerationStruct(tpas);
+                graphicsContext.BuildAccelerationStruct(tlas);
                 if (s.RayTracingGI)
                 {
                     call.rayGenShader = "rayGenGI";

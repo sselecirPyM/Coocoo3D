@@ -5,7 +5,7 @@ using System.IO;
 
 namespace Coocoo3D.Core;
 
-public class RenderSystem
+public class RenderSystem : IDisposable
 {
     public MainCaches mainCaches;
 

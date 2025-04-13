@@ -51,16 +51,19 @@ public class ComputeShader : IDisposable
             return;
         var parameters = new List<RootParameter1>();
         var samplers = new List<StaticSamplerDescription>();
+        rootSignature1 = new RootSignature();
         foreach (var res in reflection.BoundResources)
         {
             switch (res.Type)
             {
                 case ShaderInputType.Texture:
                 case ShaderInputType.Structured:
+                    rootSignature1.srv[res.BindPoint] = parameters.Count;
                     parameters.Add(new RootParameter1(new RootDescriptorTable1(new DescriptorRange1(
                                     DescriptorRangeType.ShaderResourceView, 1, res.BindPoint, res.Space)), ShaderVisibility.All));
                     break;
                 case ShaderInputType.ConstantBuffer:
+                    rootSignature1.cbv[res.BindPoint] = parameters.Count;
                     parameters.Add(new RootParameter1(RootParameterType.ConstantBufferView, new RootDescriptor1(res.BindPoint, res.Space), ShaderVisibility.All));
                     break;
                 case ShaderInputType.Sampler:
@@ -69,6 +72,7 @@ public class ComputeShader : IDisposable
                     break;
                 case ShaderInputType.UnorderedAccessViewRWTyped:
                 case ShaderInputType.UnorderedAccessViewRWStructured:
+                    rootSignature1.uav[res.BindPoint] = parameters.Count;
                     parameters.Add(new RootParameter1(new RootDescriptorTable1(new DescriptorRange1(
                             DescriptorRangeType.UnorderedAccessView, 1, res.BindPoint, res.Space)), ShaderVisibility.All));
                     break;
@@ -77,7 +81,6 @@ public class ComputeShader : IDisposable
             }
         }
         var rootSignatureDescription1 = new RootSignatureDescription1(RootSignatureFlags.None, parameters.ToArray(), samplers.ToArray());
-        rootSignature1 = new RootSignature();
         rootSignature1.FromDesc(rootSignatureDescription1);
     }
 

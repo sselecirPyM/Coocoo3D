@@ -6,9 +6,7 @@ public abstract class RenderPipeline
 {
     public RenderPipelineView renderPipelineView;
 
-    public abstract void BeforeRender();
-    public abstract void Render();
-    public abstract void AfterRender();
+    public abstract void Config(RenderPipelineView renderPipelineView);
 
     public virtual void OnResourceInvald(string name)
     {

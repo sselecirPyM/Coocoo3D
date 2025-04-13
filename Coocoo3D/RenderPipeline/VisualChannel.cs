@@ -1,7 +1,6 @@
 ﻿using Caprice.Attributes;
 using Coocoo3D.Core;
 using Coocoo3D.Present;
-using Coocoo3D.Utility;
 using Coocoo3DGraphics;
 using System;
 using System.Collections.Generic;
@@ -57,6 +56,7 @@ public class VisualChannel : IDisposable
         this.renderPipelineView = new RenderPipelineView(renderPipeline, MainCaches, basePath);
         engineContext.FillProperties(renderPipelineView);
         renderPipeline.renderPipelineView = renderPipelineView;
+        renderPipeline.Config(renderPipelineView);
     }
 
     public void UpdateSize()
@@ -78,37 +78,9 @@ public class VisualChannel : IDisposable
         renderPipelineView.outputSize = outputSize;
         var renderPipeline = renderPipelineView.renderPipeline;
         renderPipelineView.rpc = context;
-        //foreach (var cap in renderPipelineView.sceneCaptures)
-        //{
-        //    var member = cap.Value.Item1;
-        //    var captureAttribute = cap.Value.Item2;
-        //    switch (captureAttribute.Capture)
-        //    {
-        //        case "Camera":
-        //            member.SetValue(renderPipeline, cameraData);
-        //            break;
-        //        case "Time":
-        //            member.SetValue(renderPipeline, context.Time);
-        //            break;
-        //        case "DeltaTime":
-        //            member.SetValue(renderPipeline, context.DeltaTime);
-        //            break;
-        //        case "RealDeltaTime":
-        //            member.SetValue(renderPipeline, context.RealDeltaTime);
-        //            break;
-        //        case "Recording":
-        //            member.SetValue(renderPipeline, context.recording);
-        //            break;
-        //        case "Visual":
-        //            member.SetValue(renderPipeline, context.visuals);
-        //            break;
-        //    }
-        //}
 
-        renderPipelineView.renderPipeline.BeforeRender();
         renderPipelineView.PrepareRenderResources();
-        renderPipelineView.renderPipeline.Render();
-        renderPipelineView.renderPipeline.AfterRender();
+        renderPipelineView.Update();
 
         foreach(var attach in attaches)
         {

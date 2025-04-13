@@ -206,18 +206,13 @@ public class RenderHelper
         graphicsContext.DrawIndexedInstanced(indexCountPerInstance, instanceCount, startIndexLocation, baseVertexLocation, startInstanceLocation);
     }
 
-    public void Dispatch(int x = 1, int y = 1, int z = 1)
-    {
-        graphicsContext.Dispatch(x, y, z);
-    }
-
     #region write object
 
     List<(object, Dictionary<string, MemberInfo>)> dataStack = new();
     Dictionary<Type, Dictionary<string, MemberInfo>> memberInfoCache = new();
     Dictionary<string, Type> paramBaseType = new();
 
-    public GPUWriter Writer = new();
+    public CBufferWriter Writer = new();
 
 
     public void PushParameters(object parameterProvider)
@@ -255,19 +250,19 @@ public class RenderHelper
         dataStack.RemoveAt(dataStack.Count - 1);
     }
 
-    public void Write(object[] datas, GPUWriter writer, RenderMaterial material = null)
+    public void Write(object[] datas, CBufferWriter writer, RenderMaterial material = null)
     {
         foreach (var obj in datas)
             WriteObject(obj, writer, material?.Parameters);
     }
 
-    public void Write(ReadOnlySpan<object> datas, GPUWriter writer, RenderMaterial material = null)
+    public void Write(ReadOnlySpan<object> datas, CBufferWriter writer, RenderMaterial material = null)
     {
         foreach (var obj in datas)
             WriteObject(obj, writer, material.Parameters);
     }
 
-    void WriteObject(object obj, GPUWriter writer, IDictionary<string, object> material = null)
+    void WriteObject(object obj, CBufferWriter writer, IDictionary<string, object> material = null)
     {
         if (obj is string s)
         {

@@ -1,4 +1,5 @@
-﻿using Caprice.Attributes;
+﻿using Arch.Core;
+using Caprice.Attributes;
 using Coocoo3D.Utility;
 using Coocoo3DGraphics;
 using System;
@@ -19,6 +20,8 @@ public partial class RenderPipelineView : IDisposable
 
     public RenderPipelineContext rpc;
 
+    public World world;
+
     public string BasePath;
 
     public RenderPipelineView(RenderPipeline renderPipeline, MainCaches mainCaches, string path)
@@ -35,11 +38,33 @@ public partial class RenderPipelineView : IDisposable
 
     internal Dictionary<AOVType, Texture2D> AOVs = new();
     public Dictionary<string, RenderTextureUsage> RenderTextures = new();
-    internal HashSet<Texture2D> internalTextures = new();
+    internal HashSet<IDisposable> internalTextures = new();
 
     internal Dictionary<string, List<string>> dependents = new();
 
     List<RenderTextureUsage> bakes = new();
+
+    public Action beforeRender;
+    public Action render;
+
+    internal void Update()
+    {
+        render?.Invoke();
+    }
+
+    public Texture2D ConfigTexture(string name, Action<RenderTextureUsage> config)
+    {
+        if (!RenderTextures.TryGetValue(name, out var rt))
+        {
+            rt = new RenderTextureUsage();
+            rt.texture = new Texture2D();
+            rt.name = name;
+            RenderTextures[name] = rt;
+            internalTextures.Add(rt.texture);
+        }
+        config(rt);
+        return rt.texture;
+    }
 
     void GetMetaData()
     {
@@ -90,16 +115,20 @@ public partial class RenderPipelineView : IDisposable
 
         var rt = new RenderTextureUsage
         {
-            sizeAttribute = sizeAttribute,
-            autoClearAttribute = autoClearAttribute,
-            formatAttribute = formatAttribute,
             runtimeBakeAttribute = runtimeBakeAttribute,
             bakeDependency = bakeDependencyAttribute?.dependencies,
             name = member.Name,
             memberInfo = member,
             bindingObject = renderPipeline
         };
+
         RenderTextures[member.Name] = rt;
+        if (autoClearAttribute != null)
+        {
+            rt.autoClear = true;
+            rt.autoClearColor = new System.Numerics.Vector4(autoClearAttribute.R, autoClearAttribute.G, autoClearAttribute.B, autoClearAttribute.A);
+            rt.autoClearDepth = autoClearAttribute.Depth;
+        }
         if (runtimeBakeAttribute != null)
         {
             bakes.Add(rt);
@@ -123,6 +152,8 @@ public partial class RenderPipelineView : IDisposable
             rt.height = sizeAttribute.Y;
             rt.mips = sizeAttribute.Mips;
             rt.arraySize = sizeAttribute.ArraySize;
+
+            rt.sizeSource = sizeAttribute.Source;
         }
         if (formatAttribute != null)
         {
@@ -150,6 +181,7 @@ public partial class RenderPipelineView : IDisposable
             GPUBuffer buffer = new GPUBuffer();
             buffer.Name = member.Name;
             rt.gpuBuffer = buffer;
+            internalTextures.Add(buffer);
             member.SetValue(renderPipeline, buffer);
         }
     }
@@ -167,6 +199,7 @@ public partial class RenderPipelineView : IDisposable
 
     internal void PrepareRenderResources()
     {
+        beforeRender?.Invoke();
         foreach (var rt in RenderTextures.Values)
         {
             var texture2d = rt.GetTexture2D();
@@ -181,13 +214,12 @@ public partial class RenderPipelineView : IDisposable
         }
         foreach (var rt in RenderTextures.Values)
         {
-            var c = rt.autoClearAttribute;
-            if (c == null)
+            if (!rt.autoClear)
                 continue;
             var texture2d = rt.GetTexture2D();
             if (texture2d != null)
             {
-                graphicsContext.ClearTexture(texture2d, new System.Numerics.Vector4(c.R, c.G, c.B, c.A), c.Depth);
+                graphicsContext.ClearTexture(texture2d, rt.autoClearColor, rt.autoClearDepth);
             }
         }
         foreach (var rt in bakes)
@@ -232,10 +264,6 @@ public partial class RenderPipelineView : IDisposable
         foreach (var texture in internalTextures)
         {
             texture.Dispose();
-        }
-        foreach (var rt in RenderTextures)
-        {
-            rt.Value.gpuBuffer?.Dispose();
         }
         foreach (var bake in bakes)
         {

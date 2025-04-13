@@ -7,14 +7,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="vxmls\GenerateMip.vxml" />
-    <None Remove="vxmls\Skinning.vxml" />
     <None Remove="vxmls\SRGBConvert.vxml" />
   </ItemGroup>
 
   <ItemGroup>
-    <AdditionalFiles Include="vxmls\GenerateMip.vxml" />
-    <AdditionalFiles Include="vxmls\Skinning.vxml" />
     <AdditionalFiles Include="vxmls\SRGBConvert.vxml" />
   </ItemGroup>
 

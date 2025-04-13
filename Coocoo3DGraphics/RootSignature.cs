@@ -19,6 +19,9 @@ internal class RootSignature : IDisposable
     public string Name;
 
     internal RootSignatureDescription1 description1;
+    internal Dictionary<int, int> cbv = new Dictionary<int, int>();
+    internal Dictionary<int, int> srv = new Dictionary<int, int>();
+    internal Dictionary<int, int> uav = new Dictionary<int, int>();
 
     internal ID3D12RootSignature GetRootSignature(GraphicsDevice graphicsDevice)
     {
@@ -41,9 +44,6 @@ internal class RootSignature : IDisposable
 
     void MakeDescs(RootSignatureFlags flags, IReadOnlyList<ResourceAccessType> descs, int registerSpace = 0)
     {
-        Dictionary<int, int> cbv = new Dictionary<int, int>();
-        Dictionary<int, int> srv = new Dictionary<int, int>();
-        Dictionary<int, int> uav = new Dictionary<int, int>();
         StaticSamplerDescription[] samplerDescription = null;
         if (flags != RootSignatureFlags.LocalRootSignature)
         {

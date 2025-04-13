@@ -1,6 +1,7 @@
 ﻿using Caprice.Attributes;
 using Coocoo3D.Utility;
 using Coocoo3DGraphics;
+using System.Numerics;
 using System.Reflection;
 
 namespace Coocoo3D.RenderPipeline;
@@ -25,11 +26,12 @@ public class RenderTextureUsage
 
     public ResourceFormat resourceFormat;
 
-    public SizeAttribute sizeAttribute;
+    public string sizeSource;
 
-    public AutoClearAttribute autoClearAttribute;
 
-    public FormatAttribute formatAttribute;
+    public bool autoClear;
+    public Vector4 autoClearColor;
+    public float autoClearDepth = 1.0f;
 
     public RuntimeBakeAttribute runtimeBakeAttribute;
 
@@ -37,8 +39,12 @@ public class RenderTextureUsage
 
     public MemberInfo memberInfo;
 
+    public Texture2D texture;
+
     public Texture2D GetTexture2D()
     {
+        if (texture != null)
+            return texture;
         if (memberInfo.GetGetterType() != typeof(Texture2D))
         {
             return null;

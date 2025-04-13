@@ -5,13 +5,13 @@ using System.Numerics;
 
 namespace RenderPipelines.Utility;
 
-public class GPUWriter
+public class CBufferWriter
 {
     public MemoryStream memoryStream = new MemoryStream();
     public BinaryWriterPlus binaryWriter;
     public GraphicsContext graphicsContext;
 
-    public GPUWriter()
+    public CBufferWriter()
     {
         binaryWriter = new BinaryWriterPlus(memoryStream);
     }

@@ -10,11 +10,13 @@ public class BRDFBakerAttribute : RuntimeBakeAttribute, ITexture2DBaker, IDispos
 {
     public bool Bake(Texture2D texture, RenderPipelineView view, ref object tag)
     {
-        view.SetRenderTarget(texture, true);
-        view.graphicsContext.SetCBVRSlot(0, [texture.width, texture.height]);
-        view.SetUAV(0, texture);
         view.SetPSO(shader_BRDFLUT);
-        view.Dispatch((texture.width + 7) / 8, (texture.height + 7) / 8, 6);
+		view.graphicsContext.SetComputeResources((s) =>
+		{
+			s.SetCBV(0, [texture.width, texture.height]);
+			s.SetUAV(0, texture);
+        });
+        view.graphicsContext.Dispatch((texture.width + 7) / 8, (texture.height + 7) / 8, 6);
         return true;
     }
 

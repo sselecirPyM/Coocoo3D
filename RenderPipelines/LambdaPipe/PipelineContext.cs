@@ -77,13 +77,6 @@ namespace RenderPipelines.LambdaPipe
             return (T)val;
         }
 
-        public void BeforeRender()
-        {
-            foreach (var pair in PipelineBuilder.pipelineResourceProviders)
-            {
-                pair.Value.BeforeRender();
-            }
-        }
         public T ConfigRenderer<T>() where T : class, new()
         {
             var val = GetConfig<T>();
@@ -130,21 +123,21 @@ namespace RenderPipelines.LambdaPipe
             return (T)val;
         }
 
-        public T GetResourceProvider<T>() where T : IPipelineResourceProvider
+        public T GetResourceProvider<T>()
         {
-            return (T)PipelineBuilder.pipelineResourceProviders[typeof(T)];
+            return (T)PipelineBuilder.pipelineResources[typeof(T)];
         }
 
         public void Dispose()
         {
-            foreach (var pair in PipelineBuilder.pipelineResourceProviders)
+            foreach (var pair in PipelineBuilder.pipelineResources)
             {
                 if (pair.Value is IDisposable disposable)
                 {
                     disposable.Dispose();
                 }
             }
-            PipelineBuilder.pipelineResourceProviders.Clear();
+            PipelineBuilder.pipelineResources.Clear();
             foreach (var pair in PipelineBuilder.renderers)
             {
                 if (pair.Value is IDisposable disposable)

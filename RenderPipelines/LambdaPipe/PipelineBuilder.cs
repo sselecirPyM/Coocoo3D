@@ -14,7 +14,7 @@ namespace RenderPipelines.LambdaPipe
         }
 
         public Dictionary<Type, LambdaRenderer> renderers = new Dictionary<Type, LambdaRenderer>();
-        public Dictionary<Type, IPipelineResourceProvider> pipelineResourceProviders = new Dictionary<Type, IPipelineResourceProvider>();
+        public Dictionary<Type, object> pipelineResources = new Dictionary<Type, object>();
 
         public void AddRenderer<T>(PipelineCall<T> config, PipelineCall<T> render) where T : class
         {
@@ -25,9 +25,9 @@ namespace RenderPipelines.LambdaPipe
             renderers.Add(typeof(T), lambdaRenderer);
         }
 
-        public void AddPipelineResourceProvider<T>(T provider) where T : IPipelineResourceProvider
+        public void AddPipelineResourceProvider<T>(T provider)
         {
-            pipelineResourceProviders[typeof(T)] = provider;
+            pipelineResources[typeof(T)] = provider;
         }
     }
 }

@@ -1,19 +1,12 @@
 ﻿using Coocoo3DGraphics;
-using RenderPipelines.LambdaPipe;
 using System;
 using Vortice.DXGI;
 
 namespace RenderPipelines.LambdaRenderers
 {
-    public class TextureResourceProvider : IPipelineResourceProvider, IDisposable
+    public class TextureResourceProvider : IDisposable
     {
         public RenderHelper RenderHelper;
-
-
-        public void BeforeRender()
-        {
-
-        }
 
         public void Dispose()
         {

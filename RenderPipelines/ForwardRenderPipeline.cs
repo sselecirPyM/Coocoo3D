@@ -15,42 +15,10 @@ namespace RenderPipelines;
 [Text(text: "前向渲染")]
 public partial class ForwardRenderPipeline : RenderPipeline, IDisposable
 {
-    [Size(4096, 4096)]
-    [Format(ResourceFormat.D32_Float)]
-    [AutoClear]
-    public Texture2D _ShadowMap
-    {
-        get => x__ShadowMap;
-        set
-        {
-            x__ShadowMap = value;
-        }
-    }
-    Texture2D x__ShadowMap;
+    Texture2D _ShadowMap { get; set; }
 
-    [Size("Output")]
-    [Format(ResourceFormat.R16G16B16A16_Float)]
-    public Texture2D noPostProcess
-    {
-        get => x_noPostProcess;
-        set
-        {
-            x_noPostProcess = value;
-        }
-    }
-    Texture2D x_noPostProcess;
-
-    [Size("Output")]
-    [Format(ResourceFormat.R16G16B16A16_Float)]
-    public Texture2D noPostProcess2
-    {
-        get => x_noPostProcess2;
-        set
-        {
-            x_noPostProcess2 = value;
-        }
-    }
-    Texture2D x_noPostProcess2;
+    Texture2D noPostProcess { get; set; }
+    Texture2D noPostProcess2 { get; set; }
 
     [Size("BloomSize")]
     [Format(ResourceFormat.R16G16B16A16_Float)]
@@ -90,30 +58,8 @@ public partial class ForwardRenderPipeline : RenderPipeline, IDisposable
     }
     Texture2D x_intermedia3;
 
-    [Size("Output")]
-    [Format(ResourceFormat.D32_Float)]
-    [AutoClear]
-    public Texture2D depth
-    {
-        get => x_depth;
-        set
-        {
-            x_depth = value;
-        }
-    }
-    Texture2D x_depth;
-
-    [Size("Output")]
-    [Format(ResourceFormat.D32_Float)]
-    public Texture2D depth2
-    {
-        get => x_depth2;
-        set
-        {
-            x_depth2 = value;
-        }
-    }
-    Texture2D x_depth2;
+    Texture2D depth { get; set; }
+    Texture2D depth2 { get; set; }
 
     [Size("UnscaledOutput")]
     [Format(ResourceFormat.R8G8B8A8_UNorm)]
@@ -187,6 +133,9 @@ public partial class ForwardRenderPipeline : RenderPipeline, IDisposable
     [UISlider(0.5f, 2.0f, name: "渲染倍数")]
     public float RenderScale = 1;
 
+    [UISlider(512, 8192, name: "阴影贴图尺寸")]
+    public float ShadowMapSize = 4096;
+
     [UISlider(0.2f, 0.9f, name: "阴影近距离")]
     public float ShadowNearDistance = 0.2f;
     [UISlider(0.90f, 0.999f, name: "阴影中距离")]
@@ -240,63 +189,124 @@ public partial class ForwardRenderPipeline : RenderPipeline, IDisposable
     PipelineContext pipelineContext;
     TestResourceProvider testResourceProvider;
 
-    public override void BeforeRender()
+    public override void Config(RenderPipelineView renderPipelineView)
     {
-
         renderHelper ??= new RenderHelper();
         renderHelper.renderPipelineView = renderPipelineView;
         renderHelper.renderPipeline = this;
-        renderHelper.UpdateGPUResource();
-        renderHelper.UpdateRenderables();
 
-        if (pipelineContext == null)
+
+        testResourceProvider = new TestResourceProvider()
         {
-            testResourceProvider = new TestResourceProvider()
+            RenderHelper = renderHelper
+        };
+        var builder = new PipelineBuilder();
+        builder.AddRenderers();
+        builder.AddRenderer<SuperPipelineConfig>(this.Config, this.Execute);
+        builder.AddPipelineResourceProvider(testResourceProvider);
+        builder.AddPipelineResourceProvider(new TextureResourceProvider()
+        {
+            RenderHelper = renderHelper
+        });
+
+        pipelineContext = new PipelineContext();
+        pipelineContext.PipelineBuilder = builder;
+
+        renderPipelineView.beforeRender += () =>
+        {
+            renderHelper.UpdateGPUResource();
+            renderHelper.UpdateRenderables();
+
+
+            renderPipelineView.GetOutputSize(out outputWidth, out outputHeight);
+            renderPipelineView.SetSize("UnscaledOutput", outputWidth, outputHeight);
+            outputWidth = (int)(outputWidth * RenderScale);
+            outputHeight = (int)(outputHeight * RenderScale);
+            renderPipelineView.SetSize("Output", outputWidth, outputHeight);
+            renderPipelineView.SetSize("HalfOutput", (outputWidth + 1) / 2, (outputHeight + 1) / 2);
+            renderPipelineView.SetSize("QuarterOutput", (outputWidth + 3) / 4, (outputHeight + 3) / 4);
+            renderPipelineView.SetSize("BloomSize", outputWidth * 256 / outputHeight, 256);
+            renderPipelineView.SetSize("GIBufferSize", 589824, 1);
+            renderPipelineView.texError = renderPipelineView.rpc.mainCaches.GetTextureLoaded(Path.GetFullPath("error.png", renderPipelineView.BasePath));
+
+            renderPipelineView.SetAOV(AOVType.Color, output);
+            renderPipelineView.SetAOV(AOVType.Depth, depth);
+
+
+            int size = (int)ShadowMapSize;
+            size -= 1;
+            size |= size >> 1;
+            size |= size >> 2;
+            size |= size >> 4;
+            size |= size >> 8;
+            size |= size >> 16;
+            size += 1;
+
+            _ShadowMap = renderPipelineView.ConfigTexture("_ShadowMap", (rt) =>
             {
-                RenderHelper = renderHelper
-            };
-            var builder = new PipelineBuilder();
-            builder.AddRenderers();
-            builder.AddRenderer<SuperPipelineConfig>(this.Config, this.Execute);
-            builder.AddPipelineResourceProvider(testResourceProvider);
-            builder.AddPipelineResourceProvider(new TextureResourceProvider()
-            {
-                RenderHelper = renderHelper
+                rt.width = size;
+                rt.height = size;
+                rt.autoClear = true;
+                rt.autoClearDepth = 1.0f;
+                rt.resourceFormat = ResourceFormat.D32_Float;
             });
 
-            pipelineContext = new PipelineContext();
-            pipelineContext.PipelineBuilder = builder;
-        }
-        pipelineContext.BeforeRender();
+            renderPipelineView.GetOutputSize(out outputWidth, out outputHeight);
+            outputWidth = (int)(outputWidth * RenderScale);
+            outputHeight = (int)(outputHeight * RenderScale);
 
-        renderPipelineView.GetOutputSize(out outputWidth, out outputHeight);
-        renderPipelineView.SetSize("UnscaledOutput", outputWidth, outputHeight);
-        outputWidth = (int)(outputWidth * RenderScale);
-        outputHeight = (int)(outputHeight * RenderScale);
-        renderPipelineView.SetSize("Output", outputWidth, outputHeight);
-        renderPipelineView.SetSize("HalfOutput", (outputWidth + 1) / 2, (outputHeight + 1) / 2);
-        renderPipelineView.SetSize("QuarterOutput", (outputWidth + 3) / 4, (outputHeight + 3) / 4);
-        renderPipelineView.SetSize("BloomSize", outputWidth * 256 / outputHeight, 256);
-        renderPipelineView.SetSize("GIBufferSize", 589824, 1);
-        renderPipelineView.texError = renderPipelineView.rpc.mainCaches.GetTextureLoaded(Path.GetFullPath("error.png", renderPipelineView.BasePath));
+            Action<RenderTextureUsage> usage = (rt) =>
+            {
+                rt.width = outputWidth;
+                rt.height = outputHeight;
+                rt.resourceFormat = ResourceFormat.R16G16B16A16_Float;
+            };
+            noPostProcess = renderPipelineView.ConfigTexture("noPostProcess", usage);
+            noPostProcess2 = renderPipelineView.ConfigTexture("noPostProcess2", usage);
 
-        renderPipelineView.SetAOV(AOVType.Color, output);
-        renderPipelineView.SetAOV(AOVType.Depth, depth);
-    }
+            Action<RenderTextureUsage> bufferUsage = (rt) =>
+            {
+                rt.width = outputWidth;
+                rt.height = outputHeight;
+                rt.resourceFormat = ResourceFormat.R16G16B16A16_Float;
+                rt.autoClear = true;
+            };
+            gbuffer0 = renderPipelineView.ConfigTexture("gbuffer0", bufferUsage);
+            gbuffer1 = renderPipelineView.ConfigTexture("gbuffer1", bufferUsage);
+            gbuffer2 = renderPipelineView.ConfigTexture("gbuffer2", bufferUsage);
+            gbuffer3 = renderPipelineView.ConfigTexture("gbuffer3", bufferUsage);
 
-    public override void Render()
-    {
+            depth = renderPipelineView.ConfigTexture("depth", (rt) =>
+            {
+                rt.width = outputWidth;
+                rt.height = outputHeight;
+                rt.resourceFormat = ResourceFormat.D32_Float;
+                rt.autoClear = true;
+            });
+            depth2 = renderPipelineView.ConfigTexture("depth2", (rt) =>
+            {
+                rt.width = outputWidth;
+                rt.height = outputHeight;
+                rt.resourceFormat = ResourceFormat.D32_Float;
+            });
+        };
 
-        pipelineContext.BeforeRender();
-        pipelineContext.ConfigRenderer<SuperPipelineConfig>();
-        pipelineContext.Execute<SuperPipelineConfig>();
+        renderPipelineView.render += () =>
+        {
+            pipelineContext.ConfigRenderer<SuperPipelineConfig>();
+            pipelineContext.Execute<SuperPipelineConfig>();
 
-        (depth, depth2) = (depth2, depth);
-        (noPostProcess, noPostProcess2) = (noPostProcess2, noPostProcess);
-    }
-
-    public override void AfterRender()
-    {
+            {
+                var usage1 = renderPipelineView.RenderTextures["depth"];
+                var usage2 = renderPipelineView.RenderTextures["depth2"];
+                (usage1.texture, usage2.texture) = (usage2.texture, usage1.texture);
+            }
+            {
+                var usage1 = renderPipelineView.RenderTextures["noPostProcess"];
+                var usage2 = renderPipelineView.RenderTextures["noPostProcess2"];
+                (usage1.texture, usage2.texture) = (usage2.texture, usage1.texture);
+            }
+        };
     }
 
     public override object UIMaterial(RenderMaterial material)
