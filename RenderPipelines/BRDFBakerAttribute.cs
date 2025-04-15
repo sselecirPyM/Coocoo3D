@@ -10,7 +10,7 @@ public class BRDFBakerAttribute : RuntimeBakeAttribute, ITexture2DBaker, IDispos
 {
     public bool Bake(Texture2D texture, RenderPipelineView view, ref object tag)
     {
-        view.SetPSO(shader_BRDFLUT);
+        view.graphicsContext.SetPSO(shader_BRDFLUT);
 		view.graphicsContext.SetComputeResources((s) =>
 		{
 			s.SetCBV(0, [texture.width, texture.height]);

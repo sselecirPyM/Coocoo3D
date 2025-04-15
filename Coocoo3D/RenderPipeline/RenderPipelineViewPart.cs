@@ -29,16 +29,6 @@ partial class RenderPipelineView
         }
     }
 
-    public void Draw(int indexCount, int startIndexLocation, int baseVertexLocation)
-    {
-        graphicsContext.DrawIndexed(indexCount, startIndexLocation, baseVertexLocation);
-    }
-
-    public void Draw(int indexCount, int instanceCount, int startIndexLocation, int baseVertexLocation, int startInstanceLocation)
-    {
-        graphicsContext.DrawIndexedInstanced(indexCount, instanceCount, startIndexLocation, baseVertexLocation, startInstanceLocation);
-    }
-
     public Texture2D GetRenderTexture2D(string name)
     {
         if (string.IsNullOrEmpty(name))
@@ -63,15 +53,7 @@ partial class RenderPipelineView
             Console.WriteLine("shader compilation error");
     }
 
-    public void SetPSO(PSO pso, PSODesc desc)
-    {
-        graphicsContext.SetPSO(pso, desc);
-    }
 
-    public void SetPSO(ComputeShader computeShader)
-    {
-        graphicsContext.SetPSO(computeShader);
-    }
     public Texture2D texError;
 
     public IReadOnlyList<Texture2D> RenderTargets => _renderTargets;

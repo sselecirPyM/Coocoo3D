@@ -7,15 +7,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="vxmls\SRGBConvert.vxml" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <AdditionalFiles Include="vxmls\SRGBConvert.vxml" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\Coocoo3D\Coocoo3D.csproj" />
-    <ProjectReference Include="..\RenderPipelines.SourceGenertor\RenderPipelines.SourceGenertor.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
 </Project>

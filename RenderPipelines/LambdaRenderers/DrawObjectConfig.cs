@@ -1,4 +1,5 @@
 ﻿using Coocoo3DGraphics;
+using Coocoo3DGraphics.Commanding;
 using RenderPipelines.MaterialDefines;
 using System;
 using System.Collections.Generic;
@@ -18,12 +19,12 @@ namespace RenderPipelines.LambdaRenderers
 
         public PSODesc psoDesc;
 
-        public object[] CBVPerPass;
-
         public Dictionary<int, object> additionalSRV = new Dictionary<int, object>();
 
         public bool DrawOpaque;
         public bool DrawTransparent;
+
+        public Action<GraphicsCommandProxy> Binding;
 
         public Texture2D _ShadowMap;
         public Texture2D _Environment;

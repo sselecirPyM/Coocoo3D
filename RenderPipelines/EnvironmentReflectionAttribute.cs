@@ -11,6 +11,7 @@ public class EnvironmentReflectionAttribute : RuntimeBakeAttribute, ITexture2DBa
     public bool Bake(Texture2D texture, RenderPipelineView renderPipelineView, ref object tag)
     {
         var tex = renderPipelineView.GetRenderTexture2D(Source);
+        var graphicsContext = renderPipelineView.graphicsContext;
         if (tex == null || tex.Status != GraphicsObjectStatus.loaded)
             return false;
 
@@ -23,7 +24,7 @@ public class EnvironmentReflectionAttribute : RuntimeBakeAttribute, ITexture2DBa
         int width = texture.width;
         int height = texture.height;
         var writer = new CBufferWriter();
-        writer.graphicsContext = renderPipelineView.graphicsContext;
+        writer.graphicsContext = graphicsContext;
 
         int roughnessLevel = 5;
 
@@ -45,18 +46,18 @@ public class EnvironmentReflectionAttribute : RuntimeBakeAttribute, ITexture2DBa
 
 
             if (mipLevel != roughnessLevel)
-                renderPipelineView.SetPSO(shader_PreFilterEnv);
+                graphicsContext.SetPSO(shader_PreFilterEnv);
             else
-                renderPipelineView.SetPSO(shader_IrradianceMap);
+                graphicsContext.SetPSO(shader_IrradianceMap);
 
-            renderPipelineView.graphicsContext.SetComputeResources((s) =>
+            graphicsContext.SetComputeResources((s) =>
             {
                 s.SetCBV(0, data);
                 s.SetSRV(0, tex);
                 s.SetUAVMip(0, texture, mipLevel);
             });
 
-            renderPipelineView.graphicsContext.Dispatch(width / 8 / pow2a, height / 8 / pow2a, 6);
+            graphicsContext.Dispatch(width / 8 / pow2a, height / 8 / pow2a, 6);
 
             currentQuality++;
         }

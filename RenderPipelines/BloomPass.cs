@@ -183,7 +183,7 @@ void csmain(uint3 dtid : SV_DispatchThreadID, uint groupIndex : SV_GroupIndex)
 
     public void Execute(RenderPipelineView renderPipelineView)
     {
-        var view = renderPipelineView;
+        var graphicsContext = renderPipelineView.graphicsContext;
 
         Span<float> cbv1 = stackalloc float[6];
 
@@ -195,34 +195,34 @@ void csmain(uint3 dtid : SV_DispatchThreadID, uint groupIndex : SV_GroupIndex)
         cbv1[1] = 0;
         cbv1[2] = x;
         cbv1[3] = (float)inputSize.Item2 / input.height / intermediaSize.Y;
-        var addr1 = view.graphicsContext.UploadCBV<float>(cbv1);
+        var addr1 = graphicsContext.UploadCBV<float>(cbv1);
 
 
-        view.SetPSO(shader_bloom.Get(Keyword_Bloom.BLOOM_1));
-        view.graphicsContext.SetComputeResources(s =>
+        graphicsContext.SetPSO(shader_bloom.Get(Keyword_Bloom.BLOOM_1));
+        graphicsContext.SetComputeResources(s =>
         {
             s.SetCBV(0, addr1);
             s.SetSRVMip(0, input, mipLevel);
             s.SetUAV(0, intermediaTexture);
         });
-        view.graphicsContext.Dispatch((intermediaTexture.width + 63) / 64, intermediaTexture.height, 1);
+        graphicsContext.Dispatch((intermediaTexture.width + 63) / 64, intermediaTexture.height, 1);
 
         cbv1[0] = 0;
         cbv1[1] = 1.0f / intermediaSize.Y;
         cbv1[2] = 1.0f / (float)output.width;
         cbv1[3] = 1.0f / (float)output.height;
-        var addr2 = view.graphicsContext.UploadCBV<float>(cbv1);
+        var addr2 = graphicsContext.UploadCBV<float>(cbv1);
 
 
-        view.SetPSO(shader_bloom.Get(Keyword_Bloom.BLOOM_2));
+        graphicsContext.SetPSO(shader_bloom.Get(Keyword_Bloom.BLOOM_2));
 
-        view.graphicsContext.SetComputeResources(s =>
+        graphicsContext.SetComputeResources(s =>
         {
             s.SetCBV(0, addr2);
             s.SetSRV(0, intermediaTexture);
             s.SetUAV(0, output);
         });
-        view.graphicsContext.Dispatch(output.width, (output.height + 63) / 64, 1);
+        graphicsContext.Dispatch(output.width, (output.height + 63) / 64, 1);
     }
 
     public void Dispose()

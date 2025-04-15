@@ -7,8 +7,8 @@ namespace RenderPipelines
     {
         public void Execute()
         {
-            context.SetPSO(shader_generateMip);
             var graphicsContext = context.renderPipelineView.graphicsContext;
+            graphicsContext.SetPSO(shader_generateMip);
 
             int x = input.width;
             int y = input.height;

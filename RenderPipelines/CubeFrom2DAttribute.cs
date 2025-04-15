@@ -11,35 +11,36 @@ internal class CubeFrom2DAttribute : RuntimeBakeAttribute, ITexture2DBaker, IDis
     public bool Bake(Texture2D texture, RenderPipelineView view, ref object tag)
     {
         var input = view.GetRenderTexture2D(Source);
+        var graphicsContext = view.graphicsContext;
         if (input == null || input.Status != GraphicsObjectStatus.loaded)
             return false;
 
         int width = texture.width;
         int height = texture.height;
 
-        view.SetPSO(shader_ConvertToCube);
-        view.graphicsContext.SetComputeResources(s =>
+        graphicsContext.SetPSO(shader_ConvertToCube);
+        graphicsContext.SetComputeResources(s =>
         {
             s.SetCBV(0, [width, height]);
             s.SetSRV(0, input);
             s.SetUAVMip(0, texture, 0);
         });
-        view.graphicsContext.Dispatch(width / 8, height / 8, 6);
+        graphicsContext.Dispatch(width / 8, height / 8, 6);
 
         int x = width;
         int y = height;
-        view.SetPSO(shader_GenerateCubeMipMap);
+        graphicsContext.SetPSO(shader_GenerateCubeMipMap);
         for (int i = 1; i < texture.mipLevels; i++)
         {
             x /= 2;
             y /= 2;
-            view.graphicsContext.SetComputeResources(s =>
+            graphicsContext.SetComputeResources(s =>
             {
                 s.SetCBV(0, [x, y]);
                 s.SetSRVMip(0, texture, i - 1);
                 s.SetUAVMip(0, texture, i);
             });
-            view.graphicsContext.Dispatch(x / 8, y / 8, 6);
+            graphicsContext.Dispatch(x / 8, y / 8, 6);
         }
         return true;
     }

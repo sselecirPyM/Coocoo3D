@@ -45,6 +45,8 @@ public class RenderTextureUsage
     {
         if (texture != null)
             return texture;
+        if (gpuBuffer != null)
+            return null;
         if (memberInfo.GetGetterType() != typeof(Texture2D))
         {
             return null;

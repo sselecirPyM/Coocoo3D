@@ -88,8 +88,10 @@ public class RenderHelper
         return renderable;
     }
 
-    void InitializeResources()
+    public void InitializeResources()
     {
+        if (resourcesInitialized)
+            return;
         resourcesInitialized = true;
         quadMesh.LoadIndex<int>(4, new int[] { 0, 1, 2, 2, 1, 3 });
         cubeMesh.LoadIndex<int>(4, new int[]
@@ -117,8 +119,6 @@ public class RenderHelper
     {
         Writer.graphicsContext = renderPipelineView.graphicsContext;
         Writer.Clear();
-        if (!resourcesInitialized)
-            InitializeResources();
 
         Morph();
     }
@@ -173,37 +173,18 @@ public class RenderHelper
         }
     }
 
-    public void SetMesh(Mesh mesh)
+    public void DrawQuad2(int instanceCount = 1)
     {
-        graphicsContext.SetMesh(mesh);
-    }
-
-    public void DrawQuad(int instanceCount = 1)
-    {
-        if (!resourcesInitialized)
-            InitializeResources();
         var graphicsContext = renderPipelineView.graphicsContext;
         graphicsContext.SetMesh(quadMesh);
-        graphicsContext.DrawIndexedInstanced(6, instanceCount, 0, 0, 0);
+        graphicsContext.DrawIndexedInstanced2(6, instanceCount, 0, 0, 0);
     }
 
-    public void DrawCube(int instanceCount = 1)
+    public void DrawCube2(int instanceCount = 1)
     {
-        if (!resourcesInitialized)
-            InitializeResources();
         var graphicsContext = renderPipelineView.graphicsContext;
         graphicsContext.SetMesh(cubeMesh);
-        graphicsContext.DrawIndexedInstanced(36, instanceCount, 0, 0, 0);
-    }
-
-    public void Draw<T>(MeshRenderable<T> renderable)
-    {
-        renderPipelineView.graphicsContext.DrawIndexed(renderable.indexCount, renderable.indexStart, renderable.vertexStart);
-    }
-
-    public void DrawIndexedInstanced(int indexCountPerInstance, int instanceCount, int startIndexLocation, int baseVertexLocation, int startInstanceLocation)
-    {
-        graphicsContext.DrawIndexedInstanced(indexCountPerInstance, instanceCount, startIndexLocation, baseVertexLocation, startInstanceLocation);
+        graphicsContext.DrawIndexedInstanced2(36, instanceCount, 0, 0, 0);
     }
 
     #region write object
@@ -524,74 +505,6 @@ public class RenderHelper
         graphicsContext.SetPSO(pso, desc);
     }
 
-    public void SetPSO(ComputeShader computeShader)
-    {
-        graphicsContext.SetPSO(computeShader);
-    }
-
-
-    public void SetSRVs(params IGPUResource[] textures)
-    {
-        for (int i = 0; i < textures.Length; i++)
-        {
-            graphicsContext.SetSRVTSlot(i, textures[i]);
-        }
-    }
-
-    public void SetUAV(int slot, Texture2D texture2D)
-    {
-        graphicsContext.SetUAVTSlot(slot, texture2D);
-    }
-
-    public void SetUAV(int slot, GPUBuffer buffer)
-    {
-        graphicsContext.SetUAVTSlot(slot, buffer);
-    }
-
-    public void SetUAV(int slot, Texture2D texture2D, int mipIndex)
-    {
-        graphicsContext.SetUAVTSlot(slot, texture2D, mipIndex);
-    }
-    public void SetUAV(int slot, Mesh mesh, string bufferName)
-    {
-        graphicsContext.SetUAVTSlot(slot, mesh, bufferName);
-    }
-
-    public void SetSRV(int slot, Texture2D texture)
-    {
-        graphicsContext.SetSRVTSlot(slot, texture);
-    }
-    public void SetSRV<T>(int slot, T[] values) where T : unmanaged
-    {
-        SetSRV(slot, (ReadOnlySpan<T>)values);
-    }
-    public void SetSRV<T>(int slot, ReadOnlySpan<T> values) where T : unmanaged
-    {
-        graphicsContext.SetSRVTSlot(slot, values);
-    }
-    public void SetSRV(int slot, Mesh mesh, string bufferName)
-    {
-        graphicsContext.SetSRVTSlot(slot, mesh, bufferName);
-    }
-    public void SetSRV(int slot, GPUBuffer buffer)
-    {
-        graphicsContext.SetSRVTSlot(slot, buffer);
-    }
-
-    public void SetSRV(int slot, Texture2D texture, int mip)
-    {
-        graphicsContext.SetSRVTMip(slot, texture, mip);
-    }
-
-    public void SetCBV<T>(int slot, ReadOnlySpan<T> data) where T : unmanaged
-    {
-        graphicsContext.SetCBVRSlot<T>(slot, data);
-    }
-
-    public void SetCBV<T>(int slot, Span<T> data) where T : unmanaged
-    {
-        graphicsContext.SetCBVRSlot<T>(slot, data);
-    }
     public void SetSimpleMesh(ReadOnlySpan<byte> vertexData, ReadOnlySpan<byte> indexData, int vertexStride, int indexStride)
     {
         graphicsContext.SetSimpleMesh(vertexData, indexData, vertexStride, indexStride);

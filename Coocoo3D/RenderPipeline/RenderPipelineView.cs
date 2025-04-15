@@ -58,12 +58,28 @@ public partial class RenderPipelineView : IDisposable
         {
             rt = new RenderTextureUsage();
             rt.texture = new Texture2D();
+            rt.texture.Name = name;
             rt.name = name;
             RenderTextures[name] = rt;
             internalTextures.Add(rt.texture);
         }
         config(rt);
         return rt.texture;
+    }
+
+    public GPUBuffer ConfigBuffer(string name, Action<RenderTextureUsage> config)
+    {
+        if (!RenderTextures.TryGetValue(name, out var rt))
+        {
+            rt = new RenderTextureUsage();
+            rt.gpuBuffer = new GPUBuffer();
+            rt.gpuBuffer.Name = name;
+            rt.name = name;
+            RenderTextures[name] = rt;
+            internalTextures.Add(rt.gpuBuffer);
+        }
+        config(rt);
+        return rt.gpuBuffer;
     }
 
     void GetMetaData()

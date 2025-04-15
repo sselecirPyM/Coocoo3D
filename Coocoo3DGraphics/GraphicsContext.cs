@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Coocoo3DGraphics.Commanding;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Numerics;
@@ -23,10 +24,7 @@ public sealed class GraphicsContext
 
     public RTPSO currentRTPSO;
     public PSO currentPSO;
-
-    public Dictionary<int, ulong> currentCBVs = new Dictionary<int, ulong>();
-    public Dictionary<int, ulong> currentSRVs = new Dictionary<int, ulong>();
-    public Dictionary<int, ulong> currentUAVs = new Dictionary<int, ulong>();
+    public ComputeShader currentComputeShader;
 
     public Dictionary<string, VertexBufferView> currentMesh = new Dictionary<string, VertexBufferView>();
 
@@ -48,6 +46,8 @@ public sealed class GraphicsContext
         m_commandList.SetComputeRootSignature(rootSignature.rootSignature);
         m_commandList.SetPipelineState(pipelineState);
         currentRootSignature = rootSignature;
+        currentPSO = null;
+        currentComputeShader = computeShader;
         Reference(pipelineState);
         Reference(rootSignature.rootSignature);
         return true;
@@ -63,6 +63,7 @@ public sealed class GraphicsContext
         m_commandList.SetPipelineState(pipelineState);
         currentRootSignature = rootSignature;
         currentPSO = pso;
+        currentComputeShader = null;
         Reference(pipelineState);
         Reference(rootSignature.rootSignature);
         return true;
@@ -143,11 +144,11 @@ public sealed class GraphicsContext
         for (int i = 0; i < instances.Count; i++)
         {
             var instance = instances[i];
-            var btas = instance.blas;
+            var blas = instance.blas;
             int instantID = i;
             raytracingInstanceDescriptions[i] = new RaytracingInstanceDescription
             {
-                AccelerationStructure = btas.GPUVirtualAddress,
+                AccelerationStructure = blas.GPUVirtualAddress,
                 InstanceContributionToHitGroupIndex = (Vortice.UInt24)(uint)instantID,
                 InstanceID = (Vortice.UInt24)(uint)instantID,
                 InstanceMask = instance.instanceMask,
@@ -240,7 +241,7 @@ public sealed class GraphicsContext
             cbvs = rtpso.localCBV
         };
 
-        foreach (var inst in call.tpas.instances)
+        foreach (var inst in call.tlas.instances)
         {
             WriteLocalHandles(inst, proxy, writer);
             BufferAlign(writer, 64);
@@ -250,7 +251,7 @@ public sealed class GraphicsContext
         {
             int length1 = (int)memoryStream.Position;
             readonlyBufferAllocator.Upload(new ReadOnlySpan<byte>(memoryStream.GetBuffer(), 0, length1), 64, out var gpuaddr);
-            dispatchRaysDescription.HitGroupTable = new GpuVirtualAddressRangeAndStride(gpuaddr, (ulong)length1, (ulong)(length1 / call.tpas.instances.Count));
+            dispatchRaysDescription.HitGroupTable = new GpuVirtualAddressRangeAndStride(gpuaddr, (ulong)length1, (ulong)(length1 / call.tlas.instances.Count));
         }
 
         writer.Seek(0, SeekOrigin.Begin);
@@ -268,16 +269,8 @@ public sealed class GraphicsContext
 
         writer.Seek(0, SeekOrigin.Begin);
         pRtsoProps.Dispose();
-        PipelineBindingCompute2();
+        PipelineBindingCompute();
         SetComputeResources(call.SetResources);
-        //var computeResourceProxy = new ComputeResourceProxy()
-        //{
-        //    graphicsContext = this,
-        //    cbvs = currentRootSignature.cbv,
-        //    srvs = currentRootSignature.srv,
-        //    uavs = currentRootSignature.uav,
-        //};
-        //call.SetResources(computeResourceProxy);
         m_commandList.DispatchRays(dispatchRaysDescription);
     }
 
@@ -301,148 +294,15 @@ public sealed class GraphicsContext
         }
     }
 
-    public void SetSRVTSlotLinear(int slot, Texture2D texture) => currentSRVs[slot] = GetSRVHandle(texture, true).Ptr;
-
-    public void SetSRVTSlot(int slot, IGPUResource resource)
+    public GpuDescriptorHandle UploadSRV<T>(ReadOnlySpan<T> data) where T : unmanaged
     {
-        switch (resource)
-        {
-            case GPUBuffer buffer:
-                currentSRVs[slot] = GetSRVHandle(buffer).Ptr;
-                break;
-            case Texture2D texture:
-                currentSRVs[slot] = GetSRVHandle(texture).Ptr;
-                break;
-        }
-    }
-
-    public void SetSRVTSlot<T>(int slot, ReadOnlySpan<T> data) where T : unmanaged
-    {
-        if (data.Length == 0)
-        {
-            //currentSRVs[slot] = 0uL;
-            currentSRVs.Remove(slot);
-        }
-        else
-        {
-            var handle = readonlyBufferAllocator.GetSRV(MemoryMarshal.AsBytes(data));
-            currentSRVs[slot] = handle;
-        }
-    }
-
-    public void SetSRVTSlot(int slot, Mesh mesh, string bufferName)
-    {
-        var buffer = mesh.GetVertexBuffer(bufferName);
-
-        if (buffer.baseBuffer != null)
-        {
-            buffer.baseBuffer.ToState(m_commandList, ResourceStates.Common);
-
-            var handle = CreateSRV(buffer.baseBuffer.resource, new ShaderResourceViewDescription()
-            {
-                Format = Format.R32_Typeless,
-                ViewDimension = Vortice.Direct3D12.ShaderResourceViewDimension.Buffer,
-                Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
-                Buffer = new BufferShaderResourceView
-                {
-                    FirstElement = (ulong)buffer.baseBufferOffset / 4,
-                    NumElements = buffer.vertexBufferView.SizeInBytes / 4,
-                    Flags = BufferShaderResourceViewFlags.Raw,
-                }
-            });
-            currentSRVs[slot] = handle;
-        }
-        else
-        {
-            var handle = CreateSRV(buffer.resource, new ShaderResourceViewDescription()
-            {
-                Format = Format.R32_Typeless,
-                ViewDimension = Vortice.Direct3D12.ShaderResourceViewDimension.Buffer,
-                Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
-                Buffer = new BufferShaderResourceView
-                {
-                    FirstElement = 0,
-                    NumElements = buffer.vertexBufferView.SizeInBytes / 4,
-                    Flags = BufferShaderResourceViewFlags.Raw,
-                }
-            });
-            currentSRVs[slot] = handle;
-        }
-    }
-
-    public void SetSRVTMip(int slot, Texture2D texture, int mips) => currentSRVs[slot] = GetSRVHandleWithMip(texture, mips).Ptr;
-
-    void SetSRVRSlot(int slot, ulong gpuAddr) => currentSRVs[slot] = gpuAddr;
-
-    public void SetCBVRSlot<T>(int slot, ReadOnlySpan<T> data) where T : unmanaged
-    {
-        readonlyBufferAllocator.Upload(MemoryMarshal.AsBytes(data), 256, out ulong addr);
-        currentCBVs[slot] = addr;
+        return readonlyBufferAllocator.GetSRV(MemoryMarshal.AsBytes(data));
     }
 
     public ulong UploadCBV<T>(ReadOnlySpan<T> data) where T : unmanaged
     {
         readonlyBufferAllocator.Upload(MemoryMarshal.AsBytes(data), 256, out ulong addr);
         return addr;
-    }
-
-    public void SetRTSlot(int slot, Texture2D texture2D) => currentUAVs[slot] = GetUAVHandle(texture2D, ResourceStates.NonPixelShaderResource).Ptr;
-
-    public void SetUAVTSlot(int slot, IGPUResource resource)
-    {
-        switch (resource)
-        {
-            case GPUBuffer buffer:
-                currentUAVs[slot] = GetUAVHandle(buffer).Ptr;
-                break;
-            case Texture2D texture:
-                currentUAVs[slot] = GetUAVHandle(texture).Ptr;
-                break;
-        }
-    }
-
-    public void SetUAVTSlot(int slot, Mesh mesh, string bufferName)
-    {
-        var buffer = mesh.GetVertexBuffer(bufferName);
-        buffer.baseBuffer.ToState(m_commandList, ResourceStates.UnorderedAccess);
-
-        var handle = CreateUAV(buffer.baseBuffer.resource, new UnorderedAccessViewDescription()
-        {
-            Format = Format.R32_Typeless,
-            ViewDimension = UnorderedAccessViewDimension.Buffer,
-            Buffer = new BufferUnorderedAccessView
-            {
-                FirstElement = (ulong)buffer.baseBufferOffset / 4,
-                NumElements = buffer.vertexBufferView.SizeInBytes / 4,
-                Flags = BufferUnorderedAccessViewFlags.Raw,
-            }
-        });
-        currentUAVs[slot] = handle;
-    }
-
-    public void SetUAVTSlot(int slot, Texture2D texture, int mipIndex)
-    {
-        texture.SetPartResourceState(m_commandList, ResourceStates.UnorderedAccess, mipIndex, 1);
-        if (!(mipIndex < texture.mipLevels))
-        {
-            throw new ArgumentOutOfRangeException();
-        }
-        var uavDesc = new UnorderedAccessViewDescription()
-        {
-            Format = texture.uavFormat,
-        };
-        if (texture.isCube)
-        {
-            uavDesc.ViewDimension = UnorderedAccessViewDimension.Texture2DArray;
-            uavDesc.Texture2DArray = new Texture2DArrayUnorderedAccessView() { MipSlice = mipIndex, ArraySize = 6 };
-        }
-        else
-        {
-            uavDesc.ViewDimension = UnorderedAccessViewDimension.Texture2D;
-            uavDesc.Texture2D = new Texture2DUnorderedAccessView { MipSlice = mipIndex };
-        }
-
-        currentUAVs[slot] = CreateUAV(texture.resource, uavDesc).Ptr;
     }
 
     public void UploadMesh(Mesh mesh)
@@ -785,9 +645,6 @@ public sealed class GraphicsContext
         _currentGraphicsRootSignature = null;
         _currentComputeRootSignature = null;
         currentRootSignature = null;
-        currentCBVs.Clear();
-        currentSRVs.Clear();
-        currentUAVs.Clear();
     }
 
     public void ClearSwapChain(SwapChain swapChain, Vector4 color)
@@ -937,25 +794,12 @@ public sealed class GraphicsContext
         TriangleCount += indexCountPerInstance / 3 * instanceCount;
     }
 
-    public void Draw(int vertexCount, int startVertexLocation)
+    public void DrawIndexedInstanced2(int indexCountPerInstance, int instanceCount, int startIndexLocation, int baseVertexLocation, int startInstanceLocation)
     {
-        PipelineBinding();
-        m_commandList.DrawInstanced(vertexCount, 1, startVertexLocation, 0);
-        TriangleCount += vertexCount / 3;
-    }
-
-    public void DrawIndexed(int indexCount, int startIndexLocation, int baseVertexLocation)
-    {
-        DrawIndexedInstanced(indexCount, 1, startIndexLocation, baseVertexLocation, 0);
-    }
-
-    public void DrawIndexedInstanced(int indexCountPerInstance, int instanceCount, int startIndexLocation, int baseVertexLocation, int startInstanceLocation)
-    {
-        PipelineBinding();
         m_commandList.DrawIndexedInstanced(indexCountPerInstance, instanceCount, startIndexLocation, baseVertexLocation, startInstanceLocation);
         TriangleCount += indexCountPerInstance / 3 * instanceCount;
     }
-    void PipelineBindingCompute2()
+    void PipelineBindingCompute()
     {
         if (_currentComputeRootSignature != currentRootSignature)
         {
@@ -965,14 +809,8 @@ public sealed class GraphicsContext
         }
     }
 
-    void PipelineBinding()
+    public void PipelineBinding2()
     {
-        if (_currentGraphicsRootSignature != currentRootSignature)
-        {
-            _currentGraphicsRootSignature = currentRootSignature;
-            _currentComputeRootSignature = null;
-            m_commandList.SetGraphicsRootSignature(currentRootSignature.rootSignature);
-        }
         if (meshChanged)
         {
             var elements = currentPSO.inputLayoutDescription.Elements;
@@ -986,71 +824,26 @@ public sealed class GraphicsContext
             }
             meshChanged = false;
         }
+    }
+    ComputeCommandProxy computeResourceProxy = new ComputeCommandProxy();
+    GraphicsCommandProxy graphicsResourceProxy = new GraphicsCommandProxy();
 
-        var description1 = currentRootSignature.description1.Parameters;
-        for (int i = 0; i < description1.Length; i++)
-        {
-            var d = description1[i];
-            if (d.ParameterType == RootParameterType.ConstantBufferView)
-            {
-                if (currentCBVs.TryGetValue(d.Descriptor.ShaderRegister, out ulong addr))
-                    m_commandList.SetGraphicsRootConstantBufferView(i, addr);
-            }
-            else if (d.ParameterType == RootParameterType.ShaderResourceView)
-            {
-                if (currentSRVs.TryGetValue(d.Descriptor.ShaderRegister, out ulong addr))
-                    m_commandList.SetGraphicsRootShaderResourceView(i, addr);
-            }
-            else if (d.ParameterType == RootParameterType.UnorderedAccessView)
-            {
-                if (currentUAVs.TryGetValue(d.Descriptor.ShaderRegister, out ulong addr))
-                    m_commandList.SetGraphicsRootUnorderedAccessView(i, addr);
-            }
-            else
-            {
-                var rangeType = d.DescriptorTable.Ranges[0].RangeType;
-                int register = d.DescriptorTable.Ranges[0].BaseShaderRegister;
-                if (rangeType == DescriptorRangeType.ConstantBufferView)
-                {
-                    if (currentCBVs.TryGetValue(register, out ulong addr))
-                        m_commandList.SetGraphicsRootDescriptorTable(i, new GpuDescriptorHandle() { Ptr = addr });
-                }
-                else if (rangeType == DescriptorRangeType.ShaderResourceView)
-                {
-                    if (currentSRVs.TryGetValue(register, out ulong addr))
-                        m_commandList.SetGraphicsRootDescriptorTable(i, new GpuDescriptorHandle() { Ptr = addr });
-                }
-                else if (rangeType == DescriptorRangeType.UnorderedAccessView)
-                {
-                    if (currentUAVs.TryGetValue(register, out ulong addr))
-                        m_commandList.SetGraphicsRootDescriptorTable(i, new GpuDescriptorHandle() { Ptr = addr });
-                }
-            }
-        }
-
-        //if (psoChange)
-        //{
-        //    psoChange = false;
-
-        //    int variantIndex = currentPSO.GetVariantIndex(graphicsDevice, currentRootSignature, currentPSODesc);
-        //    if (variantIndex != -1)
-        //    {
-        //        m_commandList.SetPipelineState(currentPSO.m_pipelineStates[variantIndex]);
-        //        Reference(currentPSO.m_pipelineStates[variantIndex]);
-        //    }
-        //}
+    public void SetComputeResources(Action<ComputeCommandProxy> setResources)
+    {
+        computeResourceProxy.graphicsContext = this;
+        computeResourceProxy.cbvs = currentRootSignature.cbv;
+        computeResourceProxy.srvs = currentRootSignature.srv;
+        computeResourceProxy.uavs = currentRootSignature.uav;
+        setResources(computeResourceProxy);
     }
 
-    public void SetComputeResources(Action<ComputeResourceProxy> setResources)
+    public void SetGraphicsResources(Action<GraphicsCommandProxy> setResources)
     {
-        var computeResourceProxy = new ComputeResourceProxy()
-        {
-            graphicsContext = this,
-            cbvs = currentRootSignature.cbv,
-            srvs = currentRootSignature.srv,
-            uavs = currentRootSignature.uav,
-        };
-        setResources(computeResourceProxy);
+        graphicsResourceProxy.graphicsContext = this;
+        graphicsResourceProxy.cbvs = currentRootSignature.cbv;
+        graphicsResourceProxy.srvs = currentRootSignature.srv;
+        graphicsResourceProxy.uavs = currentRootSignature.uav;
+        setResources(graphicsResourceProxy);
     }
 
     public void Dispatch(int x, int y, int z)

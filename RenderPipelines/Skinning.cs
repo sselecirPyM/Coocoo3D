@@ -8,11 +8,11 @@ namespace RenderPipelines
     {
         public void Execute(Mesh mesh, ReadOnlySpan<byte> matrices)
         {
-            context.SetPSO(shader_skinning);
             var graphicsContext = context.renderPipelineView.graphicsContext;
 			var data = matrices.ToArray();
 
 
+            graphicsContext.SetPSO(shader_skinning);
             graphicsContext.SetComputeResources(ct =>
             {
                 ct.SetUAV(0, mesh, "POSITION0");

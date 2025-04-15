@@ -13,7 +13,7 @@ public class PureColorBakerAttribute : RuntimeBakeAttribute, ITexture2DBaker, ID
     static ushort[] quad = new ushort[] { 0, 1, 2, 2, 1, 3 };
     public bool Bake(Texture2D texture, RenderPipelineView view, ref object tag)
     {
-
+        var graphicsContext = view.graphicsContext;
         view.SetRenderTarget(texture, true);
         var psoDesc = new PSODesc()
         {
@@ -23,13 +23,14 @@ public class PureColorBakerAttribute : RuntimeBakeAttribute, ITexture2DBaker, ID
             renderTargetCount = 1,
         };
 
-        Span<float> cbvData = stackalloc float[4];
-        Color.CopyTo(cbvData);
-        view.graphicsContext.SetCBVRSlot<float>(0, cbvData);
 
-        view.SetPSO(shader_pureColor, psoDesc);
-        view.graphicsContext.SetSimpleMesh(null, MemoryMarshal.AsBytes<ushort>(quad), 0, 2);
-        view.Draw(6, 0, 0);
+        graphicsContext.SetPSO(shader_pureColor, psoDesc);
+        graphicsContext.SetSimpleMesh(null, MemoryMarshal.AsBytes<ushort>(quad), 0, 2);
+        graphicsContext.SetGraphicsResources((ct) =>
+        {
+            ct.SetCBV(0, [Color]);
+        });
+        graphicsContext.DrawIndexedInstanced2(6, 1, 0, 0, 0);
         return true;
     }
 

@@ -74,8 +74,10 @@ public sealed class UIRenderSystem : IDisposable
         var pso = caches.GetPSO(null, imguiShaderPath);
         graphicsContext.SetPSO(pso, desc);
 
-        ReadOnlySpan<float> imguiCbv = stackalloc float[4] { 2.0f / (R - L), 2.0f / (T - B), (R + L) / (L - R), (T + B) / (B - T) };
-        graphicsContext.SetCBVRSlot(0, MemoryMarshal.AsBytes(imguiCbv));
+        graphicsContext.SetGraphicsResources((ct) =>
+        {
+            ct.SetCBV(0, [2.0f / (R - L), 2.0f / (T - B), (R + L) / (L - R), (T + B) / (B - T)]);
+        });
 
         unsafe
         {
@@ -116,10 +118,14 @@ public sealed class UIRenderSystem : IDisposable
 
                 tex = TextureStatusSelect(tex, texError);
 
-                graphicsContext.SetSRVTSlotLinear(0, tex);//srgb to srgb
                 var rect = cmd.ClipRect;
                 graphicsContext.RSSetScissorRect((int)(rect.X - displayPosition.X), (int)(rect.Y - displayPosition.Y), (int)(rect.Z - displayPosition.X), (int)(rect.W - displayPosition.Y));
-                graphicsContext.DrawIndexed((int)cmd.ElemCount, (int)(cmd.IdxOffset) + idxOfs, (int)(cmd.VtxOffset) + vtxOfs);
+
+                graphicsContext.SetGraphicsResources((ct) =>
+                {
+                    ct.SetSRV(0, tex, true);//srgb to srgb
+                });
+                graphicsContext.DrawIndexedInstanced2((int)cmd.ElemCount, 1, (int)(cmd.IdxOffset) + idxOfs, (int)(cmd.VtxOffset) + vtxOfs, 0);
             }
             vtxOfs += cmdList.VtxBuffer.Size;
             idxOfs += cmdList.IdxBuffer.Size;

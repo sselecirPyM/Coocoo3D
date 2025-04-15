@@ -84,6 +84,13 @@ public struct PSODesc : IEquatable<PSODesc>
         return !(left == right);
     }
 }
+
+internal class CBVDescription
+{
+    public Dictionary<string, int> positionMap = new Dictionary<string, int>();
+    public int size;
+}
+
 public class PSO : IDisposable
 {
     //static readonly InputLayoutDescription inputLayoutDefault = new InputLayoutDescription(
@@ -132,6 +139,8 @@ public class PSO : IDisposable
     RootSignature rootSignature1;
 
     internal List<(PSODesc, ID3D12PipelineState)> m_pipelineStates = new List<(PSODesc, ID3D12PipelineState)>();
+
+    internal Dictionary<int, CBVDescription> cbvDescriptions = new Dictionary<int, CBVDescription>();
 
     public PSO()
     {
@@ -338,20 +347,30 @@ public class PSO : IDisposable
             Filter = Filter.MinMagMipPoint
         };
 
+        var constantBuffers = new Dictionary<string, ID3D12ShaderReflectionConstantBuffer>();
 
         var parameters = new List<RootParameter1>();
         //var samplers = new List<StaticSamplerDescription>();
         var bindings = new List<InputBindingDescription>();
-        if (vsReflection != null)
-            bindings.AddRange(vsReflection.BoundResources);
-        if (gsReflection != null)
-            bindings.AddRange(gsReflection.BoundResources);
-        if (psReflection != null)
-            bindings.AddRange(psReflection.BoundResources);
+        void ProcessReflection(ID3D12ShaderReflection shaderReflection)
+        {
+            if (shaderReflection == null)
+                return;
+            bindings.AddRange(shaderReflection.BoundResources);
+            foreach (var constantBuffer in shaderReflection.ConstantBuffers)
+            {
+                constantBuffers[constantBuffer.Description.Name] = constantBuffer;
+            }
+        }
+        ProcessReflection(vsReflection);
+        ProcessReflection(gsReflection);
+        ProcessReflection(psReflection);
+
         HashSet<int> srvVisited = new HashSet<int>();
         HashSet<int> cbvVisited = new HashSet<int>();
         HashSet<int> uavVisited = new HashSet<int>();
 
+        rootSignature1 = new RootSignature();
         foreach (var res in bindings)
         {
             switch (res.Type)
@@ -360,13 +379,29 @@ public class PSO : IDisposable
                 case ShaderInputType.Structured:
                     if (!srvVisited.Add(res.BindPoint))
                         continue;
+                    rootSignature1.srv[res.BindPoint] = parameters.Count;
                     parameters.Add(new RootParameter1(new RootDescriptorTable1(new DescriptorRange1(
                                     DescriptorRangeType.ShaderResourceView, 1, res.BindPoint, res.Space)), ShaderVisibility.All));
                     break;
                 case ShaderInputType.ConstantBuffer:
                     if (!cbvVisited.Add(res.BindPoint))
                         continue;
+                    rootSignature1.cbv[res.BindPoint] = parameters.Count;
                     parameters.Add(new RootParameter1(RootParameterType.ConstantBufferView, new RootDescriptor1(res.BindPoint, res.Space), ShaderVisibility.All));
+                    if(constantBuffers.TryGetValue(res.Name, out var buffer))
+                    {
+                        var positionMap = new Dictionary<string, int>();
+                        foreach(var item in buffer.Variables)
+                        {
+                            positionMap[item.Description.Name] = item.Description.StartOffset;
+                        }
+
+                        cbvDescriptions[res.BindPoint] = new CBVDescription()
+                        {
+                            positionMap = positionMap,
+                            size = buffer.Description.Size,
+                        };
+                    }
                     break;
                 case ShaderInputType.Sampler:
                     //samplers.Add(new StaticSamplerDescription(Filter.MinMagMipLinear, TextureAddressMode.Wrap, TextureAddressMode.Wrap, TextureAddressMode.Wrap,
@@ -376,6 +411,7 @@ public class PSO : IDisposable
                 case ShaderInputType.UnorderedAccessViewRWStructured:
                     if (!uavVisited.Add(res.BindPoint))
                         continue;
+                    rootSignature1.uav[res.BindPoint] = parameters.Count;
                     parameters.Add(new RootParameter1(new RootDescriptorTable1(new DescriptorRange1(
                             DescriptorRangeType.UnorderedAccessView, 1, res.BindPoint, res.Space)), ShaderVisibility.All));
                     break;
@@ -385,7 +421,6 @@ public class PSO : IDisposable
         }
         //var rootSignatureDescription1 = new RootSignatureDescription1(RootSignatureFlags.None, parameters.ToArray(), samplers.ToArray());
         var rootSignatureDescription1 = new RootSignatureDescription1(RootSignatureFlags.AllowInputAssemblerInputLayout, parameters.ToArray(), samplerDescription);
-        rootSignature1 = new RootSignature();
         rootSignature1.FromDesc(rootSignatureDescription1);
     }
 

@@ -49,11 +49,11 @@ cbuffer cb2 : register(b2)
 	float4x4 g_mWorldToView;
 	float3 g_camPos;
 	float g_Brightness;
-	float g_cameraFar;
-	float g_cameraNear;
+	float g_cameraFarClip;
+	float g_cameraNearClip;
 	float g_cameraFov;
 	float g_cameraAspectRatio;
-	float4x4 LightMapVP[2];
+	float4x4 ShadowMapVP[2];
 	LightInfo Lightings[1];
 	float g_skyBoxMultiple;
 	float3 _fogColor;
@@ -218,7 +218,7 @@ float4 psmain(PSSkinnedIn input) : SV_TARGET
 		{
 			float4 sPos;
 			float2 shadowTexCoords;
-			sPos = mul(wPos, LightMapVP[j]);
+			sPos = mul(wPos, ShadowMapVP[j]);
 			sPos = sPos / sPos.w;
 			shadowTexCoords.x = 0.5f + (sPos.x * 0.5f);
 			shadowTexCoords.y = 0.5f - (sPos.y * 0.5f);

@@ -211,7 +211,7 @@ public partial class ForwardRenderPipeline : RenderPipeline, IDisposable
 
         pipelineContext = new PipelineContext();
         pipelineContext.PipelineBuilder = builder;
-
+        renderHelper.InitializeResources();
         renderPipelineView.beforeRender += () =>
         {
             renderHelper.UpdateGPUResource();
@@ -226,7 +226,7 @@ public partial class ForwardRenderPipeline : RenderPipeline, IDisposable
             renderPipelineView.SetSize("HalfOutput", (outputWidth + 1) / 2, (outputHeight + 1) / 2);
             renderPipelineView.SetSize("QuarterOutput", (outputWidth + 3) / 4, (outputHeight + 3) / 4);
             renderPipelineView.SetSize("BloomSize", outputWidth * 256 / outputHeight, 256);
-            renderPipelineView.SetSize("GIBufferSize", 589824, 1);
+            //renderPipelineView.SetSize("GIBufferSize", 589824, 1);
             renderPipelineView.texError = renderPipelineView.rpc.mainCaches.GetTextureLoaded(Path.GetFullPath("error.png", renderPipelineView.BasePath));
 
             renderPipelineView.SetAOV(AOVType.Color, output);
@@ -242,6 +242,15 @@ public partial class ForwardRenderPipeline : RenderPipeline, IDisposable
             size |= size >> 16;
             size += 1;
 
+            GIBuffer = renderPipelineView.ConfigBuffer("GIBuffer", (rt) =>
+            {
+                rt.width = 589824;
+            });
+            GIBufferWrite = renderPipelineView.ConfigBuffer("GIBufferWrite", (rt) =>
+            {
+                rt.width = 589824;
+            });
+
             _ShadowMap = renderPipelineView.ConfigTexture("_ShadowMap", (rt) =>
             {
                 rt.width = size;
@@ -250,10 +259,6 @@ public partial class ForwardRenderPipeline : RenderPipeline, IDisposable
                 rt.autoClearDepth = 1.0f;
                 rt.resourceFormat = ResourceFormat.D32_Float;
             });
-
-            renderPipelineView.GetOutputSize(out outputWidth, out outputHeight);
-            outputWidth = (int)(outputWidth * RenderScale);
-            outputHeight = (int)(outputHeight * RenderScale);
 
             Action<RenderTextureUsage> usage = (rt) =>
             {
@@ -296,17 +301,23 @@ public partial class ForwardRenderPipeline : RenderPipeline, IDisposable
             pipelineContext.ConfigRenderer<SuperPipelineConfig>();
             pipelineContext.Execute<SuperPipelineConfig>();
 
-            {
-                var usage1 = renderPipelineView.RenderTextures["depth"];
-                var usage2 = renderPipelineView.RenderTextures["depth2"];
-                (usage1.texture, usage2.texture) = (usage2.texture, usage1.texture);
-            }
-            {
-                var usage1 = renderPipelineView.RenderTextures["noPostProcess"];
-                var usage2 = renderPipelineView.RenderTextures["noPostProcess2"];
-                (usage1.texture, usage2.texture) = (usage2.texture, usage1.texture);
-            }
+            SwapTexture("depth", "depth2");
+            SwapTexture("noPostProcess", "noPostProcess2");
         };
+    }
+
+    void SwapTexture(string texture1, string texture2)
+    {
+        var usage1 = renderPipelineView.RenderTextures[texture1];
+        var usage2 = renderPipelineView.RenderTextures[texture2];
+        (usage1.texture, usage2.texture) = (usage2.texture, usage1.texture);
+    }
+
+    void SwapBuffer(string texture1, string texture2)
+    {
+        var usage1 = renderPipelineView.RenderTextures[texture1];
+        var usage2 = renderPipelineView.RenderTextures[texture2];
+        (usage1.gpuBuffer, usage2.gpuBuffer) = (usage2.gpuBuffer, usage1.gpuBuffer);
     }
 
     public override object UIMaterial(RenderMaterial material)

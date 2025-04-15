@@ -13,6 +13,7 @@ public class ComputeShader : IDisposable
 
     RootSignature rootSignature1;
     ID3D12PipelineState computePipeline;
+    internal Dictionary<int, CBVDescription> cbvDescriptions = new Dictionary<int, CBVDescription>();
 
     public ComputeShader(byte[] data, ID3D12ShaderReflection reflection)
     {
@@ -52,6 +53,11 @@ public class ComputeShader : IDisposable
         var parameters = new List<RootParameter1>();
         var samplers = new List<StaticSamplerDescription>();
         rootSignature1 = new RootSignature();
+        var constantBuffers = new Dictionary<string, ID3D12ShaderReflectionConstantBuffer>();
+        foreach (var constantBuffer in reflection.ConstantBuffers)
+        {
+            constantBuffers[constantBuffer.Description.Name] = constantBuffer;
+        }
         foreach (var res in reflection.BoundResources)
         {
             switch (res.Type)
@@ -65,6 +71,20 @@ public class ComputeShader : IDisposable
                 case ShaderInputType.ConstantBuffer:
                     rootSignature1.cbv[res.BindPoint] = parameters.Count;
                     parameters.Add(new RootParameter1(RootParameterType.ConstantBufferView, new RootDescriptor1(res.BindPoint, res.Space), ShaderVisibility.All));
+                    if (constantBuffers.TryGetValue(res.Name, out var buffer))
+                    {
+                        var positionMap = new Dictionary<string, int>();
+                        foreach (var item in buffer.Variables)
+                        {
+                            positionMap[item.Description.Name] = item.Description.StartOffset;
+                        }
+
+                        cbvDescriptions[res.BindPoint] = new CBVDescription()
+                        {
+                            positionMap = positionMap,
+                            size = buffer.Description.Size,
+                        };
+                    }
                     break;
                 case ShaderInputType.Sampler:
                     samplers.Add(new StaticSamplerDescription(Filter.MinMagMipLinear, TextureAddressMode.Wrap, TextureAddressMode.Wrap, TextureAddressMode.Wrap,

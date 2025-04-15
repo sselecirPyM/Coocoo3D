@@ -161,10 +161,4 @@ public class CBufferWriter
                 break;
         }
     }
-
-    public void SetCBV(int slot)
-    {
-        graphicsContext.SetCBVRSlot(slot, new ReadOnlySpan<byte>(memoryStream.GetBuffer(), 0, (int)memoryStream.Position));
-        binaryWriter.Seek(0, SeekOrigin.Begin);
-    }
 }

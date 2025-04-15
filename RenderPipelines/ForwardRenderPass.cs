@@ -5,6 +5,7 @@ using Coocoo3D.Components;
 using Coocoo3D.Present;
 using Coocoo3D.RenderPipeline;
 using Coocoo3DGraphics;
+using Coocoo3DGraphics.Commanding;
 using RenderPipelines.LambdaPipe;
 using RenderPipelines.LambdaRenderers;
 using RenderPipelines.MaterialDefines;
@@ -20,70 +21,46 @@ namespace RenderPipelines;
 
 public partial class ForwardRenderPipeline
 {
-    object[] CBVPerPass = new object[]
+    struct LightingData
     {
-        nameof(ViewProjection),
-        nameof(View),
-        nameof(CameraPosition),
-        nameof(Brightness),
-        nameof(Far),
-        nameof(Near),
-        nameof(Fov),
-        nameof(AspectRatio),
-        nameof(ShadowMapVP),
-        nameof(ShadowMapVP1),
-        nameof(LightDir),
-        0,
-        nameof(LightColor),
-        0,
-        nameof(SkyLightMultiple),
-        nameof(FogColor),
-        nameof(FogDensity),
-        nameof(FogStartDistance),
-        nameof(FogEndDistance),
-        nameof(CameraLeft),
-        nameof(CameraDown),
-        nameof(Split),
-        nameof(GIVolumePosition),
-        nameof(GIVolumeSize),
-    };
+        public Vector3 LightDir;
+        public uint LightType;
+        public Vector3 LightColor;
+        public float useless;
+    }
 
-    object[][] cbvsFinal = new object[][]
+    void BindCBVFinal(CBVProxy cbv)
     {
-        new object []
-        {
-            nameof(ViewProjection),
-            nameof(InvertViewProjection),
-            nameof(Far),
-            nameof(Near),
-            nameof(Fov),
-            nameof(AspectRatio),
-            nameof(CameraPosition),
-            nameof(SkyLightMultiple),
-            nameof(FogColor),
-            nameof(FogDensity),
-            nameof(FogStartDistance),
-            nameof(FogEndDistance),
-            nameof(OutputSize),
-            nameof(Brightness),
-            nameof(VolumetricLightingSampleCount),
-            nameof(VolumetricLightingDistance),
-            nameof(VolumetricLightingIntensity),
-            nameof(ShadowMapVP),
-            nameof(ShadowMapVP1),
-            nameof(LightDir),
-            0,
-            nameof(LightColor),
-            0,
-            nameof(GIVolumePosition),
-            nameof(AODistance),
-            nameof(GIVolumeSize),
-            nameof(AOLimit),
-            nameof(AORaySampleCount),
-            nameof(RandomI),
-            nameof(Split),
-        }
-    };
+        cbv.Set("g_mWorldToProj", Matrix4x4.Transpose(ViewProjection));
+        cbv.Set("g_mProjToWorld", Matrix4x4.Transpose(InvertViewProjection));
+        cbv.Set("g_mWorldToView", Matrix4x4.Transpose(View));
+        cbv.Set("g_cameraFarClip", Far);
+        cbv.Set("g_cameraNearClip", Near);
+        cbv.Set("g_cameraFOV", Fov);
+        cbv.Set("g_cameraAspectRatio", AspectRatio);
+        cbv.Set("g_camPos", CameraPosition);
+        cbv.Set("g_skyBoxMultiple", SkyLightMultiple);
+        cbv.Set("_fogColor", FogColor);
+        cbv.Set("_fogDensity", FogDensity);
+        cbv.Set("_startDistance", FogStartDistance);
+        cbv.Set("_endDistance", FogEndDistance);
+        cbv.Set("_widthHeight", OutputSize);
+        cbv.Set("g_Brightness", Brightness);
+        cbv.Set("_volumeLightIterCount", VolumetricLightingSampleCount);
+        cbv.Set("_volumeLightMaxDistance", VolumetricLightingDistance);
+        cbv.Set("_volumeLightIntensity", VolumetricLightingIntensity);
+        cbv.Set("ShadowMapVP", [Matrix4x4.Transpose(ShadowMapVP), Matrix4x4.Transpose(ShadowMapVP1)]);
+        cbv.Set("Lightings", new LightingData { LightColor = LightColor, LightDir = LightDir });
+        cbv.Set("g_GIVolumePosition", GIVolumePosition);
+        cbv.Set("g_AODistance", AODistance);
+        cbv.Set("g_GIVolumeSize", GIVolumeSize);
+        cbv.Set("g_AOLimit", AOLimit);
+        cbv.Set("g_AORaySampleCount", AORaySampleCount);
+        cbv.Set("g_RandomI", RandomI);
+        cbv.Set("g_lightMapSplit", Split);
+        cbv.Set("g_camLeft", CameraLeft);
+        cbv.Set("g_camDown", CameraDown);
+    }
 
     [Indexable]
     public Matrix4x4 ViewProjection;
@@ -174,27 +151,8 @@ public partial class ForwardRenderPipeline
     }
     Texture2D x__HiZBuffer;
 
-    [Size("GIBufferSize")]
-    public GPUBuffer GIBuffer
-    {
-        get => x_GIBuffer;
-        set
-        {
-            x_GIBuffer = value;
-        }
-    }
-    GPUBuffer x_GIBuffer = new();
-
-    [Size("GIBufferSize")]
-    public GPUBuffer GIBufferWrite
-    {
-        get => x_GIBufferWrite;
-        set
-        {
-            x_GIBufferWrite = value;
-        }
-    }
-    GPUBuffer x_GIBufferWrite = new();
+    GPUBuffer GIBuffer;
+    GPUBuffer GIBufferWrite;
 
     [UIShow(name: "启用体积光"), Indexable]
     public bool EnableVolumetricLighting;
@@ -463,7 +421,6 @@ public partial class ForwardRenderPipeline
                 s.keywords.Add(("ENABLE_FOG", "1"));
 
             s.shader = "ForwardRender.hlsl";
-            s.CBVPerPass = CBVPerPass;
             s._ShadowMap = _ShadowMap;
             s._BRDFLUT = _BRDFLUT;
             s._Environment = _Environment;
@@ -473,6 +430,10 @@ public partial class ForwardRenderPipeline
             {
                 blendState = BlendState.None,
                 cullMode = CullMode.None,
+            };
+            s.Binding = (ct) =>
+            {
+                ct.SetCBV(2, BindCBVFinal);
             };
         }
 
@@ -558,7 +519,6 @@ public partial class ForwardRenderPipeline
                 {
                     s.keywords.Add((debugKeyword, "1"));
                 }
-                s.cbvs = cbvsFinal;
                 s.EnableSSR = EnableSSR;
                 s.EnableSSAO = EnableSSAO;
                 s.EnableFog = EnableFog;
@@ -566,6 +526,11 @@ public partial class ForwardRenderPipeline
                 s.NoBackGround = NoBackGround;
                 s.pipelineMaterial = pipelineMaterial;
                 s.RenderTarget = noPostProcess;
+
+                s.Binding = (ct) =>
+                {
+                    ct.SetCBV(0, BindCBVFinal);
+                };
             });
 
             c.ConfigRenderer<RayTracingConfig>(s =>
@@ -580,7 +545,8 @@ public partial class ForwardRenderPipeline
                 s.directionalLight = directionalLight;
                 s.afterGI = () =>
                 {
-                    (this.GIBuffer, this.GIBufferWrite) = (this.GIBufferWrite, this.GIBuffer);
+                    SwapBuffer("GIBuffer", "GIBufferWrite");
+                    //(this.GIBuffer, this.GIBufferWrite) = (this.GIBufferWrite, this.GIBuffer);
                 };
             });
 

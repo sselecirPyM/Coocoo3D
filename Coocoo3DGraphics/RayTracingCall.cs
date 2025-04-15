@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Coocoo3DGraphics.Commanding;
+using System;
 
 namespace Coocoo3DGraphics;
 
@@ -7,7 +8,7 @@ public class RayTracingCall
     public string rayGenShader;
     public string[] missShaders;
 
-    public RTTopLevelAcclerationStruct tpas;
+    public RTTopLevelAcclerationStruct tlas;
 
-    public Action<ComputeResourceProxy> SetResources;
+    public Action<ComputeCommandProxy> SetResources;
 }

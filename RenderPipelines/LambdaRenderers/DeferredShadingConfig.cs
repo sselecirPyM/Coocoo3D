@@ -1,6 +1,8 @@
 ﻿using Coocoo3D.RenderPipeline;
 using Coocoo3DGraphics;
+using Coocoo3DGraphics.Commanding;
 using RenderPipelines.MaterialDefines;
+using System;
 using System.Collections.Generic;
 
 namespace RenderPipelines.LambdaRenderers
@@ -30,7 +32,6 @@ namespace RenderPipelines.LambdaRenderers
             dsvFormat = Vortice.DXGI.Format.Unknown,
         };
 
-        public object[][] cbvs;
         public List<PointLightData> pointLightDatas = new List<PointLightData>();
 
         public bool EnableFog;
@@ -38,6 +39,8 @@ namespace RenderPipelines.LambdaRenderers
         public bool EnableSSR;
         public bool UseGI;
         public bool NoBackGround;
+
+        public Action<GraphicsCommandProxy> Binding;
 
         public PipelineMaterial pipelineMaterial;
     }

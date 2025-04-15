@@ -76,12 +76,12 @@ cbuffer cb0 : register(b0)
 	float _startDistance;
 	float _endDistance;
 	int2 _widthHeight;
-	float _Brightness;
+	float g_Brightness;
 	int _volumeLightIterCount;
 	float _volumeLightMaxDistance;
 	float _volumeLightIntensity;
-	float4x4 LightMapVP;
-	float4x4 LightMapVP1;
+	float4x4 ShadowMapVP;
+	float4x4 ShadowMapVP1;
 	LightInfo Lightings[1];
 	float3 g_GIVolumePosition;
 	float g_AODistance;
@@ -181,11 +181,11 @@ bool pointInLightRange(int index, float3 position)
 {
 	float4 sPos;
 	float4 pos1 = float4(position, 1);
-	sPos = mul(pos1, LightMapVP);
+	sPos = mul(pos1, ShadowMapVP);
 	sPos = sPos / sPos.w;
 	if (all(sPos.xy >= -1) && all(sPos.xy <= 1))
 		return true;
-	sPos = mul(pos1, LightMapVP1);
+	sPos = mul(pos1, ShadowMapVP1);
 	sPos = sPos / sPos.w;
 	if (all(sPos.xy >= -1) && all(sPos.xy <= 1))
 		return true;
@@ -210,7 +210,7 @@ float pointInLight(int index, float3 position)
 	float4 sPos;
 	float2 shadowTexCoords;
 	float4 pos1 = float4(position, 1);
-	sPos = mul(pos1, LightMapVP);
+	sPos = mul(pos1, ShadowMapVP);
 	sPos = sPos / sPos.w;
 	shadowTexCoords.x = 0.5f + (sPos.x * 0.5f);
 	shadowTexCoords.y = 0.5f - (sPos.y * 0.5f);
@@ -221,7 +221,7 @@ float pointInLight(int index, float3 position)
 	}
 	else
 	{
-		sPos = mul(pos1, LightMapVP1);
+		sPos = mul(pos1, ShadowMapVP1);
 		sPos = sPos / sPos.w;
 		shadowTexCoords.x = 0.5f + (sPos.x * 0.5f);
 		shadowTexCoords.y = 0.5f - (sPos.y * 0.5f);
@@ -725,5 +725,5 @@ float4 psmain(PSIn input) : SV_TARGET
 		}
 	}
 #endif
-	return float4(outputColor * _Brightness, 1);
+	return float4(outputColor * g_Brightness, 1);
 }
