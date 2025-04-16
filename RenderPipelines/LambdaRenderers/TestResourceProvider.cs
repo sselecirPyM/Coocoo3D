@@ -1,26 +1,11 @@
-﻿using Newtonsoft.Json;
-using RenderPipelines.Utility;
+﻿using RenderPipelines.Utility;
 using System;
-using System.IO;
 
 namespace RenderPipelines.LambdaRenderers
 {
     public class TestResourceProvider : IDisposable
     {
         public RenderHelper RenderHelper { get; set; }
-
-        public RayTracingShader GetRayTracingShader()
-        {
-            if (_rayTracingShader != null)
-                return _rayTracingShader;
-
-            var path1 = Path.GetFullPath("RayTracing.json", RenderHelper.renderPipelineView.BasePath);
-            using var filestream = File.OpenRead(path1);
-            _rayTracingShader = ReadJsonStream<RayTracingShader>(filestream);
-            return _rayTracingShader;
-        }
-
-        public RayTracingShader _rayTracingShader { get; set; }
 
         public BloomPass bloomPass = new BloomPass();
 
@@ -352,7 +337,7 @@ void csmain(uint3 dtid : SV_DispatchThreadID)
 }
 			
 """, "csmain", null);
-       public VariantComputeShader shader_hiz2 = new VariantComputeShader("""
+        public VariantComputeShader shader_hiz2 = new VariantComputeShader("""
 
 Texture2D<float2> input : register(t0);
 
@@ -396,14 +381,6 @@ void csmain(uint3 dtid : SV_DispatchThreadID)
 			
 """, "csmain", null);
 
-
-        public static T ReadJsonStream<T>(Stream stream)
-        {
-            JsonSerializer jsonSerializer = new JsonSerializer();
-            jsonSerializer.NullValueHandling = NullValueHandling.Ignore;
-            using StreamReader reader1 = new StreamReader(stream);
-            return jsonSerializer.Deserialize<T>(new JsonTextReader(reader1));
-        }
 
         public void Dispose()
         {

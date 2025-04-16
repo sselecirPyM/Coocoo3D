@@ -42,10 +42,8 @@ partial class RenderPipelineView
 
     public void SetShader(string path, PSODesc desc, IReadOnlyList<(string, string)> keywords = null)
     {
-        var cache = rpc.mainCaches;
-
         var shaderPath = Path.GetFullPath(path, this.BasePath);
-        var pso = cache.GetPSO(keywords, shaderPath);
+        var pso = mainCaches.GetPSO(keywords, shaderPath);
 
         if (pso != null)
             graphicsContext.SetPSO(pso, desc);

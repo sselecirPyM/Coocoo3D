@@ -1,15 +1,6 @@
 #include "Random.hlsli"
 #include "PBR.hlsli"
 #include "SH.hlsli"
-bool equls(in float3 a, in float3 b)
-{
-    return (a.x == b.x) && (a.y == b.y) && (a.z == b.z);
-}
-
-bool equls(in float4 a, in float4 b)
-{
-    return (a.x == b.x) && (a.y == b.y) && (a.z == b.z) && (a.w == b.w);
-}
 
 float4 Pow4(float4 x)
 {
@@ -88,8 +79,8 @@ cbuffer cb0 : register(b0)
 {
     float4x4 g_mWorldToProj;
     float4x4 g_mProjToWorld;
-    float4x4 LightMapVP;
-    float4x4 LightMapVP1;
+    float4x4 ShadowMapVP;
+    float4x4 ShadowMapVP1;
     LightInfo Lightings[1];
     float3 g_camPos;
     float g_skyBoxMultiple;
@@ -207,10 +198,10 @@ void miss(inout RayPayload payload)
     payload.color = EnvCube.SampleLevel(s0, payload.direction, 0) * g_skyBoxMultiple;
 }
 
-StructuredBuffer<uint> MeshIndexs : register(t0, space1);
-StructuredBuffer<float3> Positions : register(t1, space1);
-StructuredBuffer<float3> Normals : register(t2, space1);
-StructuredBuffer<float2> UVs : register(t3, space1);
+StructuredBuffer<uint> MeshIndexs_addr : register(t0, space1);
+StructuredBuffer<float3> Positions_addr : register(t1, space1);
+StructuredBuffer<float3> Normals_addr : register(t2, space1);
+StructuredBuffer<float2> UVs_addr : register(t3, space1);
 Texture2D<float4> Albedo : register(t4, space1);
 Texture2D<float4> Metallic : register(t5, space1);
 Texture2D<float4> Roughness : register(t6, space1);
@@ -221,18 +212,18 @@ void closestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
 {
 #define GET_PROPERTY(x) (x[meshIndexs[0]]*vertexWeight[0] + x[meshIndexs[1]]*vertexWeight[1] + x[meshIndexs[2]]*vertexWeight[2])
     uint3 meshIndexs;
-    meshIndexs[0] = MeshIndexs[PrimitiveIndex() * 3 + 0];
-    meshIndexs[1] = MeshIndexs[PrimitiveIndex() * 3 + 1];
-    meshIndexs[2] = MeshIndexs[PrimitiveIndex() * 3 + 2];
+    meshIndexs[0] = MeshIndexs_addr[PrimitiveIndex() * 3 + 0];
+    meshIndexs[1] = MeshIndexs_addr[PrimitiveIndex() * 3 + 1];
+    meshIndexs[2] = MeshIndexs_addr[PrimitiveIndex() * 3 + 2];
 
     float3 vertexWeight;
     vertexWeight[0] = 1 - attr.barycentrics.x - attr.barycentrics.y;
     vertexWeight[1] = attr.barycentrics.x;
     vertexWeight[2] = attr.barycentrics.y;
 
-    float3 position = mul(float4(GET_PROPERTY(Positions), 1), g_mWorld).xyz;
-    float3 N = normalize(mul(GET_PROPERTY(Normals), g_mWorld).xyz);
-    float2 uv = GET_PROPERTY(UVs);
+    float3 position = mul(float4(GET_PROPERTY(Positions_addr), 1), g_mWorld).xyz;
+    float3 N = normalize(mul(GET_PROPERTY(Normals_addr), g_mWorld).xyz);
+    float2 uv = GET_PROPERTY(UVs_addr);
     float4 albedo = Albedo.SampleLevel(s1, uv, 0);
     float3 emissive = Emissive.SampleLevel(s1, uv, 0) * _Emissive;
 
@@ -272,7 +263,7 @@ void closestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
 			{
 				float4 sPos;
 				float2 shadowTexCoords;
-				sPos = mul(float4(position, 1), LightMapVP);
+				sPos = mul(float4(position, 1), ShadowMapVP);
 				sPos = sPos / sPos.w;
 				shadowTexCoords.x = 0.5f + (sPos.x * 0.5f);
 				shadowTexCoords.y = 0.5f - (sPos.y * 0.5f);
@@ -280,7 +271,7 @@ void closestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
 					inShadow = ShadowMap0.SampleCmpLevelZero(sampleShadowMap0, shadowTexCoords * float2(0.5, 0.5), sPos.z).r;
 				else
 				{
-					sPos = mul(float4(position, 1), LightMapVP1);
+					sPos = mul(float4(position, 1), ShadowMapVP1);
 					sPos = sPos / sPos.w;
 					shadowTexCoords.x = 0.5f + (sPos.x * 0.5f);
 					shadowTexCoords.y = 0.5f - (sPos.y * 0.5f);

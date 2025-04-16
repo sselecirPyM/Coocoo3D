@@ -20,30 +20,8 @@ public partial class ForwardRenderPipeline : RenderPipeline, IDisposable
     Texture2D noPostProcess { get; set; }
     Texture2D noPostProcess2 { get; set; }
 
-    [Size("BloomSize")]
-    [Format(ResourceFormat.R16G16B16A16_Float)]
-    public Texture2D intermedia1
-    {
-        get => x_intermedia1;
-        set
-        {
-            x_intermedia1 = value;
-        }
-    }
-    Texture2D x_intermedia1;
-
-    [Size("BloomSize")]
-    [Format(ResourceFormat.R16G16B16A16_Float)]
-    [AutoClear]
-    public Texture2D intermedia2
-    {
-        get => x_intermedia2;
-        set
-        {
-            x_intermedia2 = value;
-        }
-    }
-    Texture2D x_intermedia2;
+    Texture2D intermedia1;
+    Texture2D intermedia2;
 
     [Size(2048, 2048, 9)]
     [Format(ResourceFormat.R16G16B16A16_Float)]
@@ -61,18 +39,7 @@ public partial class ForwardRenderPipeline : RenderPipeline, IDisposable
     Texture2D depth { get; set; }
     Texture2D depth2 { get; set; }
 
-    [Size("UnscaledOutput")]
-    [Format(ResourceFormat.R8G8B8A8_UNorm)]
-    [AutoClear]
-    public Texture2D output
-    {
-        get => x_output;
-        set
-        {
-            x_output = value;
-        }
-    }
-    Texture2D x_output;
+    Texture2D output;
 
     [Size(128, 128)]
     [Format(ResourceFormat.R16G16B16A16_Float)]
@@ -154,7 +121,6 @@ public partial class ForwardRenderPipeline : RenderPipeline, IDisposable
     [Size(32, 32)]
     public Texture2D _Albedo, _Metallic, _Roughness, _Emissive;
 
-    [Indexable]
     [UIShow(UIShowType.Material, "使用法线贴图")]
     public bool UseNormalMap;
 
@@ -164,7 +130,6 @@ public partial class ForwardRenderPipeline : RenderPipeline, IDisposable
     [Size(32, 32)]
     public Texture2D _Normal;
 
-    [Indexable]
     [UIShow(UIShowType.Material, "使用Spa")]
     public bool UseSpa;
 
@@ -219,18 +184,12 @@ public partial class ForwardRenderPipeline : RenderPipeline, IDisposable
 
 
             renderPipelineView.GetOutputSize(out outputWidth, out outputHeight);
-            renderPipelineView.SetSize("UnscaledOutput", outputWidth, outputHeight);
+            int unscaledWidth = outputWidth;
+            int unscaledHeight = outputHeight;
             outputWidth = (int)(outputWidth * RenderScale);
             outputHeight = (int)(outputHeight * RenderScale);
-            renderPipelineView.SetSize("Output", outputWidth, outputHeight);
-            renderPipelineView.SetSize("HalfOutput", (outputWidth + 1) / 2, (outputHeight + 1) / 2);
-            renderPipelineView.SetSize("QuarterOutput", (outputWidth + 3) / 4, (outputHeight + 3) / 4);
-            renderPipelineView.SetSize("BloomSize", outputWidth * 256 / outputHeight, 256);
-            //renderPipelineView.SetSize("GIBufferSize", 589824, 1);
-            renderPipelineView.texError = renderPipelineView.rpc.mainCaches.GetTextureLoaded(Path.GetFullPath("error.png", renderPipelineView.BasePath));
+            renderPipelineView.texError = renderPipelineView.mainCaches.GetTextureLoaded(Path.GetFullPath("error.png", renderPipelineView.BasePath));
 
-            renderPipelineView.SetAOV(AOVType.Color, output);
-            renderPipelineView.SetAOV(AOVType.Depth, depth);
 
 
             int size = (int)ShadowMapSize;
@@ -241,6 +200,16 @@ public partial class ForwardRenderPipeline : RenderPipeline, IDisposable
             size |= size >> 8;
             size |= size >> 16;
             size += 1;
+
+            Action<RenderTextureUsage> bloomUsage = (rt) =>
+            {
+                rt.width = outputWidth * 256 / outputHeight;
+                rt.height = 256;
+                rt.autoClear = true;
+                rt.resourceFormat = ResourceFormat.R16G16B16A16_Float;
+            };
+            intermedia1 = renderPipelineView.ConfigTexture("intermedia1", bloomUsage);
+            intermedia2 = renderPipelineView.ConfigTexture("intermedia2", bloomUsage);
 
             GIBuffer = renderPipelineView.ConfigBuffer("GIBuffer", (rt) =>
             {
@@ -260,6 +229,13 @@ public partial class ForwardRenderPipeline : RenderPipeline, IDisposable
                 rt.resourceFormat = ResourceFormat.D32_Float;
             });
 
+            output = renderPipelineView.ConfigTexture("output", (rt) =>
+            {
+                rt.width = unscaledWidth;
+                rt.height = unscaledHeight;
+                rt.resourceFormat = ResourceFormat.R8G8B8A8_UNorm;
+                rt.autoClear = true;
+            });
             Action<RenderTextureUsage> usage = (rt) =>
             {
                 rt.width = outputWidth;
@@ -294,6 +270,9 @@ public partial class ForwardRenderPipeline : RenderPipeline, IDisposable
                 rt.height = outputHeight;
                 rt.resourceFormat = ResourceFormat.D32_Float;
             });
+
+            renderPipelineView.SetAOV(AOVType.Color, output);
+            renderPipelineView.SetAOV(AOVType.Depth, depth);
         };
 
         renderPipelineView.render += () =>

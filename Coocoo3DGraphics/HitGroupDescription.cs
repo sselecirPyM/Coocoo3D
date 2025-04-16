@@ -1,7 +1,7 @@
 ﻿
 namespace Coocoo3DGraphics;
 
-public class RayTracingShaderDescription
+public class HitGroupDescription
 {
     public string name;
 

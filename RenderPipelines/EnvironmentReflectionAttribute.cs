@@ -23,8 +23,6 @@ public class EnvironmentReflectionAttribute : RuntimeBakeAttribute, ITexture2DBa
 
         int width = texture.width;
         int height = texture.height;
-        var writer = new CBufferWriter();
-        writer.graphicsContext = graphicsContext;
 
         int roughnessLevel = 5;
 
@@ -35,14 +33,6 @@ public class EnvironmentReflectionAttribute : RuntimeBakeAttribute, ITexture2DBa
             int mipLevel = currentQuality % t1;
             int quality = currentQuality / t1;
             int pow2a = 1 << mipLevel;
-            writer.Write(width / pow2a);
-            writer.Write(height / pow2a);
-            writer.Write(quality);
-            writer.Write(quality);
-            writer.Write(Math.Max(mipLevel * mipLevel / (4.0f * 4.0f), 5e-3f));
-            writer.Write(face);
-            var data = writer.GetData();
-            writer.Clear();
 
 
             if (mipLevel != roughnessLevel)
@@ -52,7 +42,14 @@ public class EnvironmentReflectionAttribute : RuntimeBakeAttribute, ITexture2DBa
 
             graphicsContext.SetComputeResources((s) =>
             {
-                s.SetCBV(0, data);
+                s.SetCBV(0, (cbv) =>
+                {
+                    cbv.Set("imageSize", [width / pow2a, height / pow2a]);
+                    cbv.Set("quality", quality);
+                    cbv.Set("batch", quality);
+                    cbv.Set("roughness1", Math.Max(mipLevel * mipLevel / (4.0f * 4.0f), 5e-3f));
+                    cbv.Set("face", face);
+                });
                 s.SetSRV(0, tex);
                 s.SetUAVMip(0, texture, mipLevel);
             });

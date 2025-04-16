@@ -1,9 +1,7 @@
 ﻿using Coocoo3DGraphics;
 using Coocoo3DGraphics.Commanding;
-using RenderPipelines.MaterialDefines;
 using System;
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
 
 namespace RenderPipelines.LambdaRenderers
 {
@@ -40,14 +38,6 @@ namespace RenderPipelines.LambdaRenderers
             desc.renderTargetCount = rtvs.Count;
 
             return desc;
-        }
-
-        public void WriteCBuffer(Span<byte> bufferData, ModelMaterial material)
-        {
-            MemoryMarshal.Write(bufferData.Slice(0), material.Metallic);
-            MemoryMarshal.Write(bufferData.Slice(4), material.Roughness);
-            MemoryMarshal.Write(bufferData.Slice(8), material.Emissive);
-            MemoryMarshal.Write(bufferData.Slice(12), material.Specular);
         }
     }
 }

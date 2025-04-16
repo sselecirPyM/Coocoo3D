@@ -1,5 +1,6 @@
 ﻿using Coocoo3D.RenderPipeline;
 using Coocoo3DGraphics;
+using Coocoo3DGraphics.Commanding;
 using RenderPipelines.MaterialDefines;
 using System;
 using System.Collections.Generic;
@@ -22,30 +23,22 @@ namespace RenderPipelines.LambdaRenderers
 
         public RTPSO RTPSO;
 
-        public static object[] cbv0 =
-        {
-            "ViewProjection",
-            "InvertViewProjection",
-            "ShadowMapVP",
-            "ShadowMapVP1",
-            "LightDir",
-            0,
-            "LightColor",
-            0,
-            "CameraPosition",
-            "SkyLightMultiple",
-            "GIVolumePosition",//"GIVolumePosition",
-            "RayTracingReflectionQuality",
-            "GIVolumeSize",//"GIVolumeSize",
-            "RandomI",
-            "RayTracingReflectionThreshold"
-        };
-
         public PipelineMaterial pipelineMaterial;
 
         public DirectionalLightData directionalLight;
 
         public Action afterGI;
+
+        public HitGroupDescription[] hitGroups = new HitGroupDescription[]
+        {
+            new HitGroupDescription()
+            {
+                name = "rayHit",
+                closestHit = "closestHit"
+            }
+        };
+
+        public Action<ComputeCommandProxy> Binding;
 
         public static readonly string[] missShaders = new string[] { "miss" };
     }

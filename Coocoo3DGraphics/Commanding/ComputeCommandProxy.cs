@@ -14,10 +14,11 @@ namespace Coocoo3DGraphics.Commanding
         public Dictionary<int, int> srvs;
         public Dictionary<int, int> cbvs;
         public Dictionary<int, int> uavs;
+        internal Dictionary<int, CBVDescription> cbvDescriptions = new Dictionary<int, CBVDescription>();
 
         public ulong UploadCBV(int slot, CBVAction action)
         {
-            if (!graphicsContext.currentComputeShader.cbvDescriptions.TryGetValue(slot, out var desc))
+            if (!cbvDescriptions.TryGetValue(slot, out var desc))
                 return 0;
 
             if (cbvs.TryGetValue(slot, out var cbv))
@@ -38,7 +39,7 @@ namespace Coocoo3DGraphics.Commanding
 
         public void SetCBV(int slot, CBVAction action)
         {
-            if (!graphicsContext.currentComputeShader.cbvDescriptions.TryGetValue(slot, out var desc))
+            if (!cbvDescriptions.TryGetValue(slot, out var desc))
                 return;
 
             if (cbvs.TryGetValue(slot, out var cbv))

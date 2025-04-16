@@ -66,7 +66,7 @@ public class Texture2D : IGPUResource, IDisposable
                     resourceStates[i] = states;
                 }
             }
-            else if (states == ResourceStates.UnorderedAccess)
+            else if ((states & ResourceStates.UnorderedAccess) != 0)
             {
                 commandList.ResourceBarrierUnorderedAccessView(resource);
             }

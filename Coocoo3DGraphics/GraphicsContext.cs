@@ -231,14 +231,11 @@ public sealed class GraphicsContext
         BinaryWriter writer = new BinaryWriter(memoryStream);
         writer.Seek(0, SeekOrigin.Begin);
 
-        var rtpso = currentRTPSO;
         var proxy = new LocalResourceProxy
         {
             graphicsContext = this,
             pRtsoProps = pRtsoProps,
-            buffer = new byte[rtpso.localSize],
-            srvs = rtpso.localSRV,
-            cbvs = rtpso.localCBV
+            currentPSO = currentRTPSO,
         };
 
         foreach (var inst in call.tlas.instances)
@@ -270,7 +267,16 @@ public sealed class GraphicsContext
         writer.Seek(0, SeekOrigin.Begin);
         pRtsoProps.Dispose();
         PipelineBindingCompute();
-        SetComputeResources(call.SetResources);
+        //SetComputeResources(call.SetResources);
+
+
+        computeResourceProxy.graphicsContext = this;
+        computeResourceProxy.cbvs = currentRootSignature.cbv;
+        computeResourceProxy.srvs = currentRootSignature.srv;
+        computeResourceProxy.uavs = currentRootSignature.uav;
+        computeResourceProxy.cbvDescriptions = currentRTPSO.cbvs;
+        call.SetResources(computeResourceProxy);
+
         m_commandList.DispatchRays(dispatchRaysDescription);
     }
 
@@ -282,7 +288,7 @@ public sealed class GraphicsContext
     static void WriteLocalHandles(RTInstance inst, LocalResourceProxy proxy, BinaryWriter writer)
     {
         inst.SetLocalResource(proxy);
-        writer.Write(proxy.buffer);
+        writer.Write(proxy.shaderTableBuffer);
     }
     void BufferAlign(BinaryWriter writer, int align)
     {
@@ -834,6 +840,7 @@ public sealed class GraphicsContext
         computeResourceProxy.cbvs = currentRootSignature.cbv;
         computeResourceProxy.srvs = currentRootSignature.srv;
         computeResourceProxy.uavs = currentRootSignature.uav;
+        computeResourceProxy.cbvDescriptions = currentComputeShader.cbvDescriptions;
         setResources(computeResourceProxy);
     }
 

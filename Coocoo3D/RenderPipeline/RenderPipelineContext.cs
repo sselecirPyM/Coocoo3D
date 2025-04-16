@@ -13,8 +13,6 @@ public class RenderPipelineContext : IDisposable
 {
     public Scene scene;
 
-    public MainCaches mainCaches;
-
     public bool recording = false;
 
     public double Time;

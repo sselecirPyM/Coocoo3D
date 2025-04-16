@@ -60,42 +60,35 @@ public partial class ForwardRenderPipeline
         cbv.Set("g_lightMapSplit", Split);
         cbv.Set("g_camLeft", CameraLeft);
         cbv.Set("g_camDown", CameraDown);
+        cbv.Set("g_RayTracingReflectionQuality", RayTracingReflectionQuality);
+        cbv.Set("g_RayTracingReflectionThreshold", RayTracingReflectionThreshold);
     }
 
-    [Indexable]
     public Matrix4x4 ViewProjection;
-    [Indexable]
     public Matrix4x4 View;
-    [Indexable]
     public Matrix4x4 Projection;
-    [Indexable]
     public Matrix4x4 InvertViewProjection;
-    [Indexable]
     public Vector3 CameraPosition;
-    [Indexable]
     public Vector3 CameraLeft;
-    [Indexable]
     public Vector3 CameraDown;
-    [Indexable]
     public Vector3 CameraBack;
 
 
-    [UIDragFloat(0.01f, 0, name: "亮度"), Indexable]
+    [UIDragFloat(0.01f, 0, name: "亮度")]
     public float Brightness = 1;
 
-    [UIDragFloat(0.01f, 0, name: "天空盒亮度"), Indexable]
+    [UIDragFloat(0.01f, 0, name: "天空盒亮度")]
     public float SkyLightMultiple = 3;
 
-    [UIShow(name: "启用雾"), Indexable]
+    [UIShow(name: "启用雾")]
     public bool EnableFog;
-    [UIColor(name: "雾颜色"), Indexable]
+    [UIColor(name: "雾颜色")]
     public Vector3 FogColor = new Vector3(0.4f, 0.4f, 0.6f);
-    [UIDragFloat(0.001f, 0, name: "雾密度"), Indexable]
+    [UIDragFloat(0.001f, 0, name: "雾密度")]
     public float FogDensity = 0.005f;
-    [UIDragFloat(0.1f, 0, name: "雾开始距离"), Indexable]
+    [UIDragFloat(0.1f, 0, name: "雾开始距离")]
     public float FogStartDistance = 5;
     //[UIDragFloat(0.1f, 0, name: "雾结束距离")]
-    [Indexable]
     public float FogEndDistance = 100000;
 
 
@@ -105,31 +98,21 @@ public partial class ForwardRenderPipeline
     [UIDragFloat(0.01f, name: "TAA混合系数")]
     public float TAAFactor = 0.3f;
 
-    [Indexable]
     public float Far;
-    [Indexable]
     public float Near;
-    [Indexable]
     public float Fov;
-    [Indexable]
     public float AspectRatio;
 
 
-    [Indexable]
     public Matrix4x4 ShadowMapVP;
-    [Indexable]
     public Matrix4x4 ShadowMapVP1;
 
-    [Indexable]
     public Vector3 LightDir;
-    [Indexable]
     public Vector3 LightColor;
-
-    [Indexable]
     public int Split;
 
 
-    [UIShow(name: "延迟渲染"), Indexable]
+    [UIShow(name: "延迟渲染")]
     public bool DeferredRendering;
     #region deferred
 
@@ -154,60 +137,58 @@ public partial class ForwardRenderPipeline
     GPUBuffer GIBuffer;
     GPUBuffer GIBufferWrite;
 
-    [UIShow(name: "启用体积光"), Indexable]
+    [UIShow(name: "启用体积光")]
     public bool EnableVolumetricLighting;
 
-    [UIDragInt(1, 1, 256, name: "体积光采样次数"), Indexable]
+    [UIDragInt(1, 1, 256, name: "体积光采样次数")]
     public int VolumetricLightingSampleCount = 16;
 
-    [UIDragFloat(0.1f, name: "体积光距离"), Indexable]
+    [UIDragFloat(0.1f, name: "体积光距离")]
     public float VolumetricLightingDistance = 12;
 
-    [UIDragFloat(0.1f, name: "体积光强度"), Indexable]
+    [UIDragFloat(0.1f, name: "体积光强度")]
     public float VolumetricLightingIntensity = 0.001f;
 
-    [UIShow(name: "启用SSAO"), Indexable]
+    [UIShow(name: "启用SSAO")]
     public bool EnableSSAO;
 
-    [UIDragFloat(0.1f, 0, name: "AO距离"), Indexable]
+    [UIDragFloat(0.1f, 0, name: "AO距离")]
     public float AODistance = 1;
 
-    [UIDragFloat(0.01f, 0.1f, name: "AO限制"), Indexable]
+    [UIDragFloat(0.01f, 0.1f, name: "AO限制")]
     public float AOLimit = 0.3f;
 
-    [UIDragInt(1, 0, 128, name: "AO光线采样次数"), Indexable]
+    [UIDragInt(1, 0, 128, name: "AO光线采样次数")]
     public int AORaySampleCount = 32;
 
-    [UIShow(name: "启用屏幕空间反射"), Indexable]
+    [UIShow(name: "启用屏幕空间反射")]
     public bool EnableSSR;
 
 
     [UIShow(name: "启用光线追踪")]
     public bool EnableRayTracing;
 
-    [UIDragFloat(0.01f, 0, 5, name: "光线追踪反射质量"), Indexable]
+    [UIDragFloat(0.01f, 0, 5, name: "光线追踪反射质量")]
     public float RayTracingReflectionQuality = 1.0f;
 
-    [UIDragFloat(0.01f, 0, 1.0f, name: "光线追踪反射阈值"), Indexable]
+    [UIDragFloat(0.01f, 0, 1.0f, name: "光线追踪反射阈值")]
     public float RayTracingReflectionThreshold = 0.5f;
 
     [UIShow(name: "更新全局光照")]
     public bool UpdateGI;
 
-    [UIDragFloat(1.0f, name: "全局光照位置"), Indexable]
+    [UIDragFloat(1.0f, name: "全局光照位置")]
     public Vector3 GIVolumePosition = new Vector3(0, 2.5f, 0);
 
-    [UIDragFloat(1.0f, name: "全局光照范围"), Indexable]
+    [UIDragFloat(1.0f, name: "全局光照范围")]
     public Vector3 GIVolumeSize = new Vector3(20, 5, 20);
 
-    [UIShow(name: "使用全局光照"), Indexable]
+    [UIShow(name: "使用全局光照")]
     public bool UseGI;
-    [UIShow(name: "无背景"), Indexable]
+    [UIShow(name: "无背景")]
     public bool NoBackGround;
 
-    [Indexable]
     public (int, int) OutputSize;
-    [Indexable]
     public int RandomI;
     #endregion
 
@@ -343,8 +324,6 @@ public partial class ForwardRenderPipeline
 
         Split = ShadowSize(pointLights.Count * 6);
 
-        var resourceProvider = c.GetResourceProvider<TextureResourceProvider>();
-
         c.ConfigRenderer<ShadowRenderConfig>(s =>
         {
             s.viewports.Clear();
@@ -448,22 +427,10 @@ public partial class ForwardRenderPipeline
                 gbuffer2 = gbuffer2,
                 gbuffer3 = gbuffer3,
                 _SkyBox = _SkyBox,
-                AspectRatio = AspectRatio,
-                DebugRenderType = DebugRenderType,
                 depth = depth,
                 depth2 = depth2,
-                Far = Far,
-                Fov = Fov,
                 GIBuffer = GIBuffer,
                 GIBufferWrite = GIBufferWrite,
-                LightColor = LightColor,
-                LightDir = LightDir,
-                Near = Near,
-                OutputSize = OutputSize,
-                RandomI = RandomI,
-                RenderScale = RenderScale,
-                ShadowMapVP = ShadowMapVP,
-                ShadowMapVP1 = ShadowMapVP1,
                 _BRDFLUT = _BRDFLUT,
                 _Environment = _Environment,
                 _HiZBuffer = _HiZBuffer,
@@ -546,7 +513,10 @@ public partial class ForwardRenderPipeline
                 s.afterGI = () =>
                 {
                     SwapBuffer("GIBuffer", "GIBufferWrite");
-                    //(this.GIBuffer, this.GIBufferWrite) = (this.GIBufferWrite, this.GIBuffer);
+                };
+                s.Binding = (ct) =>
+                {
+                    ct.SetCBV(0, BindCBVFinal);
                 };
             });
 
@@ -598,10 +568,7 @@ public partial class ForwardRenderPipeline
     }
     public void Execute(SuperPipelineConfig s, PipelineContext c)
     {
-        renderHelper.PushParameters(this);
         c.Execute<ShadowRenderConfig>();
-
-        var p = c.GetResourceProvider<TestResourceProvider>();
 
         if (DeferredRendering)
         {
@@ -622,7 +589,6 @@ public partial class ForwardRenderPipeline
         c.Execute<TAAConfig>();
         c.Execute<PostProcessingConfig>();
         historyCamera = this.camera;
-        renderHelper.PopParameters();
     }
 
     static Matrix4x4 GetShadowMapMatrix(Vector3 pos, Vector3 dir, Vector3 up, float near, float far)

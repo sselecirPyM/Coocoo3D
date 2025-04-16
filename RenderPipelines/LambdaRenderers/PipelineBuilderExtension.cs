@@ -14,7 +14,7 @@ namespace RenderPipelines.LambdaRenderers
 {
     public static class PipelineBuilderExtension
     {
-        static Vector4[] quadArray = new Vector4[]
+        static readonly Vector4[] quadArray = new Vector4[]
         {
             new Vector4(-1, -1, 0, 1),
             new Vector4(1, -1, 0, 1),
@@ -36,7 +36,7 @@ namespace RenderPipelines.LambdaRenderers
                 {
                     context.renderPipelineView.SetRenderTargetDepth(viewport.RenderTarget, false);
                     var Rectangle = viewport.Rectangle;
-                    context.SetScissorRectAndViewport(Rectangle.Left, Rectangle.Top, Rectangle.Right, Rectangle.Bottom);
+                    graphicsContext.RSSetScissorRectAndViewport(Rectangle.Left, Rectangle.Top, Rectangle.Right, Rectangle.Bottom);
                     var desc = s.psoDesc;
                     var dsv = viewport.RenderTarget;
                     desc.dsvFormat = dsv.GetFormat();
@@ -75,6 +75,7 @@ namespace RenderPipelines.LambdaRenderers
             {
                 var p = c.GetResourceProvider<TestResourceProvider>();
                 var context = p.RenderHelper;
+                var graphicsContext = context.renderPipelineView.graphicsContext;
                 context.renderPipelineView.SetRenderTarget(s.RenderTarget, false);
                 context.SetPSO(p.shader_skybox, s.psoDesc);
 
@@ -88,14 +89,14 @@ namespace RenderPipelines.LambdaRenderers
                     Vector3 dir = new Vector3(b.X, b.Y, b.Z) - s.camera.Position;
                     dir.CopyTo(vertexs[(i * 4)..]);
                 }
-                context.renderPipelineView.graphicsContext.SetGraphicsResources((ct) =>
+                graphicsContext.SetGraphicsResources((ct) =>
                 {
                     ct.SetSRV(0, s.skybox);
                     ct.SetCBV(0, [s.SkyLightMultiple]);
                 });
 
-                context.SetSimpleMesh(MemoryMarshal.AsBytes(vertexs), MemoryMarshal.AsBytes(indices), 16, 2);
-                context.renderPipelineView.graphicsContext.DrawIndexedInstanced2(6, 1, 0, 0, 0);
+                graphicsContext.SetSimpleMesh(MemoryMarshal.AsBytes(vertexs), MemoryMarshal.AsBytes(indices), 16, 2);
+                graphicsContext.DrawIndexedInstanced2(6, 1, 0, 0, 0);
             });
 
             builder.AddRenderer<DrawObjectConfig>((s, c) =>
@@ -111,17 +112,6 @@ namespace RenderPipelines.LambdaRenderers
 
                 var desc = s.GetPSODesc(s.psoDesc);
 
-                var writer = context.Writer;
-                writer.Clear();
-
-
-
-                //ulong cbv2 = 0;
-                //if (s.CBVPerPass != null)
-                //{
-                //    context.Write(s.CBVPerPass, writer);
-                //    cbv2 = graphicsContext.UploadCBV<byte>(writer.GetData());
-                //}
 
                 int[] srvKeys = s.additionalSRV.Keys.ToArray();
                 foreach (var srvKey in srvKeys)
@@ -169,10 +159,6 @@ namespace RenderPipelines.LambdaRenderers
 
                     graphicsContext.SetGraphicsResources((ct) =>
                     {
-                        Span<byte> bufferData = stackalloc byte[80];
-                        MemoryMarshal.Write(bufferData.Slice(0), Matrix4x4.Transpose(renderable.transform));
-                        s.WriteCBuffer(bufferData.Slice(64), material);
-
                         foreach (var srv in s.additionalSRV)
                         {
                             if (srv.Value is Vortice.Direct3D12.GpuDescriptorHandle handle1)
@@ -185,11 +171,16 @@ namespace RenderPipelines.LambdaRenderers
                             }
                         }
 
-                        ct.SetCBV<byte>(1, bufferData);
-                        //if (cbv2 != 0)
-                        //{
-                        //    ct.SetCBV(2, cbv2);
-                        //}
+                        ct.SetCBV(1, (cbv) =>
+                        {
+                            cbv.Set("g_mWorld", Matrix4x4.Transpose(renderable.transform));
+                            cbv.Set("_Metallic", material.Metallic);
+                            cbv.Set("_Roughness", material.Roughness);
+                            cbv.Set("_Emissive", material.Emissive);
+                            cbv.Set("_Specular", material.Specular);
+                            //cbv.Set("_AO", material.AO);
+                        });
+
                         ct.SetSRV(0, material._Albedo);
                         ct.SetSRV(1, material._Metallic);
                         ct.SetSRV(2, material._Roughness);
@@ -280,19 +271,19 @@ namespace RenderPipelines.LambdaRenderers
 
                     graphicsContext.SetGraphicsResources((ct) =>
                     {
-                        Span<byte> bufferData = stackalloc byte[176];
-                        MemoryMarshal.Write(bufferData.Slice(0), Matrix4x4.Transpose(renderable.transform));
-                        MemoryMarshal.Write(bufferData.Slice(64), Matrix4x4.Transpose(s.viewProjection));
-                        MemoryMarshal.Write(bufferData.Slice(128), material.Metallic);
-                        MemoryMarshal.Write(bufferData.Slice(128 + 4), material.Roughness);
-                        MemoryMarshal.Write(bufferData.Slice(128 + 8), material.Emissive);
-                        MemoryMarshal.Write(bufferData.Slice(128 + 12), material.Specular);
-                        MemoryMarshal.Write(bufferData.Slice(144), material.AO);
-                        MemoryMarshal.Write(bufferData.Slice(144 + 4), s.CameraLeft);
-                        MemoryMarshal.Write(bufferData.Slice(160), s.CameraDown);
+                        ct.SetCBV(1, (cbv) =>
+                        {
+                            cbv.Set("g_mWorld", Matrix4x4.Transpose(renderable.transform));
+                            cbv.Set("g_mWorldToProj", Matrix4x4.Transpose(s.viewProjection));
+                            cbv.Set("_Metallic", material.Metallic);
+                            cbv.Set("_Roughness", material.Roughness);
+                            cbv.Set("_Emissive", material.Emissive);
+                            cbv.Set("_Specular", material.Specular);
+                            cbv.Set("_AO", material.AO);
+                            cbv.Set("g_camLeft", s.CameraLeft);
+                            cbv.Set("g_camDown", s.CameraDown);
+                        });
 
-
-                        ct.SetCBV<byte>(1, bufferData);
                         ct.SetSRV(0, material._Albedo);
                         ct.SetSRV(1, material._Metallic);
                         ct.SetSRV(2, material._Roughness);
@@ -432,32 +423,6 @@ namespace RenderPipelines.LambdaRenderers
                 var desc = s.GetPSODesc(view, s.psoDesc);
                 view.SetShader(s.shader, desc, keywords2);
 
-                //context.SetSRV(0, pipelineMaterial.gbuffer0);
-                //context.SetSRV(1, pipelineMaterial.gbuffer1);
-                //context.SetSRV(2, pipelineMaterial.gbuffer2);
-                //context.SetSRV(3, pipelineMaterial.gbuffer3);
-                //context.SetSRV(4, pipelineMaterial._Environment);
-                //context.SetSRV(5, pipelineMaterial.depth);
-                //context.SetSRV(6, pipelineMaterial._ShadowMap);
-                //context.SetSRV(7, pipelineMaterial._SkyBox);
-                //context.SetSRV(8, pipelineMaterial._BRDFLUT);
-                //context.SetSRV(9, pipelineMaterial._HiZBuffer);
-                //context.SetSRV(10, pipelineMaterial.GIBuffer);
-
-
-                //context.SetSRV<PointLightData>(11, CollectionsMarshal.AsSpan(s.pointLightDatas));
-
-                //var writer = context.Writer;
-                //if (s.cbvs != null)
-                //    for (int i = 0; i < s.cbvs.Length; i++)
-                //    {
-                //        object[] cbv1 = s.cbvs[i];
-                //        if (cbv1 == null)
-                //            continue;
-                //        context.Write(cbv1, writer);
-                //        writer.SetCBV(i);
-                //    }
-                //context.DrawQuad();
 
                 graphicsContext.SetGraphicsResources((ct) =>
                 {
@@ -476,18 +441,7 @@ namespace RenderPipelines.LambdaRenderers
 
                     ct.SetSRV<PointLightData>(11, CollectionsMarshal.AsSpan(s.pointLightDatas));
 
-                    //var writer = context.Writer;
-                    //if (s.cbvs != null)
-                    //    for (int i = 0; i < s.cbvs.Length; i++)
-                    //    {
-                    //        object[] cbv1 = s.cbvs[i];
-                    //        if (cbv1 == null)
-                    //            continue;
-                    //        context.Write(cbv1, writer);
-                    //        ct.SetCBV(i, writer.GetData());
-                    //    }
                     s.Binding?.Invoke(ct);
-                    //writer.Clear();
                 });
                 graphicsContext.PipelineBinding2();
                 context.DrawQuad2();
@@ -533,8 +487,8 @@ namespace RenderPipelines.LambdaRenderers
                     bloomPass.Execute(view);
                 }
 
-                srgbConvert.inputColor = s.inputColor;//srgbConvert.srvs[0] = inputColor;
-                srgbConvert.inputColor1 = s.intermedia2;//srgbConvert.srvs[1] = "intermedia2";
+                srgbConvert.inputColor = s.inputColor;
+                srgbConvert.inputColor1 = s.intermedia2;
 
                 view.SetRenderTarget(s.output, false);
                 srgbConvert.context = context;
@@ -557,8 +511,6 @@ namespace RenderPipelines.LambdaRenderers
 
                 var keywords1 = s.keywords1;
 
-                var rayTracingShader = p.GetRayTracingShader();
-
                 keywords1.Clear();
                 if (s.directionalLight != null)
                 {
@@ -568,12 +520,11 @@ namespace RenderPipelines.LambdaRenderers
                 {
                     keywords1.Add(new("ENABLE_GI", "1"));
                 }
-                var rtpso = context.GetRTPSO(keywords1, rayTracingShader,
-                    Path.GetFullPath(rayTracingShader.hlslFile, view.BasePath));
+                var rtpso = context.GetRTPSO(keywords1, s.hitGroups,
+                    Path.GetFullPath("RayTracing.hlsl", view.BasePath));
 
                 if (!graphicsContext.SetPSO(rtpso))
                     return;
-                var writer = context.Writer;
 
                 var tlas = new RTTopLevelAcclerationStruct();
                 tlas.instances = new();
@@ -597,12 +548,6 @@ namespace RenderPipelines.LambdaRenderers
 
                     instance.SetLocalResource = (ct) =>
                     {
-                        Span<byte> bufferData = stackalloc byte[256];
-                        MemoryMarshal.Write(bufferData.Slice(0), Matrix4x4.Transpose(renderable.transform));
-                        MemoryMarshal.Write(bufferData.Slice(64), material.Metallic);
-                        MemoryMarshal.Write(bufferData.Slice(64 + 4), material.Roughness);
-                        MemoryMarshal.Write(bufferData.Slice(64 + 8), material.Emissive);
-                        MemoryMarshal.Write(bufferData.Slice(64 + 12), material.Specular);
                         ct.SetShader("rayHit");
                         ct.SetSRV(0, renderable.mesh.GetIndexBuffer().GPUVirtualAddress + (ulong)renderable.indexStart * 4);
                         for (int i = 0; i < nameIndex.Length; i++)
@@ -616,7 +561,12 @@ namespace RenderPipelines.LambdaRenderers
                         ct.SetSRV(5, material._Metallic);
                         ct.SetSRV(6, material._Roughness);
                         ct.SetSRV(7, material._Emissive);
-                        ct.SetCBV<byte>(0, bufferData);
+                        ct.SetCBV(0, (cbv) =>
+                        {
+                            cbv.Set("g_mWorldToProj", Matrix4x4.Transpose(renderable.transform));
+                            cbv.Set("_Metallic", [material.Metallic, material.Roughness,
+                                material.Emissive, material.Specular]);
+                        });
                     };
 
 
@@ -626,17 +576,12 @@ namespace RenderPipelines.LambdaRenderers
                 int width = s.renderTarget.width;
                 int height = s.renderTarget.height;
 
-                context.Write(RayTracingConfig.cbv0, writer);
-                var cbvData0 = writer.GetData();
-
-
                 RayTracingCall call = new RayTracingCall();
                 call.tlas = tlas;
                 call.missShaders = RayTracingConfig.missShaders;
 
                 call.SetResources = (ct) =>
                 {
-                    ct.SetCBV(0, cbvData0);
                     ct.SetSRV(0, tlas);
                     ct.SetSRV(1, pipelineMaterial._Environment, true);
                     ct.SetSRV(2, pipelineMaterial._BRDFLUT, true);
@@ -648,6 +593,7 @@ namespace RenderPipelines.LambdaRenderers
                     ct.SetSRV(8, pipelineMaterial.GIBuffer);
                     ct.SetUAV(0, s.renderTarget);
                     ct.SetUAV(1, pipelineMaterial.GIBufferWrite);
+                    s.Binding?.Invoke(ct);
                 };
 
                 graphicsContext.BuildAccelerationStruct(tlas);

@@ -1,5 +1,4 @@
-﻿using Caprice.Attributes;
-using Coocoo3D.Components;
+﻿using Coocoo3D.Components;
 using Coocoo3D.Present;
 using Coocoo3D.RenderPipeline;
 using Coocoo3D.ResourceWrap;
@@ -11,9 +10,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Numerics;
-using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.RegularExpressions;
 using Vortice.Direct3D12.Shader;
 using Vortice.Dxc;
 
@@ -117,9 +116,6 @@ public class RenderHelper
 
     public void UpdateGPUResource()
     {
-        Writer.graphicsContext = renderPipelineView.graphicsContext;
-        Writer.Clear();
-
         Morph();
     }
 
@@ -189,88 +185,6 @@ public class RenderHelper
 
     #region write object
 
-    List<(object, Dictionary<string, MemberInfo>)> dataStack = new();
-    Dictionary<Type, Dictionary<string, MemberInfo>> memberInfoCache = new();
-    Dictionary<string, Type> paramBaseType = new();
-
-    public CBufferWriter Writer = new();
-
-
-    public void PushParameters(object parameterProvider)
-    {
-        var type = parameterProvider.GetType();
-
-        if (!memberInfoCache.TryGetValue(type, out var parameters))
-        {
-            parameters = new();
-            foreach (var member in type.GetMembers())
-            {
-                var indexableAttribute = member.GetCustomAttribute<IndexableAttribute>();
-                if (indexableAttribute != null)
-                {
-                    parameters[indexableAttribute.Name ?? member.Name] = member;
-                }
-            }
-            memberInfoCache[type] = parameters;
-        }
-
-        if (paramBaseType.Count == 0)//for optimise performance
-        {
-            paramBaseType.Clear();
-            foreach (var pair in parameters)
-            {
-                paramBaseType[pair.Key] = pair.Value.GetGetterType();
-            }
-        }
-
-        dataStack.Add((parameterProvider, parameters));
-    }
-
-    public void PopParameters()
-    {
-        dataStack.RemoveAt(dataStack.Count - 1);
-    }
-
-    public void Write(object[] datas, CBufferWriter writer, RenderMaterial material = null)
-    {
-        foreach (var obj in datas)
-            WriteObject(obj, writer, material?.Parameters);
-    }
-
-    public void Write(ReadOnlySpan<object> datas, CBufferWriter writer, RenderMaterial material = null)
-    {
-        foreach (var obj in datas)
-            WriteObject(obj, writer, material.Parameters);
-    }
-
-    void WriteObject(object obj, CBufferWriter writer, IDictionary<string, object> material = null)
-    {
-        if (obj is string s)
-        {
-            if (paramBaseType.TryGetValue(s, out var type) && material != null)
-            {
-                if (material.TryGetValue(s, out object obj1) && obj1.GetType() == type)
-                {
-                    writer.WriteObject(obj1);
-                    return;
-                }
-            }
-            for (int i = dataStack.Count - 1; i >= 0; i--)
-            {
-                var finder = dataStack[i];
-                if (finder.Item2.TryGetValue(s, out var memberInfo1))
-                {
-                    writer.WriteObject(memberInfo1.GetValue<object>(finder.Item1));
-                    return;
-                }
-            }
-        }
-        else
-        {
-            writer.WriteObject(obj);
-        }
-    }
-
     public static string _BasePath;
 
     static byte[] LoadShader(DxcShaderStage shaderStage, string shaderCode, string entryPoint, string fileName, DxcDefine[] dxcDefines, out ID3D12ShaderReflection reflection)
@@ -291,11 +205,11 @@ public class RenderHelper
         return resultData;
     }
 
-    static byte[] LoadShader(DxcShaderStage shaderStage, string shaderCode, string entryPoint, string fileName, DxcDefine[] dxcDefines = null)
+    static byte[] LoadShaderLibrary(string shaderCode, string entryPoint, string fileName, DxcDefine[] dxcDefines, out ID3D12LibraryReflection reflection)
     {
-        var shaderModel = shaderStage == DxcShaderStage.Library ? DxcShaderModel.Model6_3 : DxcShaderModel.Model6_0;
+        var shaderModel = DxcShaderModel.Model6_3;
         var options = new DxcCompilerOptions() { ShaderModel = shaderModel };
-        var result = DxcCompiler.Compile(shaderStage, shaderCode, entryPoint, options, fileName, dxcDefines, null);
+        var result = DxcCompiler.Compile(DxcShaderStage.Library, shaderCode, entryPoint, options, fileName, dxcDefines, null);
         if (result.GetStatus() != SharpGen.Runtime.Result.Ok)
         {
             string err = result.GetErrors();
@@ -303,6 +217,9 @@ public class RenderHelper
             throw new Exception(err);
         }
         byte[] resultData = result.GetResult().AsBytes();
+
+        reflection = DxcCompiler.Utils.CreateReflection<ID3D12LibraryReflection>(result.GetOutput(DxcOutKind.Reflection));
+
         result.Dispose();
         return resultData;
     }
@@ -381,7 +298,60 @@ public class RenderHelper
     #region RenderResource
     public VersionedDictionary<string, RTPSO> RTPSOs = new();
 
-    public RTPSO GetRTPSO(IReadOnlyList<(string, string)> keywords, RayTracingShader shader, string path)
+    string[] GetExports(ID3D12LibraryReflection reflection)
+    {
+        int count = reflection.Description.FunctionCount;
+        List<string> exports = new List<string>();
+        for (int i = 0; i < count; i++)
+        {
+            var func = reflection.GetFunctionByIndex(i);
+            var description = func.Description;
+            string a = description.Name[2..description.Name.IndexOf("@@")];
+            exports.Add(a);
+        }
+
+        return exports.ToArray();
+    }
+
+    void GetRayTracingExports(RTPSO rtpso, string source)
+    {
+        List<string> exports = new List<string>();
+        List<string> missingShaders = new List<string>();
+        List<string> rayGenShaders = new List<string>();
+
+        var regex = new Regex("\\w+");
+        string GetName(int start)
+        {
+            var m1 = regex.Match(source, start);
+            if (m1.Success)
+            {
+                string result = m1.NextMatch().Value;
+                exports.Add(result);
+                return result;
+            }
+            return null;
+        }
+        ACAutomaton acAutomaton = new ACAutomaton();
+        acAutomaton.AddMatch("[shader(\"raygeneration\")]", (s, e) =>
+        {
+            rayGenShaders.Add(GetName(e));
+        });
+        acAutomaton.AddMatch("[shader(\"miss\")]", (s, e) =>
+        {
+            missingShaders.Add(GetName(e));
+        });
+        acAutomaton.AddMatch("[shader(\"closesthit\")]", (s, e) =>
+        {
+            GetName(e);
+        });
+        acAutomaton.BuildFail();
+        acAutomaton.Search(source);
+        rtpso.exports = exports.ToArray();
+        rtpso.missShaders = missingShaders.ToArray();
+        rtpso.rayGenShaders = rayGenShaders.ToArray();
+    }
+
+    public RTPSO GetRTPSO(IReadOnlyList<(string, string)> keywords, HitGroupDescription[] hitGroups, string path)
     {
         string xPath;
         if (keywords != null)
@@ -414,50 +384,14 @@ public class RenderHelper
                         dxcDefines[i] = new DxcDefine() { Name = keywords[i].Item1, Value = keywords[i].Item2 };
                     }
                 }
-                byte[] result = LoadShader(DxcShaderStage.Library, source, "", path, dxcDefines);
-
-                if (shader.hitGroups != null)
-                {
-                    foreach (var pair in shader.hitGroups)
-                        pair.Value.name = pair.Key;
-                }
+                byte[] result = LoadShaderLibrary(source, "", path, dxcDefines, out var reflection);
 
                 RTPSO rtpso = new RTPSO();
                 rtpso.datas = result;
-                if (shader.rayGenShaders != null)
-                    rtpso.rayGenShaders = shader.rayGenShaders.Values.ToArray();
-                else
-                    rtpso.rayGenShaders = new RayTracingShaderDescription[0];
-                if (shader.hitGroups != null)
-                    rtpso.hitGroups = shader.hitGroups.Values.ToArray();
-                else
-                    rtpso.hitGroups = new RayTracingShaderDescription[0];
+                rtpso.libraryReflection = reflection;
+                rtpso.hitGroups = hitGroups;
 
-                if (shader.missShaders != null)
-                    rtpso.missShaders = shader.missShaders.Values.ToArray();
-                else
-                    rtpso.missShaders = new RayTracingShaderDescription[0];
-
-                rtpso.exports = shader.GetExports();
-                List<ResourceAccessType> ShaderAccessTypes = new();
-                ShaderAccessTypes.Add(ResourceAccessType.SRV);
-                for (int i = 0; i < shader.CBVs; i++)
-                    ShaderAccessTypes.Add(ResourceAccessType.CBV);
-                for (int i = 0; i < shader.SRVs; i++)
-                    ShaderAccessTypes.Add(ResourceAccessType.SRVTable);
-                for (int i = 0; i < shader.UAVs; i++)
-                    ShaderAccessTypes.Add(ResourceAccessType.UAVTable);
-                rtpso.shaderAccessTypes = ShaderAccessTypes.ToArray();
-                ShaderAccessTypes.Clear();
-                ShaderAccessTypes.Add(ResourceAccessType.SRV);
-                ShaderAccessTypes.Add(ResourceAccessType.SRV);
-                ShaderAccessTypes.Add(ResourceAccessType.SRV);
-                ShaderAccessTypes.Add(ResourceAccessType.SRV);
-                for (int i = 0; i < shader.localCBVs; i++)
-                    ShaderAccessTypes.Add(ResourceAccessType.CBV);
-                for (int i = 0; i < shader.localSRVs; i++)
-                    ShaderAccessTypes.Add(ResourceAccessType.SRVTable);
-                rtpso.localShaderAccessTypes = ShaderAccessTypes.ToArray();
+                rtpso.exports = GetExports(reflection);
                 return rtpso;
             }
             catch (Exception e)
@@ -503,25 +437,6 @@ public class RenderHelper
             desc.rtvFormat = Vortice.DXGI.Format.Unknown;
         desc.renderTargetCount = renderTargets.Count;
         graphicsContext.SetPSO(pso, desc);
-    }
-
-    public void SetSimpleMesh(ReadOnlySpan<byte> vertexData, ReadOnlySpan<byte> indexData, int vertexStride, int indexStride)
-    {
-        graphicsContext.SetSimpleMesh(vertexData, indexData, vertexStride, indexStride);
-    }
-    public void SetSimpleMesh(ReadOnlySpan<byte> vertexData, ReadOnlySpan<ushort> indexData, int vertexStride)
-    {
-        graphicsContext.SetSimpleMesh(vertexData, MemoryMarshal.AsBytes(indexData), vertexStride, 2);
-    }
-    public void SetSimpleMesh(ReadOnlySpan<byte> vertexData, ReadOnlySpan<uint> indexData, int vertexStride)
-    {
-        graphicsContext.SetSimpleMesh(vertexData, MemoryMarshal.AsBytes(indexData), vertexStride, 4);
-    }
-
-
-    public void SetScissorRectAndViewport(int left, int top, int right, int bottom)
-    {
-        graphicsContext.RSSetScissorRectAndViewport(left, top, right, bottom);
     }
 
     #endregion
