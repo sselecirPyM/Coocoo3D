@@ -217,7 +217,7 @@ public class Coocoo3DScene
                 if (obj.type == "mmdModel")
                 {
                     string pmxPath = obj.path;
-                    ModelPack modelPack = caches.GetModel(pmxPath);
+                    ModelPack modelPack = caches.GetResource<ModelPack>(pmxPath);
 
                     var renderer = entity.LoadPmx(scene, modelPack, transform);
 
@@ -229,7 +229,7 @@ public class Coocoo3DScene
                     {
                         if (obj.properties.TryGetValue("motion", out string motion))
                         {
-                            animationState.motion = caches.GetMotion(motion);
+                            animationState.motion = caches.GetResource<MMDMotion>(motion);
                         }
                     }
                     if (obj.materials != null)
@@ -240,7 +240,7 @@ public class Coocoo3DScene
                 else if (obj.type == "model")
                 {
                     string path = obj.path;
-                    ModelPack modelPack = caches.GetModel(path);
+                    ModelPack modelPack = caches.GetResource<ModelPack>(path);
 
                     var renderer = modelPack.LoadMesh(entity, transform);
 

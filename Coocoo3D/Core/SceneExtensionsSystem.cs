@@ -16,6 +16,8 @@ public class SceneExtensionsSystem : IDisposable
 {
     public EngineContext engineContext;
 
+    public EditorContext editorContext;
+
     public ConcurrentQueue<string> loadFiles = new ConcurrentQueue<string>();
 
     public World world;
@@ -79,19 +81,17 @@ public class SceneExtensionsSystem : IDisposable
     {
         while (loadFiles.TryDequeue(out var file))
         {
-            foreach (var loader in engineContext.extensionFactory.FileLoaders)
+            var ext = Path.GetExtension(file).ToLower();
+            if (editorContext.fileLoaders.TryGetValue(ext, out var callback))
             {
-                if (loader.Load(file))
-                {
-                    break;
-                }
+                callback(file);
             }
         }
     }
 
     public void Update()
     {
-        foreach(var call in calls)
+        foreach (var call in calls)
         {
             call();
         }

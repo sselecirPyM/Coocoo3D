@@ -1,14 +1,20 @@
 ﻿using Coocoo3D.Components;
 using Coocoo3D.Core;
 using Coocoo3D.Extensions.FileFormat;
+using Coocoo3D.RenderPipeline;
 using System.ComponentModel.Composition;
 using System.IO;
 
 namespace Coocoo3D.Extensions.FileLoader;
 
-[Export("ResourceLoader")]
-public class MMDMotionLoader : IResourceLoader<MMDMotion>
+[Export(typeof(IEditorAccess))]
+public class MMDMotionLoader : IResourceLoader<MMDMotion>, IEditorAccess
 {
+    public MainCaches mainCaches;
+    public void Initialize()
+    {
+        mainCaches.AddLoader(this);
+    }
     public bool TryLoad(string path, out MMDMotion motion)
     {
         motion = default;

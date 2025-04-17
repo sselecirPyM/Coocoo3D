@@ -1,66 +1,59 @@
 ﻿using Arch.Core;
 using Arch.Core.Extensions;
+using Coocoo3D.Components;
 using Coocoo3D.Core;
 using Coocoo3D.Extensions.FileFormat;
 using Coocoo3D.Present;
 using Coocoo3D.RenderPipeline;
 using Coocoo3D.ResourceWrap;
 using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.Composition;
 using System.IO;
 
 namespace Coocoo3D.Extensions.FileLoader;
-[Export(typeof(IFileLoader))]
 [Export(typeof(IEditorAccess))]
-public class DefaultLoader : IFileLoader, IEditorAccess
+public class DefaultLoader : IEditorAccess
 {
     public MainCaches mainCaches;
     public Scene scene;
     public EditorContext editorContext;
     public GameDriver gameDriver;
 
-    public bool Load(string path)
+    public void Initialize()
     {
-        string ext = Path.GetExtension(path).ToLower();
-        switch (ext)
+        editorContext.RegisterFileLoader(".pmx", (path) =>
         {
-            case ".pmx":
-                mainCaches.ProxyCall(() =>
-                {
-                    ModelPack modelPack = mainCaches.GetModel(path);
-                    if (modelPack == null)
-                        return;
+            mainCaches.ProxyCall(() =>
+            {
+                ModelPack modelPack = mainCaches.GetResource<ModelPack>(path);
+                if (modelPack == null)
+                    return;
 
 
-                    modelPack.LoadPmx(scene);
-                });
-                break;
-            case ".gltf":
-            case ".glb":
-            case ".vrm":
-                mainCaches.ProxyCall(() =>
-                {
-                    ModelPack modelPack = mainCaches.GetModel(path);
-                    if (modelPack == null)
-                        return;
+                modelPack.LoadPmx(scene);
+            });
+        });
+        Action<string> loadGlTF = (path) =>
+        {
+            mainCaches.ProxyCall(() =>
+            {
+                ModelPack modelPack = mainCaches.GetResource<ModelPack>(path);
+                if (modelPack == null)
+                    return;
 
 
-                    var entity = scene.CreateEntity();
-                    modelPack.LoadMesh(entity);
-                });
-                break;
-            case ".vmd":
-                OpenVMDFile(path);
-                break;
-            case ".coocoo3dscene":
-                LoadScene(path);
-                break;
-            default:
-                return false;
-        }
-        gameDriver.RequireRender(true);
-        return true;
+                var entity = scene.CreateEntity();
+                modelPack.LoadMesh(entity);
+            });
+        };
+        editorContext.RegisterFileLoader(".gltf", loadGlTF);
+        editorContext.RegisterFileLoader(".glb", loadGlTF);
+        editorContext.RegisterFileLoader(".vrm", loadGlTF);
+
+        editorContext.RegisterFileLoader(".vmd", OpenVMDFile);
+        editorContext.RegisterFileLoader(".coocoo3dscene", LoadScene);
     }
 
     void OpenVMDFile(string path)
@@ -87,9 +80,10 @@ public class DefaultLoader : IFileLoader, IEditorAccess
         {
             if (editorContext.selectedObject.IsAlive() && TryGetComponent(editorContext.selectedObject, out Components.AnimationStateComponent animationState))
             {
-                animationState.motion = mainCaches.GetMotion(path);
+                animationState.motion = mainCaches.GetResource<MMDMotion>(path);
             }
         }
+        gameDriver.RequireRender(true);
     }
 
     static bool TryGetComponent<T>(Entity obj, out T value)

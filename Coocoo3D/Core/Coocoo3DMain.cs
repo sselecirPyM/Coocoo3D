@@ -91,7 +91,6 @@ public class Coocoo3DMain : IDisposable
         UIImGui = e.AddSystem<UI.UIImGui>();
         e.AddAutoFill(this);
         e.InitializeSystems();
-        mainCaches.Initialize1();
 
         statistics.DeviceDescription = graphicsDevice.GetDeviceDescription();
 

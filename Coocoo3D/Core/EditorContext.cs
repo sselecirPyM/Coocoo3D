@@ -20,8 +20,15 @@ public class EditorContext
     public HashSet<IWindow> RemovingWindow = new HashSet<IWindow>();
     public HashSet<IWindow> OpeningWindow = new HashSet<IWindow>();
 
+    public Dictionary<string, Action<string>> fileLoaders = new Dictionary<string, Action<string>>();
+
     public bool showBoundingBox;
     string openWindowConfigFile = Path.GetFullPath("EditorConfig.json", Path.GetDirectoryName(Environment.ProcessPath));
+
+    public void RegisterFileLoader(string ext, Action<string> callback)
+    {
+        fileLoaders.Add(ext.ToLower(), callback);
+    }
 
     public void ReOpenWindows()
     {

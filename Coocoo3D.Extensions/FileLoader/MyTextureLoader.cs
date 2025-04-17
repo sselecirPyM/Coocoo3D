@@ -10,7 +10,6 @@ using System.Threading.Tasks;
 
 namespace Coocoo3D.Extensions.FileLoader;
 
-[Export("ResourceLoader")]
 [Export(typeof(IEditorAccess))]
 public class MyTextureLoader : IResourceLoader<Texture2D>, IEditorAccess, IDisposable
 {
@@ -19,6 +18,14 @@ public class MyTextureLoader : IResourceLoader<Texture2D>, IEditorAccess, IDispo
     public GameDriverContext gameDriverContext;
     Texture2D loadingTexture;
     Texture2D errorTexture;
+
+    public void Initialize()
+    {
+        mainCaches.AddLoader(this);
+        loadingTexture = GetTextureLoaded1(Path.GetFullPath("Assets/Textures/loading.png"));
+        errorTexture = GetTextureLoaded1(Path.GetFullPath("Assets/Textures/error.png"));
+    }
+
     public bool TryLoad(string path, out Texture2D texture)
     {
         var texture1 = new Texture2D();
@@ -51,12 +58,6 @@ public class MyTextureLoader : IResourceLoader<Texture2D>, IEditorAccess, IDispo
         });
 
         return true;
-    }
-
-    public void Initialize()
-    {
-        loadingTexture = GetTextureLoaded1(Path.GetFullPath("Assets/Textures/loading.png"));
-        errorTexture = GetTextureLoaded1(Path.GetFullPath("Assets/Textures/error.png"));
     }
 
     public void Dispose()

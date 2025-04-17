@@ -18,13 +18,17 @@ using System.Runtime.InteropServices;
 
 namespace Coocoo3D.Extensions.FileLoader;
 
-[Export("ResourceLoader")]
 [Export(typeof(IEditorAccess))]
 public class ModelLoader : IResourceLoader<ModelPack>, IEditorAccess
 {
     public MainCaches mainCaches;
     public GraphicsContext graphicsContext;
     public GameDriverContext gameDriverContext;
+
+    public void Initialize()
+    {
+        mainCaches.AddLoader(this);
+    }
 
     public bool TryLoad(string path, out ModelPack value)
     {

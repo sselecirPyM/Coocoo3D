@@ -14,12 +14,6 @@ namespace Coocoo3D.Core
 
         [ImportMany]
         public IEnumerable<IEditorAccess> EditorAccess { get; set; }
-
-        [ImportMany]
-        public IEnumerable<IFileLoader> FileLoaders { get; set; }
-
-        [ImportMany("ResourceLoader")]
-        public IEnumerable<object> ResourceLoaders { get; set; }
     }
     public interface IUIMeta
     {
@@ -32,13 +26,9 @@ namespace Coocoo3D.Core
 
         }
     }
-    public interface IFileLoader
-    {
-        public bool Load(string path);
-    }
     public interface IResourceLoader<T>
     {
-        public bool TryLoad(string path,out T value);
+        public bool TryLoad(string path, out T value);
     }
 
     public class AsyncProxy

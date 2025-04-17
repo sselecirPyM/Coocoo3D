@@ -1,5 +1,4 @@
-﻿using Coocoo3D.Components;
-using Coocoo3D.Core;
+﻿using Coocoo3D.Core;
 using Coocoo3D.ResourceWrap;
 using Coocoo3D.Utility;
 using Coocoo3DGraphics;
@@ -20,17 +19,63 @@ namespace Coocoo3D.RenderPipeline;
 
 public class MainCaches : IDisposable
 {
+    public class LoaderAndCaches<T> : IDisposable where T : class
+    {
+        public List<IResourceLoader<T>> Loaders = new List<IResourceLoader<T>>();
+        public Dictionary<string, T> Caches = new Dictionary<string, T>();
+        public string workDir = System.Environment.CurrentDirectory;
+        public T GetResource(string path)
+        {
+            path = Path.GetFullPath(path, workDir);
+            if (Caches.TryGetValue(path, out var resource))
+            {
+                return resource;
+            }
+            foreach (var loader in Loaders)
+            {
+                try
+                {
+                    if (loader.TryLoad(path, out var value))
+                    {
+                        Caches[path] = value;
+                        return value;
+                    }
+                }
+                catch
+                {
+
+                }
+            }
+            Caches[path] = null;
+            return null;
+        }
+
+        public void AddLoader(IResourceLoader<T> loader)
+        {
+            Loaders.Add(loader);
+        }
+
+        public void Dispose()
+        {
+            foreach (var v in Caches.Values)
+            {
+                if (v is IDisposable disposable)
+                {
+                    disposable.Dispose();
+                }
+            }
+            Caches.Clear();
+        }
+    }
+
     public Dictionary<string, KnownFile> KnownFiles = new();
 
     public VersionedDictionary<string, PSO> PipelineStateObjects = new();
     public VersionedDictionary<string, Assembly> Assemblies = new();
 
-    List<IResourceLoader<ModelPack>> modelLoaders = new List<IResourceLoader<ModelPack>>();
-    public Dictionary<string, ModelPack> modelCaches = new Dictionary<string, ModelPack>();
-    List<IResourceLoader<Texture2D>> texture2DLoaders = new List<IResourceLoader<Texture2D>>();
-    public Dictionary<string, Texture2D> textureCaches = new Dictionary<string, Texture2D>();
-    List<IResourceLoader<MMDMotion>> motionLoaders = new List<IResourceLoader<MMDMotion>>();
-    public Dictionary<string, MMDMotion> motionCaches = new Dictionary<string, MMDMotion>();
+    public Dictionary<Type, object> typedCaches = new Dictionary<Type, object>();
+
+    public Dictionary<string, Texture2D> textureCaches;
 
     public EngineContext engineContext;
 
@@ -44,26 +89,36 @@ public class MainCaches : IDisposable
     public string workDir = System.Environment.CurrentDirectory;
     public MainCaches()
     {
-
+        var _cache = new LoaderAndCaches<Texture2D>()
+        {
+            workDir = workDir,
+        };
+        typedCaches[typeof(Texture2D)] = _cache;
+        textureCaches = _cache.Caches;
     }
 
-    public void Initialize1()
+    public void AddLoader<T>(IResourceLoader<T> resourceLoader) where T : class
     {
-        foreach (var resourceLoader in engineContext.extensionFactory.ResourceLoaders)
+        if (!typedCaches.TryGetValue(typeof(T), out var _cache))
         {
-            if (resourceLoader is IResourceLoader<Texture2D> te)
+            _cache = new LoaderAndCaches<T>()
             {
-                texture2DLoaders.Add(te);
-            }
-            if (resourceLoader is IResourceLoader<MMDMotion> mo)
-            {
-                motionLoaders.Add(mo);
-            }
-            if (resourceLoader is IResourceLoader<ModelPack> modelLoader)
-            {
-                modelLoaders.Add(modelLoader);
-            }
+                workDir = workDir,
+            };
+            typedCaches[typeof(T)] = _cache;
         }
+        var cache = (LoaderAndCaches<T>)_cache;
+        cache.AddLoader(resourceLoader);
+    }
+
+    public T GetResource<T>(string path) where T : class
+    {
+        if (typedCaches.TryGetValue(typeof(T), out var _cache))
+        {
+            var cache = (LoaderAndCaches<T>)_cache;
+            return cache.GetResource(path);
+        }
+        return null;
     }
 
     public void _ReloadShaders()
@@ -191,57 +246,6 @@ public class MainCaches : IDisposable
         {
 
         }
-        return null;
-    }
-
-    public ModelPack GetModel(string path)
-    {
-        if (modelCaches.TryGetValue(path, out var model))
-        {
-            return model;
-        }
-        foreach (var loader in modelLoaders)
-        {
-            try
-            {
-                if (loader.TryLoad(path, out var value))
-                {
-                    modelCaches[path] = value;
-                    return value;
-                }
-            }
-            catch(Exception ex)
-            {
-                Console.WriteLine(ex.ToString());
-            }
-        }
-        modelCaches[path] = null;
-        return null;
-    }
-
-    public MMDMotion GetMotion(string path)
-    {
-        path = Path.GetFullPath(path, workDir);
-        if (motionCaches.TryGetValue(path, out var motion))
-        {
-            return motion;
-        }
-        foreach (var loader in motionLoaders)
-        {
-            try
-            {
-                if (loader.TryLoad(path, out var value))
-                {
-                    motionCaches[path] = value;
-                    return value;
-                }
-            }
-            catch
-            {
-
-            }
-        }
-        motionCaches[path] = null;
         return null;
     }
 
@@ -382,20 +386,7 @@ public class MainCaches : IDisposable
 
     public Texture2D GetTexturePreloaded(string path)
     {
-        if (textureCaches.TryGetValue(path, out var texture))
-        {
-            return texture;
-        }
-        foreach (var loader in texture2DLoaders)
-        {
-            if (loader.TryLoad(path, out var value))
-            {
-                textureCaches[path] = value;
-                return value;
-            }
-        }
-        textureCaches[path] = null;
-        return null;
+        return GetResource<Texture2D>(path);
     }
 
     public void Dispose()
@@ -406,17 +397,16 @@ public class MainCaches : IDisposable
         }
         PipelineStateObjects.Clear();
 
-        motionCaches.Clear();
-
         foreach (var t in textureCaches)
         {
             t.Value?.Dispose();
         }
         textureCaches.Clear();
-        foreach (var t in modelCaches)
+
+        foreach (var v in typedCaches.Values)
         {
-            t.Value?.Dispose();
+            if (v is IDisposable disposable)
+                disposable.Dispose();
         }
-        modelCaches.Clear();
     }
 }
