@@ -84,11 +84,11 @@ public class LocalResourceProxy
         }
     }
 
-    public void SetSRV(int slot, Texture2D texture)
+    public void SetSRV(int slot, Texture2D texture, bool linear = false)
     {
         if (srvs.TryGetValue(slot, out var srv))
         {
-            var addr = graphicsContext.GetSRVHandle(texture).Ptr;
+            var addr = graphicsContext.GetSRVHandle(texture, linear).Ptr;
             var dest = new Span<byte>(shaderTableBuffer, srv, sizeof(ulong));
             MemoryMarshal.Write(dest, addr);
         }

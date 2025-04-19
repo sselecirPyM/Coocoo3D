@@ -182,10 +182,10 @@ namespace RenderPipelines.LambdaRenderers
                         });
 
                         ct.SetSRV(0, material._Albedo);
-                        ct.SetSRV(1, material._Metallic);
-                        ct.SetSRV(2, material._Roughness);
+                        ct.SetSRV(1, material._Metallic,true);
+                        ct.SetSRV(2, material._Roughness, true);
                         ct.SetSRV(3, material._Emissive);
-                        ct.SetSRV(4, material._Normal);
+                        ct.SetSRV(4, material._Normal, true);
                         ct.SetSRV(5, material._Spa);
                         ct.SetSRV(6, s._ShadowMap);
                         ct.SetSRV(7, s._Environment);
@@ -285,10 +285,10 @@ namespace RenderPipelines.LambdaRenderers
                         });
 
                         ct.SetSRV(0, material._Albedo);
-                        ct.SetSRV(1, material._Metallic);
-                        ct.SetSRV(2, material._Roughness);
+                        ct.SetSRV(1, material._Metallic, true);
+                        ct.SetSRV(2, material._Roughness, true);
                         ct.SetSRV(3, material._Emissive);
-                        ct.SetSRV(4, material._Normal);
+                        ct.SetSRV(4, material._Normal, true);
                         ct.SetSRV(5, material._Spa);
                     });
                     graphicsContext.PipelineBinding2();
@@ -558,12 +558,12 @@ namespace RenderPipelines.LambdaRenderers
                             ct.SetSRV(i + 1, address);
                         }
                         ct.SetSRV(4, material._Albedo);
-                        ct.SetSRV(5, material._Metallic);
-                        ct.SetSRV(6, material._Roughness);
+                        ct.SetSRV(5, material._Metallic, true);
+                        ct.SetSRV(6, material._Roughness, true);
                         ct.SetSRV(7, material._Emissive);
                         ct.SetCBV(0, (cbv) =>
                         {
-                            cbv.Set("g_mWorldToProj", Matrix4x4.Transpose(renderable.transform));
+                            cbv.Set("g_mWorld", Matrix4x4.Transpose(renderable.transform));
                             cbv.Set("_Metallic", [material.Metallic, material.Roughness,
                                 material.Emissive, material.Specular]);
                         });
