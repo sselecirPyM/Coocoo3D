@@ -15,7 +15,6 @@ public sealed class GraphicsContext
 {
     GraphicsDevice graphicsDevice;
     internal ID3D12GraphicsCommandList4 m_commandList;
-    ID3D12GraphicsCommandList4 m_copyCommandList;
     internal RootSignature currentRootSignature;
     RootSignature _currentGraphicsRootSignature;
     RootSignature _currentComputeRootSignature;
@@ -320,7 +319,7 @@ public sealed class GraphicsContext
 
             vertexBuffer.Capacity = dataLength + 256;
             CreateBuffer(vertexBuffer.Capacity, ref vertexBuffer.resource, ResourceStates.Common);
-            GetRingBuffer().UploadTo(m_copyCommandList, vertexBuffer.data, vertexBuffer.resource);
+            GetRingBuffer().DelayUploadTo( vertexBuffer.data, vertexBuffer.resource);
 
             vertexBuffer.resource.Name = "vertex buffer" + vtBuf.Key;
 
@@ -339,19 +338,12 @@ public sealed class GraphicsContext
         {
             int indexBufferLength = mesh.m_indexCount * 4;
             ref var indexBuffer = ref mesh.indexBuffer;
-            if (mesh.indexBufferCapacity >= indexBufferLength)
-            {
-                m_commandList.ResourceBarrierTransition(indexBuffer, ResourceStates.Common, ResourceStates.CopyDest);
-                GetRingBuffer().UploadTo(m_commandList, new Span<byte>(mesh.m_indexData, 0, indexBufferLength), indexBuffer);
-                m_commandList.ResourceBarrierTransition(indexBuffer, ResourceStates.CopyDest, ResourceStates.Common);
-            }
-            else
-            {
-                CreateBuffer(indexBufferLength, ref indexBuffer, ResourceStates.Common);
-                mesh.indexBufferCapacity = indexBufferLength;
-                indexBuffer.Name = "index buffer";
-                GetRingBuffer().UploadTo(m_copyCommandList, new Span<byte>(mesh.m_indexData, 0, indexBufferLength), indexBuffer);
-            }
+
+            CreateBuffer(indexBufferLength, ref indexBuffer, ResourceStates.Common);
+            mesh.indexBufferCapacity = indexBufferLength;
+            indexBuffer.Name = "index buffer";
+            GetRingBuffer().DelayUploadTo( new Span<byte>(mesh.m_indexData, 0, indexBufferLength), indexBuffer);
+
             Reference(indexBuffer);
             mesh.indexBufferView = new IndexBufferView
             {
@@ -401,13 +393,6 @@ public sealed class GraphicsContext
         foreach (var vtBuf in mesh.vtBuffersDisposed)
             vtBuf.resource?.Release();
         mesh.vtBuffersDisposed.Clear();
-    }
-
-    public void UpdateResource<T>(GPUBuffer buffer, ReadOnlySpan<T> data) where T : unmanaged
-    {
-        var data1 = MemoryMarshal.AsBytes(data);
-        buffer.size = data1.Length;
-        GetRingBuffer().UploadTo(m_commandList, data1, buffer.resource);
     }
 
     public void UploadTexture(Texture2D texture, Uploader uploader)
@@ -637,8 +622,7 @@ public sealed class GraphicsContext
         m_commandList = graphicsDevice.commandQueue.GetCommandList();
         m_commandList.Reset(graphicsDevice.commandQueue.GetCommandAllocator());
         m_commandList.SetDescriptorHeaps(graphicsDevice.cbvsrvuavHeap.heap);
-        m_copyCommandList = graphicsDevice.copyCommandQueue.GetCommandList();
-        m_copyCommandList.Reset(graphicsDevice.copyCommandQueue.GetCommandAllocator());
+        GetRingBuffer().FrameBegin();
         ClearState();
         TriangleCount = 0;
     }
@@ -868,13 +852,10 @@ public sealed class GraphicsContext
 
         var commandQueue = graphicsDevice.commandQueue;
         var copyCommandQueue = graphicsDevice.copyCommandQueue;
-        graphicsDevice.superRingBuffer.DelayCommands(m_copyCommandList, commandQueue);
+        graphicsDevice.superRingBuffer.FrameEnd();
         graphicsDevice.fastBufferAllocator.FrameEnd();
         graphicsDevice.fastBufferAllocatorUAV.FrameEnd();
         graphicsDevice.fastBufferAllocatorReadBack.FrameEnd();
-        m_copyCommandList.Close();
-        copyCommandQueue.ExecuteCommandList(m_copyCommandList);
-        copyCommandQueue.NextExecuteIndex();
         m_commandList.Close();
         commandQueue.WaitFor(copyCommandQueue);
 

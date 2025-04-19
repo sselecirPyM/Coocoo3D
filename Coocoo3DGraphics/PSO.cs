@@ -308,44 +308,7 @@ public class PSO : IDisposable
         if (rootSignature1 != null)
             return;
 
-        StaticSamplerDescription[] samplerDescription = new StaticSamplerDescription[4];
-        samplerDescription[0] = new StaticSamplerDescription()
-        {
-            AddressU = TextureAddressMode.Clamp,
-            AddressV = TextureAddressMode.Clamp,
-            AddressW = TextureAddressMode.Clamp,
-            BorderColor = StaticBorderColor.OpaqueBlack,
-            ComparisonFunction = ComparisonFunction.Never,
-            Filter = Filter.MinMagMipLinear,
-            MipLODBias = 0,
-            MaxAnisotropy = 0,
-            MinLOD = 0,
-            MaxLOD = float.MaxValue,
-            ShaderVisibility = ShaderVisibility.All,
-            RegisterSpace = 0,
-            ShaderRegister = 0,
-        };
-        samplerDescription[1] = samplerDescription[0] with
-        {
-            ShaderRegister = 1,
-            AddressU = TextureAddressMode.Wrap,
-            AddressV = TextureAddressMode.Wrap,
-            AddressW = TextureAddressMode.Wrap,
-            MaxAnisotropy = 16,
-            Filter = Filter.Anisotropic
-        };
-
-        samplerDescription[2] = samplerDescription[0] with
-        {
-            ShaderRegister = 2,
-            ComparisonFunction = ComparisonFunction.Less,
-            Filter = Filter.ComparisonMinMagMipLinear,
-        };
-        samplerDescription[3] = samplerDescription[0] with
-        {
-            ShaderRegister = 3,
-            Filter = Filter.MinMagMipPoint
-        };
+        StaticSamplerDescription[] samplerDescription = RootSignature.DefaultSamplerDescription();
 
         var constantBuffers = new Dictionary<string, ID3D12ShaderReflectionConstantBuffer>();
 

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
 using Vortice.Direct3D12;
 using static Coocoo3DGraphics.DXHelper;
 
@@ -29,19 +28,26 @@ internal sealed class RingBuffer : IDisposable
     public ID3D12Device device;
     IntPtr mapped;
     int size;
-    int currentPosition;
+    ulong rPtr;
+    ulong lPtr;
+    ulong rMax;
+    ulong[] positions = new ulong[3];
 
     ID3D12Resource resource;
     int frameIndex;
 
     List<CopyCommanding> copyCommands = new List<CopyCommanding>();
 
-    internal List<ID3D12Resource> needRecycle = new List<ID3D12Resource>();
+    internal CommandQueue copyCommandQueue;
+    internal ID3D12GraphicsCommandList copyCommandList;
 
-    public unsafe void Initialize(ID3D12Device device, int size)
+
+    public unsafe void Initialize(ID3D12Device device, int size, CommandQueue copyCommandQueue)
     {
         this.device = device;
         this.size = (size + 255) & ~255;
+        this.copyCommandQueue = copyCommandQueue;
+        this.copyCommandList = this.copyCommandQueue.GetCommandList();
 
         ThrowIfFailed(device.CreateCommittedResource(new HeapProperties(HeapType.Upload), HeapFlags.None,
             ResourceDescription.Buffer((ulong)this.size), ResourceStates.GenericRead, out resource));
@@ -52,24 +58,7 @@ internal sealed class RingBuffer : IDisposable
         mapped = new IntPtr(ptr1);
     }
 
-    public void UploadTo(ID3D12GraphicsCommandList commandList, ReadOnlySpan<byte> data, ID3D12Resource dst, int dstOffset = 0)
-    {
-        var data1 = MemoryMarshal.AsBytes(data);
-        var range = GetUploadRegion(data1.Length, out var srcOffset);
-        data1.CopyTo(range);
-        commandList.CopyBufferRegion(dst, (ulong)dstOffset, resource, (ulong)srcOffset, (ulong)data1.Length);
-    }
-
-    public void DelayUploadTo(ReadOnlySpan<byte> data, ID3D12Resource dst, int dstOffset)
-    {
-        int _size = data.Length;
-        var range = GetUploadRegion(_size, out var srcOffset);
-        data.CopyTo(range);
-
-        CopyCommand(resource, srcOffset, _size, dst, dstOffset);
-    }
-
-    public void CopyCommand(ID3D12Resource src, int srcOffset, int _size, ID3D12Resource dst, int dstOffset)
+    internal void CopyCommand(ID3D12Resource src, int srcOffset, int _size, ID3D12Resource dst, int dstOffset)
     {
         var copyCommanding = new CopyCommanding
         {
@@ -91,40 +80,71 @@ internal sealed class RingBuffer : IDisposable
         }
     }
 
-    unsafe Span<byte> GetUploadRegion(int size, out int offset)
+    public void DelayUploadTo(ReadOnlySpan<byte> data, ID3D12Resource dst, int dstOffset = 0)
     {
-        size = (size + 63) & ~63;
-        offset = RingBufferAllocate(size);
-        IntPtr result = mapped + offset;
-        return new Span<byte>(result.ToPointer(), size);
-    }
-
-    int RingBufferAllocate(int size)
-    {
-        if (currentPosition + size > this.size)
+        var data1 = data;
+        int remain = data.Length;
+        int used = 0;
+        while (remain > 0)
         {
-            currentPosition = 0;
+            CopyRegion(data1, dst, dstOffset, ref used, out bool refresh);
+            remain = data.Length - used;
+            if (remain > 0)
+            {
+                data1 = data.Slice(used);
+            }
+            if (refresh)
+            {
+                FrameEnd();
+                FrameBegin();
+            }
         }
-        int result = currentPosition;
-        currentPosition = ((currentPosition + size + 255) & ~255) % this.size;
-        return result;
+    }
+    unsafe void CopyRegion(ReadOnlySpan<byte> bytes, ID3D12Resource dst, int dstOffset, ref int used, out bool refresh)
+    {
+        ulong rightBound = (rPtr + (ulong)this.size) / (ulong)this.size * (ulong)this.size;
+
+        int srcOffset = (int)CurrentPosition();
+        int copySize = Math.Min(Math.Min(bytes.Length, (int)(rightBound - rPtr)), (int)(rMax - rPtr));
+        int offsetSize = (copySize + 63) & ~63;
+        bytes.Slice(0, copySize).CopyTo(new Span<byte>((void*)((ulong)mapped + (ulong)srcOffset), copySize));
+        CopyCommand(resource, srcOffset, copySize, dst, dstOffset + used);
+
+        used += copySize;
+        rPtr += (ulong)offsetSize;
+        refresh = rPtr >= rMax;
+    }
+    ulong CurrentPosition()
+    {
+        return rPtr % (ulong)this.size;
     }
 
-    public void DelayCommands(ID3D12GraphicsCommandList commandList, CommandQueue queue)
+    public void FrameBegin()
+    {
+        copyCommandList = copyCommandQueue.GetCommandList();
+        copyCommandList.Reset(copyCommandQueue.GetCommandAllocator());
+    }
+
+    public void FrameEnd()
     {
         //see: https://learn.microsoft.com/en-us/windows/win32/direct3d12/using-resource-barriers-to-synchronize-resource-states-in-direct3d-12#implicit-state-transitions
         foreach (var command in copyCommands)
         {
-            commandList.CopyBufferRegion(command.dstResource, command.dstOffset, command.srcResource, command.srcOffset, command.numBytes);
+            copyCommandList.CopyBufferRegion(command.dstResource, command.dstOffset, command.srcResource, command.srcOffset, command.numBytes);
         }
+
+        positions[frameIndex] = rPtr;
         frameIndex = (frameIndex + 1) % 3;
+        lPtr = positions[frameIndex];
+        //rMax = Math.Min(lPtr + (ulong)this.size, rPtr + (ulong)this.size / 2);
+        rMax = lPtr + (ulong)this.size;
+
         copyCommands.Clear();
 
-        foreach (var resource in needRecycle)
-        {
-            queue.ResourceDelayRecycle(resource);
-        }
-        needRecycle.Clear();
+
+        copyCommandList.Close();
+        copyCommandQueue.ExecuteCommandList(copyCommandList);
+        copyCommandQueue.NextExecuteIndex();
     }
 
     public void Dispose()

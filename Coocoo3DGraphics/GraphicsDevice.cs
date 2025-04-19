@@ -97,10 +97,10 @@ public sealed class GraphicsDevice : IDisposable
         dsvHeap = new DescriptorHeapX();
         dsvHeap.Initialize(device, descriptorHeapDescription);
 
-        superRingBuffer.Initialize(this.device, 134217728);
-        fastBufferAllocator = new FastBufferAllocator(superRingBuffer, cbvsrvuavHeap, ResourceFlags.None);
-        fastBufferAllocatorUAV = new FastBufferAllocator(superRingBuffer, cbvsrvuavHeap, ResourceFlags.AllowUnorderedAccess);
-        fastBufferAllocatorReadBack = new FastBufferAllocator(superRingBuffer, null, HeapType.Readback, ResourceFlags.None);
+        superRingBuffer.Initialize(this.device, 1048576 * 32, copyCommandQueue);
+        fastBufferAllocator = new FastBufferAllocator(superRingBuffer, cbvsrvuavHeap, ResourceFlags.None, commandQueue);
+        fastBufferAllocatorUAV = new FastBufferAllocator(superRingBuffer, cbvsrvuavHeap, ResourceFlags.AllowUnorderedAccess, commandQueue);
+        fastBufferAllocatorReadBack = new FastBufferAllocator(superRingBuffer, null, HeapType.Readback, ResourceFlags.None, commandQueue);
     }
 
     public void WaitForGpu()

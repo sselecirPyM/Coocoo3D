@@ -56,15 +56,17 @@ class FastBufferAllocator : IDisposable
     ResourceFlags resourceFlags;
     HeapType heapType;
     ResourceStates resourceStates;
+    CommandQueue commandQueue;
 
-    internal FastBufferAllocator(RingBuffer ringBuffer, DescriptorHeapX cbvsrvuav, ResourceFlags resourceFlags)
+    internal FastBufferAllocator(RingBuffer ringBuffer, DescriptorHeapX cbvsrvuav, ResourceFlags resourceFlags, CommandQueue commandQueue)
     {
         this.ringBuffer = ringBuffer;
         this.device = ringBuffer.device;
         this.descriptorHeap = cbvsrvuav;
         this.resourceFlags = resourceFlags;
-
         heapType = HeapType.Default;
+        this.commandQueue = commandQueue;
+
         buffers = new BufferTracking[3];
         for (int i = 0; i < 3; i++)
         {
@@ -74,13 +76,14 @@ class FastBufferAllocator : IDisposable
         }
     }
 
-    internal FastBufferAllocator(RingBuffer ringBuffer, DescriptorHeapX cbvsrvuav, HeapType heapType, ResourceFlags resourceFlags)
+    internal FastBufferAllocator(RingBuffer ringBuffer, DescriptorHeapX cbvsrvuav, HeapType heapType, ResourceFlags resourceFlags, CommandQueue commandQueue)
     {
         this.ringBuffer = ringBuffer;
         this.device = ringBuffer.device;
         this.descriptorHeap = cbvsrvuav;
         this.resourceFlags = resourceFlags;
         this.heapType = heapType;
+        this.commandQueue = commandQueue;
 
         if (heapType == HeapType.Readback)
         {
@@ -205,7 +208,7 @@ class FastBufferAllocator : IDisposable
     {
         if (tracking.resource != null)
         {
-            ringBuffer.needRecycle.Add(tracking.resource);
+            commandQueue.ResourceDelayRecycle(tracking.resource);
         }
         tracking.offset = 0;
         ThrowIfFailed(device.CreateCommittedResource(new HeapProperties(heapType), HeapFlags.None,
