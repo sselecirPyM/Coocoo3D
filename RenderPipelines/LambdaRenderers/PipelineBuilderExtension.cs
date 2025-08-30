@@ -182,7 +182,7 @@ namespace RenderPipelines.LambdaRenderers
                         });
 
                         ct.SetSRV(0, material._Albedo);
-                        ct.SetSRV(1, material._Metallic,true);
+                        ct.SetSRV(1, material._Metallic, true);
                         ct.SetSRV(2, material._Roughness, true);
                         ct.SetSRV(3, material._Emissive);
                         ct.SetSRV(4, material._Normal, true);
@@ -528,20 +528,33 @@ namespace RenderPipelines.LambdaRenderers
 
                 var tlas = new RTTopLevelAcclerationStruct();
                 tlas.instances = new();
+                tlas.bottomLevels = new();
                 string[] nameIndex = new string[] { "POSITION0", "NORMAL0", "TEXCOORD0" };
                 foreach (var renderable in context.Renderables)
                 {
                     var material = renderable.material;
+                    var mesh = renderable.mesh;
 
                     var blas = new RTBottomLevelAccelerationStruct();
-
-                    blas.mesh = renderable.mesh;
-
                     blas.indexStart = renderable.indexStart;
                     blas.indexCount = renderable.indexCount;
                     blas.vertexStart = renderable.vertexStart;
                     blas.vertexCount = renderable.vertexCount;
 
+                    blas.buildAccelerationStruct = (graphicsContext) =>
+                    {
+                        var indexBuffer = mesh.GetIndexBuffer();
+                        var positionBuffer = mesh.GetVertexBuffer("POSITION0");
+                        if (positionBuffer.resource != null)
+                            graphicsContext._Reference(positionBuffer.resource);
+                        graphicsContext._Reference(indexBuffer);
+
+                        ulong position = positionBuffer.vertexBufferView.BufferLocation + (ulong)blas.vertexStart * 12;
+                        ulong index = indexBuffer.GPUVirtualAddress + (ulong)blas.indexStart * 4;
+
+                        return CreateAccelerationStructInput(position, blas.vertexCount, index, blas.indexCount);
+                    };
+                    tlas.bottomLevels.Add(blas);
 
                     var instance = new RTInstance() { blas = blas };
                     instance.transform = renderable.transform;
@@ -613,6 +626,28 @@ namespace RenderPipelines.LambdaRenderers
         static void Draw<T>(this GraphicsContext graphicsContext, MeshRenderable<T> renderable)
         {
             graphicsContext.DrawIndexedInstanced2(renderable.indexCount, 1, renderable.indexStart, renderable.vertexStart, 0);
+        }
+        static Vortice.Direct3D12.BuildRaytracingAccelerationStructureInputs CreateAccelerationStructInput(
+            ulong positionBuffer, int vertexCount, ulong indexBuffer, int indexCount, Vortice.DXGI.Format vertexFormat = Vortice.DXGI.Format.R32G32B32_Float,
+            Vortice.DXGI.Format indexFormat = Vortice.DXGI.Format.R32_UInt, uint vertexStride = 12)
+        {
+            return new Vortice.Direct3D12.BuildRaytracingAccelerationStructureInputs
+            {
+                Type = Vortice.Direct3D12.RaytracingAccelerationStructureType.BottomLevel,
+                Layout = Vortice.Direct3D12.ElementsLayout.Array,
+                DescriptorsCount = 1,
+                GeometryDescriptions =
+                [
+                    new Vortice.Direct3D12.RaytracingGeometryDescription(new Vortice.Direct3D12.RaytracingGeometryTrianglesDescription(
+                        new Vortice.Direct3D12.GpuVirtualAddressAndStride(positionBuffer, vertexStride),
+                        vertexFormat,
+                        vertexCount,
+                        0,
+                        indexBuffer,
+                        indexFormat,
+                        indexCount),Vortice.Direct3D12.RaytracingGeometryFlags.Opaque),
+                ]
+            };
         }
     }
 }

@@ -1,4 +1,5 @@
-﻿using Coocoo3D.Components;
+﻿using Arch.Core;
+using Coocoo3D.Components;
 using Coocoo3D.Present;
 using Coocoo3D.RenderPipeline;
 using Coocoo3D.ResourceWrap;
@@ -8,7 +9,6 @@ using RenderPipelines.Utility;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -33,7 +33,7 @@ public class RenderHelper
 
     GraphicsContext graphicsContext => renderPipelineView.graphicsContext;
 
-    bool resourcesInitialized;
+    public List<MMDRendererComponent> renderers = new List<MMDRendererComponent>();
 
     public List<MeshRenderable<ModelMaterial>> Renderables = new List<MeshRenderable<ModelMaterial>>();
 
@@ -45,8 +45,7 @@ public class RenderHelper
 
     IEnumerable<MeshRenderable<T>> MeshRenderables<T>() where T : class, new()
     {
-        RenderPipelineContext rpc = renderPipelineView.rpc;
-        foreach (var renderer in rpc.renderers)
+        foreach (var renderer in renderers)
         {
             var model = renderer.model;
             var meshOverride = meshOverrides[renderer];
@@ -89,9 +88,6 @@ public class RenderHelper
 
     public void InitializeResources()
     {
-        if (resourcesInitialized)
-            return;
-        resourcesInitialized = true;
         quadMesh.LoadIndex<int>(4, new int[] { 0, 1, 2, 2, 1, 3 });
         cubeMesh.LoadIndex<int>(4, new int[]
         {
@@ -113,18 +109,23 @@ public class RenderHelper
         graphicsContext.UploadMesh(cubeMesh);
         _BasePath = renderPipelineView.BasePath;
     }
-
+    QueryDescription rendererQuery = new QueryDescription().WithAll<MMDRendererComponent, Transform>();
     public void UpdateGPUResource()
     {
+        var world = renderPipelineView.rpc.scene.world;
+        renderers.Clear();
+        world.Query(rendererQuery, (ref MMDRendererComponent renderer, ref Transform transform) =>
+        {
+            //renderer.SetTransform(transform);
+            renderers.Add(renderer);
+        });
+
         Morph();
     }
 
     SkinningCompute skinningCompute = new SkinningCompute();
     void Morph()
     {
-        RenderPipelineContext rpc = renderPipelineView.rpc;
-        var renderers = rpc.renderers;
-
         for (int i = 0; i < renderers.Count; i++)
         {
             renderers[i].WriteMatriticesData();

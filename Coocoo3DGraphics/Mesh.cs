@@ -87,7 +87,7 @@ public class Mesh : IDisposable
         return indexBuffer ?? baseMesh?.GetIndexBuffer();
     }
 
-    internal _vertexBuffer GetVertexBuffer(string name)
+    public _vertexBuffer GetVertexBuffer(string name)
     {
         if (vtBuffers.TryGetValue(name, out var buf))
         {

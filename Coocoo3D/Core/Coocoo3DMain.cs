@@ -165,7 +165,6 @@ public class Coocoo3DMain : IDisposable
 
         platformIO.Update();
         UIImGui.GUI();
-        RPContext.FrameBegin();
 
         mainCaches.OnFrame();
 

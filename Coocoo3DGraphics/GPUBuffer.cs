@@ -3,7 +3,7 @@ using Vortice.Direct3D12;
 
 namespace Coocoo3DGraphics;
 
-public class GPUBuffer : IGPUResource, IDisposable
+public class GPUBuffer : IDisposable
 {
     public ID3D12Resource resource;
     public string Name;
