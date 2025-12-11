@@ -92,14 +92,14 @@ public static class Texture2DPack
     public static byte[] GetImageDataMagick(Stream stream, out int width, out int height, out int bitPerPixel, out int mipMap)
     {
         var img = new MagickImage(stream);
-        int width1 = img.Width;
-        int height1 = img.Height;
+        int width1 = (int)img.Width;
+        int height1 = (int)img.Height;
         int sizex = GetAlign(width1);
         int sizey = GetAlign(height1);
 
         if (width1 != sizex || height1 != sizey)
         {
-            img.Resize(new MagickGeometry(sizex, sizey)
+            img.Resize(new MagickGeometry((uint)sizex, (uint)sizey)
             {
                 IgnoreAspectRatio = true,
             });
@@ -109,7 +109,7 @@ public static class Texture2DPack
         width = sizex;
         height = sizey;
 
-        bitPerPixel = Math.Max(img.DetermineBitDepth(), 8) * 4;
+        bitPerPixel = Math.Max((int)img.DetermineBitDepth(), 8) * 4;
         int bytePerPixel = bitPerPixel / 8;
 
         int totalCount = sizex * sizey * bytePerPixel;
@@ -124,7 +124,7 @@ public static class Texture2DPack
             width1 /= 2;
             height1 /= 2;
             int d = bytePerPixel * width1 * height1;
-            img.Resize(width1, height1);
+            img.Resize((uint)width1, (uint)height1);
 
             img.ToByteArray(MagickFormat.Rgba).CopyTo(new Span<byte>(bytes, totalCount, d));
             totalCount += d;
